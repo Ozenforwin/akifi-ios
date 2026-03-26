@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     iOS: "18.0"
   xcodeVersion: "16.0"
+  developmentLanguage: ru
+  knownRegions:
+    - ru
+    - en
 
 configFiles:
   Debug: Config/Debug.xcconfig

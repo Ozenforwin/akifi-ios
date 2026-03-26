@@ -6,7 +6,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Профиль") {
+                Section(String(localized: "settings.profile")) {
                     NavigationLink {
                         ProfileEditView()
                     } label: {
@@ -17,7 +17,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading) {
                                 Text(appViewModel.authManager.currentUser?.email ?? "Пользователь")
                                     .font(.headline)
-                                Text("Редактировать профиль")
+                                Text(String(localized: "settings.editProfile"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -25,43 +25,43 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Финансы") {
+                Section(String(localized: "settings.finances")) {
                     NavigationLink {
                         SavingsGoalListView()
                     } label: {
-                        Label("Накопления", systemImage: "target")
+                        Label(String(localized: "home.savings"), systemImage: "target")
                     }
 
                     NavigationLink {
                         SubscriptionListView()
                     } label: {
-                        Label("Подписки", systemImage: "repeat.circle")
+                        Label(String(localized: "subscriptions.title"), systemImage: "repeat.circle")
                     }
 
                     NavigationLink {
                         AchievementsView()
                     } label: {
-                        Label("Достижения", systemImage: "trophy")
+                        Label(String(localized: "achievements.title"), systemImage: "trophy")
                     }
                 }
 
-                Section("Приложение") {
+                Section(String(localized: "settings.app")) {
                     NavigationLink {
                         CurrencyPickerView()
                     } label: {
-                        Label("Валюта", systemImage: "dollarsign.circle")
+                        Label(String(localized: "settings.currency"), systemImage: "dollarsign.circle")
                     }
 
                     NavigationLink {
                         CategoriesManagementView()
                     } label: {
-                        Label("Категории", systemImage: "tag")
+                        Label(String(localized: "budgets.categories"), systemImage: "tag")
                     }
 
                     NavigationLink {
                         NotificationSettingsView()
                     } label: {
-                        Label("Уведомления", systemImage: "bell")
+                        Label(String(localized: "settings.notifications"), systemImage: "bell")
                     }
                 }
 
@@ -70,11 +70,11 @@ struct SettingsView: View {
                         PremiumPaywallView()
                     } label: {
                         HStack {
-                            Label("Akifi Pro", systemImage: "star.fill")
+                            Label(String(localized: "premium.title"), systemImage: "star.fill")
                                 .foregroundStyle(.yellow)
                             Spacer()
                             if appViewModel.paymentManager.isPremium {
-                                Text("Активно")
+                                Text(String(localized: "premium.active"))
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             }
@@ -82,9 +82,9 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("О приложении") {
+                Section(String(localized: "settings.about")) {
                     HStack {
-                        Text("Версия")
+                        Text(String(localized: "common.version"))
                         Spacer()
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundStyle(.secondary)
@@ -97,11 +97,11 @@ struct SettingsView: View {
                             try? await appViewModel.authManager.signOut()
                         }
                     } label: {
-                        Label("Выйти", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
-            .navigationTitle("Настройки")
+            .navigationTitle(String(localized: "common.settings"))
         }
     }
 }

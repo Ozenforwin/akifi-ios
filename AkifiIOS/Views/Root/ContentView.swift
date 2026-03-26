@@ -30,23 +30,23 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView(selection: $selectedTab) {
-                Tab("Главная", systemImage: "house.fill", value: 0) {
+                Tab(String(localized: "tabs.home"), systemImage: "house.fill", value: 0) {
                     HomeTabView()
                 }
 
-                Tab("Операции", systemImage: "arrow.left.arrow.right", value: 1) {
+                Tab(String(localized: "tabs.transactions"), systemImage: "arrow.left.arrow.right", value: 1) {
                     TransactionsTabView()
                 }
 
-                Tab("Аналитика", systemImage: "chart.bar.fill", value: 2) {
+                Tab(String(localized: "tabs.analytics"), systemImage: "chart.bar.fill", value: 2) {
                     AnalyticsTabView()
                 }
 
-                Tab("Бюджеты", systemImage: "wallet.bifold.fill", value: 3) {
+                Tab(String(localized: "tabs.budgets"), systemImage: "wallet.bifold.fill", value: 3) {
                     BudgetsTabView()
                 }
 
-                Tab("Настройки", systemImage: "gearshape.fill", value: 4) {
+                Tab(String(localized: "tabs.settings"), systemImage: "gearshape.fill", value: 4) {
                     SettingsView()
                 }
             }

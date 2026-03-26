@@ -53,6 +53,7 @@
 		6BAD60A00A05004801DC79EC /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B711EFFFED8B57AC012BD9E4 /* SplashView.swift */; };
 		704060E31038BC9A1B94C955 /* SummaryCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA562FB8B99A77709A8173D /* SummaryCardsView.swift */; };
 		725FBEB673715D69A1E5ADD2 /* TransactionFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF8EE63CEF3E3AC9EA19D10 /* TransactionFormView.swift */; };
+		783FFD042EEC7ACD4105F3F5 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0330E703C019D7B3F86197E6 /* Localizable.xcstrings */; };
 		786EA354D9085FBDC9AB1DCD /* Achievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED77D67825DE06280BE5DFAA /* Achievement.swift */; };
 		78FDC02F2F5EE1FA7BBB6E79 /* CurrencyText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65434B73BB450853FC3F444E /* CurrencyText.swift */; };
 		7A2812A26246E5F116D4F497 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ABE6CED9D074DA7137C85F /* SettingsView.swift */; };
@@ -112,6 +113,7 @@
 /* Begin PBXFileReference section */
 		00A6F860A62BF06C599A8AFD /* AiConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiConversation.swift; sourceTree = "<group>"; };
 		01B140AC1B112CBFC6D9195C /* AchievementsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsViewModel.swift; sourceTree = "<group>"; };
+		0330E703C019D7B3F86197E6 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		0A0F906E34FC03563FD301D4 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		0F11B98D8C0F1A39F4C40ADD /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		0F36AAA68493118CF39A4D3E /* ProfileEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditView.swift; sourceTree = "<group>"; };
@@ -265,6 +267,7 @@
 				37071238FCD103134034E7EB /* Info.plist */,
 				B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */,
 				FF819C9EB42F0BCF7407996E /* Extensions */,
+				CF02FCAE8C199D3717DBB7DB /* Localization */,
 				BDA9CB0517B0EF1B92E67DD3 /* Models */,
 				E81102AD12F335CA2D54337D /* Preview Content */,
 				D45B8944CB8FFC37CB769DFD /* Repositories */,
@@ -443,6 +446,14 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		CF02FCAE8C199D3717DBB7DB /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				0330E703C019D7B3F86197E6 /* Localizable.xcstrings */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
 		D45B8944CB8FFC37CB769DFD /* Repositories */ = {
 			isa = PBXGroup;
 			children = (
@@ -549,11 +560,12 @@
 				};
 			};
 			buildConfigurationList = E35C80D2BD703F2A252320B5 /* Build configuration list for PBXProject "AkifiIOS" */;
-			developmentRegion = en;
+			developmentRegion = ru;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
+				ru,
 			);
 			mainGroup = 0BEEC0AC0059325130159D97;
 			minimizedProjectReferenceProxies = 1;
@@ -575,6 +587,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				783FFD042EEC7ACD4105F3F5 /* Localizable.xcstrings in Resources */,
 				7DF2299704B2A55F5A1FB703 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
