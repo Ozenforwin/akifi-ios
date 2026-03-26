@@ -22,48 +22,55 @@ struct FABView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             if isExpanded {
                 Color.black.opacity(0.3)
                     .ignoresSafeArea()
                     .onTapGesture { withAnimation(.spring(duration: 0.3)) { isExpanded = false } }
             }
 
-            ZStack(alignment: .bottomTrailing) {
-                ForEach(Array(actions.enumerated()), id: \.offset) { index, item in
-                    if isExpanded {
-                        subButton(item: item, index: index)
-                    }
-                }
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    ZStack(alignment: .bottomTrailing) {
+                        // Sub-buttons
+                        ForEach(Array(actions.enumerated()), id: \.offset) { index, item in
+                            if isExpanded {
+                                subButton(item: item, index: index)
+                            }
+                        }
 
-                // Main FAB
-                Button {
-                    withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.fabStart.opacity(0.9), Color.fabEnd.opacity(0.9)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: mainButtonSize, height: mainButtonSize)
-                            .shadow(color: Color.fabEnd.opacity(0.3), radius: 8, x: 0, y: 4)
+                        // Main FAB
+                        Button {
+                            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                                isExpanded.toggle()
+                            }
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.fabStart.opacity(0.9), Color.fabEnd.opacity(0.9)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: mainButtonSize, height: mainButtonSize)
+                                    .shadow(color: Color.fabEnd.opacity(0.3), radius: 8, x: 0, y: 4)
 
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white)
-                            .rotationEffect(.degrees(isExpanded ? 45 : 0))
+                                Image(systemName: "plus")
+                                    .font(.system(size: 24, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .rotationEffect(.degrees(isExpanded ? 45 : 0))
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90)
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.trailing, 16)
-            .padding(.bottom, 16)
         }
     }
 

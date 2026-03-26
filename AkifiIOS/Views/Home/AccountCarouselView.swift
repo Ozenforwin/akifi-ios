@@ -6,14 +6,26 @@ struct AccountCarouselView: View {
     let balanceFor: (Account) -> Int64
 
     var body: some View {
-        TabView(selection: $selectedIndex) {
-            ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
-                AccountCardView(account: account, balance: balanceFor(account))
-                    .tag(index)
+        VStack(spacing: 8) {
+            TabView(selection: $selectedIndex) {
+                ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
+                    AccountCardView(account: account, balance: balanceFor(account))
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 180)
+
+            // Custom page dots
+            HStack(spacing: 6) {
+                ForEach(0..<accounts.count, id: \.self) { index in
+                    Circle()
+                        .fill(index == selectedIndex ? Color(hex: accounts[selectedIndex].color) : Color.gray.opacity(0.3))
+                        .frame(width: index == selectedIndex ? 16 : 6, height: 6)
+                        .animation(.easeInOut(duration: 0.2), value: selectedIndex)
+                }
             }
         }
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .frame(height: 180)
     }
 }
 
@@ -43,8 +55,8 @@ struct AccountCardView: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(hex: account.color).opacity(0.3),
-                    Color(hex: account.color).opacity(0.55)
+                    Color(hex: account.color).opacity(0.55),
+                    Color(hex: account.color).opacity(0.85)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
