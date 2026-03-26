@@ -1,0 +1,41 @@
+name: AkifiIOS
+options:
+  bundleIdPrefix: ru.akifi
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    GENERATE_INFOPLIST_FILE: true
+    INFOPLIST_KEY_CFBundleDisplayName: Akifi
+    INFOPLIST_KEY_UILaunchScreen_Generation: true
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0.0
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "3.0.0"
+
+targets:
+  AkifiIOS:
+    type: application
+    platform: iOS
+    sources:
+      - AkifiIOS
+    dependencies:
+      - package: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app
+        INFOPLIST_KEY_CFBundleDisplayName: Akifi
+
+schemes:
+  AkifiIOS:
+    build:
+      targets:
+        AkifiIOS: all
+    run:
+      config: Debug
