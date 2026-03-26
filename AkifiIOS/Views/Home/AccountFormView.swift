@@ -1,0 +1,128 @@
+import SwiftUI
+
+struct AccountFormView: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    let editingAccount: Account?
+    let onSave: () async -> Void
+
+    @State private var name = ""
+    @State private var selectedIcon = "💳"
+    @State private var selectedColor = "#4ADE80"
+    @State private var initialBalanceText = ""
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private let accountRepo = AccountRepository()
+
+    private let icons = ["💳", "🏦", "💰", "👛", "💵", "🪙", "💎", "🏠", "🚗", "✈️", "🎓", "📱"]
+    private let colors = ["#4ADE80", "#60A5FA", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399", "#38BDF8", "#C084FC"]
+
+    private var isEditing: Bool { editingAccount != nil }
+
+    init(editingAccount: Account? = nil, onSave: @escaping () async -> Void) {
+        self.editingAccount = editingAccount
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Название") {
+                    TextField("Мой счёт", text: $name)
+                }
+
+                if !isEditing {
+                    Section("Начальный баланс") {
+                        TextField("0.00", text: $initialBalanceText)
+                            .keyboardType(.decimalPad)
+                    }
+                }
+
+                Section("Иконка") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                        ForEach(icons, id: \.self) { icon in
+                            Text(icon)
+                                .font(.title)
+                                .frame(width: 48, height: 48)
+                                .background(selectedIcon == icon ? Color(hex: selectedColor).opacity(0.3) : .clear)
+                                .clipShape(Circle())
+                                .overlay { Circle().stroke(selectedIcon == icon ? Color(hex: selectedColor) : .clear, lineWidth: 2) }
+                                .onTapGesture { selectedIcon = icon }
+                        }
+                    }
+                }
+
+                Section("Цвет") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                        ForEach(colors, id: \.self) { color in
+                            Circle()
+                                .fill(Color(hex: color))
+                                .frame(width: 36, height: 36)
+                                .overlay {
+                                    if selectedColor == color {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .onTapGesture { selectedColor = color }
+                        }
+                    }
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle(isEditing ? "Редактировать счёт" : "Новый счёт")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Отмена") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isEditing ? "Сохранить" : "Создать") {
+                        Task { await save() }
+                    }
+                    .disabled(name.isEmpty || isSaving)
+                }
+            }
+            .onAppear { prefill() }
+        }
+    }
+
+    private func prefill() {
+        guard let account = editingAccount else { return }
+        name = account.name
+        selectedIcon = account.icon
+        selectedColor = account.color
+    }
+
+    private func save() async {
+        isSaving = true
+        do {
+            if let account = editingAccount {
+                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor)
+            } else {
+                let balance: Int64
+                if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
+                    balance = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+                } else {
+                    balance = 0
+                }
+                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: balance)
+            }
+            await onSave()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSaving = false
+    }
+}

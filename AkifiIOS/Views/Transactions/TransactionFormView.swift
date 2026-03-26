@@ -5,6 +5,7 @@ struct TransactionFormView: View {
 
     let categories: [Category]
     let accounts: [Account]
+    let editingTransaction: Transaction?
     let onSave: () async -> Void
 
     @State private var amount = ""
@@ -17,6 +18,20 @@ struct TransactionFormView: View {
     @State private var errorMessage: String?
 
     private let transactionRepo = TransactionRepository()
+    private let isoDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private var isEditing: Bool { editingTransaction != nil }
+
+    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, onSave: @escaping () async -> Void) {
+        self.categories = categories
+        self.accounts = accounts
+        self.editingTransaction = editingTransaction
+        self.onSave = onSave
+    }
 
     private var filteredCategories: [Category] {
         categories.filter { $0.type.rawValue == selectedType.rawValue || selectedType == .transfer }
@@ -25,7 +40,6 @@ struct TransactionFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Type picker
                 Section {
                     Picker("Тип", selection: $selectedType) {
                         Text("Расход").tag(TransactionType.expense)
@@ -34,18 +48,14 @@ struct TransactionFormView: View {
                     .pickerStyle(.segmented)
                 }
 
-                // Amount
                 Section("Сумма") {
                     TextField("0.00", text: $amount)
                         .keyboardType(.decimalPad)
                         .font(.title2)
                 }
 
-                // Category
                 Section("Категория") {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 70))
-                    ], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 70))], spacing: 12) {
                         ForEach(filteredCategories) { category in
                             CategoryChip(
                                 category: category,
@@ -57,11 +67,10 @@ struct TransactionFormView: View {
                     }
                 }
 
-                // Account
                 if !accounts.isEmpty {
-                    Section("Счет") {
-                        Picker("Счет", selection: $selectedAccountId) {
-                            Text("Без счета").tag(nil as String?)
+                    Section("Счёт") {
+                        Picker("Счёт", selection: $selectedAccountId) {
+                            Text("Без счёта").tag(nil as String?)
                             ForEach(accounts) { account in
                                 Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
@@ -69,7 +78,6 @@ struct TransactionFormView: View {
                     }
                 }
 
-                // Details
                 Section("Детали") {
                     TextField("Описание", text: $description)
                     DatePicker("Дата", selection: $date, displayedComponents: .date)
@@ -83,44 +91,68 @@ struct TransactionFormView: View {
                     }
                 }
             }
-            .navigationTitle("Новая операция")
+            .navigationTitle(isEditing ? "Редактирование" : "Новая операция")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") {
+                    Button(isEditing ? "Обновить" : "Сохранить") {
                         Task { await save() }
                     }
                     .disabled(amount.isEmpty || isLoading)
                 }
             }
+            .onAppear { prefillIfEditing() }
+        }
+    }
+
+    private func prefillIfEditing() {
+        guard let tx = editingTransaction else { return }
+        amount = "\(tx.amount.displayAmount)"
+        description = tx.description ?? ""
+        selectedType = tx.type
+        selectedCategoryId = tx.categoryId
+        selectedAccountId = tx.accountId
+        if let txDate = isoDateFormatter.date(from: tx.date) {
+            date = txDate
         }
     }
 
     private func save() async {
-        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")) else {
+        guard let amountValue = Decimal(string: amount.replacingOccurrences(of: ",", with: ".")) else {
             errorMessage = "Некорректная сумма"
             return
         }
 
         isLoading = true
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-
-        let input = CreateTransactionInput(
-            account_id: selectedAccountId,
-            amount: Int64(amountValue * 100),
-            tx_type: selectedType.rawValue,
-            date: formatter.string(from: date),
-            description: description.isEmpty ? nil : description,
-            category_id: selectedCategoryId,
-            merchant: nil
-        )
+        let amountCents = Int64(truncating: (amountValue * 100) as NSDecimalNumber)
+        let dateStr = isoDateFormatter.string(from: date)
 
         do {
-            _ = try await transactionRepo.create(input)
+            if let tx = editingTransaction {
+                let input = UpdateTransactionInput(
+                    amount: amountCents,
+                    tx_type: selectedType.rawValue,
+                    date: dateStr,
+                    description: description.isEmpty ? nil : description,
+                    category_id: selectedCategoryId,
+                    merchant: nil
+                )
+                try await transactionRepo.update(id: tx.id, input)
+            } else {
+                let input = CreateTransactionInput(
+                    account_id: selectedAccountId,
+                    amount: amountCents,
+                    tx_type: selectedType.rawValue,
+                    date: dateStr,
+                    description: description.isEmpty ? nil : description,
+                    category_id: selectedCategoryId,
+                    merchant: nil
+                )
+                _ = try await transactionRepo.create(input)
+            }
             await onSave()
             dismiss()
         } catch {
@@ -154,5 +186,6 @@ struct CategoryChip: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(category.name), \(isSelected ? "выбрано" : "")")
     }
 }

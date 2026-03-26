@@ -12,8 +12,10 @@ struct AssistantView: View {
                     ScrollView {
                         LazyVStack(spacing: 8) {
                             if viewModel.messages.isEmpty && !viewModel.isProcessing {
-                                AssistantWelcomeView()
-                                    .padding(.top, 40)
+                                AssistantWelcomeView { prompt in
+                                    Task { await viewModel.sendFollowUp(prompt) }
+                                }
+                                .padding(.top, 40)
                             }
 
                             ForEach(viewModel.messages) { message in
@@ -128,8 +130,10 @@ struct AssistantView: View {
 // MARK: - Welcome
 
 struct AssistantWelcomeView: View {
+    let onPromptSelected: (String) -> Void
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Image(systemName: "sparkles")
                 .font(.system(size: 48))
                 .foregroundStyle(.green.gradient)
@@ -143,11 +147,7 @@ struct AssistantWelcomeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            VStack(alignment: .leading, spacing: 8) {
-                SuggestionChip(text: "Сколько я потратил в этом месяце?")
-                SuggestionChip(text: "Покажи расходы по категориям")
-                SuggestionChip(text: "Как мне сэкономить?")
-            }
+            QuickPromptsView(onSelect: onPromptSelected)
         }
     }
 }

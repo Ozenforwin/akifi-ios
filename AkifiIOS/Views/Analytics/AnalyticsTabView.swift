@@ -52,6 +52,9 @@ struct AnalyticsTabView: View {
                             categories: dataStore.categories
                         )
                     )
+
+                    // Portfolio
+                    PortfolioChartView()
                 }
                 .padding(.horizontal)
             }

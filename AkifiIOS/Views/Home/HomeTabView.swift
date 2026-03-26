@@ -5,6 +5,7 @@ struct HomeTabView: View {
     @State private var viewModel = HomeViewModel()
     @State private var showAddTransaction = false
     @State private var showAssistant = false
+    @State private var showAddAccount = false
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -12,12 +13,30 @@ struct HomeTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if !dataStore.accounts.isEmpty {
+                    if dataStore.accounts.isEmpty {
+                        Button {
+                            showAddAccount = true
+                        } label: {
+                            Label("Добавить счёт", systemImage: "plus.circle.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(.ultraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
+                        }
+                    } else {
                         AccountCarouselView(
                             accounts: dataStore.accounts,
                             selectedIndex: $viewModel.selectedAccountIndex,
                             balanceFor: dataStore.balance
                         )
+                        .contextMenu {
+                            Button {
+                                showAddAccount = true
+                            } label: {
+                                Label("Новый счёт", systemImage: "plus")
+                            }
+                        }
                     }
 
                     SummaryCardsView(
@@ -30,7 +49,11 @@ struct HomeTabView: View {
                         categories: dataStore.categories
                     )
 
-                    // Quick access
+                    // Streak & Insights
+                    StreakBadgeView()
+                    InsightCardsView()
+
+                    // Savings
                     HomeSavingsSnapshotView()
                 }
                 .padding(.horizontal)
@@ -65,6 +88,11 @@ struct HomeTabView: View {
             }
             .fullScreenCover(isPresented: $showAssistant) {
                 AssistantView()
+            }
+            .sheet(isPresented: $showAddAccount) {
+                AccountFormView {
+                    await dataStore.loadAll()
+                }
             }
         }
     }
