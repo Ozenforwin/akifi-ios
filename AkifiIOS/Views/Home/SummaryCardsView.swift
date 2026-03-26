@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SummaryCardsView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     let transactions: [Transaction]
     let selectedAccount: Account?
 
@@ -20,14 +21,14 @@ struct SummaryCardsView: View {
         HStack(spacing: 12) {
             SummaryCard(
                 title: "Доходы",
-                amount: monthlyIncome,
+                formattedAmount: appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount),
                 icon: "arrow.up.right",
                 color: .green
             )
 
             SummaryCard(
                 title: "Расходы",
-                amount: monthlyExpense,
+                formattedAmount: appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount),
                 icon: "arrow.down.left",
                 color: .red
             )
@@ -37,7 +38,7 @@ struct SummaryCardsView: View {
 
 struct SummaryCard: View {
     let title: String
-    let amount: Int64
+    let formattedAmount: String
     let icon: String
     let color: Color
 
@@ -51,7 +52,7 @@ struct SummaryCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text(formatAmount(amount))
+            Text(formattedAmount)
                 .font(.headline)
                 .foregroundStyle(color)
         }
@@ -59,13 +60,5 @@ struct SummaryCard: View {
         .padding()
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    private func formatAmount(_ amount: Int64) -> String {
-        let value = Double(amount) / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 2
-        return "$\(formatter.string(from: NSNumber(value: value)) ?? "0")"
     }
 }

@@ -18,6 +18,7 @@ struct AccountCarouselView: View {
 }
 
 struct AccountCardView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     let account: Account
     let balance: Int64
 
@@ -33,7 +34,7 @@ struct AccountCardView: View {
 
             Spacer()
 
-            Text(formatBalance(balance))
+            Text(appViewModel.currencyManager.formatAmount(balance.displayAmount))
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(balance < 0 ? .red : .primary)
         }
@@ -43,14 +44,7 @@ struct AccountCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         .padding(.horizontal, 4)
-    }
-
-    private func formatBalance(_ amount: Int64) -> String {
-        let value = Double(amount) / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "$"
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(account.name), баланс \(appViewModel.currencyManager.formatAmount(balance.displayAmount))")
     }
 }

@@ -1,6 +1,17 @@
 import Foundation
 
 enum AppConstants {
-    static let supabaseURL = "https://fnvwfrkixjqdifitlifr.supabase.co"
-    static let supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZudndmcmtpeGpxZGlmaXRsaWZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1Mzg0NTksImV4cCI6MjA4NjExNDQ1OX0.cgOBSXfW-6PvcmZ3WBpHRcLjR2H2G4YfRGOkBa8gSyE"
+    static let supabaseURL: String = {
+        guard let value = Bundle.main.infoDictionary?["SupabaseURL"] as? String, !value.isEmpty else {
+            fatalError("SupabaseURL not found in Info.plist. Check your .xcconfig files.")
+        }
+        return value
+    }()
+
+    static let supabaseAnonKey: String = {
+        guard let value = Bundle.main.infoDictionary?["SupabaseAnonKey"] as? String, !value.isEmpty else {
+            fatalError("SupabaseAnonKey not found in Info.plist. Check your .xcconfig files.")
+        }
+        return value
+    }()
 }

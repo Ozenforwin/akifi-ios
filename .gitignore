@@ -40,3 +40,7 @@ Thumbs.db
 
 # Secrets (if any local config)
 *.env
+
+# Xcconfig with credentials (use Config.xcconfig.template as reference)
+Config/Debug.xcconfig
+Config/Release.xcconfig

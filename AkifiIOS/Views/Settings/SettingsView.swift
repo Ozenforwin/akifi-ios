@@ -7,14 +7,41 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Профиль") {
-                    HStack {
-                        Image(systemName: "person.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.green)
-                        VStack(alignment: .leading) {
-                            Text(appViewModel.authManager.currentUser?.email ?? "Пользователь")
-                                .font(.headline)
+                    NavigationLink {
+                        ProfileEditView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .font(.title)
+                                .foregroundStyle(.green)
+                            VStack(alignment: .leading) {
+                                Text(appViewModel.authManager.currentUser?.email ?? "Пользователь")
+                                    .font(.headline)
+                                Text("Редактировать профиль")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                    }
+                }
+
+                Section("Финансы") {
+                    NavigationLink {
+                        SavingsGoalListView()
+                    } label: {
+                        Label("Накопления", systemImage: "target")
+                    }
+
+                    NavigationLink {
+                        SubscriptionListView()
+                    } label: {
+                        Label("Подписки", systemImage: "repeat.circle")
+                    }
+
+                    NavigationLink {
+                        AchievementsView()
+                    } label: {
+                        Label("Достижения", systemImage: "trophy")
                     }
                 }
 
@@ -26,13 +53,13 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        Text("Категории")
+                        CategoriesManagementView()
                     } label: {
                         Label("Категории", systemImage: "tag")
                     }
 
                     NavigationLink {
-                        Text("Уведомления")
+                        NotificationSettingsView()
                     } label: {
                         Label("Уведомления", systemImage: "bell")
                     }
@@ -40,10 +67,27 @@ struct SettingsView: View {
 
                 Section("Premium") {
                     NavigationLink {
-                        Text("Premium")
+                        PremiumPaywallView()
                     } label: {
-                        Label("Akifi Pro", systemImage: "star.fill")
-                            .foregroundStyle(.yellow)
+                        HStack {
+                            Label("Akifi Pro", systemImage: "star.fill")
+                                .foregroundStyle(.yellow)
+                            Spacer()
+                            if appViewModel.paymentManager.isPremium {
+                                Text("Активно")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    }
+                }
+
+                Section("О приложении") {
+                    HStack {
+                        Text("Версия")
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            .foregroundStyle(.secondary)
                     }
                 }
 

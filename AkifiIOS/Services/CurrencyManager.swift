@@ -2,10 +2,21 @@ import Foundation
 
 @Observable @MainActor
 final class CurrencyManager {
-    var selectedCurrency: CurrencyCode = .usd
+    var selectedCurrency: CurrencyCode = .rub {
+        didSet {
+            UserDefaults.standard.set(selectedCurrency.rawValue, forKey: "selected_currency")
+        }
+    }
     var rates: [String: Double] = [:]
 
-    private let supabase = SupabaseManager.shared.client
+    private let exchangeRateService = ExchangeRateService()
+
+    init() {
+        if let saved = UserDefaults.standard.string(forKey: "selected_currency"),
+           let code = CurrencyCode(rawValue: saved) {
+            selectedCurrency = code
+        }
+    }
 
     func format(_ amountInBase: Decimal) -> String {
         let rate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
@@ -35,8 +46,7 @@ final class CurrencyManager {
     }
 
     func fetchRates() async {
-        // TODO: Implement exchange rate fetching
-        rates = ["USD": 1.0, "RUB": 90.0, "EUR": 0.92]
+        rates = await exchangeRateService.fetchRates(base: "USD")
     }
 }
 

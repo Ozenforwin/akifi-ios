@@ -6,6 +6,7 @@ struct LoginView: View {
     @State private var showMigration = false
     @State private var showEmailLogin = false
     @State private var errorMessage: String?
+    @State private var currentNonce: String?
 
     var body: some View {
         NavigationStack {
@@ -31,7 +32,10 @@ struct LoginView: View {
                 // Auth buttons
                 VStack(spacing: 16) {
                     SignInWithAppleButton(.signIn) { request in
+                        let nonce = String.randomNonce()
+                        currentNonce = nonce
                         request.requestedScopes = [.fullName, .email]
+                        request.nonce = nonce.sha256
                     } onCompletion: { result in
                         Task { await handleAppleSignIn(result) }
                     }
@@ -89,8 +93,13 @@ struct LoginView: View {
                 return
             }
 
+            guard let nonce = currentNonce else {
+                errorMessage = "Ошибка: nonce не был сгенерирован"
+                return
+            }
+
             do {
-                try await appViewModel.authManager.signInWithApple(idToken: idToken, nonce: "")
+                try await appViewModel.authManager.signInWithApple(idToken: idToken, nonce: nonce)
             } catch {
                 errorMessage = error.localizedDescription
             }

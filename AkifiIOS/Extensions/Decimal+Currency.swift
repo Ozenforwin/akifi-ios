@@ -10,8 +10,8 @@ extension Decimal {
 }
 
 extension Int64 {
-    /// Convert base amount (stored in minor units) to display value
-    var displayAmount: Double {
-        Double(self) / 100.0
+    /// Convert base amount (stored in minor units) to display Decimal
+    var displayAmount: Decimal {
+        Decimal(self) / 100
     }
 }

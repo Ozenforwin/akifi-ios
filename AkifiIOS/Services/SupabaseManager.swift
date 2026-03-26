@@ -1,8 +1,7 @@
 import Foundation
 import Supabase
 
-@Observable
-final class SupabaseManager: @unchecked Sendable {
+final class SupabaseManager: Sendable {
     static let shared = SupabaseManager()
 
     let client: SupabaseClient

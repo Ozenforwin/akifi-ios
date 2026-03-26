@@ -1,39 +1,42 @@
 import SwiftUI
 
 struct HomeTabView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = HomeViewModel()
     @State private var showAddTransaction = false
     @State private var showAssistant = false
+
+    private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Account Carousel
-                    if !viewModel.accounts.isEmpty {
+                    if !dataStore.accounts.isEmpty {
                         AccountCarouselView(
-                            accounts: viewModel.accounts,
+                            accounts: dataStore.accounts,
                             selectedIndex: $viewModel.selectedAccountIndex,
-                            balanceFor: viewModel.accountBalance
+                            balanceFor: dataStore.balance
                         )
                     }
 
-                    // Summary Cards
                     SummaryCardsView(
-                        transactions: viewModel.recentTransactions,
-                        selectedAccount: viewModel.selectedAccount
+                        transactions: dataStore.recentTransactions,
+                        selectedAccount: viewModel.selectedAccount(from: dataStore.accounts)
                     )
 
-                    // Recent Transactions
                     RecentTransactionsView(
-                        transactions: viewModel.recentTransactions,
-                        categories: viewModel.categories
+                        transactions: dataStore.recentTransactions,
+                        categories: dataStore.categories
                     )
+
+                    // Quick access
+                    HomeSavingsSnapshotView()
                 }
                 .padding(.horizontal)
             }
             .refreshable {
-                await viewModel.load()
+                await dataStore.loadAll()
             }
             .navigationTitle("Akifi")
             .toolbar {
@@ -43,6 +46,7 @@ struct HomeTabView: View {
                     } label: {
                         Image(systemName: "sparkles")
                     }
+                    .accessibilityLabel("AI-ассистент")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -51,14 +55,12 @@ struct HomeTabView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Добавить операцию")
                 }
             }
-            .task {
-                await viewModel.load()
-            }
             .sheet(isPresented: $showAddTransaction) {
-                TransactionFormView(categories: viewModel.categories, accounts: viewModel.accounts) {
-                    await viewModel.load()
+                TransactionFormView(categories: dataStore.categories, accounts: dataStore.accounts) {
+                    await dataStore.loadAll()
                 }
             }
             .fullScreenCover(isPresented: $showAssistant) {

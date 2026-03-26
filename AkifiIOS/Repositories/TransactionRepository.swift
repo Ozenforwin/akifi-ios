@@ -8,8 +8,6 @@ final class TransactionRepository: Sendable {
         var query = supabase
             .from("transactions")
             .select()
-            .order("date", ascending: false)
-            .order("created_at", ascending: false)
 
         if let accountId {
             query = query.eq("account_id", value: accountId)
@@ -21,7 +19,11 @@ final class TransactionRepository: Sendable {
             query = query.lte("date", value: to)
         }
 
-        return try await query.execute().value
+        return try await query
+            .order("date", ascending: false)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
     }
 
     func create(_ input: CreateTransactionInput) async throws -> Transaction {
