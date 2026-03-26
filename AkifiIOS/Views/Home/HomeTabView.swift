@@ -6,6 +6,7 @@ struct HomeTabView: View {
     @State private var showAddTransaction = false
     @State private var showAssistant = false
     @State private var showAddAccount = false
+    @State private var showShareAccount = false
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -35,6 +36,13 @@ struct HomeTabView: View {
                                 showAddAccount = true
                             } label: {
                                 Label("Новый счёт", systemImage: "plus")
+                            }
+                            if let account = viewModel.selectedAccount(from: dataStore.accounts) {
+                                Button {
+                                    showShareAccount = true
+                                } label: {
+                                    Label("Поделиться", systemImage: "person.badge.plus")
+                                }
                             }
                         }
                     }
@@ -92,6 +100,11 @@ struct HomeTabView: View {
             .sheet(isPresented: $showAddAccount) {
                 AccountFormView {
                     await dataStore.loadAll()
+                }
+            }
+            .sheet(isPresented: $showShareAccount) {
+                if let account = viewModel.selectedAccount(from: dataStore.accounts) {
+                    ShareAccountView(account: account)
                 }
             }
         }

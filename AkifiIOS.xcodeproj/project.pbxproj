@@ -24,10 +24,13 @@
 		1991DC6405A7EBB651C84992 /* AssistantViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C93145D460195AF47EF461 /* AssistantViewModel.swift */; };
 		28AFE736EC9592E9183920B7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7263138B76430D9B90ABCE14 /* ContentView.swift */; };
 		299A3E39D38911A7265B2818 /* BudgetsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66DD3DED8AB88DA009D848E /* BudgetsTabView.swift */; };
+		31DF342CF6FEFEE6F1924ED1 /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FB0ED5DFB48929E8AD65FA /* Color+Theme.swift */; };
+		328C8AA23D1D82DF282F1A65 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D178657F88574DCC92D234A4 /* NotificationManager.swift */; };
 		3416533845CF28DA540CF85F /* CategoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B12AC84543A571832A93DC /* CategoryRepository.swift */; };
 		34701C0375E0821A4B380C23 /* SavingsGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676EE98C810DA6B91945C676 /* SavingsGoal.swift */; };
 		38224DB6CBF4C019AA4F4055 /* SavingsGoalFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FDEFCC827F6CD5FCB66A64 /* SavingsGoalFormView.swift */; };
 		3A8F5E36A0D52778E4D2125B /* BudgetsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8678B93E432A8A952260CA8C /* BudgetsViewModel.swift */; };
+		3C00592389B16543614C0DF5 /* ShareAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */; };
 		3D3CBA608DD17303C9CB2CA0 /* SavingsGoalDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2C2B31DBF9895FB58D8A37 /* SavingsGoalDetailView.swift */; };
 		3FC6D5392A1C7C1E40FD4169 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5E0807225F173AC0E211EB /* NotificationSettingsView.swift */; };
 		46BB4A88B6171524048E702F /* AccountCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BFF1D29A1C0333F6FE9665 /* AccountCarouselView.swift */; };
@@ -91,12 +94,15 @@
 		EABF9430D7D93E4004AD3770 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F548FDEE64F06C210D42CBDA /* Profile.swift */; };
 		EBA923FDEBF7B8719FB6B953 /* AccountRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C07ED176280108B620D58C /* AccountRepository.swift */; };
 		ECCE3593C65DF683F1EF0EB1 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DBCC780D7A28DE9DC71A9B /* NotificationSettings.swift */; };
+		EFE1832E29A8CD89C25079C5 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4CC148B1F521A921171ECC /* GlassCard.swift */; };
 		F205229791689C8A9BF4D11E /* ReceiptScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE752DC97115463EBA144B9 /* ReceiptScan.swift */; };
 		F2364BB2C52E3795B368BF5F /* AchievementBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */; };
 		F30DFA820371641AC8598214 /* CategoryBreakdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9E5E68ED37B8FA25EAD056 /* CategoryBreakdownView.swift */; };
 		F3EE92925C2C2B75582A44D2 /* ProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74072AF0E8A86E572AFC0BC2 /* ProfileRepository.swift */; };
 		F3F7C64643ADEA64509928E6 /* AssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 596E30134A0FA5750FF736B6 /* AssistantView.swift */; };
 		F5ADA701D2725ABCBB1E2822 /* BudgetFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0890C3925BD64853C4FD23 /* BudgetFormView.swift */; };
+		F6567B735E2A994D70D5B6AD /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0F906E34FC03563FD301D4 /* SearchView.swift */; };
+		F77D6D6BF509E3A9427B15B0 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C0B4D04279CD2CA93F57C7 /* KeychainService.swift */; };
 		FA93F4D68142094DA039E128 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AA3877A2A8E8EE321BC019 /* AppViewModel.swift */; };
 		FB2231D5EACFC1E2F0FECDC0 /* CurrencyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */; };
 /* End PBXBuildFile section */
@@ -104,6 +110,7 @@
 /* Begin PBXFileReference section */
 		00A6F860A62BF06C599A8AFD /* AiConversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiConversation.swift; sourceTree = "<group>"; };
 		01B140AC1B112CBFC6D9195C /* AchievementsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsViewModel.swift; sourceTree = "<group>"; };
+		0A0F906E34FC03563FD301D4 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		0F11B98D8C0F1A39F4C40ADD /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		0F36AAA68493118CF39A4D3E /* ProfileEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileEditView.swift; sourceTree = "<group>"; };
 		14598720EA7BAE977C123766 /* BudgetCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetCardView.swift; sourceTree = "<group>"; };
@@ -161,7 +168,10 @@
 		8AF8EE63CEF3E3AC9EA19D10 /* TransactionFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionFormView.swift; sourceTree = "<group>"; };
 		8F136560E724B698AAFBBF9A /* SavingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsViewModel.swift; sourceTree = "<group>"; };
 		911532E4FE4098727AD61757 /* TransactionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRowView.swift; sourceTree = "<group>"; };
+		94C0B4D04279CD2CA93F57C7 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AkifiApp.swift; sourceTree = "<group>"; };
+		9D4CC148B1F521A921171ECC /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareAccountView.swift; sourceTree = "<group>"; };
 		A2F7B796D169618419BF335E /* ExchangeRates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRates.swift; sourceTree = "<group>"; };
 		A9385B9EDEECD0C2F651AC0F /* TransferFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferFormView.swift; sourceTree = "<group>"; };
 		AE0890C3925BD64853C4FD23 /* BudgetFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetFormView.swift; sourceTree = "<group>"; };
@@ -176,6 +186,7 @@
 		BD71B178C79E5256314A6EC4 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionSheetView.swift; sourceTree = "<group>"; };
 		C38B51D9D8B9B10155A3CC0D /* TransactionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsViewModel.swift; sourceTree = "<group>"; };
+		C5FB0ED5DFB48929E8AD65FA /* Color+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Theme.swift"; sourceTree = "<group>"; };
 		C7ABE6CED9D074DA7137C85F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C7DFF0BEC556EF5A7CE6DD4C /* AnalyticsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsTabView.swift; sourceTree = "<group>"; };
 		C83CE862E61CD29CA1E8F980 /* SubscriptionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionListView.swift; sourceTree = "<group>"; };
@@ -183,6 +194,7 @@
 		C9AF2D37ED5C32336B1C3554 /* LevelUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelUpView.swift; sourceTree = "<group>"; };
 		CA724320D711DD058E2B4D82 /* SubscriptionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsViewModel.swift; sourceTree = "<group>"; };
 		D12FB541C4B900F46B202638 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		D178657F88574DCC92D234A4 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		DC0F925C8D01829EEFAB0374 /* AiRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AiRepository.swift; sourceTree = "<group>"; };
 		DC9CEC09B09C3CEE4AA15174 /* BudgetRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetRepository.swift; sourceTree = "<group>"; };
 		DE9EDD22340CC8DDBE7B828B /* Category.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Category.swift; sourceTree = "<group>"; };
@@ -277,6 +289,7 @@
 				616C0D248E5CD52D019DE875 /* HomeTabView.swift */,
 				6D058D6C4B704A2FC9F6F868 /* InsightCardsView.swift */,
 				ED736B31CDD5DEBF72053EC8 /* RecentTransactionsView.swift */,
+				9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */,
 				4A9A1EF45AABE938BDD4EE4D /* StreakBadgeView.swift */,
 				2EA562FB8B99A77709A8173D /* SummaryCardsView.swift */,
 			);
@@ -289,6 +302,7 @@
 				65434B73BB450853FC3F444E /* CurrencyText.swift */,
 				EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */,
 				60E9E3612446CC1E7CCC72C7 /* FilterHeaderView.swift */,
+				9D4CC148B1F521A921171ECC /* GlassCard.swift */,
 				D12FB541C4B900F46B202638 /* LoadingView.swift */,
 			);
 			path = Shared;
@@ -343,6 +357,7 @@
 			isa = PBXGroup;
 			children = (
 				4C211FAE78CA989CB0EFAA97 /* CategoryPickerView.swift */,
+				0A0F906E34FC03563FD301D4 /* SearchView.swift */,
 				8AF8EE63CEF3E3AC9EA19D10 /* TransactionFormView.swift */,
 				911532E4FE4098727AD61757 /* TransactionRowView.swift */,
 				456C6961EB5397AF543DECC9 /* TransactionsTabView.swift */,
@@ -446,6 +461,8 @@
 				FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */,
 				50EA40FA65D58EED86060438 /* DataStore.swift */,
 				E943C32E125BB4505761CA30 /* ExchangeRateService.swift */,
+				94C0B4D04279CD2CA93F57C7 /* KeychainService.swift */,
+				D178657F88574DCC92D234A4 /* NotificationManager.swift */,
 				8473385CFEE3FE00448561C8 /* PaymentManager.swift */,
 				B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */,
 			);
@@ -464,6 +481,7 @@
 			isa = PBXGroup;
 			children = (
 				EAD986ABD38E240D65D69D70 /* Color+Hex.swift */,
+				C5FB0ED5DFB48929E8AD65FA /* Color+Theme.swift */,
 				84050C2ADCAA39D342B4D8C0 /* Date+Formatting.swift */,
 				75A8DBBF1BEFA4FD61AE069E /* Decimal+Currency.swift */,
 				4B774387BFAAED31DC310A3A /* String+Nonce.swift */,
@@ -586,6 +604,7 @@
 				06786FE8B2570DFE40FD4647 /* CategoryPickerView.swift in Sources */,
 				3416533845CF28DA540CF85F /* CategoryRepository.swift in Sources */,
 				8BC173358EDB8C871DE610A9 /* Color+Hex.swift in Sources */,
+				31DF342CF6FEFEE6F1924ED1 /* Color+Theme.swift in Sources */,
 				28AFE736EC9592E9183920B7 /* ContentView.swift in Sources */,
 				CAA9B0E2E6D674DBF6C9F6E6 /* ContributionSheetView.swift in Sources */,
 				FB2231D5EACFC1E2F0FECDC0 /* CurrencyManager.swift in Sources */,
@@ -597,15 +616,18 @@
 				7ABC2332BB3F18D92D077446 /* ExchangeRateService.swift in Sources */,
 				B73A0C4EB55B3FD8657DA23C /* ExchangeRates.swift in Sources */,
 				178818E53F8CC46FDABCC0AF /* FilterHeaderView.swift in Sources */,
+				EFE1832E29A8CD89C25079C5 /* GlassCard.swift in Sources */,
 				5A843CB504E6A189C1618FEE /* HomeSavingsSnapshotView.swift in Sources */,
 				D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */,
 				D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */,
 				4875E49D68D6CEF0ACFCBA34 /* InsightCardsView.swift in Sources */,
+				F77D6D6BF509E3A9427B15B0 /* KeychainService.swift in Sources */,
 				E6E02C1A73EFE9D9C0BD0849 /* LevelUpView.swift in Sources */,
 				6A655C4A8BF63EBCEBFA4F4E /* LoadingView.swift in Sources */,
 				16F1A8ED9E4B861607A9ACC1 /* LoginView.swift in Sources */,
 				B7A83C6B8DADD643D4AA99DE /* MessageBubbleView.swift in Sources */,
 				0D6B6D8A18C6B6BAD00CF5B2 /* MigrationCodeView.swift in Sources */,
+				328C8AA23D1D82DF282F1A65 /* NotificationManager.swift in Sources */,
 				ECCE3593C65DF683F1EF0EB1 /* NotificationSettings.swift in Sources */,
 				3FC6D5392A1C7C1E40FD4169 /* NotificationSettingsView.swift in Sources */,
 				8D9481F1E9F2ACF89547236F /* OnboardingView.swift in Sources */,
@@ -625,7 +647,9 @@
 				C15DC79402F5E6601E8DC782 /* SavingsGoalListView.swift in Sources */,
 				04A6BDF7961FC89DAC1B65AB /* SavingsGoalRepository.swift in Sources */,
 				0345570121348BC01B535E8F /* SavingsViewModel.swift in Sources */,
+				F6567B735E2A994D70D5B6AD /* SearchView.swift in Sources */,
 				7A2812A26246E5F116D4F497 /* SettingsView.swift in Sources */,
+				3C00592389B16543614C0DF5 /* ShareAccountView.swift in Sources */,
 				6BAD60A00A05004801DC79EC /* SplashView.swift in Sources */,
 				DEB660D12F319BD2F5824827 /* StreakBadgeView.swift in Sources */,
 				DAFE5356CFE1D4D53DC5B57B /* String+Nonce.swift in Sources */,

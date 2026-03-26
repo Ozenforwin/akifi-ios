@@ -8,7 +8,7 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             // Progress dots
             HStack(spacing: 8) {
-                ForEach(0..<5) { step in
+                ForEach(0..<6) { step in
                     Circle()
                         .fill(step <= currentStep ? .green : .gray.opacity(0.3))
                         .frame(width: 8, height: 8)
@@ -29,11 +29,14 @@ struct OnboardingView: View {
                 FeaturesStepView { currentStep = 4 }
                     .tag(3)
 
+                NotificationsStepView { currentStep = 5 }
+                    .tag(4)
+
                 CompletionStepView {
                     UserDefaults.standard.set(true, forKey: "onboarding_completed")
                     appViewModel.hasCompletedOnboarding = true
                 }
-                    .tag(4)
+                    .tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentStep)
@@ -245,7 +248,70 @@ struct FeatureRow: View {
     }
 }
 
-// MARK: - Step 5: Completion
+// MARK: - Step 5: Notifications
+
+struct NotificationsStepView: View {
+    let onNext: () -> Void
+
+    @State private var notificationManager = NotificationManager()
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image(systemName: "bell.badge.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.green.gradient)
+
+            Text("Уведомления")
+                .font(.title2.bold())
+
+            Text("Получайте оповещения о бюджетах, крупных расходах и достижении целей накоплений")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            VStack(alignment: .leading, spacing: 12) {
+                NotificationFeatureRow(icon: "wallet.bifold", text: "Предупреждения о бюджете")
+                NotificationFeatureRow(icon: "exclamationmark.triangle", text: "Крупные расходы")
+                NotificationFeatureRow(icon: "target", text: "Достижение целей")
+                NotificationFeatureRow(icon: "flame", text: "Поддержка стрика")
+            }
+            .padding(.horizontal, 32)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                OnboardingButton(title: "Включить уведомления") {
+                    await notificationManager.requestAuthorization()
+                    onNext()
+                }
+
+                Button("Пропустить") { onNext() }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct NotificationFeatureRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.green)
+                .frame(width: 24)
+            Text(text)
+                .font(.subheadline)
+        }
+    }
+}
+
+// MARK: - Step 6: Completion
 
 struct CompletionStepView: View {
     let onFinish: () -> Void

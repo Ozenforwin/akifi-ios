@@ -7,28 +7,32 @@ struct StreakBadgeView: View {
     private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
-        if currentStreak > 0 {
-            HStack(spacing: 8) {
-                Image(systemName: "flame.fill")
-                    .foregroundStyle(.orange.gradient)
-                    .font(.title3)
+        Group {
+            if currentStreak > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .foregroundStyle(.orange.gradient)
+                        .font(.title3)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(currentStreak) \(streakLabel)")
-                        .font(.subheadline.weight(.semibold))
-                    Text("подряд с операциями")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(currentStreak) \(streakLabel)")
+                            .font(.subheadline.weight(.semibold))
+                        Text("подряд с операциями")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Стрик \(currentStreak) дней")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Стрик \(currentStreak) дней")
         }
+        .task { calculateStreak() }
+        .onChange(of: dataStore.transactions.count) { calculateStreak() }
     }
 
     private var streakLabel: String {
@@ -40,7 +44,7 @@ struct StreakBadgeView: View {
         return "дней"
     }
 
-    func calculateStreak() {
+    private func calculateStreak() {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let calendar = Calendar.current
