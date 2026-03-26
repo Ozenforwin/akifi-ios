@@ -12,11 +12,15 @@ final class AppViewModel {
     func initialize() async {
         await authManager.checkSession()
         if authManager.isAuthenticated {
-            async let rates: () = currencyManager.fetchRates()
-            async let premium: () = paymentManager.checkPremiumStatus()
-            async let data: () = dataStore.loadAll()
-            _ = await (rates, premium, data)
-            hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
+            await loadAfterAuth()
         }
+    }
+
+    func loadAfterAuth() async {
+        async let rates: () = currencyManager.fetchRates()
+        async let premium: () = paymentManager.checkPremiumStatus()
+        async let data: () = dataStore.loadAll()
+        _ = await (rates, premium, data)
+        hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     }
 }

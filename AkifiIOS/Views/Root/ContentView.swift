@@ -18,6 +18,11 @@ struct ContentView: View {
         .task {
             await appViewModel.initialize()
         }
+        .onChange(of: appViewModel.authManager.isAuthenticated) { _, isAuth in
+            if isAuth {
+                Task { await appViewModel.loadAfterAuth() }
+            }
+        }
     }
 }
 
