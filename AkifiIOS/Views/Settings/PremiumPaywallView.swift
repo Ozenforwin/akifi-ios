@@ -21,10 +21,10 @@ struct PremiumPaywallView: View {
                     if isPremium {
                         Label("Активно", systemImage: "checkmark.seal.fill")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.accent)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
-                            .background(.green.opacity(0.15))
+                            .background(Color.accent.opacity(0.15))
                             .clipShape(Capsule())
                     } else {
                         Text("Разблокируйте все возможности")
@@ -51,7 +51,7 @@ struct PremiumPaywallView: View {
                     PremiumFeatureRow(icon: "target", title: "Цели накоплений", subtitle: "Копите с процентами", isPro: false)
                 }
                 .padding()
-                .background(.ultraThinMaterial)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
                 if !isPremium {
@@ -69,7 +69,7 @@ struct PremiumPaywallView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(.green.gradient)
+                            .background(Color.accent.gradient)
                             .foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
@@ -81,7 +81,7 @@ struct PremiumPaywallView: View {
                         } label: {
                             Text("Восстановить покупки")
                                 .font(.subheadline)
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Color.accent)
                         }
                     }
 
@@ -109,7 +109,7 @@ struct PremiumFeatureRow: View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(isPro ? .yellow : .green)
+                .foregroundStyle(isPro ? .yellow : Color.accent)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {

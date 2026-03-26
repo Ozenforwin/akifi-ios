@@ -27,7 +27,7 @@ struct ShareAccountView: View {
                         ForEach(members) { member in
                             HStack {
                                 Image(systemName: "person.circle.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.accent)
                                 Text(member.userId.prefix(8) + "...")
                                     .font(.subheadline)
                                 Spacer()
@@ -36,7 +36,7 @@ struct ShareAccountView: View {
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
-                                    .background(.ultraThinMaterial)
+                                    .background(Color(.systemBackground))
                                     .clipShape(Capsule())
                             }
                         }

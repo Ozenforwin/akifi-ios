@@ -40,9 +40,18 @@ struct AccountCardView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(hex: account.color).opacity(0.3),
+                    Color(hex: account.color).opacity(0.55)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        .shadow(color: Color(hex: account.color).opacity(0.2), radius: 8, x: 0, y: 4)
         .padding(.horizontal, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(account.name), баланс \(appViewModel.currencyManager.formatAmount(balance.displayAmount))")

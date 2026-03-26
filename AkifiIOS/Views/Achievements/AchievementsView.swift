@@ -23,7 +23,7 @@ struct AchievementsView: View {
                     VStack {
                         Text("\(viewModel.totalPoints)")
                             .font(.title.weight(.bold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.accent)
                         Text("Очков")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -46,7 +46,7 @@ struct AchievementsView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(.ultraThinMaterial)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
                 // Category filter
@@ -60,7 +60,7 @@ struct AchievementsView: View {
                                     .font(.caption.weight(.medium))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(viewModel.selectedCategory == cat ? .green : .clear)
+                                    .background(viewModel.selectedCategory == cat ? Color.accent : .clear)
                                     .foregroundStyle(viewModel.selectedCategory == cat ? .white : .primary)
                                     .clipShape(Capsule())
                                     .overlay {

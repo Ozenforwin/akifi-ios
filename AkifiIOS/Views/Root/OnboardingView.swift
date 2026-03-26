@@ -10,7 +10,7 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(0..<6) { step in
                     Circle()
-                        .fill(step <= currentStep ? .green : .gray.opacity(0.3))
+                        .fill(step <= currentStep ? Color.accent : .gray.opacity(0.3))
                         .frame(width: 8, height: 8)
                 }
             }
@@ -55,7 +55,7 @@ struct WelcomeStepView: View {
 
             Image(systemName: "sparkles")
                 .font(.system(size: 80))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(Color.accent.gradient)
 
             Text("Добро пожаловать\nв Akifi")
                 .font(.title.bold())
@@ -86,7 +86,7 @@ struct CurrencyStepView: View {
 
             Image(systemName: "dollarsign.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(Color.accent.gradient)
 
             Text("Выберите валюту")
                 .font(.title2.bold())
@@ -111,12 +111,12 @@ struct CurrencyStepView: View {
                             Spacer()
                             if appViewModel.currencyManager.selectedCurrency == currency {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.accent)
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(.ultraThinMaterial)
+                        .background(Color(.systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
@@ -149,7 +149,7 @@ struct AccountStepView: View {
 
             Image(systemName: "creditcard.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(Color.accent.gradient)
 
             Text("Создайте первый счёт")
                 .font(.title2.bold())
@@ -157,7 +157,7 @@ struct AccountStepView: View {
             VStack(spacing: 16) {
                 TextField("Название счёта", text: $accountName)
                     .padding()
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 HStack(spacing: 12) {
@@ -165,9 +165,9 @@ struct AccountStepView: View {
                         Text(icon)
                             .font(.title)
                             .frame(width: 48, height: 48)
-                            .background(selectedIcon == icon ? .green.opacity(0.2) : .clear)
+                            .background(selectedIcon == icon ? Color.accent.opacity(0.2) : .clear)
                             .clipShape(Circle())
-                            .overlay { Circle().stroke(selectedIcon == icon ? .green : .clear, lineWidth: 2) }
+                            .overlay { Circle().stroke(selectedIcon == icon ? Color.accent : .clear, lineWidth: 2) }
                             .onTapGesture { selectedIcon = icon }
                     }
                 }
@@ -213,7 +213,7 @@ struct FeaturesStepView: View {
                 FeatureRow(icon: "arrow.left.arrow.right", color: .blue, title: "Операции", subtitle: "Доходы, расходы и переводы")
                 FeatureRow(icon: "chart.bar.fill", color: .purple, title: "Аналитика", subtitle: "Графики и отчёты по категориям")
                 FeatureRow(icon: "wallet.bifold.fill", color: .orange, title: "Бюджеты", subtitle: "Контролируйте расходы")
-                FeatureRow(icon: "target", color: .green, title: "Накопления", subtitle: "Копите на мечту с процентами")
+                FeatureRow(icon: "target", color: Color.accent, title: "Накопления", subtitle: "Копите на мечту с процентами")
                 FeatureRow(icon: "sparkles", color: .yellow, title: "AI-ассистент", subtitle: "Персональные финансовые советы")
             }
             .padding(.horizontal, 24)
@@ -261,7 +261,7 @@ struct NotificationsStepView: View {
 
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(Color.accent.gradient)
 
             Text("Уведомления")
                 .font(.title2.bold())
@@ -303,7 +303,7 @@ struct NotificationFeatureRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.accent)
                 .frame(width: 24)
             Text(text)
                 .font(.subheadline)
@@ -322,7 +322,7 @@ struct CompletionStepView: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 80))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(Color.accent.gradient)
 
             Text("Всё готово!")
                 .font(.title.bold())
@@ -377,7 +377,7 @@ struct OnboardingButton: View {
                     .padding()
             }
         }
-        .background(.green.gradient)
+        .background(Color.accent.gradient)
         .foregroundStyle(.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 24)

@@ -45,7 +45,7 @@ struct SavingsGoalDetailView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
-                            .background(.ultraThinMaterial)
+                            .background(Color(.systemBackground))
                             .clipShape(Capsule())
                     }
                 }
@@ -59,7 +59,7 @@ struct SavingsGoalDetailView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(.green.gradient)
+                        .background(Color.accent.gradient)
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
@@ -87,7 +87,7 @@ struct SavingsGoalDetailView: View {
                     }
                 }
                 .padding()
-                .background(.ultraThinMaterial)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .padding(.horizontal)
             }

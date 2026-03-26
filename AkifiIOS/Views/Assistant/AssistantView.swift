@@ -65,7 +65,7 @@ struct AssistantView: View {
                                         .font(.caption)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 8)
-                                        .background(.ultraThinMaterial)
+                                        .background(Color(.systemBackground))
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
@@ -136,7 +136,9 @@ struct AssistantWelcomeView: View {
         VStack(spacing: 20) {
             Image(systemName: "sparkles")
                 .font(.system(size: 48))
-                .foregroundStyle(.green.gradient)
+                .foregroundStyle(
+                    LinearGradient(colors: [.aiGradientStart, .aiGradientEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
 
             Text("Привет! Я Akifi")
                 .font(.title2.weight(.bold))
@@ -159,13 +161,13 @@ struct SuggestionChip: View {
         HStack {
             Image(systemName: "sparkle")
                 .font(.caption)
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.accent)
             Text(text)
                 .font(.subheadline)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background(Color(.systemBackground))
         .clipShape(Capsule())
     }
 }
@@ -184,13 +186,13 @@ struct AssistantInputBar: View {
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+                .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
             Button(action: onSend) {
                 Image(systemName: isProcessing ? "stop.circle.fill" : "arrow.up.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.accent)
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing)
         }
@@ -222,7 +224,7 @@ struct TypingIndicatorView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .onAppear { animating = true }
     }

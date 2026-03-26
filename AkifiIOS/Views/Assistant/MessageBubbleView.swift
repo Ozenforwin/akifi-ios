@@ -24,9 +24,9 @@ struct MessageBubbleView: View {
             .padding(.vertical, 10)
             .background {
                 if isUser {
-                    RoundedRectangle(cornerRadius: 18).fill(.green.gradient)
+                    RoundedRectangle(cornerRadius: 18).fill(Color.accent.gradient)
                 } else {
-                    RoundedRectangle(cornerRadius: 18).fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 18).fill(Color(.secondarySystemBackground))
                 }
             }
 

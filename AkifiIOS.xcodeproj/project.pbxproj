@@ -98,6 +98,8 @@
 		EBA923FDEBF7B8719FB6B953 /* AccountRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C07ED176280108B620D58C /* AccountRepository.swift */; };
 		ECCE3593C65DF683F1EF0EB1 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DBCC780D7A28DE9DC71A9B /* NotificationSettings.swift */; };
 		EFE1832E29A8CD89C25079C5 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D4CC148B1F521A921171ECC /* GlassCard.swift */; };
+		DA53B5C980FEDA93F9B41DBD /* AppHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CFCD3F1FA7B45031654CE8 /* AppHeaderView.swift */; };
+		5779DCB9FEAC9A89DF222F99 /* FABView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758C1D80AF7211A0229E2AF1 /* FABView.swift */; };
 		F205229791689C8A9BF4D11E /* ReceiptScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE752DC97115463EBA144B9 /* ReceiptScan.swift */; };
 		F2364BB2C52E3795B368BF5F /* AchievementBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */; };
 		F30DFA820371641AC8598214 /* CategoryBreakdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9E5E68ED37B8FA25EAD056 /* CategoryBreakdownView.swift */; };
@@ -175,6 +177,8 @@
 		94C0B4D04279CD2CA93F57C7 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AkifiApp.swift; sourceTree = "<group>"; };
 		9D4CC148B1F521A921171ECC /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		B2CFCD3F1FA7B45031654CE8 /* AppHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHeaderView.swift; sourceTree = "<group>"; };
+		758C1D80AF7211A0229E2AF1 /* FABView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABView.swift; sourceTree = "<group>"; };
 		9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareAccountView.swift; sourceTree = "<group>"; };
 		A2F7B796D169618419BF335E /* ExchangeRates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRates.swift; sourceTree = "<group>"; };
 		A9385B9EDEECD0C2F651AC0F /* TransferFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferFormView.swift; sourceTree = "<group>"; };
@@ -311,6 +315,8 @@
 				EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */,
 				60E9E3612446CC1E7CCC72C7 /* FilterHeaderView.swift */,
 				9D4CC148B1F521A921171ECC /* GlassCard.swift */,
+				B2CFCD3F1FA7B45031654CE8 /* AppHeaderView.swift */,
+				758C1D80AF7211A0229E2AF1 /* FABView.swift */,
 				D12FB541C4B900F46B202638 /* LoadingView.swift */,
 			);
 			path = Shared;
@@ -645,6 +651,8 @@
 				7B7D530CE41D3234A154F4A8 /* FeatureFlagRepository.swift in Sources */,
 				178818E53F8CC46FDABCC0AF /* FilterHeaderView.swift in Sources */,
 				EFE1832E29A8CD89C25079C5 /* GlassCard.swift in Sources */,
+				DA53B5C980FEDA93F9B41DBD /* AppHeaderView.swift in Sources */,
+				5779DCB9FEAC9A89DF222F99 /* FABView.swift in Sources */,
 				5A843CB504E6A189C1618FEE /* HomeSavingsSnapshotView.swift in Sources */,
 				D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */,
 				D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */,

@@ -21,7 +21,7 @@ struct QuickPromptsView: View {
                     HStack(spacing: 10) {
                         Image(systemName: icon)
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.accent)
                             .frame(width: 24)
                         Text(text)
                             .font(.subheadline)
@@ -33,7 +33,8 @@ struct QuickPromptsView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)

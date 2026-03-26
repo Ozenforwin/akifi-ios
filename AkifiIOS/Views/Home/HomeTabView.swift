@@ -3,9 +3,9 @@ import SwiftUI
 struct HomeTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = HomeViewModel()
-    @State private var showAddTransaction = false
-    @State private var showAssistant = false
     @State private var showAddAccount = false
+    @State private var showProfile = false
+    @State private var showCurrencyPicker = false
     @State private var showShareAccount = false
     @State private var showSearch = false
     @State private var editingAccount: Account?
@@ -24,7 +24,7 @@ struct HomeTabView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(.ultraThinMaterial)
+                                .background(Color(.systemBackground))
                                 .clipShape(RoundedRectangle(cornerRadius: 20))
                         }
                     } else {
@@ -76,7 +76,7 @@ struct HomeTabView: View {
             .refreshable {
                 await dataStore.loadAll()
             }
-            .navigationTitle("Akifi")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -86,31 +86,14 @@ struct HomeTabView: View {
                     }
                     .accessibilityLabel("Поиск")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAssistant = true
-                    } label: {
-                        Image(systemName: "sparkles")
-                    }
-                    .accessibilityLabel("AI-ассистент")
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddTransaction = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Добавить операцию")
-                }
             }
-            .sheet(isPresented: $showAddTransaction) {
-                TransactionFormView(categories: dataStore.categories, accounts: dataStore.accounts) {
-                    await dataStore.loadAll()
-                }
+            .sheet(isPresented: $showProfile) {
+                SettingsView()
             }
-            .fullScreenCover(isPresented: $showAssistant) {
-                AssistantView()
+            .sheet(isPresented: $showCurrencyPicker) {
+                NavigationStack {
+                    CurrencyPickerView()
+                }
             }
             .sheet(isPresented: $showAddAccount) {
                 AccountFormView {

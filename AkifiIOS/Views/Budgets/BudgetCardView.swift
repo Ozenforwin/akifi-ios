@@ -42,7 +42,7 @@ struct BudgetCardView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
                     .clipShape(Capsule())
             }
 
@@ -95,7 +95,7 @@ struct BudgetCardView: View {
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }

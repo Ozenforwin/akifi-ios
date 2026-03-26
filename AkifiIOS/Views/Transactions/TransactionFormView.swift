@@ -27,11 +27,14 @@ struct TransactionFormView: View {
 
     private var isEditing: Bool { editingTransaction != nil }
 
-    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, onSave: @escaping () async -> Void) {
+    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
         self.accounts = accounts
         self.editingTransaction = editingTransaction
         self.onSave = onSave
+        if let defaultType, editingTransaction == nil {
+            _selectedType = State(initialValue: defaultType)
+        }
     }
 
     private var filteredCategories: [Category] {

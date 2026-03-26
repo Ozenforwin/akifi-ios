@@ -25,7 +25,8 @@ struct StreakBadgeView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
+                .background(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Стрик \(currentStreak) дней")

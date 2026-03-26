@@ -17,7 +17,7 @@ struct LoginView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 60))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.accent)
 
                     Text("Akifi")
                         .font(.largeTitle.bold())
@@ -52,7 +52,7 @@ struct LoginView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(.ultraThinMaterial)
+                        .background(Color(.systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
 
@@ -61,7 +61,7 @@ struct LoginView: View {
                     } label: {
                         Text("У меня есть код из Telegram")
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Color.accent)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -128,13 +128,13 @@ struct EmailLoginView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .padding()
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 SecureField("Пароль", text: $password)
                     .textContentType(isSignUp ? .newPassword : .password)
                     .padding()
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 if let errorMessage {
@@ -157,7 +157,7 @@ struct EmailLoginView: View {
                             .padding()
                     }
                 }
-                .background(.green)
+                .background(Color.accent)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .disabled(isLoading || email.isEmpty || password.isEmpty)
@@ -167,7 +167,7 @@ struct EmailLoginView: View {
                 } label: {
                     Text(isSignUp ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Зарегистрироваться")
                         .font(.subheadline)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.accent)
                 }
             }
             .padding(24)

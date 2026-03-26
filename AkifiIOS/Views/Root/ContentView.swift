@@ -30,6 +30,9 @@ struct MainTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var selectedTab = 0
     @State private var showAssistant = false
+    @State private var showAddTransaction = false
+    @State private var showAddTransfer = false
+    @State private var showAddIncome = false
     @State private var unlockedAchievement: Achievement?
 
     var body: some View {
@@ -43,6 +46,12 @@ struct MainTabView: View {
                     TransactionsTabView()
                 }
 
+                // Spacer tab for center AI button
+                Tab("", systemImage: "sparkles", value: 99) {
+                    Color.clear
+                }
+                .hidden()
+
                 Tab(String(localized: "tabs.analytics"), systemImage: "chart.bar.fill", value: 2) {
                     AnalyticsTabView()
                 }
@@ -50,16 +59,56 @@ struct MainTabView: View {
                 Tab(String(localized: "tabs.budgets"), systemImage: "wallet.bifold.fill", value: 3) {
                     BudgetsTabView()
                 }
+            }
+            .tint(Color.accent)
 
-                Tab(String(localized: "tabs.settings"), systemImage: "gearshape.fill", value: 4) {
-                    SettingsView()
+            // Center AI button
+            VStack {
+                Spacer()
+                Button {
+                    showAssistant = true
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.aiGradientStart, .aiGradientEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 56, height: 56)
+                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    .overlay {
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 4)
+                    }
+                }
+                .buttonStyle(.plain)
+                .offset(y: -5)
+                .padding(.bottom, 28)
+            }
+
+            // FAB
+            FABView { action in
+                switch action {
+                case .income:
+                    showAddIncome = true
+                case .expense:
+                    showAddTransaction = true
+                case .transfer:
+                    showAddTransfer = true
+                case .receipt:
+                    break
                 }
             }
-            .tint(.green)
-            .fullScreenCover(isPresented: $showAssistant) {
-                AssistantView()
-            }
 
+            // Achievement overlay
             if let achievement = unlockedAchievement {
                 LevelUpView(
                     achievementName: achievement.nameRu,
@@ -69,6 +118,31 @@ struct MainTabView: View {
                     unlockedAchievement = nil
                 }
                 .transition(.opacity)
+            }
+        }
+        .fullScreenCover(isPresented: $showAssistant) {
+            AssistantView()
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            TransactionFormView(
+                categories: appViewModel.dataStore.categories,
+                accounts: appViewModel.dataStore.accounts
+            ) {
+                await appViewModel.dataStore.loadAll()
+            }
+        }
+        .sheet(isPresented: $showAddIncome) {
+            TransactionFormView(
+                categories: appViewModel.dataStore.categories,
+                accounts: appViewModel.dataStore.accounts,
+                defaultType: .income
+            ) {
+                await appViewModel.dataStore.loadAll()
+            }
+        }
+        .sheet(isPresented: $showAddTransfer) {
+            TransferFormView(accounts: appViewModel.dataStore.accounts) {
+                await appViewModel.dataStore.loadAll()
             }
         }
         .task { await checkNewAchievements() }

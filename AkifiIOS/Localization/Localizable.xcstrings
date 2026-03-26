@@ -1,845 +1,2636 @@
 {
   "sourceLanguage" : "ru",
   "strings" : {
-    "tabs.home" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Главная" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } }
-      }
-    },
-    "tabs.transactions" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Операции" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transactions" } }
-      }
-    },
-    "tabs.analytics" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Аналитика" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Analytics" } }
-      }
-    },
-    "tabs.budgets" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Бюджеты" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Budgets" } }
-      }
-    },
-    "tabs.settings" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } }
-      }
-    },
-    "common.save" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } }
-      }
-    },
-    "common.cancel" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } }
-      }
-    },
-    "common.create" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создать" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create" } }
-      }
-    },
-    "common.delete" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } }
-      }
-    },
-    "common.close" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Закрыть" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } }
-      }
-    },
-    "common.edit" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Редактировать" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit" } }
-      }
-    },
-    "common.all" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All" } }
-      }
-    },
-    "common.skip" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пропустить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skip" } }
-      }
-    },
-    "common.next" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Далее" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next" } }
-      }
-    },
-    "common.done" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готово" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } }
-      }
-    },
-    "common.add" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add" } }
-      }
-    },
-    "common.apply" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Применить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Apply" } }
-      }
-    },
-    "common.reset" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сбросить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset" } }
-      }
-    },
-    "common.loading" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Загрузка..." } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading..." } }
-      }
-    },
-    "common.amount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сумма" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Amount" } }
-      }
-    },
-    "common.name" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } }
-      }
-    },
-    "common.date" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дата" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Date" } }
-      }
-    },
-    "common.description" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Описание" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Description" } }
-      }
-    },
-    "common.income" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доходы" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Income" } }
-      }
-    },
-    "common.expense" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расходы" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expenses" } }
-      }
-    },
-    "common.of" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "из" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "of" } }
-      }
-    },
-    "common.account" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Счёт" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Account" } }
-      }
-    },
-    "common.allAccounts" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все счета" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All accounts" } }
-      }
-    },
-    "common.category" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категория" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } }
-      }
-    },
-    "common.icon" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Иконка" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Icon" } }
-      }
-    },
-    "common.color" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Цвет" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Color" } }
-      }
-    },
-    "common.period" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Период" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Period" } }
-      }
-    },
-    "common.monthly" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Месяц" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly" } }
-      }
-    },
-    "common.quarterly" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Quarterly" } }
-      }
-    },
-    "common.yearly" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Год" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Yearly" } }
-      }
-    },
-    "common.details" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Детали" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Details" } }
-      }
-    },
-    "common.settings" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } }
-      }
-    },
-    "common.version" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Версия" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Version" } }
-      }
-    },
-    "common.points" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "очков" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "points" } }
-      }
-    },
-    "auth.personalFinance" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Личные финансы" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Personal Finance" } }
-      }
-    },
-    "auth.signInEmail" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Войти с Email" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in with Email" } }
-      }
-    },
-    "auth.hasTelegramCode" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "У меня есть код из Telegram" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "I have a code from Telegram" } }
-      }
-    },
-    "auth.signUp" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Зарегистрироваться" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign Up" } }
-      }
-    },
-    "auth.signIn" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Войти" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign In" } }
-      }
-    },
-    "auth.signOut" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выйти" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign Out" } }
-      }
-    },
-    "auth.hasAccount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Уже есть аккаунт? Войти" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Already have an account? Sign In" } }
-      }
-    },
-    "auth.noAccount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет аккаунта? Зарегистрироваться" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No account? Sign Up" } }
-      }
-    },
-    "auth.password" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пароль" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password" } }
-      }
-    },
-    "auth.registration" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Регистрация" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Registration" } }
-      }
-    },
-    "auth.login" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вход" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Login" } }
-      }
-    },
-    "migration.title" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Миграция из Telegram" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Migrate from Telegram" } }
-      }
-    },
-    "migration.code" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Код миграции" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Migration code" } }
-      }
-    },
-    "migration.link" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Привязать аккаунт" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Link account" } }
-      }
-    },
-    "home.recentTransactions" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Последние операции" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent transactions" } }
-      }
-    },
-    "home.noTransactions" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет операций" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions" } }
-      }
-    },
-    "home.addFirst" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первую операцию" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first transaction" } }
-      }
-    },
-    "home.addAccount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить счёт" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add account" } }
-      }
-    },
-    "home.newAccount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый счёт" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New account" } }
-      }
-    },
-    "home.share" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поделиться" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share" } }
-      }
-    },
-    "home.insights" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Инсайты" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Insights" } }
-      }
-    },
-    "home.savings" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Накопления" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Savings" } }
-      }
-    },
-    "transactions.newTransaction" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новая операция" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New transaction" } }
-      }
-    },
-    "transactions.editing" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Редактирование" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit" } }
-      }
-    },
-    "transactions.update" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Обновить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Update" } }
-      }
-    },
-    "transactions.expense" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расход" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expense" } }
-      }
-    },
-    "transactions.incomeType" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доход" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Income" } }
-      }
-    },
-    "transactions.transfer" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Перевод" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transfer" } }
-      }
-    },
-    "transactions.search" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поиск операций" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search transactions" } }
-      }
-    },
-    "transactions.filtersActive" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Фильтры активны" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filters active" } }
-      }
-    },
-    "transactions.filters" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Фильтры" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filters" } }
-      }
-    },
-    "transactions.dateFilter" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Фильтр по дате" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Date filter" } }
-      }
-    },
-    "transactions.from" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "От" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "From" } }
-      }
-    },
-    "transactions.to" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "До" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "To" } }
-      }
-    },
-    "transactions.transferFrom" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Откуда" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "From" } }
-      }
-    },
-    "transactions.transferTo" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Куда" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "To" } }
-      }
-    },
-    "transactions.makeTransfer" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Перевести" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transfer" } }
-      }
-    },
-    "transactions.noAccount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без счёта" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No account" } }
-      }
-    },
-    "transactions.selectCategory" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выбрать категорию" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select category" } }
-      }
-    },
-    "transactions.noCategory" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без категории" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No category" } }
-      }
-    },
-    "transactions.invalidAmount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Некорректная сумма" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid amount" } }
-      }
-    },
-    "analytics.cashflow" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Денежный поток" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cash Flow" } }
-      }
-    },
-    "analytics.byCategory" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "По категориям" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "By Category" } }
-      }
-    },
-    "analytics.portfolio" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Портфель" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Portfolio" } }
-      }
-    },
-    "analytics.noData" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет данных" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No data" } }
-      }
-    },
-    "budgets.noBudgets" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет бюджетов" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No budgets" } }
-      }
-    },
-    "budgets.createDescription" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создайте бюджет, чтобы контролировать расходы" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create a budget to track spending" } }
-      }
-    },
-    "budgets.newBudget" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый бюджет" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Budget" } }
-      }
-    },
-    "budgets.budgetName" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название бюджета" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Budget name" } }
-      }
-    },
-    "budgets.allCategories" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все категории" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All categories" } }
-      }
-    },
-    "budgets.rollover" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Перенос остатка" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rollover balance" } }
-      }
-    },
-    "budgets.basic" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Основное" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Basic" } }
-      }
-    },
-    "budgets.categories" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категории" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Categories" } }
-      }
-    },
-    "savings.noGoals" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет целей" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No goals" } }
-      }
-    },
-    "savings.createDescription" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создайте цель, чтобы начать копить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create a goal to start saving" } }
-      }
-    },
-    "savings.newGoal" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новая цель" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Goal" } }
-      }
-    },
-    "savings.goal" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Цель" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Goal" } }
-      }
-    },
-    "savings.targetAmount" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Целевая сумма" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Target amount" } }
-      }
-    },
-    "savings.deadline" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дедлайн" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Deadline" } }
-      }
-    },
-    "savings.setDeadline" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Установить дедлайн" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set deadline" } }
-      }
-    },
-    "savings.contribute" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пополнить" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Contribute" } }
-      }
+    "/ %@" : {
+
     },
-    "savings.withdraw" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Снять" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Withdraw" } }
-      }
-    },
-    "savings.history" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "История операций" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transaction history" } }
-      }
-    },
-    "savings.noHistory" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет операций" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions yet" } }
-      }
-    },
-    "savings.active" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активные" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active" } }
-      }
-    },
-    "savings.completed" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Завершённые" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Completed" } }
-      }
-    },
-    "subscriptions.noSubscriptions" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет подписок" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No subscriptions" } }
-      }
-    },
-    "subscriptions.perMonth" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "В месяц" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Per month" } }
-      }
-    },
-    "subscriptions.title" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscriptions" } }
-      }
-    },
-    "subscriptions.new" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новая подписка" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Subscription" } }
-      }
-    },
-    "subscriptions.serviceName" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название сервиса" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Service name" } }
-      }
-    },
-    "assistant.title" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ассистент" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Assistant" } }
-      }
+    "%@" : {
+
     },
-    "assistant.greeting" : {
+    "%@ %@" : {
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Привет! Я Akifi" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hi! I'm Akifi" } }
+        "ru" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
       }
     },
-    "assistant.placeholder" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Спросите что-нибудь..." } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ask anything..." } }
-      }
-    },
-    "assistant.newChat" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый чат" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "New chat" } }
-      }
+    "%@ дн. до дедлайна" : {
+
     },
-    "assistant.history" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "История" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "History" } }
-      }
+    "%@ очков" : {
+
     },
-    "achievements.title" : {
+    "%@%@" : {
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Достижения" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Achievements" } }
+        "ru" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
       }
     },
-    "achievements.unlocked" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Разблокировано" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unlocked" } }
-      }
+    "%@%%" : {
+
     },
-    "achievements.total" : {
-      "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Всего" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total" } }
-      }
+    "+%@ очков" : {
+
     },
     "achievements.achievementUnlocked" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Достижение разблокировано!" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Achievement unlocked!" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achievement unlocked!"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Достижение разблокировано!"
+          }
+        }
       }
     },
     "achievements.great" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отлично!" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Great!" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Great!"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отлично!"
+          }
+        }
       }
     },
-    "settings.profile" : {
+    "achievements.title" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Профиль" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Profile" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achievements"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Достижения"
+          }
+        }
       }
     },
-    "settings.editProfile" : {
+    "achievements.total" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Редактировать профиль" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit profile" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всего"
+          }
+        }
       }
     },
-    "settings.finances" : {
+    "achievements.unlocked" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Финансы" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finances" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocked"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разблокировано"
+          }
+        }
       }
     },
-    "settings.app" : {
+    "Akifi" : {
+
+    },
+    "Akifi Pro" : {
+
+    },
+    "analytics.byCategory" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Приложение" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "App" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By Category"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По категориям"
+          }
+        }
       }
     },
-    "settings.currency" : {
+    "analytics.cashflow" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Валюта" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Currency" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cash Flow"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Денежный поток"
+          }
+        }
       }
     },
-    "settings.notifications" : {
+    "analytics.noData" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Уведомления" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notifications" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет данных"
+          }
+        }
       }
     },
-    "settings.about" : {
+    "analytics.portfolio" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "О приложении" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "About" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Portfolio"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Портфель"
+          }
+        }
       }
     },
-    "premium.title" : {
+    "assistant.greeting" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Akifi Pro" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Akifi Pro" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hi! I'm Akifi"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Привет! Я Akifi"
+          }
+        }
       }
     },
-    "premium.active" : {
+    "assistant.history" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активно" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "История"
+          }
+        }
       }
     },
-    "premium.unlock" : {
+    "assistant.newChat" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Разблокируйте все возможности" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unlock all features" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый чат"
+          }
+        }
       }
     },
-    "premium.restore" : {
+    "assistant.placeholder" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Восстановить покупки" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore purchases" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask anything..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Спросите что-нибудь..."
+          }
+        }
       }
     },
-    "onboarding.welcome" : {
+    "assistant.title" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добро пожаловать\nв Akifi" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome\nto Akifi" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assistant"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ассистент"
+          }
+        }
       }
     },
-    "onboarding.subtitle" : {
+    "auth.hasAccount" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Умный финансовый помощник для управления вашими деньгами" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Smart financial assistant for managing your money" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already have an account? Sign In"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Уже есть аккаунт? Войти"
+          }
+        }
       }
     },
-    "onboarding.start" : {
+    "auth.hasTelegramCode" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Начать" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get Started" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I have a code from Telegram"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У меня есть код из Telegram"
+          }
+        }
       }
     },
-    "onboarding.chooseCurrency" : {
+    "auth.login" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выберите валюту" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose currency" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вход"
+          }
+        }
       }
     },
-    "onboarding.createAccount" : {
+    "auth.noAccount" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создайте первый счёт" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create your first account" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No account? Sign Up"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет аккаунта? Зарегистрироваться"
+          }
+        }
       }
     },
-    "onboarding.features" : {
+    "auth.password" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что умеет Akifi" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "What Akifi can do" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль"
+          }
+        }
       }
     },
-    "onboarding.enableNotifications" : {
+    "auth.personalFinance" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Включить уведомления" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enable notifications" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personal Finance"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Личные финансы"
+          }
+        }
+      }
+    },
+    "auth.registration" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registration"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Регистрация"
+          }
+        }
+      }
+    },
+    "auth.signIn" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Войти"
+          }
+        }
+      }
+    },
+    "auth.signInEmail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with Email"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Войти с Email"
+          }
+        }
+      }
+    },
+    "auth.signOut" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign Out"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выйти"
+          }
+        }
+      }
+    },
+    "auth.signUp" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign Up"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зарегистрироваться"
+          }
+        }
+      }
+    },
+    "budgets.allCategories" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All categories"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все категории"
+          }
+        }
+      }
+    },
+    "budgets.basic" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basic"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Основное"
+          }
+        }
+      }
+    },
+    "budgets.budgetName" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget name"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Название бюджета"
+          }
+        }
+      }
+    },
+    "budgets.categories" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categories"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Категории"
+          }
+        }
+      }
+    },
+    "budgets.createDescription" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a budget to track spending"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создайте бюджет, чтобы контролировать расходы"
+          }
+        }
+      }
+    },
+    "budgets.newBudget" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Budget"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый бюджет"
+          }
+        }
+      }
+    },
+    "budgets.noBudgets" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No budgets"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет бюджетов"
+          }
+        }
+      }
+    },
+    "budgets.rollover" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rollover balance"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перенос остатка"
+          }
+        }
+      }
+    },
+    "common.account" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Счёт"
+          }
+        }
+      }
+    },
+    "common.add" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить"
+          }
+        }
+      }
+    },
+    "common.all" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все"
+          }
+        }
+      }
+    },
+    "common.allAccounts" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All accounts"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все счета"
+          }
+        }
+      }
+    },
+    "common.amount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сумма"
+          }
+        }
+      }
+    },
+    "common.apply" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Применить"
+          }
+        }
+      }
+    },
+    "common.cancel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмена"
+          }
+        }
+      }
+    },
+    "common.category" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Категория"
+          }
+        }
+      }
+    },
+    "common.close" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыть"
+          }
+        }
+      }
+    },
+    "common.color" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цвет"
+          }
+        }
+      }
+    },
+    "common.create" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создать"
+          }
+        }
+      }
+    },
+    "common.date" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дата"
+          }
+        }
+      }
+    },
+    "common.delete" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить"
+          }
+        }
+      }
+    },
+    "common.description" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Описание"
+          }
+        }
+      }
+    },
+    "common.details" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Детали"
+          }
+        }
+      }
+    },
+    "common.done" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Готово"
+          }
+        }
+      }
+    },
+    "common.edit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Редактировать"
+          }
+        }
+      }
+    },
+    "common.expense" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expenses"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расходы"
+          }
+        }
+      }
+    },
+    "common.icon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icon"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Иконка"
+          }
+        }
+      }
+    },
+    "common.income" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доходы"
+          }
+        }
+      }
+    },
+    "common.loading" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Загрузка..."
+          }
+        }
+      }
+    },
+    "common.monthly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Месяц"
+          }
+        }
+      }
+    },
+    "common.name" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Название"
+          }
+        }
+      }
+    },
+    "common.next" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Далее"
+          }
+        }
+      }
+    },
+    "common.of" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "of"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "из"
+          }
+        }
+      }
+    },
+    "common.period" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Период"
+          }
+        }
+      }
+    },
+    "common.points" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "points"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "очков"
+          }
+        }
+      }
+    },
+    "common.quarterly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarterly"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Квартал"
+          }
+        }
+      }
+    },
+    "common.reset" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить"
+          }
+        }
+      }
+    },
+    "common.save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить"
+          }
+        }
+      }
+    },
+    "common.settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Настройки"
+          }
+        }
+      }
+    },
+    "common.skip" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пропустить"
+          }
+        }
+      }
+    },
+    "common.version" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Версия"
+          }
+        }
+      }
+    },
+    "common.yearly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yearly"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Год"
+          }
+        }
+      }
+    },
+    "home.addAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить счёт"
+          }
+        }
+      }
+    },
+    "home.addFirst" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add your first transaction"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавьте первую операцию"
+          }
+        }
+      }
+    },
+    "home.insights" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insights"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Инсайты"
+          }
+        }
+      }
+    },
+    "home.newAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый счёт"
+          }
+        }
+      }
+    },
+    "home.noTransactions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transactions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет операций"
+          }
+        }
+      }
+    },
+    "home.recentTransactions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent transactions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Последние операции"
+          }
+        }
+      }
+    },
+    "home.savings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Savings"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Накопления"
+          }
+        }
+      }
+    },
+    "home.share" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поделиться"
+          }
+        }
+      }
+    },
+    "migration.code" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Migration code"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код миграции"
+          }
+        }
+      }
+    },
+    "migration.link" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Привязать аккаунт"
+          }
+        }
+      }
+    },
+    "migration.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Migrate from Telegram"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Миграция из Telegram"
+          }
+        }
       }
     },
     "onboarding.allSet" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Всё готово!" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All set!" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All set!"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всё готово!"
+          }
+        }
+      }
+    },
+    "onboarding.chooseCurrency" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose currency"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выберите валюту"
+          }
+        }
+      }
+    },
+    "onboarding.createAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create your first account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создайте первый счёт"
+          }
+        }
+      }
+    },
+    "onboarding.enableNotifications" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable notifications"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Включить уведомления"
+          }
+        }
+      }
+    },
+    "onboarding.features" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What Akifi can do"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что умеет Akifi"
+          }
+        }
       }
     },
     "onboarding.goToApp" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Перейти в приложение" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Go to app" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to app"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перейти в приложение"
+          }
+        }
       }
+    },
+    "onboarding.start" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Started"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Начать"
+          }
+        }
+      }
+    },
+    "onboarding.subtitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart financial assistant for managing your money"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Умный финансовый помощник для управления вашими деньгами"
+          }
+        }
+      }
+    },
+    "onboarding.welcome" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome\nto Akifi"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добро пожаловать\nв Akifi"
+          }
+        }
+      }
+    },
+    "premium.active" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Активно"
+          }
+        }
+      }
+    },
+    "premium.restore" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore purchases"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановить покупки"
+          }
+        }
+      }
+    },
+    "premium.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akifi Pro"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akifi Pro"
+          }
+        }
+      }
+    },
+    "premium.unlock" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock all features"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разблокируйте все возможности"
+          }
+        }
+      }
+    },
+    "PRO" : {
+
+    },
+    "Pro — Ежемесячно" : {
+
+    },
+    "savings.active" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Активные"
+          }
+        }
+      }
+    },
+    "savings.completed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Завершённые"
+          }
+        }
+      }
+    },
+    "savings.contribute" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contribute"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пополнить"
+          }
+        }
+      }
+    },
+    "savings.createDescription" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a goal to start saving"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создайте цель, чтобы начать копить"
+          }
+        }
+      }
+    },
+    "savings.deadline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deadline"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дедлайн"
+          }
+        }
+      }
+    },
+    "savings.goal" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цель"
+          }
+        }
+      }
+    },
+    "savings.history" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transaction history"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "История операций"
+          }
+        }
+      }
+    },
+    "savings.newGoal" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Goal"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая цель"
+          }
+        }
+      }
+    },
+    "savings.noGoals" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No goals"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет целей"
+          }
+        }
+      }
+    },
+    "savings.noHistory" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transactions yet"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока нет операций"
+          }
+        }
+      }
+    },
+    "savings.setDeadline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set deadline"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Установить дедлайн"
+          }
+        }
+      }
+    },
+    "savings.targetAmount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target amount"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Целевая сумма"
+          }
+        }
+      }
+    },
+    "savings.withdraw" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdraw"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Снять"
+          }
+        }
+      }
+    },
+    "settings.about" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "О приложении"
+          }
+        }
+      }
+    },
+    "settings.app" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приложение"
+          }
+        }
+      }
+    },
+    "settings.currency" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currency"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюта"
+          }
+        }
+      }
+    },
+    "settings.editProfile" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit profile"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Редактировать профиль"
+          }
+        }
+      }
+    },
+    "settings.finances" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finances"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Финансы"
+          }
+        }
+      }
+    },
+    "settings.notifications" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Уведомления"
+          }
+        }
+      }
+    },
+    "settings.profile" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Профиль"
+          }
+        }
+      }
+    },
+    "subscriptions.new" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Subscription"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая подписка"
+          }
+        }
+      }
+    },
+    "subscriptions.noSubscriptions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No subscriptions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет подписок"
+          }
+        }
+      }
+    },
+    "subscriptions.perMonth" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per month"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В месяц"
+          }
+        }
+      }
+    },
+    "subscriptions.serviceName" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service name"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Название сервиса"
+          }
+        }
+      }
+    },
+    "subscriptions.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscriptions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подписки"
+          }
+        }
+      }
+    },
+    "tabs.analytics" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analytics"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Аналитика"
+          }
+        }
+      }
+    },
+    "tabs.budgets" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budgets"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Бюджеты"
+          }
+        }
+      }
+    },
+    "tabs.home" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Главная"
+          }
+        }
+      }
+    },
+    "tabs.settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Настройки"
+          }
+        }
+      }
+    },
+    "tabs.transactions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transactions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Операции"
+          }
+        }
+      }
+    },
+    "transactions.dateFilter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date filter"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Фильтр по дате"
+          }
+        }
+      }
+    },
+    "transactions.editing" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Редактирование"
+          }
+        }
+      }
+    },
+    "transactions.expense" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expense"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расход"
+          }
+        }
+      }
+    },
+    "transactions.filters" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filters"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Фильтры"
+          }
+        }
+      }
+    },
+    "transactions.filtersActive" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filters active"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Фильтры активны"
+          }
+        }
+      }
+    },
+    "transactions.from" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "От"
+          }
+        }
+      }
+    },
+    "transactions.incomeType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доход"
+          }
+        }
+      }
+    },
+    "transactions.invalidAmount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid amount"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Некорректная сумма"
+          }
+        }
+      }
+    },
+    "transactions.makeTransfer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transfer"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перевести"
+          }
+        }
+      }
+    },
+    "transactions.newTransaction" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New transaction"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая операция"
+          }
+        }
+      }
+    },
+    "transactions.noAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без счёта"
+          }
+        }
+      }
+    },
+    "transactions.noCategory" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No category"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без категории"
+          }
+        }
+      }
+    },
+    "transactions.search" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search transactions"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поиск операций"
+          }
+        }
+      }
+    },
+    "transactions.selectCategory" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select category"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выбрать категорию"
+          }
+        }
+      }
+    },
+    "transactions.to" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "До"
+          }
+        }
+      }
+    },
+    "transactions.transfer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transfer"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перевод"
+          }
+        }
+      }
+    },
+    "transactions.transferFrom" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Откуда"
+          }
+        }
+      }
+    },
+    "transactions.transferTo" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Куда"
+          }
+        }
+      }
+    },
+    "transactions.update" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обновить"
+          }
+        }
+      }
+    },
+    "Активные" : {
+
+    },
+    "Без счёта" : {
+
+    },
+    "Бюджет превышен на %@" : {
+
+    },
+    "В месяц" : {
+
+    },
+    "Войти с Email" : {
+
+    },
+    "Восстановить покупки" : {
+
+    },
+    "Все" : {
+
+    },
+    "Всё готово!" : {
+
+    },
+    "Все категории расходов" : {
+
+    },
+    "Все суммы будут отображаться в выбранной валюте" : {
+
+    },
+    "Все счета" : {
+
+    },
+    "Всего" : {
+
+    },
+    "Выберите валюту" : {
+
+    },
+    "Выбрать категорию" : {
+
+    },
+    "Год" : {
+
+    },
+    "Денежный поток" : {
+
+    },
+    "Добавьте первую операцию" : {
+
+    },
+    "Добро пожаловать\nв Akifi" : {
+
+    },
+    "Достижение разблокировано!" : {
+
+    },
+    "Доход" : {
+
+    },
+    "Завершённые" : {
+
+    },
+    "из" : {
+
+    },
+    "из %@" : {
+
+    },
+    "Инсайты" : {
+
+    },
+    "История операций" : {
+
+    },
+    "Квартал" : {
+
+    },
+    "Личные финансы" : {
+
+    },
+    "Месяц" : {
+
+    },
+    "Миграция из Telegram" : {
+
+    },
+    "Наблюдатель" : {
+
+    },
+    "Накопления" : {
+
+    },
+    "Начните управлять своими финансами прямо сейчас" : {
+
+    },
+    "Не привязан" : {
+
+    },
+    "Нет категорий расходов" : {
+
+    },
+    "Осталось: %@" : {
+
+    },
+    "Отлично!" : {
+
+    },
+    "Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код" : {
+
+    },
+    "Очков" : {
+
+    },
+    "По категориям" : {
+
+    },
+    "подряд с операциями" : {
+
+    },
+    "Поиск по описанию, продавцу или категории" : {
+
+    },
+    "Пока нет операций" : {
+
+    },
+    "Покупки в приложении появятся в следующем обновлении" : {
+
+    },
+    "Получайте оповещения о бюджетах, крупных расходах и достижении целей накоплений" : {
+
+    },
+    "Пополнение" : {
+
+    },
+    "Порог" : {
+
+    },
+    "Порог: %@%%" : {
+
+    },
+    "Портфель" : {
+
+    },
+    "Последние операции" : {
+
+    },
+    "Предупреждение при %@%%" : {
+
+    },
+    "Привет! Я Akifi" : {
+
+    },
+    "Привязать аккаунт" : {
+
+    },
+    "Разблокировано" : {
+
+    },
+    "Разблокируйте все возможности" : {
+
+    },
+    "Расход" : {
+
+    },
+    "Редактор" : {
+
+    },
+    "Скоро" : {
+
+    },
+    "Снятие" : {
+
+    },
+    "Создайте первый счёт" : {
+
+    },
+    "Спросите меня о ваших финансах — расходы, бюджеты, советы по экономии" : {
+
+    },
+    "Текущий прогресс" : {
+
+    },
+    "Только вы" : {
+
+    },
+    "У меня есть код из Telegram" : {
+
+    },
+    "Уведомления" : {
+
+    },
+    "Умный финансовый помощник для управления вашими деньгами" : {
+
+    },
+    "Фильтры активны" : {
+
+    },
+    "Что умеет Akifi" : {
+
     }
   },
   "version" : "1.0"

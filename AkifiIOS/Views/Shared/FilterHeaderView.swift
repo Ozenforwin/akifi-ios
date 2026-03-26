@@ -28,7 +28,7 @@ struct FilterChip: View {
                 .font(.caption.weight(.medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(isSelected ? .green : .clear)
+                .background(isSelected ? Color.accent : .clear)
                 .foregroundStyle(isSelected ? .white : .primary)
                 .clipShape(Capsule())
                 .overlay {

@@ -60,7 +60,7 @@ struct BudgetFormView: View {
                                     Spacer()
                                     if selectedCategories.contains(category.id) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.green)
+                                            .foregroundStyle(Color.accent)
                                     }
                                 }
                             }

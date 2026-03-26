@@ -29,7 +29,7 @@ struct EmptyStateView: View {
                         .font(.subheadline.weight(.medium))
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(.green)
+                        .background(Color.accent)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
                 }

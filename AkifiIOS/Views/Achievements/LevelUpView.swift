@@ -24,7 +24,7 @@ struct LevelUpView: View {
 
                 Text(achievementName)
                     .font(.headline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.accent)
 
                 Text("+\(points) очков")
                     .font(.subheadline)
@@ -35,7 +35,7 @@ struct LevelUpView: View {
                         .font(.headline)
                         .frame(width: 160)
                         .padding(.vertical, 12)
-                        .background(.green.gradient)
+                        .background(Color.accent.gradient)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
                 }

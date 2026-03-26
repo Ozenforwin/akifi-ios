@@ -9,7 +9,7 @@ struct TransactionRowView: View {
         HStack(spacing: 12) {
             Text(category?.icon ?? "💰")
                 .font(.title2)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(Color(hex: category?.color ?? "#60A5FA").opacity(0.15))
                 .clipShape(Circle())
 
@@ -27,14 +27,26 @@ struct TransactionRowView: View {
 
             Text(formattedAmount)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(transaction.type == .income ? .green : .primary)
+                .foregroundStyle(amountColor)
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
     }
 
+    private var amountColor: Color {
+        switch transaction.type {
+        case .income: return .green
+        case .expense: return .red
+        case .transfer: return .blue
+        }
+    }
+
     private var formattedAmount: String {
-        let sign = transaction.type == .income ? "+" : "-"
+        let sign: String = switch transaction.type {
+        case .income: "+"
+        case .expense: "-"
+        case .transfer: "↔ "
+        }
         let formatted = appViewModel.currencyManager.formatAmount(transaction.amount.displayAmount)
         return "\(sign)\(formatted)"
     }

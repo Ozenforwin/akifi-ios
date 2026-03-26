@@ -13,7 +13,7 @@ struct MigrationCodeView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 50))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.accent)
 
                     Text("Миграция из Telegram")
                         .font(.title2.bold())
@@ -31,7 +31,7 @@ struct MigrationCodeView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(.ultraThinMaterial)
+                    .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal, 40)
 
@@ -55,7 +55,7 @@ struct MigrationCodeView: View {
                             .padding()
                     }
                 }
-                .background(.green)
+                .background(Color.accent)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .disabled(code.count < 6 || isLoading)

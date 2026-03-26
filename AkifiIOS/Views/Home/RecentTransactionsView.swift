@@ -12,7 +12,7 @@ struct RecentTransactionsView: View {
                 Spacer()
                 Text("Все")
                     .font(.subheadline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.accent)
             }
 
             if transactions.isEmpty {
@@ -32,7 +32,8 @@ struct RecentTransactionsView: View {
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
+        .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
     }
 }
