@@ -33,6 +33,7 @@
 		3C00592389B16543614C0DF5 /* ShareAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */; };
 		3D3CBA608DD17303C9CB2CA0 /* SavingsGoalDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2C2B31DBF9895FB58D8A37 /* SavingsGoalDetailView.swift */; };
 		3FC6D5392A1C7C1E40FD4169 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5E0807225F173AC0E211EB /* NotificationSettingsView.swift */; };
+		465082A804C06A6B10001523 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3D17B9D8791B07B1727952 /* PreviewData.swift */; };
 		46BB4A88B6171524048E702F /* AccountCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BFF1D29A1C0333F6FE9665 /* AccountCarouselView.swift */; };
 		47842FCC0F409787ABE1706A /* SubscriptionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C83CE862E61CD29CA1E8F980 /* SubscriptionListView.swift */; };
 		4875E49D68D6CEF0ACFCBA34 /* InsightCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D058D6C4B704A2FC9F6F868 /* InsightCardsView.swift */; };
@@ -56,6 +57,7 @@
 		78FDC02F2F5EE1FA7BBB6E79 /* CurrencyText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65434B73BB450853FC3F444E /* CurrencyText.swift */; };
 		7A2812A26246E5F116D4F497 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ABE6CED9D074DA7137C85F /* SettingsView.swift */; };
 		7ABC2332BB3F18D92D077446 /* ExchangeRateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E943C32E125BB4505761CA30 /* ExchangeRateService.swift */; };
+		7B7D530CE41D3234A154F4A8 /* FeatureFlagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */; };
 		7DF2299704B2A55F5A1FB703 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */; };
 		82E34AA362093FCF50CA58A8 /* QuickPromptsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */; };
 		841F2CADF5FE32648BCA76CA /* AiConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A6F860A62BF06C599A8AFD /* AiConversation.swift */; };
@@ -182,8 +184,10 @@
 		B4DE0EF0D2695DE0D29B4E09 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		B711EFFFED8B57AC012BD9E4 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		BA3D17B9D8791B07B1727952 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPromptsView.swift; sourceTree = "<group>"; };
 		BD71B178C79E5256314A6EC4 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagRepository.swift; sourceTree = "<group>"; };
 		C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionSheetView.swift; sourceTree = "<group>"; };
 		C38B51D9D8B9B10155A3CC0D /* TransactionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsViewModel.swift; sourceTree = "<group>"; };
 		C5FB0ED5DFB48929E8AD65FA /* Color+Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Theme.swift"; sourceTree = "<group>"; };
@@ -262,6 +266,7 @@
 				B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */,
 				FF819C9EB42F0BCF7407996E /* Extensions */,
 				BDA9CB0517B0EF1B92E67DD3 /* Models */,
+				E81102AD12F335CA2D54337D /* Preview Content */,
 				D45B8944CB8FFC37CB769DFD /* Repositories */,
 				DB2554E46BD1ED54965B714C /* Services */,
 				78B856A8965CBB5BF143264B /* ViewModels */,
@@ -446,6 +451,7 @@
 				DC0F925C8D01829EEFAB0374 /* AiRepository.swift */,
 				DC9CEC09B09C3CEE4AA15174 /* BudgetRepository.swift */,
 				23B12AC84543A571832A93DC /* CategoryRepository.swift */,
+				BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */,
 				74072AF0E8A86E572AFC0BC2 /* ProfileRepository.swift */,
 				AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */,
 				4FC94829DD328AD6CE6EDEEC /* SubscriptionTrackerRepository.swift */,
@@ -467,6 +473,14 @@
 				B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		E81102AD12F335CA2D54337D /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				BA3D17B9D8791B07B1727952 /* PreviewData.swift */,
+			);
+			path = "Preview Content";
 			sourceTree = "<group>";
 		};
 		E955F9EE96445ACE45C9C366 /* Subscriptions */ = {
@@ -615,6 +629,7 @@
 				600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */,
 				7ABC2332BB3F18D92D077446 /* ExchangeRateService.swift in Sources */,
 				B73A0C4EB55B3FD8657DA23C /* ExchangeRates.swift in Sources */,
+				7B7D530CE41D3234A154F4A8 /* FeatureFlagRepository.swift in Sources */,
 				178818E53F8CC46FDABCC0AF /* FilterHeaderView.swift in Sources */,
 				EFE1832E29A8CD89C25079C5 /* GlassCard.swift in Sources */,
 				5A843CB504E6A189C1618FEE /* HomeSavingsSnapshotView.swift in Sources */,
@@ -634,6 +649,7 @@
 				4C7B88FA388B736C22FFC444 /* PaymentManager.swift in Sources */,
 				5D06A7492FB09370A52F5C3C /* PortfolioChartView.swift in Sources */,
 				C2C0D64A725EBA3C08CBACB4 /* PremiumPaywallView.swift in Sources */,
+				465082A804C06A6B10001523 /* PreviewData.swift in Sources */,
 				EABF9430D7D93E4004AD3770 /* Profile.swift in Sources */,
 				697216DF3C268A03501DB38A /* ProfileEditView.swift in Sources */,
 				F3EE92925C2C2B75582A44D2 /* ProfileRepository.swift in Sources */,

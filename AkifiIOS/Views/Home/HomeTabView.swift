@@ -7,6 +7,8 @@ struct HomeTabView: View {
     @State private var showAssistant = false
     @State private var showAddAccount = false
     @State private var showShareAccount = false
+    @State private var showSearch = false
+    @State private var editingAccount: Account?
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -38,6 +40,11 @@ struct HomeTabView: View {
                                 Label("Новый счёт", systemImage: "plus")
                             }
                             if let account = viewModel.selectedAccount(from: dataStore.accounts) {
+                                Button {
+                                    editingAccount = account
+                                } label: {
+                                    Label("Редактировать", systemImage: "pencil")
+                                }
                                 Button {
                                     showShareAccount = true
                                 } label: {
@@ -71,6 +78,14 @@ struct HomeTabView: View {
             }
             .navigationTitle("Akifi")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel("Поиск")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showAssistant = true
@@ -105,6 +120,14 @@ struct HomeTabView: View {
             .sheet(isPresented: $showShareAccount) {
                 if let account = viewModel.selectedAccount(from: dataStore.accounts) {
                     ShareAccountView(account: account)
+                }
+            }
+            .sheet(isPresented: $showSearch) {
+                SearchView()
+            }
+            .sheet(item: $editingAccount) { account in
+                AccountFormView(editingAccount: account) {
+                    await dataStore.loadAll()
                 }
             }
         }

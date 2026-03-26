@@ -10,14 +10,16 @@ struct BudgetsTabView: View {
         NavigationStack {
             Group {
                 if viewModel.isLoading && viewModel.budgets.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingView()
                 } else if viewModel.budgets.isEmpty {
-                    ContentUnavailableView(
-                        "Нет бюджетов",
+                    EmptyStateView(
+                        title: "Нет бюджетов",
                         systemImage: "wallet.bifold.fill",
-                        description: Text("Создайте бюджет, чтобы контролировать расходы")
-                    )
+                        description: "Создайте бюджет, чтобы контролировать расходы",
+                        actionTitle: "Создать"
+                    ) {
+                        viewModel.showForm = true
+                    }
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {

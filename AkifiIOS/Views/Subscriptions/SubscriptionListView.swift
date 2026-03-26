@@ -7,14 +7,16 @@ struct SubscriptionListView: View {
     var body: some View {
         Group {
             if viewModel.isLoading && viewModel.subscriptions.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingView()
             } else if viewModel.subscriptions.isEmpty {
-                ContentUnavailableView(
-                    "Нет подписок",
+                EmptyStateView(
+                    title: "Нет подписок",
                     systemImage: "repeat.circle",
-                    description: Text("Добавьте подписки для отслеживания")
-                )
+                    description: "Добавьте подписки для отслеживания",
+                    actionTitle: "Добавить"
+                ) {
+                    viewModel.showForm = true
+                }
             } else {
                 List {
                     Section {

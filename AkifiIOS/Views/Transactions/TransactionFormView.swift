@@ -16,6 +16,7 @@ struct TransactionFormView: View {
     @State private var date = Date()
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showCategoryPicker = false
 
     private let transactionRepo = TransactionRepository()
     private let isoDateFormatter: DateFormatter = {
@@ -55,13 +56,34 @@ struct TransactionFormView: View {
                 }
 
                 Section("Категория") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 70))], spacing: 12) {
-                        ForEach(filteredCategories) { category in
-                            CategoryChip(
-                                category: category,
-                                isSelected: selectedCategoryId == category.id
-                            ) {
-                                selectedCategoryId = category.id
+                    if filteredCategories.count > 8 {
+                        Button {
+                            showCategoryPicker = true
+                        } label: {
+                            HStack {
+                                if let catId = selectedCategoryId,
+                                   let cat = filteredCategories.first(where: { $0.id == catId }) {
+                                    Text(cat.icon)
+                                    Text(cat.name)
+                                        .foregroundStyle(.primary)
+                                } else {
+                                    Text("Выбрать категорию")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 70))], spacing: 12) {
+                            ForEach(filteredCategories) { category in
+                                CategoryChip(
+                                    category: category,
+                                    isSelected: selectedCategoryId == category.id
+                                ) {
+                                    selectedCategoryId = category.id
+                                }
                             }
                         }
                     }
@@ -105,6 +127,14 @@ struct TransactionFormView: View {
                 }
             }
             .onAppear { prefillIfEditing() }
+            .sheet(isPresented: $showCategoryPicker) {
+                CategoryPickerView(
+                    categories: categories,
+                    transactionType: selectedType,
+                    selectedCategoryId: $selectedCategoryId
+                )
+                .presentationDetents([.medium])
+            }
         }
     }
 

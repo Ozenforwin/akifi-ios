@@ -9,14 +9,16 @@ struct SavingsGoalListView: View {
     var body: some View {
         Group {
             if viewModel.isLoading && viewModel.goals.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingView()
             } else if viewModel.goals.isEmpty {
-                ContentUnavailableView(
-                    "Нет целей",
+                EmptyStateView(
+                    title: "Нет целей",
                     systemImage: "target",
-                    description: Text("Создайте цель, чтобы начать копить")
-                )
+                    description: "Создайте цель, чтобы начать копить",
+                    actionTitle: "Создать"
+                ) {
+                    viewModel.showForm = true
+                }
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {

@@ -37,6 +37,17 @@ final class DataStore {
         isLoading = false
     }
 
+    func addTransaction(_ input: CreateTransactionInput) async throws -> Transaction {
+        let tx = try await transactionRepo.create(input)
+        transactions.insert(tx, at: 0)
+        return tx
+    }
+
+    func updateTransaction(id: String, _ input: UpdateTransactionInput) async throws {
+        try await transactionRepo.update(id: id, input)
+        await loadAll()
+    }
+
     func deleteTransaction(_ transaction: Transaction) async {
         do {
             try await transactionRepo.delete(id: transaction.id)
