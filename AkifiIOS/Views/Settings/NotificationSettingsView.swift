@@ -70,5 +70,29 @@ struct NotificationSettingsView: View {
                 .listRowSeparator(.hidden)
         }
         .navigationTitle(String(localized: "settings.notifications"))
+        .onChange(of: enabled) { syncToServer() }
+        .onChange(of: budgetWarnings) { syncToServer() }
+        .onChange(of: budgetPercent) { syncToServer() }
+        .onChange(of: weeklyPace) { syncToServer() }
+        .onChange(of: largeExpenses) { syncToServer() }
+        .onChange(of: largeThreshold) { syncToServer() }
+        .onChange(of: inactivity) { syncToServer() }
+        .onChange(of: savingsMilestones) { syncToServer() }
+        .task { syncToServer() }
+    }
+
+    private func syncToServer() {
+        Task {
+            await NotificationRepository().syncSettings(
+                enabled: enabled,
+                budgetWarnings: budgetWarnings,
+                largeExpenses: largeExpenses,
+                inactivity: inactivity,
+                savingsMilestones: savingsMilestones,
+                weeklyPace: weeklyPace,
+                largeExpenseThreshold: largeThreshold,
+                budgetWarningPercent: Int(budgetPercent)
+            )
+        }
     }
 }
