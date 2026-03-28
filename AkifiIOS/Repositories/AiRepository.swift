@@ -106,9 +106,10 @@ final class AiRepository: Sendable {
         let boundary = UUID().uuidString
         var body = Data()
 
+        // Build multipart form data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"voice.m4a\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
         body.append(data)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
@@ -117,24 +118,35 @@ final class AiRepository: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(AppConstants.supabaseAnonKey, forHTTPHeaderField: "apikey")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         request.timeoutInterval = 30
 
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NSError(domain: "transcribe", code: -1, userInfo: [NSLocalizedDescriptionKey: "Ошибка транскрипции"])
+        let httpResponse = response as? HTTPURLResponse
+
+        // Try to parse response regardless of status code
+        struct TranscribeResponse: Decodable {
+            let ok: Bool?
+            let text: String?
+            let error: String?
         }
 
-        struct TranscribeResponse: Decodable {
-            let ok: Bool
-            let text: String?
+        if let result = try? JSONDecoder().decode(TranscribeResponse.self, from: responseData) {
+            if result.ok == true, let text = result.text, !text.isEmpty {
+                return text
+            }
+            // Server returned an error message
+            let serverError = result.error ?? result.text ?? "Неизвестная ошибка"
+            throw NSError(domain: "transcribe", code: httpResponse?.statusCode ?? -1,
+                          userInfo: [NSLocalizedDescriptionKey: serverError])
         }
-        let result = try JSONDecoder().decode(TranscribeResponse.self, from: responseData)
-        guard result.ok, let text = result.text, !text.isEmpty else {
-            throw NSError(domain: "transcribe", code: -2, userInfo: [NSLocalizedDescriptionKey: "Не удалось распознать речь"])
-        }
-        return text
+
+        // Non-JSON response
+        let bodyStr = String(data: responseData.prefix(200), encoding: .utf8) ?? "empty"
+        throw NSError(domain: "transcribe", code: httpResponse?.statusCode ?? -1,
+                      userInfo: [NSLocalizedDescriptionKey: "Сервер: \(httpResponse?.statusCode ?? 0) — \(bodyStr)"])
     }
 
     // MARK: - Feedback
