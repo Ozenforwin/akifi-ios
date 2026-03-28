@@ -82,7 +82,7 @@ struct AnalyticsTabView: View {
                 }
                     .padding(.horizontal)
                     .padding(.top, 4)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, 120)
                 }
                 .refreshable {
                     await appViewModel.dataStore.loadAll()

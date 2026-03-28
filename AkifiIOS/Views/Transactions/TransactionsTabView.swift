@@ -161,7 +161,7 @@ struct TransactionsTabView: View {
                 }
 
                 // Bottom spacer for tab bar
-                Color.clear.frame(height: 80)
+                Color.clear.frame(height: 120)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             }

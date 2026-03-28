@@ -83,7 +83,7 @@ struct HomeTabView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 12)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
             .refreshable {
                 await dataStore.loadAll()

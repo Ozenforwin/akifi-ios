@@ -41,6 +41,10 @@ struct SubscriptionListView: View {
                             }
                         }
                     }
+
+                    Color.clear.frame(height: 100)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
         }

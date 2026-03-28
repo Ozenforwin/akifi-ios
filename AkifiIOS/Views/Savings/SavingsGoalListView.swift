@@ -85,6 +85,7 @@ struct SavingsGoalListView: View {
                         }
                     }
                     .padding(.horizontal)
+                    .padding(.bottom, 120)
                 }
             }
         }

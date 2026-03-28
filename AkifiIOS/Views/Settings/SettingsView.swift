@@ -203,7 +203,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Color.clear.frame(height: 40)
+                Color.clear.frame(height: 120)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
