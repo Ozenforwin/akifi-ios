@@ -2,21 +2,35 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @State private var showSplash = true
 
     var body: some View {
-        Group {
-            if appViewModel.authManager.isLoading {
+        ZStack {
+            Group {
+                if !showSplash && !appViewModel.authManager.isLoading {
+                    if !appViewModel.authManager.isAuthenticated {
+                        LoginView()
+                    } else if !appViewModel.hasCompletedOnboarding {
+                        OnboardingView()
+                    } else {
+                        MainTabView()
+                    }
+                }
+            }
+
+            if showSplash {
                 SplashView()
-            } else if !appViewModel.authManager.isAuthenticated {
-                LoginView()
-            } else if !appViewModel.hasCompletedOnboarding {
-                OnboardingView()
-            } else {
-                MainTabView()
+                    .transition(.opacity)
+                    .zIndex(1)
             }
         }
         .task {
-            await appViewModel.initialize()
+            async let init_: () = appViewModel.initialize()
+            try? await Task.sleep(for: .seconds(1.5))
+            _ = await init_
+            withAnimation(.easeOut(duration: 0.4)) {
+                showSplash = false
+            }
         }
         .onChange(of: appViewModel.authManager.isAuthenticated) { _, isAuth in
             if isAuth {

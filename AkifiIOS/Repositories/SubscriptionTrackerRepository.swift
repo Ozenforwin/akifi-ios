@@ -56,4 +56,5 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let billing_period: String?
     let icon_color: String?
     let reminder_days: Int?
+    let currency: String?
 }

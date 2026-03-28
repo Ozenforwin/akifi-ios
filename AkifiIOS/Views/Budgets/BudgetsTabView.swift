@@ -264,6 +264,7 @@ struct EditSubscriptionFormView: View {
     @State private var name: String = ""
     @State private var amountText: String = ""
     @State private var period: BillingPeriod = .monthly
+    @State private var selectedCurrency: CurrencyCode = .rub
     @State private var selectedColor: String = "#60A5FA"
     @State private var reminderDays: Int = 1
     @State private var isSaving = false
@@ -283,6 +284,11 @@ struct EditSubscriptionFormView: View {
                         Text("Месяц").tag(BillingPeriod.monthly)
                         Text("Квартал").tag(BillingPeriod.quarterly)
                         Text("Год").tag(BillingPeriod.yearly)
+                    }
+                    Picker("Валюта", selection: $selectedCurrency) {
+                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                            Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
                     }
                 }
 
@@ -336,6 +342,9 @@ struct EditSubscriptionFormView: View {
                 period = subscription.billingPeriod
                 selectedColor = subscription.iconColor ?? "#60A5FA"
                 reminderDays = subscription.reminderDays
+                if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+                    selectedCurrency = code
+                }
             }
         }
     }
@@ -348,7 +357,8 @@ struct EditSubscriptionFormView: View {
             amount: decimal,
             billing_period: period.rawValue,
             icon_color: selectedColor,
-            reminder_days: reminderDays
+            reminder_days: reminderDays,
+            currency: selectedCurrency.rawValue
         )
         try? await repo.update(id: subscription.id, input)
         await onSave()
