@@ -34,17 +34,12 @@ struct AccountFormView: View {
                     TextField("Мой счёт", text: $name)
                 }
 
-                Section(isEditing ? "Начальный баланс" : "Начальный баланс") {
+                Section(String(localized: "account.balance")) {
                     HStack {
                         TextField("0", text: $initialBalanceText)
                             .keyboardType(.decimalPad)
-                        Text(selectedCurrency.symbol)
+                        Text(appViewModel.currencyManager.selectedCurrency.symbol)
                             .foregroundStyle(.secondary)
-                    }
-                    if isEditing {
-                        Text("Текущий баланс на карточке = начальный + доходы − расходы")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
                     }
                 }
 
@@ -126,28 +121,46 @@ struct AccountFormView: View {
         }
     }
 
+    /// Net transaction amount for account (income - expense) in kopecks
+    private func accountNet(for account: Account) -> Int64 {
+        var net: Int64 = 0
+        for tx in appViewModel.dataStore.transactions {
+            guard tx.accountId == account.id else { continue }
+            if tx.type == .income { net += tx.amount }
+            else if tx.type == .expense { net -= tx.amount }
+        }
+        return net
+    }
+
     private func prefill() {
         guard let account = editingAccount else { return }
         name = account.name
         selectedIcon = account.icon
         selectedColor = account.color
         selectedCurrency = account.currencyCode
-        // Show initial_balance from DB as-is (DB stores whole currency units)
-        // Model has: initialBalance = dbValue * 100
-        let dbValue = account.initialBalance / 100
-        initialBalanceText = "\(dbValue)"
+        // Show current total balance (initial + net) converted to display currency
+        // This is exactly what the user sees on the card
+        let totalKopecks = appViewModel.dataStore.balance(for: account)
+        let totalInBase = totalKopecks.displayAmount  // kopecks → base currency units
+        let converted = appViewModel.currencyManager.convert(totalInBase)
+        let rounded = NSDecimalNumber(decimal: converted * 100).rounding(accordingToBehavior: nil)
+        let final = Decimal(string: rounded.stringValue)! / 100
+        initialBalanceText = "\(final)"
     }
 
     private func save() async {
         isSaving = true
         do {
             if let account = editingAccount {
-                // User enters value in account's base currency (whole units, as stored in DB)
-                // We multiply by 100 for internal "kopecks", repo divides back by 100 for DB
+                // User entered desired balance in display currency
+                // Convert back to base (RUB), subtract net to get new initial_balance
                 let newBalance: Int64?
-                if let text = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
-                    let asKopecks = Int64(truncating: (text * 100) as NSDecimalNumber)
-                    newBalance = asKopecks != account.initialBalance ? asKopecks : nil
+                if let desired = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
+                    let desiredInBase = appViewModel.currencyManager.toBase(desired)
+                    let desiredKopecks = Int64(truncating: (desiredInBase * 100) as NSDecimalNumber)
+                    let net = accountNet(for: account)
+                    let newInitial = desiredKopecks - net
+                    newBalance = newInitial != account.initialBalance ? newInitial : nil
                 } else {
                     newBalance = nil
                 }

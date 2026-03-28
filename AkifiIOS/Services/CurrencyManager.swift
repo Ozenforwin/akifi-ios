@@ -51,11 +51,19 @@ final class CurrencyManager {
     }
 
     /// Convert amount from data currency to selected display currency
-    private func convert(_ amount: Decimal) -> Decimal {
+    func convert(_ amount: Decimal) -> Decimal {
         let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
         let toRate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
         guard fromRate != 0 else { return amount }
         return amount / fromRate * toRate
+    }
+
+    /// Convert amount from display currency back to data (base) currency
+    func toBase(_ amountInDisplayCurrency: Decimal) -> Decimal {
+        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
+        let toRate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
+        guard toRate != 0 else { return amountInDisplayCurrency }
+        return amountInDisplayCurrency / toRate * fromRate
     }
 
     func format(_ amount: Decimal) -> String {
