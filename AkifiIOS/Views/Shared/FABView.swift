@@ -65,9 +65,6 @@ struct FABView: View {
                 Color.black.opacity(0.15)
                     .background(.ultraThinMaterial)
                     .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-                    }
 
                 categoryWheelContent
             }
@@ -184,6 +181,7 @@ struct FABView: View {
     private var categoryWheelContent: some View {
         VStack(spacing: 0) {
             Spacer()
+            Spacer()
 
             if selectedType == .transfer {
                 // Placeholder for transfer — show message, user taps "Перевод" confirm
@@ -241,14 +239,16 @@ struct FABView: View {
                 }
             }
 
+            Spacer()
+
             segmentControl
-                .padding(.top, 16)
+                .padding(.top, 12)
 
             Text("Выберите категорию")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.top, 8)
-                .padding(.bottom, 40)
+                .padding(.top, 6)
+                .padding(.bottom, 30)
         }
         .padding(.horizontal, 20)
     }

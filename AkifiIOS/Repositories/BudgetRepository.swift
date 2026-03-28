@@ -43,6 +43,8 @@ final class BudgetRepository: Sendable {
 
 struct CreateBudgetInput: Encodable, Sendable {
     let user_id: String
+    let name: String?
+    let description: String?
     let amount: Decimal
     let period_type: String
     let category_ids: [String]
@@ -55,25 +57,15 @@ struct CreateBudgetInput: Encodable, Sendable {
 }
 
 struct UpdateBudgetInput: Encodable, Sendable {
-    let amount: Decimal?
-    let period_type: String?
-    let category_ids: [String]?
-    let account_ids: [String]?
-    let rollover_enabled: Bool?
-    let alert_thresholds: [Int]?
-    let budget_type: String?
-    let custom_start_date: String?
-    let custom_end_date: String?
-
-    init(amount: Decimal? = nil, period_type: String? = nil, category_ids: [String]? = nil, account_ids: [String]? = nil, rollover_enabled: Bool? = nil, alert_thresholds: [Int]? = nil, budget_type: String? = nil, custom_start_date: String? = nil, custom_end_date: String? = nil) {
-        self.amount = amount
-        self.period_type = period_type
-        self.category_ids = category_ids
-        self.account_ids = account_ids
-        self.rollover_enabled = rollover_enabled
-        self.alert_thresholds = alert_thresholds
-        self.budget_type = budget_type
-        self.custom_start_date = custom_start_date
-        self.custom_end_date = custom_end_date
-    }
+    var name: String?
+    var description: String?
+    var amount: Decimal?
+    var period_type: String?
+    var category_ids: [String]?
+    var account_ids: [String]?
+    var rollover_enabled: Bool?
+    var alert_thresholds: [Int]?
+    var budget_type: String?
+    var custom_start_date: String?
+    var custom_end_date: String?
 }

@@ -9,6 +9,8 @@ struct BudgetFormView: View {
     let editingBudget: Budget?
     let onSave: () async -> Void
 
+    @State private var budgetName = ""
+    @State private var budgetDescription = ""
     @State private var calculatorState = CalculatorState()
     @State private var period: BillingPeriod = .monthly
     @State private var budgetType: BudgetType = .hard
@@ -16,6 +18,7 @@ struct BudgetFormView: View {
     @State private var selectedAccountId: String?
     @State private var rolloverEnabled = false
     @State private var alertThresholds: [Int] = [80]
+    @State private var showCategoryPicker = false
     @State private var customStartDate = Date()
     @State private var customEndDate = Calendar.current.date(byAdding: .month, value: 1, to: Date())!
     @State private var isSaving = false
@@ -44,19 +47,20 @@ struct BudgetFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Name & description
+                Section("Название") {
+                    TextField("Название бюджета", text: $budgetName)
+                    TextField("Описание (необязательно)", text: $budgetDescription)
+                }
+
                 // Budget Type
                 Section {
                     Picker("Тип", selection: $budgetType) {
                         ForEach(BudgetType.allCases, id: \.self) { type in
-                            VStack(alignment: .leading) {
-                                Text(type.displayName)
-                            }
-                            .tag(type)
+                            Text(type.displayName).tag(type)
                         }
                     }
                     .pickerStyle(.segmented)
-                } header: {
-                    Text("Тип бюджета")
                 } footer: {
                     Text(budgetType.description)
                 }
@@ -80,38 +84,58 @@ struct BudgetFormView: View {
                     }
                 }
 
-                // Categories
+                // Categories — compact collapsible
                 Section("Категории") {
-                    if expenseCategories.isEmpty {
-                        Text("Нет категорий расходов")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(expenseCategories) { category in
-                            Button {
-                                if selectedCategories.contains(category.id) {
-                                    selectedCategories.remove(category.id)
-                                } else {
-                                    selectedCategories.insert(category.id)
-                                }
-                            } label: {
-                                HStack {
-                                    Text(category.icon)
-                                    Text(category.name)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                    if selectedCategories.contains(category.id) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Color.accent)
-                                    }
-                                }
+                    Button {
+                        showCategoryPicker.toggle()
+                    } label: {
+                        HStack {
+                            if selectedCategories.isEmpty {
+                                Text("Все категории")
+                                    .foregroundStyle(.primary)
+                            } else {
+                                let icons = expenseCategories.filter { selectedCategories.contains($0.id) }.map(\.icon).prefix(5).joined()
+                                Text(icons)
+                                Text("\(selectedCategories.count) выбрано")
+                                    .foregroundStyle(.primary)
                             }
+                            Spacer()
+                            Image(systemName: showCategoryPicker ? "chevron.up" : "chevron.down")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
 
-                    if selectedCategories.isEmpty {
-                        Text("Все категории расходов")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    if showCategoryPicker {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
+                            ForEach(expenseCategories) { category in
+                                let isSelected = selectedCategories.contains(category.id)
+                                Button {
+                                    if isSelected {
+                                        selectedCategories.remove(category.id)
+                                    } else {
+                                        selectedCategories.insert(category.id)
+                                    }
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        Text(category.icon)
+                                            .font(.title3)
+                                        Text(category.name)
+                                            .font(.system(size: 9))
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(isSelected ? Color.accent.opacity(0.15) : Color(.systemGray6))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(isSelected ? Color.accent : .clear, lineWidth: 1.5)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
 
@@ -205,6 +229,8 @@ struct BudgetFormView: View {
 
     private func prefillIfEditing() {
         guard let budget = editingBudget else { return }
+        budgetName = budget.budgetName ?? ""
+        budgetDescription = budget.budgetDescription ?? ""
         calculatorState.setValue(budget.amount.displayAmount)
         period = budget.billingPeriod
         budgetType = budget.budgetTypeEnum
@@ -242,9 +268,11 @@ struct BudgetFormView: View {
             if let budget = editingBudget {
                 // Update existing budget
                 let input = UpdateBudgetInput(
+                    name: budgetName.isEmpty ? nil : budgetName,
+                    description: budgetDescription.isEmpty ? nil : budgetDescription,
                     amount: amountForDB,
                     period_type: period.rawValue,
-                    category_ids: cats,
+                    category_ids: cats ?? [],
                     account_ids: accountIds,
                     rollover_enabled: rolloverEnabled,
                     alert_thresholds: alertThresholds,
@@ -258,6 +286,8 @@ struct BudgetFormView: View {
                 let userId = try await SupabaseManager.shared.client.auth.session.user.id.uuidString
                 let input = CreateBudgetInput(
                     user_id: userId,
+                    name: budgetName.isEmpty ? nil : budgetName,
+                    description: budgetDescription.isEmpty ? nil : budgetDescription,
                     amount: amountForDB,
                     period_type: period.rawValue,
                     category_ids: cats ?? [],

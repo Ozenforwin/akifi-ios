@@ -3,6 +3,8 @@ import Foundation
 struct Budget: Decodable, Identifiable, Sendable {
     let id: String
     let userId: String
+    var budgetName: String?
+    var budgetDescription: String?
     var accountIds: [String]?
     var budgetType: String?
     var amount: Int64
@@ -19,6 +21,8 @@ struct Budget: Decodable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
+        case budgetName = "name"
+        case budgetDescription = "description"
         case accountIds = "account_ids"
         case budgetType = "budget_type"
         case amount
@@ -33,9 +37,9 @@ struct Budget: Decodable, Identifiable, Sendable {
         case updatedAt = "updated_at"
     }
 
-    init(id: String, userId: String, accountIds: [String]? = nil, budgetType: String? = nil, amount: Int64, billingPeriod: BillingPeriod, categoryIds: [String]? = nil, customStartDate: String? = nil, customEndDate: String? = nil, rolloverEnabled: Bool = false, alertThresholds: [Int]? = nil, isActive: Bool = true, createdAt: String? = nil, updatedAt: String? = nil) {
-        self.id = id; self.userId = userId; self.accountIds = accountIds
-        self.budgetType = budgetType; self.amount = amount; self.billingPeriod = billingPeriod
+    init(id: String, userId: String, budgetName: String? = nil, budgetDescription: String? = nil, accountIds: [String]? = nil, budgetType: String? = nil, amount: Int64, billingPeriod: BillingPeriod, categoryIds: [String]? = nil, customStartDate: String? = nil, customEndDate: String? = nil, rolloverEnabled: Bool = false, alertThresholds: [Int]? = nil, isActive: Bool = true, createdAt: String? = nil, updatedAt: String? = nil) {
+        self.id = id; self.userId = userId; self.budgetName = budgetName; self.budgetDescription = budgetDescription
+        self.accountIds = accountIds; self.budgetType = budgetType; self.amount = amount; self.billingPeriod = billingPeriod
         self.categoryIds = categoryIds; self.customStartDate = customStartDate
         self.customEndDate = customEndDate; self.rolloverEnabled = rolloverEnabled
         self.alertThresholds = alertThresholds; self.isActive = isActive
@@ -46,6 +50,8 @@ struct Budget: Decodable, Identifiable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         userId = try container.decode(String.self, forKey: .userId)
+        budgetName = try container.decodeIfPresent(String.self, forKey: .budgetName)
+        budgetDescription = try container.decodeIfPresent(String.self, forKey: .budgetDescription)
         accountIds = try container.decodeIfPresent([String].self, forKey: .accountIds)
         budgetType = try container.decodeIfPresent(String.self, forKey: .budgetType)
         // Handle numeric amount from DB (rubles → kopecks)
@@ -68,14 +74,14 @@ struct Budget: Decodable, Identifiable, Sendable {
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 
-    // Compatibility helpers for views that used old field names
     var name: String {
+        if let n = budgetName, !n.isEmpty { return n }
         switch billingPeriod {
-        case .monthly: "Месячный бюджет"
-        case .quarterly: "Квартальный бюджет"
-        case .yearly: "Годовой бюджет"
-        case .weekly: "Недельный бюджет"
-        case .custom: "Произвольный бюджет"
+        case .monthly: return "Месячный бюджет"
+        case .quarterly: return "Квартальный бюджет"
+        case .yearly: return "Годовой бюджет"
+        case .weekly: return "Недельный бюджет"
+        case .custom: return "Произвольный бюджет"
         }
     }
     var categories: [String]? { categoryIds }
