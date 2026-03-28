@@ -1,0 +1,10 @@
+appId: ru.akifi.app
+---
+- tapOn: "Операции"
+# Tap filter icon (the circle with lines, top-left under status bar)
+- tapOn:
+    point: "12%,12%"
+- extendedWaitUntil:
+    visible: "Фильтры"
+    timeout: 3000
+- takeScreenshot: test_tx_filters_sheet

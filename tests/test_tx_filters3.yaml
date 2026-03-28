@@ -1,0 +1,10 @@
+appId: ru.akifi.app
+---
+- tapOn: "Операции"
+# Tap on accessibility label "Фильтры"
+- tapOn:
+    text: "Фильтры"
+    optional: false
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: test_tx_filters_open

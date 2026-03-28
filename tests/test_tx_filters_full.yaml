@@ -1,0 +1,16 @@
+appId: ru.akifi.app
+---
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 10000
+- tapOn: "Операции"
+- tapOn: "Фильтры"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Swipe up on sheet to expand to large
+- swipe:
+    start: "50%,80%"
+    end: "50%,30%"
+
+- takeScreenshot: test_tx_filters_full

@@ -1,0 +1,13 @@
+appId: ru.akifi.app
+---
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 10000
+- tapOn: "Операции"
+# Tap filter button (top-left)
+- tapOn:
+    point: "10%,7%"
+- extendedWaitUntil:
+    visible: "Фильтры"
+    timeout: 3000
+- takeScreenshot: test_tx_filters_new
