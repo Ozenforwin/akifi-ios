@@ -37,42 +37,42 @@ final class DataStore {
         do {
             accounts = try await accountRepo.fetchAll()
         } catch {
-            print("[DataStore] ❌ accounts fetch error: \(error)")
+            // print("[DataStore] ❌ accounts fetch error: \(error)")
             errors.append("accounts: \(error)")
         }
 
         do {
             transactions = try await transactionRepo.fetchAll()
         } catch {
-            print("[DataStore] ❌ transactions fetch error: \(error)")
+            // print("[DataStore] ❌ transactions fetch error: \(error)")
             errors.append("transactions: \(error)")
         }
 
         do {
             categories = try await categoryRepo.fetchAll()
         } catch {
-            print("[DataStore] ❌ categories fetch error: \(error)")
+            // print("[DataStore] ❌ categories fetch error: \(error)")
             errors.append("categories: \(error)")
         }
 
         do {
             budgets = try await budgetRepo.fetchAll()
         } catch {
-            print("[DataStore] ❌ budgets fetch error: \(error)")
+            // print("[DataStore] ❌ budgets fetch error: \(error)")
             errors.append("budgets: \(error)")
         }
 
         do {
             subscriptions = try await subscriptionRepo.fetchAll()
         } catch {
-            print("[DataStore] ❌ subscriptions fetch error: \(error)")
+            // print("[DataStore] ❌ subscriptions fetch error: \(error)")
             errors.append("subscriptions: \(error)")
         }
 
         do {
             profile = try await profileRepo.fetch()
         } catch {
-            print("[DataStore] ❌ profile fetch error: \(error)")
+            // print("[DataStore] ❌ profile fetch error: \(error)")
         }
 
         // Load profiles for transaction creators (shared accounts)
@@ -87,14 +87,14 @@ final class DataStore {
             }
             if let profile { profilesMap[profile.id] = profile }
         } catch {
-            print("[DataStore] ❌ profiles map fetch error: \(error)")
+            // print("[DataStore] ❌ profiles map fetch error: \(error)")
         }
 
         if !errors.isEmpty {
             self.error = errors.joined(separator: "; ")
-            print("[DataStore] ⚠️ Load completed with errors: \(self.error!)")
+            // print("[DataStore] ⚠️ Load completed with errors: \(self.error!)")
         } else {
-            print("[DataStore] ✅ All data loaded: \(accounts.count) accounts, \(transactions.count) transactions, \(categories.count) categories, \(budgets.count) budgets, \(subscriptions.count) subscriptions")
+            // print("[DataStore] ✅ All data loaded: \(accounts.count) accounts, \(transactions.count) transactions, \(categories.count) categories, \(budgets.count) budgets, \(subscriptions.count) subscriptions")
         }
         isLoading = false
     }

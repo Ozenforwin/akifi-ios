@@ -49,7 +49,7 @@ struct HomeTabView: View {
                                         await dataStore.loadAll()
                                         viewModel.selectedAccountIndex = 0
                                     } catch {
-                                        print("[HomeTab] setPrimary error: \(error)")
+                                        // setPrimary error silently handled
                                     }
                                 }
                             }

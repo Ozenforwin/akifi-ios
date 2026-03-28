@@ -69,17 +69,12 @@ struct Transaction: Decodable, Identifiable, Sendable {
         // Try String first — PostgREST sends numeric as string to preserve precision
         if let str = try? container.decode(String.self, forKey: .amount),
            let decimal = Decimal(string: str) {
-            let result = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-            print("[TX] amount string=\(str) → kopecks=\(result)")
-            return result
+            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
         }
         // Fallback: JSON number
         if let dbl = try? container.decode(Double.self, forKey: .amount) {
-            let result = Int64((dbl * 100).rounded())
-            print("[TX] amount double=\(dbl) → kopecks=\(result)")
-            return result
+            return Int64((dbl * 100).rounded())
         }
-        print("[TX] amount: failed to decode")
         return 0
     }
 }

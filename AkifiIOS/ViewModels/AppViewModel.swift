@@ -9,6 +9,7 @@ final class AppViewModel {
     let themeManager = ThemeManager()
 
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
+    private var hasLoadedData = false
 
     func initialize() async {
         await authManager.checkSession()
@@ -18,6 +19,8 @@ final class AppViewModel {
     }
 
     func loadAfterAuth() async {
+        guard !hasLoadedData else { return }
+        hasLoadedData = true
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
         async let rates: () = currencyManager.fetchRates()
         async let premium: () = paymentManager.checkPremiumStatus()
