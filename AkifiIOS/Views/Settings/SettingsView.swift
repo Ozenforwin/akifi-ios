@@ -158,6 +158,10 @@ struct SettingsView: View {
                         Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
+
+                Color.clear.frame(height: 40)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             .navigationTitle(String(localized: "common.settings"))
             .toolbar {
