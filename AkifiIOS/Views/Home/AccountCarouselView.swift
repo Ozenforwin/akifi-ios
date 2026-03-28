@@ -41,94 +41,88 @@ struct AccountCarouselView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimating = false
 
+    private var nextIndex: Int { (selectedIndex + 1) % accounts.count }
+    private var prevIndex: Int { (selectedIndex - 1 + accounts.count) % accounts.count }
+
     var body: some View {
         VStack(spacing: 10) {
             GeometryReader { geo in
-                let cardWidth = geo.size.width - 8 // padding .horizontal 4 each side
+                let cardWidth = geo.size.width
                 ZStack {
-                    // Stacked cards behind (peek effect)
-                    ForEach(Array(stackLayers.enumerated()), id: \.offset) { layerIndex, accountIndex in
-                        let layerOffset = CGFloat(layerIndex + 1)
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color(hex: accounts[accountIndex].color).opacity(0.06 + 0.02 * layerOffset))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(Color(hex: accounts[accountIndex].color).opacity(0.08), lineWidth: 0.5)
-                            )
-                            .frame(height: 190 - layerOffset * 12)
-                            .padding(.horizontal, 4 + layerOffset * 12)
-                            .offset(y: layerOffset * 6)
-                            .opacity(1.0 - layerOffset * 0.25)
+                    // Stacked cards behind (peek effect, visible when not dragging)
+                    if dragOffset == 0 {
+                        ForEach(Array(stackLayers.enumerated()), id: \.offset) { layerIndex, accountIndex in
+                            let layerOffset = CGFloat(layerIndex + 1)
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(Color(hex: accounts[accountIndex].color).opacity(0.06 + 0.02 * layerOffset))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Color(hex: accounts[accountIndex].color).opacity(0.08), lineWidth: 0.5)
+                                )
+                                .frame(height: 190 - layerOffset * 12)
+                                .padding(.horizontal, 4 + layerOffset * 12)
+                                .offset(y: layerOffset * 6)
+                                .opacity(1.0 - layerOffset * 0.25)
+                        }
                     }
 
-                    // Active card with drag gesture
-                    AccountCardView(
-                        account: accounts[selectedIndex],
-                        balance: balanceFor(accounts[selectedIndex]),
-                        isBalanceHidden: hiddenBalances.contains(accounts[selectedIndex].id),
-                        onToggleHidden: {
-                            hiddenBalances = HiddenBalancesStore.toggle(accounts[selectedIndex].id)
-                        },
-                        onTogglePrimary: {
-                            onSetPrimary?(accounts[selectedIndex])
-                        },
-                        onShare: {
-                            onShareAccount?(accounts[selectedIndex])
-                        },
-                        onEdit: {
-                            onEditAccount?(accounts[selectedIndex])
-                        }
-                    )
-                    .offset(x: dragOffset)
-                    .gesture(
-                        accounts.count > 1
-                        ? DragGesture(minimumDistance: 20)
-                            .onChanged { value in
-                                guard !isAnimating else { return }
-                                dragOffset = value.translation.width
-                            }
-                            .onEnded { value in
-                                guard !isAnimating else { return }
-                                let threshold = cardWidth * 0.25
-                                let goNext = value.translation.width < -threshold || value.predictedEndTranslation.width < -cardWidth * 0.5
-                                let goPrev = value.translation.width > threshold || value.predictedEndTranslation.width > cardWidth * 0.5
+                    // Next card (right side, visible during swipe left)
+                    if accounts.count > 1 {
+                        cardView(for: nextIndex)
+                            .offset(x: dragOffset + cardWidth)
+                    }
 
-                                if goNext || goPrev {
-                                    let direction: CGFloat = goNext ? -1 : 1
-                                    isAnimating = true
-                                    // Phase 1: slide current card out
-                                    withAnimation(.easeIn(duration: 0.18)) {
-                                        dragOffset = direction * cardWidth
+                    // Previous card (left side, visible during swipe right)
+                    if accounts.count > 1 {
+                        cardView(for: prevIndex)
+                            .offset(x: dragOffset - cardWidth)
+                    }
+
+                    // Active card
+                    cardView(for: selectedIndex)
+                        .offset(x: dragOffset)
+                }
+                .clipped()
+                .gesture(
+                    accounts.count > 1
+                    ? DragGesture(minimumDistance: 15)
+                        .onChanged { value in
+                            guard !isAnimating else { return }
+                            dragOffset = value.translation.width
+                        }
+                        .onEnded { value in
+                            guard !isAnimating else { return }
+                            let threshold = cardWidth * 0.2
+                            let goNext = value.translation.width < -threshold || value.predictedEndTranslation.width < -cardWidth * 0.4
+                            let goPrev = value.translation.width > threshold || value.predictedEndTranslation.width > cardWidth * 0.4
+
+                            if goNext || goPrev {
+                                isAnimating = true
+                                let target: CGFloat = goNext ? -cardWidth : cardWidth
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    dragOffset = target
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    if goNext {
+                                        selectedIndex = nextIndex
+                                    } else {
+                                        selectedIndex = prevIndex
                                     }
-                                    // Phase 2: change index, position new card off-screen, slide in
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-                                        if goNext {
-                                            selectedIndex = (selectedIndex + 1) % accounts.count
-                                        } else {
-                                            selectedIndex = (selectedIndex - 1 + accounts.count) % accounts.count
-                                        }
-                                        dragOffset = -direction * cardWidth
-                                        withAnimation(.easeOut(duration: 0.22)) {
-                                            dragOffset = 0
-                                        }
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                                            isAnimating = false
-                                        }
-                                    }
-                                } else {
-                                    // Snap back
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        dragOffset = 0
-                                    }
+                                    dragOffset = 0
+                                    isAnimating = false
+                                }
+                            } else {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    dragOffset = 0
                                 }
                             }
-                        : nil
-                    )
-                }
+                        }
+                    : nil
+                )
                 .frame(height: 210)
             }
             .frame(height: 210)
@@ -157,6 +151,27 @@ struct AccountCarouselView: View {
                 .accessibilityLabel("Добавить счёт")
             }
         }
+    }
+
+    private func cardView(for index: Int) -> some View {
+        let account = accounts[index]
+        return AccountCardView(
+            account: account,
+            balance: balanceFor(account),
+            isBalanceHidden: hiddenBalances.contains(account.id),
+            onToggleHidden: {
+                hiddenBalances = HiddenBalancesStore.toggle(account.id)
+            },
+            onTogglePrimary: {
+                onSetPrimary?(account)
+            },
+            onShare: {
+                onShareAccount?(account)
+            },
+            onEdit: {
+                onEditAccount?(account)
+            }
+        )
     }
 
     /// Indices of accounts to show as stacked layers behind the active card
