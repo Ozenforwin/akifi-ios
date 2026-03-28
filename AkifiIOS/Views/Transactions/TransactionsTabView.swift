@@ -21,36 +21,31 @@ struct TransactionsTabView: View {
     }()
 
     private var displayedTransactions: [Transaction] {
-        var result = viewModel.filteredTransactions(from: dataStore.transactions)
-
-        // Type filter
-        switch filterType {
-        case .all: break
-        case .expense: result = result.filter { $0.type == .expense && !$0.isTransfer }
-        case .income: result = result.filter { $0.type == .income && !$0.isTransfer }
-        case .transfer: result = result.filter { $0.isTransfer }
-        }
-
-        // Account filter
-        if let accountId = filterAccountId {
-            result = result.filter { $0.accountId == accountId }
-        }
-
-        // Date filter
+        let base = viewModel.filteredTransactions(from: dataStore.transactions)
         let df = Self.isoDF
-        if let from = filterDateFrom {
-            result = result.filter {
-                guard let d = df.date(from: $0.date) else { return true }
-                return d >= Calendar.current.startOfDay(for: from)
+        let cal = Calendar.current
+        let fromDate = filterDateFrom.map { cal.startOfDay(for: $0) }
+        let toDate = filterDateTo.map { cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: $0))! }
+
+        // Single-pass filter for all criteria
+        return base.filter { tx in
+            // Type
+            switch filterType {
+            case .all: break
+            case .expense: guard tx.type == .expense && !tx.isTransfer else { return false }
+            case .income: guard tx.type == .income && !tx.isTransfer else { return false }
+            case .transfer: guard tx.isTransfer else { return false }
             }
-        }
-        if let to = filterDateTo {
-            result = result.filter {
-                guard let d = df.date(from: $0.date) else { return true }
-                return d <= Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: to))!
+            // Account
+            if let accountId = filterAccountId, tx.accountId != accountId { return false }
+            // Date range
+            if fromDate != nil || toDate != nil {
+                guard let d = df.date(from: tx.date) else { return true }
+                if let from = fromDate, d < from { return false }
+                if let to = toDate, d > to { return false }
             }
+            return true
         }
-        return result
     }
 
     private var hasActiveFilters: Bool {

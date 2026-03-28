@@ -48,7 +48,7 @@ final class AssistantViewModel {
             try session.setCategory(.playAndRecord, mode: .default)
             try session.setActive(true)
         } catch {
-            self.error = "Нет доступа к микрофону"
+            self.error = String(localized: "assistant.micError")
             return
         }
 
@@ -90,6 +90,7 @@ final class AssistantViewModel {
         recordingDuration = 0
         if let url = recordingURL { try? FileManager.default.removeItem(at: url) }
         recordingURL = nil
+        try? AVAudioSession.sharedInstance().setActive(false)
     }
 
     func stopRecordingAndSend() async {
@@ -122,6 +123,7 @@ final class AssistantViewModel {
         recordingDuration = 0
         try? FileManager.default.removeItem(at: url)
         recordingURL = nil
+        try? AVAudioSession.sharedInstance().setActive(false)
     }
 
     /// Max conversations to keep (oldest auto-archived beyond this)

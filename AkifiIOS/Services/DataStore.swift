@@ -2,20 +2,17 @@ import Foundation
 
 @Observable @MainActor
 final class DataStore {
-    var accounts: [Account] = [] {
-        didSet { rebuildBalanceCache() }
-    }
-    var transactions: [Transaction] = [] {
-        didSet { rebuildBalanceCache() }
-    }
-    var categories: [Category] = [] {
-        didSet { rebuildCategoryIndex() }
-    }
+    var accounts: [Account] = []
+    var transactions: [Transaction] = []
+    var categories: [Category] = []
     var isLoading = false
     var error: String?
 
     private var balanceCache: [String: Int64] = [:]
     private var categoryIndex: [String: Category] = [:]
+    // Pre-computed per-account income/expense for cards
+    private(set) var accountIncome: [String: Int64] = [:]
+    private(set) var accountExpense: [String: Int64] = [:]
 
     private let accountRepo = AccountRepository()
     private let transactionRepo = TransactionRepository()
@@ -94,14 +91,16 @@ final class DataStore {
             self.error = errors.joined(separator: "; ")
             // print("[DataStore] ⚠️ Load completed with errors: \(self.error!)")
         } else {
-            // print("[DataStore] ✅ All data loaded: \(accounts.count) accounts, \(transactions.count) transactions, \(categories.count) categories, \(budgets.count) budgets, \(subscriptions.count) subscriptions")
+            // print("[DataStore] ✅ All data loaded")
         }
+        rebuildCaches()
         isLoading = false
     }
 
     func addTransaction(_ input: CreateTransactionInput) async throws -> Transaction {
         let tx = try await transactionRepo.create(input)
         transactions.insert(tx, at: 0)
+        rebuildCaches()
         return tx
     }
 
@@ -119,6 +118,7 @@ final class DataStore {
         do {
             try await transactionRepo.delete(id: transaction.id)
             transactions.removeAll { $0.id == transaction.id }
+            rebuildCaches()
         } catch {
             self.error = error.localizedDescription
         }
@@ -139,7 +139,8 @@ final class DataStore {
 
     // MARK: - Cache
 
-    private func rebuildBalanceCache() {
+    /// Rebuild all caches in one pass — call after any data change
+    func rebuildCaches() {
         var incomeByAccount: [String: Int64] = [:]
         var expenseByAccount: [String: Int64] = [:]
 
@@ -162,9 +163,8 @@ final class DataStore {
             cache[account.id] = account.initialBalance + income - expense
         }
         balanceCache = cache
-    }
-
-    private func rebuildCategoryIndex() {
+        accountIncome = incomeByAccount
+        accountExpense = expenseByAccount
         categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
     }
 }

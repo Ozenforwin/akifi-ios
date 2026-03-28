@@ -354,35 +354,18 @@ struct AccountCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    // MARK: - Computed
+    // MARK: - Computed (using pre-cached values from DataStore)
 
-    /// Account is shared if transactions on it come from multiple users
     private var isSharedAccount: Bool {
-        let profilesMap = appViewModel.dataStore.profilesMap
-        let currentUserId = appViewModel.dataStore.profile?.id
-        guard currentUserId != nil, profilesMap.count > 1 else { return false }
-        return appViewModel.dataStore.transactions.contains { tx in
-            tx.accountId == account.id && tx.userId != currentUserId
-        }
+        appViewModel.dataStore.profilesMap.count > 1 &&
+        appViewModel.dataStore.transactions.lazy.contains { $0.accountId == account.id && $0.userId != appViewModel.dataStore.profile?.id }
     }
 
     private var monthlyIncome: Int64 {
-        var total: Int64 = 0
-        for tx in appViewModel.dataStore.transactions {
-            if tx.accountId == account.id && tx.type == .income && !tx.isTransfer {
-                total += tx.amount
-            }
-        }
-        return total
+        appViewModel.dataStore.accountIncome[account.id] ?? 0
     }
 
     private var monthlyExpense: Int64 {
-        var total: Int64 = 0
-        for tx in appViewModel.dataStore.transactions {
-            if tx.accountId == account.id && tx.type == .expense && !tx.isTransfer {
-                total += tx.amount
-            }
-        }
-        return total
+        appViewModel.dataStore.accountExpense[account.id] ?? 0
     }
 }
