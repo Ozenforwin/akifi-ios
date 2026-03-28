@@ -50,6 +50,7 @@ struct MainTabView: View {
     @State private var showAddTransaction = false
     @State private var showAddTransfer = false
     @State private var showAddIncome = false
+    @State private var showReceiptScanner = false
     @State private var unlockedAchievement: Achievement?
 
     var body: some View {
@@ -79,7 +80,7 @@ struct MainTabView: View {
                 case .transfer:
                     showAddTransfer = true
                 case .receipt:
-                    break
+                    showReceiptScanner = true
                 }
             }
 
@@ -120,6 +121,11 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showAddTransfer) {
             TransferFormView(accounts: appViewModel.dataStore.accounts) {
+                await appViewModel.dataStore.loadAll()
+            }
+        }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScannerView {
                 await appViewModel.dataStore.loadAll()
             }
         }

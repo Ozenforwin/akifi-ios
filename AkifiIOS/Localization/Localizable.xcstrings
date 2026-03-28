@@ -5557,6 +5557,167 @@
         }
       }
     },
+    "settings.deleteAccount": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar cuenta"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить аккаунт"
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.confirm": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Deletion"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar eliminación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить удаление"
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.finalConfirm": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Forever"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar para siempre"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить навсегда"
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.finalTitle": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Estás seguro?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы уверены?"
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.finalWarning": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This action is irreversible. Your account and all data will be permanently deleted."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta acción es irreversible. Tu cuenta y todos los datos serán eliminados permanentemente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это действие необратимо. Ваш аккаунт и все данные будут удалены навсегда."
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar cuenta"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удаление аккаунта"
+          }
+        }
+      }
+    },
+    "settings.deleteAccount.warning": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All your data will be permanently deleted: accounts, transactions, budgets, goals and settings. This action cannot be undone."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos tus datos serán eliminados permanentemente: cuentas, transacciones, presupuestos, objetivos y ajustes. Esta acción no se puede deshacer."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все ваши данные будут безвозвратно удалены: счета, транзакции, бюджеты, цели и настройки. Это действие нельзя отменить."
+          }
+        }
+      }
+    },
     "settings.editProfile": {
       "extractionState": "stale",
       "localizations": {
@@ -5741,6 +5902,29 @@
         }
       }
     },
+    "settings.privacy": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy Policy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Política de privacidad"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Политика конфиденциальности"
+          }
+        }
+      }
+    },
     "settings.profile": {
       "extractionState": "stale",
       "localizations": {
@@ -5852,6 +6036,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "НАСТРОЙКИ"
+          }
+        }
+      }
+    },
+    "settings.terms": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of Service"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Términos de servicio"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Условия использования"
           }
         }
       }
@@ -8031,200 +8238,266 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "settings.deleteAccount": {
+    "receipt.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить аккаунт"
+            "value": "Сканер чеков"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Account"
+            "value": "Receipt Scanner"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eliminar cuenta"
+            "value": "Escáner de recibos"
           }
         }
       }
     },
-    "settings.deleteAccount.title": {
+    "receipt.instruction": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удаление аккаунта"
+            "value": "Сфотографируйте чек"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Account"
+            "value": "Take a photo of the receipt"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eliminar cuenta"
+            "value": "Tome una foto del recibo"
           }
         }
       }
     },
-    "settings.deleteAccount.warning": {
+    "receipt.instructionDetail": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Все ваши данные будут безвозвратно удалены: счета, транзакции, бюджеты, цели и настройки. Это действие нельзя отменить."
+            "value": "AI распознает магазин, сумму и товары, и создаст операцию автоматически"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All your data will be permanently deleted: accounts, transactions, budgets, goals and settings. This action cannot be undone."
+            "value": "AI will recognize the store, amount and items, and create a transaction automatically"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Todos tus datos serán eliminados permanentemente: cuentas, transacciones, presupuestos, objetivos y ajustes. Esta acción no se puede deshacer."
+            "value": "La IA reconocerá la tienda, el importe y los artículos, y creará una operación automáticamente"
           }
         }
       }
     },
-    "settings.deleteAccount.confirm": {
+    "receipt.takePhoto": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Продолжить удаление"
+            "value": "Сделать фото"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Continue Deletion"
+            "value": "Take Photo"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Continuar eliminación"
+            "value": "Tomar foto"
           }
         }
       }
     },
-    "settings.deleteAccount.finalTitle": {
+    "receipt.fromGallery": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вы уверены?"
+            "value": "Выбрать из галереи"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Are you sure?"
+            "value": "Choose from Gallery"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Estás seguro?"
+            "value": "Elegir de la galería"
           }
         }
       }
     },
-    "settings.deleteAccount.finalWarning": {
+    "receipt.analyzing": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Это действие необратимо. Ваш аккаунт и все данные будут удалены навсегда."
+            "value": "Распознаём чек..."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This action is irreversible. Your account and all data will be permanently deleted."
+            "value": "Analyzing receipt..."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esta acción es irreversible. Tu cuenta y todos los datos serán eliminados permanentemente."
+            "value": "Analizando recibo..."
           }
         }
       }
     },
-    "settings.deleteAccount.finalConfirm": {
+    "receipt.analyzingDetail": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Удалить навсегда"
+            "value": "Это может занять несколько секунд"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Forever"
+            "value": "This may take a few seconds"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eliminar para siempre"
+            "value": "Esto puede tardar unos segundos"
           }
         }
       }
     },
-    "settings.privacy": {
+    "receipt.merchant": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Политика конфиденциальности"
+            "value": "Магазин"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Privacy Policy"
+            "value": "Merchant"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Política de privacidad"
+            "value": "Comercio"
           }
         }
       }
     },
-    "settings.terms": {
+    "receipt.items": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Условия использования"
+            "value": "Товары"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terms of Service"
+            "value": "Items"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Términos de servicio"
+            "value": "Artículos"
+          }
+        }
+      }
+    },
+    "receipt.saveTransaction": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить операцию"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Transaction"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar operación"
+          }
+        }
+      }
+    },
+    "receipt.loadError": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить изображение"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load image"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al cargar la imagen"
+          }
+        }
+      }
+    },
+    "receipt.compressError": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка сжатия изображения"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image compression error"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de compresión de imagen"
           }
         }
       }
