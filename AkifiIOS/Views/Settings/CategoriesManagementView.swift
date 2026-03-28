@@ -11,7 +11,7 @@ struct CategoriesManagementView: View {
     @State private var deletingTxCount = 0
 
     private let categoryRepo = CategoryRepository()
-    private let maxActive = 25
+    private let maxActive = 40
     private var dataStore: DataStore { appViewModel.dataStore }
 
     /// Deduplicated categories — shared account categories with same name are merged
@@ -66,28 +66,9 @@ struct CategoriesManagementView: View {
             }
 
             if !hiddenCategories.isEmpty {
-                Section(String(localized: "categories.hidden.\(hiddenCategories.count)")) {
+                Section(String(localized: "categories.hidden")) {
                     ForEach(hiddenCategories) { cat in
-                        HStack(spacing: 12) {
-                            Text(cat.icon)
-                                .font(.title3)
-                                .frame(width: 32)
-                            Text(cat.name)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button {
-                                Task {
-                                    try? await categoryRepo.toggleActive(id: cat.id, isActive: true)
-                                    await reloadCategories()
-                                }
-                            } label: {
-                                Text(String(localized: "categories.show"))
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(Color.accent)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        categoryRow(cat)
                     }
                 }
             }
