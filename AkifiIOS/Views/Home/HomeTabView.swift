@@ -65,9 +65,9 @@ struct HomeTabView: View {
                     // 4. Savings
                     HomeSavingsSnapshotView()
 
-                    // 5. Summary Cards (income/expense)
+                    // 5. Summary Cards (income/expense) — all transactions, not just recent
                     SummaryCardsView(
-                        transactions: dataStore.recentTransactions,
+                        transactions: dataStore.transactions,
                         selectedAccount: viewModel.selectedAccount(from: dataStore.accounts)
                     )
 

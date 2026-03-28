@@ -5,14 +5,31 @@ struct SummaryCardsView: View {
     let transactions: [Transaction]
     let selectedAccount: Account?
 
+    private static let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private var currentMonthTransactions: [Transaction] {
+        let cal = Calendar.current
+        let now = Date()
+        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now))!
+        let df = Self.dateFormatter
+        return transactions.filter { tx in
+            guard let d = df.date(from: tx.date) else { return false }
+            return d >= monthStart
+        }
+    }
+
     private var monthlyIncome: Int64 {
-        transactions
+        currentMonthTransactions
             .filter { $0.type == .income && !$0.isTransfer }
             .reduce(0) { $0 + $1.amount }
     }
 
     private var monthlyExpense: Int64 {
-        transactions
+        currentMonthTransactions
             .filter { $0.type == .expense && !$0.isTransfer }
             .reduce(0) { $0 + $1.amount }
     }
