@@ -244,8 +244,15 @@ final class AssistantViewModel {
     // MARK: - Actions
 
     func requestActionPreview(_ action: AssistantAction, messageId: String?) async {
-        guard let conversationId = currentConversation?.id else { return }
-        guard let msgId = messageId else { return }
+        guard let conversationId = currentConversation?.id else {
+            self.error = "Нет активного разговора"
+            return
+        }
+        let msgId = messageId ?? chatMessages.last(where: { $0.role == .assistant })?.messageId ?? ""
+        guard !msgId.isEmpty else {
+            self.error = "Не удалось определить сообщение"
+            return
+        }
 
         pendingAction = action
         pendingMessageId = msgId
