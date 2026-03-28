@@ -95,13 +95,13 @@ struct AnalyticsTabView: View {
                         .font(.system(size: 13, weight: .medium))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(
-                            selectedAccountId == nil
-                                ? AnyShapeStyle(Color.accent)
-                                : AnyShapeStyle(Color(.secondarySystemGroupedBackground))
-                        )
+                        .background(selectedAccountId == nil ? Color.accent : Color(.systemGray6))
                         .foregroundStyle(selectedAccountId == nil ? .white : .primary.opacity(0.7))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(selectedAccountId == nil ? .clear : Color(.systemGray4), lineWidth: 0.5)
+                        )
                 }
                 .buttonStyle(.plain)
 
@@ -117,13 +117,13 @@ struct AnalyticsTabView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(
-                            selectedAccountId == account.id
-                                ? AnyShapeStyle(Color.accent)
-                                : AnyShapeStyle(Color(.secondarySystemGroupedBackground))
-                        )
+                        .background(selectedAccountId == account.id ? Color.accent : Color(.systemGray6))
                         .foregroundStyle(selectedAccountId == account.id ? .white : .primary.opacity(0.7))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(selectedAccountId == account.id ? .clear : Color(.systemGray4), lineWidth: 0.5)
+                        )
                     }
                     .buttonStyle(.plain)
                 }

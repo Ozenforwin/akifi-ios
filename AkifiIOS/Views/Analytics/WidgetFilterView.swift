@@ -38,11 +38,18 @@ struct WidgetFilterView: View {
                             .padding(.vertical, 5)
                             .background(
                                 selectedPeriod == period
-                                    ? AnyShapeStyle(Color.accent.opacity(0.2))
-                                    : AnyShapeStyle(Color(.tertiarySystemBackground))
+                                    ? Color.accent.opacity(0.15)
+                                    : Color(.systemGray6)
                             )
-                            .foregroundStyle(selectedPeriod == period ? Color.accent : .secondary)
+                            .foregroundStyle(selectedPeriod == period ? Color.accent : .primary.opacity(0.6))
                             .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        selectedPeriod == period ? Color.accent.opacity(0.3) : Color(.systemGray4),
+                                        lineWidth: 0.5
+                                    )
+                            )
                     }
                     .buttonStyle(.plain)
                 }

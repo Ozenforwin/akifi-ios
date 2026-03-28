@@ -1,0 +1,9 @@
+appId: ru.akifi.app
+---
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 10000
+- tapOn: "Аналитика"
+- takeScreenshot: test_filter_buttons
+- scroll
+- takeScreenshot: test_filter_buttons_2

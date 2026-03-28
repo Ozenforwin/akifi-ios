@@ -1,0 +1,7 @@
+appId: ru.akifi.app
+---
+- tapOn: "Аналитика"
+- scrollUntilVisible:
+    element: "Все"
+    direction: UP
+- takeScreenshot: test_filters_top
