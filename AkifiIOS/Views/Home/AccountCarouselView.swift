@@ -48,35 +48,35 @@ struct AccountCarouselView: View {
         VStack(spacing: 10) {
             GeometryReader { geo in
                 let cardWidth = geo.size.width
+                let isDragging = dragOffset != 0
+
                 ZStack {
-                    // Stacked cards behind (peek effect, visible when not dragging)
-                    if dragOffset == 0 {
-                        ForEach(Array(stackLayers.enumerated()), id: \.offset) { layerIndex, accountIndex in
-                            let layerOffset = CGFloat(layerIndex + 1)
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(Color(hex: accounts[accountIndex].color).opacity(0.06 + 0.02 * layerOffset))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(Color(hex: accounts[accountIndex].color).opacity(0.08), lineWidth: 0.5)
-                                )
-                                .frame(height: 190 - layerOffset * 12)
-                                .padding(.horizontal, 4 + layerOffset * 12)
-                                .offset(y: layerOffset * 6)
-                                .opacity(1.0 - layerOffset * 0.25)
-                        }
+                    // Stacked cards behind (fade out during drag)
+                    ForEach(Array(stackLayers.enumerated()), id: \.offset) { layerIndex, accountIndex in
+                        let layerOffset = CGFloat(layerIndex + 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color(hex: accounts[accountIndex].color).opacity(0.06 + 0.02 * layerOffset))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color(hex: accounts[accountIndex].color).opacity(0.08), lineWidth: 0.5)
+                            )
+                            .frame(height: 190 - layerOffset * 12)
+                            .padding(.horizontal, 4 + layerOffset * 12)
+                            .offset(y: layerOffset * 6)
+                            .opacity(isDragging ? 0 : 1.0 - layerOffset * 0.25)
                     }
 
-                    // Next card (right side, visible during swipe left)
+                    // Next card (right side)
                     if accounts.count > 1 {
                         cardView(for: nextIndex)
                             .offset(x: dragOffset + cardWidth)
                     }
 
-                    // Previous card (left side, visible during swipe right)
+                    // Previous card (left side)
                     if accounts.count > 1 {
                         cardView(for: prevIndex)
                             .offset(x: dragOffset - cardWidth)
@@ -102,16 +102,14 @@ struct AccountCarouselView: View {
 
                             if goNext || goPrev {
                                 isAnimating = true
+                                let newIndex = goNext ? nextIndex : prevIndex
                                 let target: CGFloat = goNext ? -cardWidth : cardWidth
                                 withAnimation(.easeOut(duration: 0.25)) {
                                     dragOffset = target
                                 }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                    if goNext {
-                                        selectedIndex = nextIndex
-                                    } else {
-                                        selectedIndex = prevIndex
-                                    }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                                    // Update both atomically to prevent flicker
+                                    selectedIndex = newIndex
                                     dragOffset = 0
                                     isAnimating = false
                                 }
@@ -250,11 +248,25 @@ struct AccountCardView: View {
             }
             .padding(.bottom, 10)
 
-            // Account name
+            // Account name + shared badge
             HStack(spacing: 6) {
                 Text(account.name)
                     .font(.subheadline)
                     .foregroundStyle(.primary.opacity(0.7))
+
+                if isSharedAccount {
+                    HStack(spacing: 3) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9))
+                        Text("Общая")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(.systemGray5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
             }
             .padding(.bottom, 2)
 
@@ -343,6 +355,16 @@ struct AccountCardView: View {
     }
 
     // MARK: - Computed
+
+    /// Account is shared if transactions on it come from multiple users
+    private var isSharedAccount: Bool {
+        let profilesMap = appViewModel.dataStore.profilesMap
+        let currentUserId = appViewModel.dataStore.profile?.id
+        guard currentUserId != nil, profilesMap.count > 1 else { return false }
+        return appViewModel.dataStore.transactions.contains { tx in
+            tx.accountId == account.id && tx.userId != currentUserId
+        }
+    }
 
     private var monthlyIncome: Int64 {
         var total: Int64 = 0
