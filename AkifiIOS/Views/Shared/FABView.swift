@@ -226,7 +226,7 @@ struct FABView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 300)
+                .frame(height: 360)
 
                 // Custom page dots below wheel with spacing
                 if pages > 1 {
@@ -241,21 +241,20 @@ struct FABView: View {
                 }
             }
 
-            Text("Выберите категорию")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .padding(.top, 12)
-
             segmentControl
-                .padding(.top, 12)
+                .padding(.top, 16)
 
-            Spacer()
+            Text("Выберите категорию")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
         }
         .padding(.horizontal, 20)
     }
 
     private func categoryPage(categories: [Category]) -> some View {
-        let radius: CGFloat = 105
+        let radius: CGFloat = 130
         let positions = wheelPositions(count: categories.count, radius: radius)
 
         return ZStack {
@@ -274,7 +273,7 @@ struct FABView: View {
             }
             .buttonStyle(.plain)
 
-            // Category items around the circle
+            // Category items around the circle with staggered animation
             ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
                 let pos = index < positions.count ? positions[index] : .zero
                 Button {
@@ -284,23 +283,29 @@ struct FABView: View {
                     VStack(spacing: 2) {
                         ZStack {
                             Circle()
-                                .fill(Color(.systemGray4))
-                                .frame(width: 58, height: 58)
+                                .fill(Color(.systemGray5))
+                                .frame(width: 62, height: 62)
                             Text(cat.icon)
-                                .font(.system(size: 26))
+                                .font(.system(size: 28))
                         }
                         Text(cat.name)
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
-                            .frame(width: 70)
+                            .frame(width: 74)
                     }
                 }
                 .buttonStyle(.plain)
                 .offset(x: pos.x, y: pos.y)
+                .transition(.scale.combined(with: .opacity))
+                .animation(
+                    .spring(duration: 0.4, bounce: 0.25)
+                        .delay(Double(index) * 0.04),
+                    value: showCategoryWheel
+                )
             }
         }
-        .frame(width: 300, height: 300)
+        .frame(width: 340, height: 340)
     }
 
     private func wheelPositions(count: Int, radius: CGFloat) -> [CGPoint] {
