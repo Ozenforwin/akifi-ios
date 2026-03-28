@@ -169,7 +169,6 @@ private struct CustomTabBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
             HStack(spacing: 0) {
                 tabButton("house.fill", String(localized: "tab.home"), 0)
                 tabButton("arrow.left.arrow.right", String(localized: "tab.transactions"), 1)
@@ -188,18 +187,14 @@ private struct CustomTabBar: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
-                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
+                            .frame(width: 52, height: 52)
+                            .shadow(color: Color.aiGradientStart.opacity(0.2), radius: 8, x: 0, y: 4)
 
                         Image(systemName: "sparkles")
-                            .font(.system(size: 24, weight: .medium))
+                            .font(.system(size: 22, weight: .medium))
                             .foregroundStyle(.white)
                     }
-                    .overlay {
-                        Circle()
-                            .stroke(Color(.systemBackground), lineWidth: 4)
-                    }
-                    .offset(y: -18)
+                    .offset(y: -22)
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
@@ -207,11 +202,16 @@ private struct CustomTabBar: View {
                 tabButton("chart.bar.fill", String(localized: "tab.analytics"), 2)
                 tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), 3)
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 24)
         }
-        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -4)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
     private func tabButton(_ icon: String, _ label: String, _ tag: Int) -> some View {
@@ -219,14 +219,15 @@ private struct CustomTabBar: View {
             if hapticEnabled { HapticManager.light() }
             selectedTab = tag
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
             }
             .foregroundStyle(selectedTab == tag ? Color.accent : Color(.secondaryLabel))
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
     }
