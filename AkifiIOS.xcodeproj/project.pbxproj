@@ -28,6 +28,7 @@
 		299A3E39D38911A7265B2818 /* BudgetsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66DD3DED8AB88DA009D848E /* BudgetsTabView.swift */; };
 		2B1201CF5AAD9DB13F9057C4 /* MonthlySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E983FEEC7413320677043F8C /* MonthlySummaryView.swift */; };
 		2BA016C0A6CA70898CDAAA95 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C2581E364E97B98BFB00509A /* Assets.xcassets */; };
+		2ED9A088A3F0AEFACD213814 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = 834E431B1A23BD50027ACEBA /* FirebasePerformance */; };
 		31DF342CF6FEFEE6F1924ED1 /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FB0ED5DFB48929E8AD65FA /* Color+Theme.swift */; };
 		328C8AA23D1D82DF282F1A65 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D178657F88574DCC92D234A4 /* NotificationManager.swift */; };
 		3416533845CF28DA540CF85F /* CategoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B12AC84543A571832A93DC /* CategoryRepository.swift */; };
@@ -50,6 +51,7 @@
 		5A843CB504E6A189C1618FEE /* HomeSavingsSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149E11AA96194A21601EE73F /* HomeSavingsSnapshotView.swift */; };
 		5D06A7492FB09370A52F5C3C /* PortfolioChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19329F8617609B485DA08998 /* PortfolioChartView.swift */; };
 		600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */; };
+		63A0E5F197AD17926641EB8E /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 8533BC74DFE011093EB5C6A8 /* FirebaseCrashlytics */; };
 		63A3AEF9EE4B365CD7AAEB43 /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4068BD5C2B34539ACEE31559 /* Transaction.swift */; };
 		655F981006DF22BEB193F53C /* CalculatorKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B363B39AC388470B707315A4 /* CalculatorKeyboardView.swift */; };
 		67653039202E4322F26F51E5 /* Budget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9D566A28936D17F0B01405 /* Budget.swift */; };
@@ -64,6 +66,7 @@
 		786EA354D9085FBDC9AB1DCD /* Achievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED77D67825DE06280BE5DFAA /* Achievement.swift */; };
 		78FDC02F2F5EE1FA7BBB6E79 /* CurrencyText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65434B73BB450853FC3F444E /* CurrencyText.swift */; };
 		7A2812A26246E5F116D4F497 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ABE6CED9D074DA7137C85F /* SettingsView.swift */; };
+		7A3143046E804BF4A4584BA1 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9B0A98C8755FBF0D63C69 /* AnalyticsService.swift */; };
 		7ABC2332BB3F18D92D077446 /* ExchangeRateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E943C32E125BB4505761CA30 /* ExchangeRateService.swift */; };
 		7B7D530CE41D3234A154F4A8 /* FeatureFlagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */; };
 		7CDA976B95470A71B2DF6CAE /* DailyLimitWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108F419604C10E9308F1B9F8 /* DailyLimitWidgetView.swift */; };
@@ -88,11 +91,13 @@
 		B771507559B09CD034699A19 /* AppHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F658291CB02D80F76BD27E /* AppHeaderView.swift */; };
 		B7A83C6B8DADD643D4AA99DE /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4DE0EF0D2695DE0D29B4E09 /* MessageBubbleView.swift */; };
 		B82B04E318D96348669ADF46 /* Category.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE9EDD22340CC8DDBE7B828B /* Category.swift */; };
+		B8B3054028D47EB2D3D8A35B /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B3C17E539A6BD43789216CDA /* FirebaseMessaging */; };
 		BD1FD7484D2252E5ADE3E523 /* SubscriptionTrackerRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FC94829DD328AD6CE6EDEEC /* SubscriptionTrackerRepository.swift */; };
 		BD8AB698596BA04C28B9527E /* CalculatorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7A9D14959BF7037F672A30 /* CalculatorState.swift */; };
 		BE8CE895B41654C58B5E97F0 /* SavingsGoalCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E5F93F8BC1E265B6438CCB /* SavingsGoalCardView.swift */; };
 		C00001869001CAAFF57ED39E /* AiRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0F925C8D01829EEFAB0374 /* AiRepository.swift */; };
 		C15DC79402F5E6601E8DC782 /* SavingsGoalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1978B204BDE569349E83D21D /* SavingsGoalListView.swift */; };
+		C1813B2585A82E36C14F7079 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = DEC71EEBCF27998E0E473177 /* FirebaseAnalytics */; };
 		C2C0D64A725EBA3C08CBACB4 /* PremiumPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7755B9D1937707AF8E6E1F /* PremiumPaywallView.swift */; };
 		C3686727ACD0FF16D46F6DC1 /* FABView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C98CA2133AC932C9121D5C /* FABView.swift */; };
 		C52AC774F4405C0A1A0752A1 /* AkifiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */; };
@@ -101,8 +106,10 @@
 		CE13051C181A1D26E2789254 /* AccountFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676F23AAA29C1D39C746C9AE /* AccountFormView.swift */; };
 		D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C0D248E5CD52D019DE875 /* HomeTabView.swift */; };
 		D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5FE1332FF774DC471D4F3C /* HomeViewModel.swift */; };
+		DA142C7FAAAA82736F42AA64 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AD01A6497180AB4B83249087 /* GoogleService-Info.plist */; };
 		DAFE5356CFE1D4D53DC5B57B /* String+Nonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B774387BFAAED31DC310A3A /* String+Nonce.swift */; };
 		DC9D5F73ECBB4B2767F4D1FB /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B178C79E5256314A6EC4 /* AuthManager.swift */; };
+		DE38E6ED7F124F1B58E1FB13 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81816EE24C0CD8CB770E5FD4 /* AppDelegate.swift */; };
 		DEB660D12F319BD2F5824827 /* StreakBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9A1EF45AABE938BDD4EE4D /* StreakBadgeView.swift */; };
 		DF46766C21FC5B46B9335070 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */; };
 		E1A7BB737C6BDB410DA975D5 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2075D79E0839CC0130C2C3D /* Account.swift */; };
@@ -191,10 +198,11 @@
 		77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsViewModel.swift; sourceTree = "<group>"; };
 		79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesManagementView.swift; sourceTree = "<group>"; };
 		79EB1D3B16CBD84AD0DCA51E /* UserSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSubscription.swift; sourceTree = "<group>"; };
-		7A9AF5FAAF765DBFB8A2D2FD /* AkifiIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AkifiIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A9AF5FAAF765DBFB8A2D2FD /* AkifiIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AkifiIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		806E97C784D40A84056083B6 /* ActionPreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPreviewSheet.swift; sourceTree = "<group>"; };
 		8121C05311966E50C6E7FAB2 /* TransactionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRepository.swift; sourceTree = "<group>"; };
 		8123FDB865E539181DB1A69E /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		81816EE24C0CD8CB770E5FD4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		84050C2ADCAA39D342B4D8C0 /* Date+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Formatting.swift"; sourceTree = "<group>"; };
 		8473385CFEE3FE00448561C8 /* PaymentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentManager.swift; sourceTree = "<group>"; };
 		84F658291CB02D80F76BD27E /* AppHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHeaderView.swift; sourceTree = "<group>"; };
@@ -206,15 +214,17 @@
 		99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AkifiApp.swift; sourceTree = "<group>"; };
 		9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareAccountView.swift; sourceTree = "<group>"; };
 		A2F7B796D169618419BF335E /* ExchangeRates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExchangeRates.swift; sourceTree = "<group>"; };
+		A3A9B0A98C8755FBF0D63C69 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
 		A927BEDDC3755F4335C2F900 /* BudgetMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetMath.swift; sourceTree = "<group>"; };
 		A9385B9EDEECD0C2F651AC0F /* TransferFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferFormView.swift; sourceTree = "<group>"; };
+		AD01A6497180AB4B83249087 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		AD55F50CC21E0102EDCD83BC /* EvidenceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceCardView.swift; sourceTree = "<group>"; };
 		AE0890C3925BD64853C4FD23 /* BudgetFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetFormView.swift; sourceTree = "<group>"; };
 		AEE752DC97115463EBA144B9 /* ReceiptScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScan.swift; sourceTree = "<group>"; };
 		AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalRepository.swift; sourceTree = "<group>"; };
 		B363B39AC388470B707315A4 /* CalculatorKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorKeyboardView.swift; sourceTree = "<group>"; };
 		B3BFF1D29A1C0333F6FE9665 /* AccountCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCarouselView.swift; sourceTree = "<group>"; };
-		B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B4DE0EF0D2695DE0D29B4E09 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		B711EFFFED8B57AC012BD9E4 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
@@ -264,6 +274,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				A110A47979D241FF9501E804 /* Supabase in Frameworks */,
+				C1813B2585A82E36C14F7079 /* FirebaseAnalytics in Frameworks */,
+				63A0E5F197AD17926641EB8E /* FirebaseCrashlytics in Frameworks */,
+				B8B3054028D47EB2D3D8A35B /* FirebaseMessaging in Frameworks */,
+				2ED9A088A3F0AEFACD213814 /* FirebasePerformance in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,6 +324,7 @@
 				474BCE7E89D91936D05860D2 /* AkifiIOS.entitlements */,
 				6280C5856C5C60280581779C /* AppConstants.swift */,
 				C2581E364E97B98BFB00509A /* Assets.xcassets */,
+				AD01A6497180AB4B83249087 /* GoogleService-Info.plist */,
 				37071238FCD103134034E7EB /* Info.plist */,
 				B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */,
 				FF819C9EB42F0BCF7407996E /* Extensions */,
@@ -530,6 +545,8 @@
 		DB2554E46BD1ED54965B714C /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A3A9B0A98C8755FBF0D63C69 /* AnalyticsService.swift */,
+				81816EE24C0CD8CB770E5FD4 /* AppDelegate.swift */,
 				BD71B178C79E5256314A6EC4 /* AuthManager.swift */,
 				A927BEDDC3755F4335C2F900 /* BudgetMath.swift */,
 				0C7A9D14959BF7037F672A30 /* CalculatorState.swift */,
@@ -603,6 +620,10 @@
 			name = AkifiIOS;
 			packageProductDependencies = (
 				47C26544A304BA16DA1F5165 /* Supabase */,
+				DEC71EEBCF27998E0E473177 /* FirebaseAnalytics */,
+				8533BC74DFE011093EB5C6A8 /* FirebaseCrashlytics */,
+				B3C17E539A6BD43789216CDA /* FirebaseMessaging */,
+				834E431B1A23BD50027ACEBA /* FirebasePerformance */,
 			);
 			productName = AkifiIOS;
 			productReference = 7A9AF5FAAF765DBFB8A2D2FD /* AkifiIOS.app */;
@@ -616,6 +637,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = E35C80D2BD703F2A252320B5 /* Build configuration list for PBXProject "AkifiIOS" */;
 			developmentRegion = ru;
@@ -629,6 +652,7 @@
 			mainGroup = 0BEEC0AC0059325130159D97;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				2A4643144EFCF0123A6DE4D0 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -647,6 +671,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2BA016C0A6CA70898CDAAA95 /* Assets.xcassets in Resources */,
+				DA142C7FAAAA82736F42AA64 /* GoogleService-Info.plist in Resources */,
 				783FFD042EEC7ACD4105F3F5 /* Localizable.xcstrings in Resources */,
 				7DF2299704B2A55F5A1FB703 /* PrivacyInfo.xcprivacy in Resources */,
 				E984E71638C44E9E7534312C /* akifi_logo.png in Resources */,
@@ -674,9 +699,11 @@
 				841F2CADF5FE32648BCA76CA /* AiConversation.swift in Sources */,
 				C00001869001CAAFF57ED39E /* AiRepository.swift in Sources */,
 				C52AC774F4405C0A1A0752A1 /* AkifiApp.swift in Sources */,
+				7A3143046E804BF4A4584BA1 /* AnalyticsService.swift in Sources */,
 				E45A0B3830B992820C3B6BAF /* AnalyticsTabView.swift in Sources */,
 				E2C1E5CDFF2E178FCBF3A27F /* AnalyticsViewModel.swift in Sources */,
 				0B40F2176CF35BF2DC6C61F4 /* AppConstants.swift in Sources */,
+				DE38E6ED7F124F1B58E1FB13 /* AppDelegate.swift in Sources */,
 				B771507559B09CD034699A19 /* AppHeaderView.swift in Sources */,
 				FA93F4D68142094DA039E128 /* AppViewModel.swift in Sources */,
 				FB67AC32B5F6324937EC7AC3 /* AssistantModels.swift in Sources */,
@@ -913,7 +940,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AkifiIOS/AkifiIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -931,7 +957,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AkifiIOS/AkifiIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -967,6 +992,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
 		2A4643144EFCF0123A6DE4D0 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -982,6 +1015,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2A4643144EFCF0123A6DE4D0 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		834E431B1A23BD50027ACEBA /* FirebasePerformance */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebasePerformance;
+		};
+		8533BC74DFE011093EB5C6A8 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		B3C17E539A6BD43789216CDA /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		DEC71EEBCF27998E0E473177 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1569D2F0CA3558CF4CF77EEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

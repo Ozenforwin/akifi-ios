@@ -24,6 +24,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     from: "2.43.0"
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: "11.0.0"
 
 targets:
   AkifiIOS:
@@ -33,6 +36,14 @@ targets:
       - AkifiIOS
     dependencies:
       - package: Supabase
+      - package: Firebase
+        product: FirebaseAnalytics
+      - package: Firebase
+        product: FirebaseCrashlytics
+      - package: Firebase
+        product: FirebaseMessaging
+      - package: Firebase
+        product: FirebasePerformance
     entitlements:
       path: AkifiIOS/AkifiIOS.entitlements
       properties:

@@ -1,8 +1,11 @@
 import SwiftUI
 import Supabase
+import FirebaseCore
+import FirebaseMessaging
 
 @main
 struct AkifiApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @State private var appViewModel = AppViewModel()
 
     init() {
@@ -13,7 +16,7 @@ struct AkifiApp: App {
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
         UINavigationBar.appearance().compactAppearance = navAppearance
 
-        // Dismiss keyboard on scroll/tap in all scrollable views (Forms, Lists, ScrollViews)
+        // Dismiss keyboard on scroll/tap in all scrollable views
         UIScrollView.appearance().keyboardDismissMode = .interactiveWithAccessory
     }
 
