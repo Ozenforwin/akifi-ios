@@ -4,9 +4,8 @@ struct AnalyticsTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = AnalyticsViewModel()
 
-    // Per-widget filters
-    @State private var cashflowPeriod: WidgetPeriod = .month
-    @State private var categoryPeriod: WidgetPeriod = .month
+    // Shared period filter for cashflow + categories
+    @State private var selectedPeriod: WidgetPeriod = .month
 
     // Account filter
     @State private var selectedAccountId: String?
@@ -54,31 +53,28 @@ struct AnalyticsTabView: View {
                         DailyLimitWidgetView()
                     }
 
-                    // 3. Portfolio (moved up)
+                    // 3. Portfolio
                     PortfolioChartView()
 
-                    // 4. Cashflow Chart with own filter
-                    VStack(alignment: .leading, spacing: 8) {
-                        WidgetFilterView(selectedPeriod: $cashflowPeriod)
-                        CashflowChartView(
-                            data: viewModel.cashflowData(from: filteredByPeriod(cashflowPeriod))
-                        )
-                    }
-
-                    // 5. 6-month Trend
+                    // 4. 6-month Trend (above cashflow)
                     CashflowTrendView(transactions: allTransactions)
 
-                    // 6. Category Breakdown with own filter
-                    VStack(alignment: .leading, spacing: 8) {
-                        WidgetFilterView(selectedPeriod: $categoryPeriod)
-                        CategoryBreakdownView(
-                            data: viewModel.categoryBreakdown(
-                                from: filteredByPeriod(categoryPeriod),
-                                categories: dataStore.categories
-                            ),
-                            transactions: filteredByPeriod(categoryPeriod)
-                        )
-                    }
+                    // 5. Period filter (shared for cashflow + categories)
+                    WidgetFilterView(selectedPeriod: $selectedPeriod)
+
+                    // 6. Cashflow Chart
+                    CashflowChartView(
+                        data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
+                    )
+
+                    // 7. Category Breakdown
+                    CategoryBreakdownView(
+                        data: viewModel.categoryBreakdown(
+                            from: filteredByPeriod(selectedPeriod),
+                            categories: dataStore.categories
+                        ),
+                        transactions: filteredByPeriod(selectedPeriod)
+                    )
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
