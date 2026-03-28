@@ -14,16 +14,33 @@ struct CategoriesManagementView: View {
     private let maxActive = 25
     private var dataStore: DataStore { appViewModel.dataStore }
 
+    /// Deduplicated categories — shared account categories with same name are merged
+    private var uniqueCategories: [Category] {
+        var seen: Set<String> = []
+        return categories.filter { cat in
+            let key = "\(cat.name.lowercased())_\(cat.type.rawValue)"
+            if seen.contains(key) { return false }
+            seen.insert(key)
+            return true
+        }
+    }
+
+    /// Only user's own categories (not from shared accounts)
+    private var ownCategories: [Category] {
+        let currentUserId = dataStore.profile?.id ?? ""
+        return uniqueCategories.filter { $0.userId == currentUserId || $0.accountId == nil }
+    }
+
     private var incomeCategories: [Category] {
-        categories.filter { $0.type == .income }
+        uniqueCategories.filter { $0.type == .income }
     }
 
     private var expenseCategories: [Category] {
-        categories.filter { $0.type == .expense }
+        uniqueCategories.filter { $0.type == .expense }
     }
 
     private var activeCount: Int {
-        categories.count
+        ownCategories.count
     }
 
     var body: some View {
