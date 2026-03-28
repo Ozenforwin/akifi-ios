@@ -167,13 +167,13 @@ struct InsightCardsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(insight.color.opacity(0.04))
+                    .background(insight.color.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(
                                 LinearGradient(
-                                    colors: [insight.color.opacity(0.4), insight.color.opacity(0.15)],
+                                    colors: [insight.color.opacity(0.5), insight.color.opacity(0.2)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),

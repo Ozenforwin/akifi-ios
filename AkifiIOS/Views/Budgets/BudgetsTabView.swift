@@ -216,7 +216,7 @@ struct BudgetsTabView: View {
             .frame(height: 4)
         }
         .padding(12)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
     }

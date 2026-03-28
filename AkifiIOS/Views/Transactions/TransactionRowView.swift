@@ -74,9 +74,9 @@ struct TransactionRowView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+        .shadow(color: .primary.opacity(0.06), radius: 6, x: 0, y: 2)
     }
 
     // MARK: - Computed

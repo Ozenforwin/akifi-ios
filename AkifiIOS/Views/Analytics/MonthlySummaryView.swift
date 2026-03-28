@@ -80,7 +80,7 @@ struct MonthlySummaryView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(.background)
+            .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
@@ -117,7 +117,7 @@ struct MonthlySummaryView: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(12)
-        .background(.background)
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)

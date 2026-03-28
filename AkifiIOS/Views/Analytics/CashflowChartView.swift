@@ -36,7 +36,7 @@ struct CashflowChartView: View {
             }
         }
         .padding()
-        .background(.background)
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

@@ -284,7 +284,7 @@ struct FABView: View {
                 HStack(spacing: 6) {
                     ForEach(0..<pages, id: \.self) { i in
                         Capsule()
-                            .fill(i == currentPage ? Color.white : Color.white.opacity(0.4))
+                            .fill(i == currentPage ? Color.primary : Color.primary.opacity(0.3))
                             .frame(width: i == currentPage ? 16 : 6, height: 6)
                     }
                 }
