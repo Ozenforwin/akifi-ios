@@ -40,13 +40,17 @@ struct AnalyticsTabView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    // Account filter header
-                    accountFilterHeader
+            VStack(spacing: 0) {
+                // Sticky account filter
+                accountFilterHeader
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.bar)
 
-                    // 1. Monthly Summary with % change
-                    MonthlySummaryView(transactions: allTransactions)
+                ScrollView {
+                    VStack(spacing: 12) {
+                        // 1. Monthly Summary with % change
+                        MonthlySummaryView(transactions: allTransactions)
 
                     // 2. Daily Limit Widget
                     if !dataStore.budgets.isEmpty {
@@ -76,12 +80,13 @@ struct AnalyticsTabView: View {
                         transactions: filteredByPeriod(selectedPeriod)
                     )
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 100)
-            }
-            .refreshable {
-                await appViewModel.dataStore.loadAll()
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                    .padding(.bottom, 100)
+                }
+                .refreshable {
+                    await appViewModel.dataStore.loadAll()
+                }
             }
             .navigationTitle("Аналитика")
         }
