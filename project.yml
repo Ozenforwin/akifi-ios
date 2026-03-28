@@ -8,6 +8,7 @@ options:
   knownRegions:
     - ru
     - en
+    - es
 
 configFiles:
   Debug: Config/Debug.xcconfig

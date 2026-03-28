@@ -3,6 +3,16 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("appLanguage") private var appLanguage = "system"
+
+    private var currentLanguageName: String {
+        switch appLanguage {
+        case "ru": return "Русский"
+        case "en": return "English"
+        case "es": return "Español"
+        default: return String(localized: "settings.language.system")
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -60,7 +70,7 @@ struct SettingsView: View {
                     .listRowBackground(Color.clear)
                 }
 
-                Section(header: Text("ОСНОВНОЕ")) {
+                Section(header: Text(String(localized: "settings.section.general"))) {
                     NavigationLink {
                         ProfileEditView()
                     } label: {
@@ -74,7 +84,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section(header: Text("НАСТРОЙКИ")) {
+                Section(header: Text(String(localized: "settings.section.settings"))) {
                     NavigationLink {
                         CurrencyPickerView()
                     } label: {
@@ -82,9 +92,15 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        LanguagePickerView()
+                    } label: {
+                        SettingsRow(icon: "globe", color: .blue, title: String(localized: "settings.language"), value: currentLanguageName)
+                    }
+
+                    NavigationLink {
                         AISettingsView()
                     } label: {
-                        SettingsRow(icon: "sparkles", color: .purple, title: "AI ассистент")
+                        SettingsRow(icon: "sparkles", color: .purple, title: String(localized: "settings.aiAssistant"))
                     }
 
                     NavigationLink {
@@ -93,25 +109,22 @@ struct SettingsView: View {
                         SettingsRow(icon: "bell.fill", color: .orange, title: String(localized: "settings.notifications"))
                     }
 
-                    // Theme
                     NavigationLink {
                         ThemePickerView()
                     } label: {
-                        SettingsRow(icon: "paintbrush.fill", color: .indigo, title: "Тема", value: appViewModel.themeManager.themeName)
+                        SettingsRow(icon: "paintbrush.fill", color: .indigo, title: String(localized: "settings.theme"), value: appViewModel.themeManager.themeName)
                     }
 
-                    // Category Layout
                     NavigationLink {
                         CategoryLayoutPickerView()
                     } label: {
-                        SettingsRow(icon: "square.grid.2x2", color: .teal, title: "Вид категорий")
+                        SettingsRow(icon: "square.grid.2x2", color: .teal, title: String(localized: "settings.categoryLayout"))
                     }
 
-                    // Haptic feedback
                     HapticToggleRow()
                 }
 
-                Section(header: Text("ФИНАНСЫ")) {
+                Section(header: Text(String(localized: "settings.section.finance"))) {
                     NavigationLink {
                         SavingsGoalListView()
                     } label: {
@@ -146,11 +159,11 @@ struct SettingsView: View {
                     }
                 }
 
-                Section(header: Text("ДАННЫЕ")) {
+                Section(header: Text(String(localized: "settings.section.data"))) {
                     NavigationLink {
                         ExportView()
                     } label: {
-                        SettingsRow(icon: "square.and.arrow.up", color: .blue, title: "Экспорт CSV")
+                        SettingsRow(icon: "square.and.arrow.up", color: .blue, title: String(localized: "settings.export"))
                     }
                 }
 
@@ -386,7 +399,56 @@ struct HapticToggleRow: View {
                 .background(Color.pink)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
-            Toggle("Тактильный отклик", isOn: $hapticEnabled)
+            Toggle(String(localized: "settings.haptic"), isOn: $hapticEnabled)
+        }
+    }
+}
+
+struct LanguagePickerView: View {
+    @AppStorage("appLanguage") private var appLanguage = "system"
+
+    private let languages: [(id: String, name: String, flag: String)] = [
+        ("system", "System", "🌐"),
+        ("ru", "Русский", "🇷🇺"),
+        ("en", "English", "🇺🇸"),
+        ("es", "Español", "🇪🇸"),
+    ]
+
+    var body: some View {
+        List {
+            ForEach(languages, id: \.id) { lang in
+                Button {
+                    appLanguage = lang.id
+                    applyLanguage(lang.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        Text(lang.flag)
+                            .font(.title2)
+                        Text(lang.name)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if appLanguage == lang.id {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.accent)
+                        }
+                    }
+                }
+            }
+
+            Section {
+                Text(String(localized: "settings.language.restart"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle(String(localized: "settings.language"))
+    }
+
+    private func applyLanguage(_ code: String) {
+        if code == "system" {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
         }
     }
 }

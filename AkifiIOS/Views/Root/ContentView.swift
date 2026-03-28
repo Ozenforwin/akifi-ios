@@ -171,8 +171,8 @@ private struct CustomTabBar: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 0) {
-                tabButton("house.fill", "Главная", 0)
-                tabButton("arrow.left.arrow.right", "Операции", 1)
+                tabButton("house.fill", String(localized: "tab.home"), 0)
+                tabButton("arrow.left.arrow.right", String(localized: "tab.transactions"), 1)
 
                 // Center AI button
                 Button {
@@ -194,8 +194,8 @@ private struct CustomTabBar: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
 
-                tabButton("chart.bar.fill", "Аналитика", 2)
-                tabButton("wallet.bifold.fill", "Бюджеты", 3)
+                tabButton("chart.bar.fill", String(localized: "tab.analytics"), 2)
+                tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), 3)
             }
             .padding(.horizontal, 8)
             .padding(.top, 8)
