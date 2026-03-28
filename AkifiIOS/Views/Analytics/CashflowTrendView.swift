@@ -6,6 +6,8 @@ struct CashflowTrendView: View {
 
     let transactions: [Transaction]
 
+    @State private var selectedLabel: String?
+
     private static let dateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -49,68 +51,119 @@ struct CashflowTrendView: View {
         return points
     }
 
+    private var selectedPoint: TrendPoint? {
+        guard let selectedLabel else { return nil }
+        return trendData.first { $0.label == selectedLabel }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Тренд (6 месяцев)")
+            Text("Тренд доходов и расходов")
                 .font(.headline)
 
             if trendData.allSatisfy({ $0.income == 0 && $0.expense == 0 }) {
                 ContentUnavailableView("Нет данных", systemImage: "chart.line.uptrend.xyaxis")
                     .frame(height: 180)
             } else {
-                Chart {
-                    ForEach(trendData) { point in
-                        LineMark(
-                            x: .value("Месяц", point.label),
-                            y: .value("Сумма", point.income),
-                            series: .value("Тип", "Доходы")
-                        )
-                        .foregroundStyle(Color.income)
-                        .symbol(.circle)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                trendChart
+                    .frame(height: 200)
 
-                        AreaMark(
-                            x: .value("Месяц", point.label),
-                            y: .value("Сумма", point.income),
-                            series: .value("Тип", "Доходы")
-                        )
-                        .foregroundStyle(Color.income.opacity(0.08))
-                        .interpolationMethod(.catmullRom)
-
-                        LineMark(
-                            x: .value("Месяц", point.label),
-                            y: .value("Сумма", point.expense),
-                            series: .value("Тип", "Расходы")
-                        )
-                        .foregroundStyle(Color.expense)
-                        .symbol(.triangle)
-                        .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-
-                        AreaMark(
-                            x: .value("Месяц", point.label),
-                            y: .value("Сумма", point.expense),
-                            series: .value("Тип", "Расходы")
-                        )
-                        .foregroundStyle(Color.expense.opacity(0.08))
-                        .interpolationMethod(.catmullRom)
-                    }
+                // Legend
+                HStack(spacing: 20) {
+                    Spacer()
+                    legendItem(color: Color.income, label: "Доход")
+                    legendItem(color: Color.expense, label: "Расход")
+                    Spacer()
                 }
-                .chartForegroundStyleScale([
-                    "Доходы": Color.income,
-                    "Расходы": Color.expense
-                ])
-                .chartLegend(position: .top, alignment: .leading)
-                .chartYAxis {
-                    AxisMarks(position: .leading)
-                }
-                .frame(height: 200)
+                .padding(.top, 4)
             }
         }
         .padding()
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+    }
+
+    private var trendChart: some View {
+        Chart {
+            ForEach(trendData) { point in
+                incomeMarks(point: point)
+                expenseMarks(point: point)
+            }
+
+            if let selected = selectedPoint {
+                RuleMark(x: .value("Месяц", selected.label))
+                    .foregroundStyle(Color.gray.opacity(0.3))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: .top, alignment: .center) {
+                        tooltipView(point: selected)
+                    }
+            }
+        }
+        .chartLegend(.hidden)
+        .chartYAxis {
+            AxisMarks(position: .leading)
+        }
+        .chartXSelection(value: $selectedLabel)
+    }
+
+    private func incomeMarks(point: TrendPoint) -> some ChartContent {
+        LineMark(
+            x: .value("Месяц", point.label),
+            y: .value("Сумма", point.income),
+            series: .value("Тип", "Доходы")
+        )
+        .foregroundStyle(Color.income)
+        .symbol(.circle)
+        .interpolationMethod(.catmullRom)
+        .lineStyle(StrokeStyle(lineWidth: 2.5))
+    }
+
+    private func expenseMarks(point: TrendPoint) -> some ChartContent {
+        LineMark(
+            x: .value("Месяц", point.label),
+            y: .value("Сумма", point.expense),
+            series: .value("Тип", "Расходы")
+        )
+        .foregroundStyle(Color.expense)
+        .symbol(.circle)
+        .interpolationMethod(.catmullRom)
+        .lineStyle(StrokeStyle(lineWidth: 2.5))
+    }
+
+    private func tooltipView(point: TrendPoint) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(point.label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            Text("+\(appViewModel.currencyManager.formatAmount(point.income))")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.income)
+
+            Text("-\(appViewModel.currencyManager.formatAmount(point.expense))")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.expense)
+        }
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+    }
+
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
