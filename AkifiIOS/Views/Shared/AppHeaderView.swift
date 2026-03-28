@@ -20,9 +20,20 @@ struct AppHeaderView: View {
                             )
                             .frame(width: 36, height: 36)
 
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
+                        if let avatarUrl = appViewModel.dataStore.profile?.avatarUrl,
+                           let url = URL(string: avatarUrl) {
+                            CachedAsyncImage(url: url) {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 0) {

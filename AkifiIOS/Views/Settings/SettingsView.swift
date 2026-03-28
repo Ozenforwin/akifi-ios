@@ -20,12 +20,23 @@ struct SettingsView: View {
                                 )
                                 .frame(width: 80, height: 80)
 
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 32))
-                                .foregroundStyle(.secondary)
+                            if let avatarUrl = appViewModel.dataStore.profile?.avatarUrl,
+                               let url = URL(string: avatarUrl) {
+                                CachedAsyncImage(url: url) {
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(width: 74, height: 74)
+                                .clipShape(Circle())
+                            } else {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
 
-                        Text(appViewModel.authManager.currentUser?.email ?? "User")
+                        Text(appViewModel.dataStore.profile?.fullName ?? appViewModel.authManager.currentUser?.email ?? "User")
                             .font(.headline)
 
                         if appViewModel.paymentManager.isPremium {
