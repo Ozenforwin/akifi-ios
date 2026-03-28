@@ -41,25 +41,58 @@ struct FABView: View {
 
                 VStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        ZStack(alignment: .bottomTrailing) {
-                            ForEach(Array(menuItems.enumerated()), id: \.offset) { index, item in
-                                arcButton(item: item, index: index)
-                            }
 
-                            // Close/× button at FAB position
+                    // Menu items stacked vertically
+                    VStack(spacing: 14) {
+                        ForEach(Array(menuItems.enumerated()), id: \.offset) { index, item in
                             Button {
+                                HapticManager.light()
                                 withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
+                                onAction(item.action)
                             } label: {
-                                fabCircle(icon: "xmark")
+                                HStack(spacing: 12) {
+                                    Spacer()
+                                    Text(item.label)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                    ZStack {
+                                        Circle()
+                                            .fill(item.color)
+                                            .frame(width: subButtonSize, height: subButtonSize)
+                                        Image(systemName: item.icon)
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
                             }
                             .buttonStyle(.plain)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .opacity
+                            ))
+                            .animation(
+                                .spring(duration: 0.35, bounce: 0.2).delay(Double(index) * 0.06),
+                                value: isMenuExpanded
+                            )
                         }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 90)
                     }
+                    .padding(.trailing, 24)
+
+                    // Close button
+                    HStack {
+                        Spacer()
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
+                        } label: {
+                            fabCircle(icon: "xmark")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 110)
                 }
+                .onAppear { HapticManager.medium() }
             }
 
             // MARK: - Category wheel (tap mode) — only wheel layout uses fullscreen overlay
@@ -104,7 +137,7 @@ struct FABView: View {
                                 }
                             })
                         .padding(.trailing, 20)
-                        .padding(.bottom, 90)
+                        .padding(.bottom, 110)
                     }
                 }
             }
@@ -157,41 +190,7 @@ struct FABView: View {
         }
     }
 
-    // MARK: - Arc button (long-press)
-
-    private func arcButton(item: (action: FABAction, label: String, icon: String, color: Color, angle: Double), index: Int) -> some View {
-        let rad = item.angle * .pi / 180
-        let radius: CGFloat = 140
-        // x goes left (negative), y goes up (negative) — offset relative to bottom-trailing anchor
-        let dx = cos(rad) * radius
-        let dy = sin(rad) * radius
-
-        return Button {
-            withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
-            onAction(item.action)
-        } label: {
-            HStack(spacing: 8) {
-                Text(item.label)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .shadow(color: .white.opacity(0.8), radius: 2)
-
-                ZStack {
-                    Circle()
-                        .fill(item.color)
-                        .frame(width: subButtonSize, height: subButtonSize)
-
-                    Image(systemName: item.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .offset(x: dx, y: dy)
-        .transition(.scale.combined(with: .opacity))
-        .animation(.spring(duration: 0.35, bounce: 0.2).delay(Double(index) * 0.05), value: isMenuExpanded)
-    }
+    // arcButton removed — using vertical VStack layout instead
 
     // MARK: - Category wheel
 
