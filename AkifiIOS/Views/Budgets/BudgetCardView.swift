@@ -24,7 +24,7 @@ struct BudgetCardView: View {
     private var statusLabel: (text: String, color: Color) {
         switch metrics.status {
         case .onTrack: return ("В норме", .green)
-        case .warning: return ("Внимание", Color(hex: "#F59E0B"))
+        case .warning: return ("Внимание", Color.warning)
         case .nearLimit: return ("Почти лимит", .orange)
         case .overLimit: return ("Превышен", .red)
         }
@@ -33,7 +33,7 @@ struct BudgetCardView: View {
     private var riskBorderColor: Color {
         switch metrics.riskLevel {
         case .low: return .clear
-        case .medium: return Color(hex: "#F59E0B").opacity(0.3)
+        case .medium: return Color.warning.opacity(0.3)
         case .high: return .orange.opacity(0.4)
         case .critical: return .red.opacity(0.4)
         }
@@ -44,7 +44,7 @@ struct BudgetCardView: View {
             return ("В темпе", .green)
         } else {
             let overage = Int((metrics.paceRatio - 1.0) * 100)
-            return ("+\(overage)%", Color(hex: "#F59E0B"))
+            return ("+\(overage)%", Color.warning)
         }
     }
 

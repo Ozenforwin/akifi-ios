@@ -6,13 +6,32 @@ struct StreakBadgeView: View {
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
+    private var streakGradient: LinearGradient {
+        let colors: [Color] = if currentStreak >= 30 {
+            [Color(hex: "#8B5CF6"), Color(hex: "#D946EF")]
+        } else if currentStreak >= 14 {
+            [Color(hex: "#F97316"), Color(hex: "#EF4444")]
+        } else if currentStreak >= 7 {
+            [Color(hex: "#FBBF24"), Color(hex: "#F97316")]
+        } else if currentStreak >= 3 {
+            [Color(hex: "#FDE68A"), Color(hex: "#FBBF24")]
+        } else {
+            [Color.gray, Color.gray.opacity(0.7)]
+        }
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
     var body: some View {
         Group {
             if currentStreak > 0 {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    // Flame icon in gradient square
                     Image(systemName: "flame.fill")
-                        .foregroundStyle(.orange.gradient)
-                        .font(.title3)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(streakGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(currentStreak) \(streakLabel)")
@@ -21,15 +40,20 @@ struct StreakBadgeView: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+
                     Spacer()
+
+                    HStack(spacing: 2) {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(streakGradient)
+                        Text("\(currentStreak)")
+                    }
+                    .font(.system(size: 18, weight: .bold))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Стрик \(currentStreak) дней")
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         .task { calculateStreak() }
@@ -45,9 +69,14 @@ struct StreakBadgeView: View {
         return "дней"
     }
 
-    private func calculateStreak() {
+    private static let dateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private func calculateStreak() {
+        let df = Self.dateFormatter
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 

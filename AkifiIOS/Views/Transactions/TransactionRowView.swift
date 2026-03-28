@@ -87,7 +87,7 @@ struct TransactionRowView: View {
 
     private var iconBackground: Color {
         if isTransfer {
-            return Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.08)
+            return Color.transfer.opacity(0.08)
         }
         return Color(hex: category?.color ?? "#888888").opacity(0.08)
     }
@@ -104,12 +104,12 @@ struct TransactionRowView: View {
 
     private var amountColor: Color {
         if isTransfer {
-            return Color(red: 0.23, green: 0.51, blue: 0.96)
+            return Color.transfer
         }
         switch transaction.type {
         case .income: return Color.income
         case .expense: return Color.expense
-        case .transfer: return Color(red: 0.23, green: 0.51, blue: 0.96)
+        case .transfer: return Color.transfer
         }
     }
 
@@ -127,17 +127,23 @@ struct TransactionRowView: View {
         return "\(sign)\(appViewModel.currencyManager.formatAmount(transaction.amount.displayAmount))"
     }
 
-    private var formattedDate: String {
-        // "26 мар. 2026, 15:43" style
-        let dateStr = transaction.date // "2026-03-26"
+    private static let inputDateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         df.locale = Locale(identifier: "ru_RU")
-        guard let date = df.date(from: dateStr) else { return dateStr }
-        let outDf = DateFormatter()
-        outDf.locale = Locale(identifier: "ru_RU")
-        outDf.dateFormat = "d MMM yyyy"
-        return outDf.string(from: date)
+        return df
+    }()
+
+    private static let outputDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "ru_RU")
+        df.dateFormat = "d MMM yyyy"
+        return df
+    }()
+
+    private var formattedDate: String {
+        guard let date = Self.inputDateFormatter.date(from: transaction.date) else { return transaction.date }
+        return Self.outputDateFormatter.string(from: date)
     }
 
     // MARK: - Subviews

@@ -1,6 +1,6 @@
 import Foundation
 
-struct SavingsGoal: Codable, Identifiable, Sendable {
+struct SavingsGoal: Decodable, Identifiable, Sendable {
     let id: String
     let userId: String
     var name: String
@@ -46,6 +46,67 @@ struct SavingsGoal: Codable, Identifiable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+
+    init(id: String, userId: String, name: String, icon: String, color: String, targetAmount: Int64, currentAmount: Int64, currency: String? = nil, deadline: String? = nil, description: String? = nil, accountId: String? = nil, interestRate: Double? = nil, interestType: String? = nil, interestCompound: Bool? = nil, totalInterestEarned: Int64? = nil, monthlyTarget: Int64? = nil, reminderEnabled: Bool = false, reminderDay: Int? = nil, status: SavingsGoalStatus = .active, completedAt: String? = nil, priority: Int = 0, createdAt: String? = nil, updatedAt: String? = nil) {
+        self.id = id; self.userId = userId; self.name = name; self.icon = icon
+        self.color = color; self.targetAmount = targetAmount; self.currentAmount = currentAmount
+        self.currency = currency; self.deadline = deadline; self.description = description
+        self.accountId = accountId; self.interestRate = interestRate; self.interestType = interestType
+        self.interestCompound = interestCompound; self.totalInterestEarned = totalInterestEarned
+        self.monthlyTarget = monthlyTarget; self.reminderEnabled = reminderEnabled
+        self.reminderDay = reminderDay; self.status = status; self.completedAt = completedAt
+        self.priority = priority; self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        userId = try container.decode(String.self, forKey: .userId)
+        name = try container.decode(String.self, forKey: .name)
+        icon = try container.decode(String.self, forKey: .icon)
+        color = try container.decode(String.self, forKey: .color)
+        targetAmount = Self.decodeNumericAmount(from: container, key: .targetAmount)
+        currentAmount = Self.decodeNumericAmount(from: container, key: .currentAmount)
+        currency = try container.decodeIfPresent(String.self, forKey: .currency)
+        deadline = try container.decodeIfPresent(String.self, forKey: .deadline)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        accountId = try container.decodeIfPresent(String.self, forKey: .accountId)
+        interestRate = try container.decodeIfPresent(Double.self, forKey: .interestRate)
+        interestType = try container.decodeIfPresent(String.self, forKey: .interestType)
+        interestCompound = try container.decodeIfPresent(Bool.self, forKey: .interestCompound)
+        totalInterestEarned = Self.decodeOptionalNumericAmount(from: container, key: .totalInterestEarned)
+        monthlyTarget = Self.decodeOptionalNumericAmount(from: container, key: .monthlyTarget)
+        reminderEnabled = try container.decodeIfPresent(Bool.self, forKey: .reminderEnabled) ?? false
+        reminderDay = try container.decodeIfPresent(Int.self, forKey: .reminderDay)
+        status = try container.decodeIfPresent(SavingsGoalStatus.self, forKey: .status) ?? .active
+        completedAt = try container.decodeIfPresent(String.self, forKey: .completedAt)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+    }
+
+    /// Decode DB numeric (rubles) → Int64 kopecks
+    private static func decodeNumericAmount(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int64 {
+        if let dbl = try? container.decode(Double.self, forKey: key) {
+            return Int64((dbl * 100).rounded())
+        }
+        if let str = try? container.decode(String.self, forKey: key),
+           let decimal = Decimal(string: str) {
+            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        }
+        return 0
+    }
+
+    private static func decodeOptionalNumericAmount(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int64? {
+        if let dbl = try? container.decode(Double.self, forKey: key) {
+            return Int64((dbl * 100).rounded())
+        }
+        if let str = try? container.decode(String.self, forKey: key),
+           let decimal = Decimal(string: str) {
+            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        }
+        return nil
+    }
 }
 
 enum SavingsGoalStatus: String, Codable, Sendable {
@@ -55,7 +116,7 @@ enum SavingsGoalStatus: String, Codable, Sendable {
     case archived
 }
 
-struct SavingsContribution: Codable, Identifiable, Sendable {
+struct SavingsContribution: Decodable, Identifiable, Sendable {
     let id: String
     let goalId: String
     let userId: String
@@ -72,6 +133,26 @@ struct SavingsContribution: Codable, Identifiable, Sendable {
         case amount, type, note
         case transactionId = "transaction_id"
         case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        goalId = try container.decode(String.self, forKey: .goalId)
+        userId = try container.decode(String.self, forKey: .userId)
+        // numeric → kopecks
+        if let dbl = try? container.decode(Double.self, forKey: .amount) {
+            amount = Int64((dbl * 100).rounded())
+        } else if let str = try? container.decode(String.self, forKey: .amount),
+                  let decimal = Decimal(string: str) {
+            amount = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        } else {
+            amount = 0
+        }
+        type = try container.decode(ContributionType.self, forKey: .type)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+        transactionId = try container.decodeIfPresent(String.self, forKey: .transactionId)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
     }
 }
 

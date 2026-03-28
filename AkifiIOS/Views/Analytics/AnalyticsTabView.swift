@@ -20,10 +20,15 @@ struct AnalyticsTabView: View {
         return dataStore.transactions
     }
 
-    private func filteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
-        let startDate = period.startDate()
+    private static let isoDateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private func filteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
+        let startDate = period.startDate()
+        let df = Self.isoDateFormatter
         return allTransactions.filter { tx in
             guard let date = df.date(from: tx.date) else { return false }
             return date >= startDate

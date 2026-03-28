@@ -39,7 +39,7 @@ struct SavingsGoalListView: View {
                                                 note: note
                                             )
                                         }
-                                        .task {
+                                        .task(id: goal.id) {
                                             await viewModel.loadContributions(for: goal.id)
                                         }
                                     } label: {

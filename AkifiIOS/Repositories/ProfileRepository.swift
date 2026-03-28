@@ -5,10 +5,22 @@ final class ProfileRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetch() async throws -> Profile {
-        try await supabase
+        let userId = try await supabase.auth.session.user.id.uuidString
+        return try await supabase
             .from("profiles")
             .select()
+            .eq("id", value: userId)
             .single()
+            .execute()
+            .value
+    }
+
+    func fetchAll(ids: [String]) async throws -> [Profile] {
+        guard !ids.isEmpty else { return [] }
+        return try await supabase
+            .from("profiles")
+            .select()
+            .in("id", values: ids)
             .execute()
             .value
     }

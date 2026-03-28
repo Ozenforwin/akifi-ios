@@ -24,6 +24,14 @@ final class SubscriptionTrackerRepository: Sendable {
             .value
     }
 
+    func update(id: String, _ input: UpdateSubscriptionInput) async throws {
+        try await supabase
+            .from("subscriptions")
+            .update(input)
+            .eq("id", value: id)
+            .execute()
+    }
+
     func delete(id: String) async throws {
         try await supabase
             .from("subscriptions")
@@ -35,8 +43,15 @@ final class SubscriptionTrackerRepository: Sendable {
 
 struct CreateSubscriptionInput: Encodable, Sendable {
     let service_name: String
-    let amount: Int64
+    let amount: Decimal
     let billing_period: String
     let start_date: String
+    let icon_color: String?
+}
+
+struct UpdateSubscriptionInput: Encodable, Sendable {
+    let service_name: String?
+    let amount: Decimal?
+    let billing_period: String?
     let icon_color: String?
 }

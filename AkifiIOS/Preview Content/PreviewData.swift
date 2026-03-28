@@ -90,20 +90,13 @@ enum PreviewData {
     static let budget = Budget(
         id: "budget-1",
         userId: "preview-user",
-        accountId: nil,
-        name: "Еда на месяц",
         amount: 30_000_00,
-        currency: "RUB",
         billingPeriod: .monthly,
-        categories: ["cat-food"],
-        periodStart: nil,
-        periodEnd: nil,
+        categoryIds: ["cat-food"],
         rolloverEnabled: false,
-        alertThreshold: 0.8,
-        thresholdType: nil,
+        alertThresholds: [80],
         isActive: true,
-        createdAt: "2025-01-01",
-        updatedAt: nil
+        createdAt: "2025-01-01"
     )
 
     static let savingsGoal = SavingsGoal(

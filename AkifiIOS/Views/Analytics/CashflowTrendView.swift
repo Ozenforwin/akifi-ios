@@ -12,12 +12,17 @@ struct CashflowTrendView: View {
         return df
     }()
 
+    private static let monthLabelFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "LLL"
+        df.locale = Locale(identifier: "ru_RU")
+        return df
+    }()
+
     private var trendData: [TrendPoint] {
         let cal = Calendar.current
         let now = Date()
-        let labelFmt = DateFormatter()
-        labelFmt.dateFormat = "LLL"
-        labelFmt.locale = Locale(identifier: "ru_RU")
+        let labelFmt = Self.monthLabelFormatter
 
         var points: [TrendPoint] = []
 

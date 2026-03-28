@@ -5,44 +5,69 @@ final class CurrencyManager {
     var selectedCurrency: CurrencyCode = .rub {
         didSet {
             UserDefaults.standard.set(selectedCurrency.rawValue, forKey: "selected_currency")
+            resetFormatters()
         }
     }
     var rates: [String: Double] = [:]
 
     private let exchangeRateService = ExchangeRateService()
 
+    // Cached formatters — NumberFormatter is expensive to create
+    private var currencyFormatter: NumberFormatter
+    private var decimalFormatter: NumberFormatter
+
     init() {
+        currencyFormatter = NumberFormatter()
+        decimalFormatter = NumberFormatter()
+
         if let saved = UserDefaults.standard.string(forKey: "selected_currency"),
            let code = CurrencyCode(rawValue: saved) {
             selectedCurrency = code
         }
+        if let savedData = UserDefaults.standard.string(forKey: "data_currency"),
+           let code = CurrencyCode(rawValue: savedData) {
+            dataCurrency = code
+        }
+        resetFormatters()
     }
 
-    func format(_ amountInBase: Decimal) -> String {
-        let rate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
-        let converted = amountInBase * rate
+    /// The currency that amounts are stored in (user's default currency from profile)
+    var dataCurrency: CurrencyCode = .rub {
+        didSet {
+            UserDefaults.standard.set(dataCurrency.rawValue, forKey: "data_currency")
+        }
+    }
 
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = selectedCurrency.rawValue
-        formatter.maximumFractionDigits = 2
+    private func resetFormatters() {
+        currencyFormatter = NumberFormatter()
+        currencyFormatter.numberStyle = .currency
+        currencyFormatter.currencyCode = selectedCurrency.rawValue
+        currencyFormatter.maximumFractionDigits = 2
 
-        return formatter.string(from: converted as NSDecimalNumber) ?? "0"
+        decimalFormatter = NumberFormatter()
+        decimalFormatter.numberStyle = .decimal
+        decimalFormatter.maximumFractionDigits = selectedCurrency.decimals
+        decimalFormatter.minimumFractionDigits = selectedCurrency.decimals
+    }
+
+    /// Convert amount from data currency to selected display currency
+    private func convert(_ amount: Decimal) -> Decimal {
+        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
+        let toRate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
+        guard fromRate != 0 else { return amount }
+        return amount / fromRate * toRate
+    }
+
+    func format(_ amount: Decimal) -> String {
+        let converted = convert(amount)
+        return currencyFormatter.string(from: converted as NSDecimalNumber) ?? "0"
     }
 
     func formatAmount(_ amount: Decimal) -> String {
         let absAmount = abs(amount)
-        let rate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
-        let converted = absAmount * rate
-
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-
-        let symbol = selectedCurrency.symbol
-        let formatted = formatter.string(from: converted as NSDecimalNumber) ?? "0"
-        return "\(symbol)\(formatted)"
+        let converted = convert(absAmount)
+        let formatted = decimalFormatter.string(from: converted as NSDecimalNumber) ?? "0"
+        return "\(formatted) \(selectedCurrency.symbol)"
     }
 
     func fetchRates() async {
@@ -51,32 +76,40 @@ final class CurrencyManager {
 }
 
 enum CurrencyCode: String, CaseIterable, Codable, Sendable {
-    case usd = "USD"
     case rub = "RUB"
+    case usd = "USD"
     case eur = "EUR"
-    case gbp = "GBP"
-    case cny = "CNY"
-    case jpy = "JPY"
+    case vnd = "VND"
+    case thb = "THB"
+    case idr = "IDR"
 
     var symbol: String {
         switch self {
-        case .usd: return "$"
         case .rub: return "₽"
+        case .usd: return "$"
         case .eur: return "€"
-        case .gbp: return "£"
-        case .cny: return "¥"
-        case .jpy: return "¥"
+        case .vnd: return "₫"
+        case .thb: return "฿"
+        case .idr: return "Rp"
         }
     }
 
     var name: String {
         switch self {
-        case .usd: return "US Dollar"
-        case .rub: return "Российский рубль"
-        case .eur: return "Euro"
-        case .gbp: return "British Pound"
-        case .cny: return "Chinese Yuan"
-        case .jpy: return "Japanese Yen"
+        case .rub: return "Рубль ₽"
+        case .usd: return "Доллар $"
+        case .eur: return "Евро €"
+        case .vnd: return "Донг ₫"
+        case .thb: return "Бат ฿"
+        case .idr: return "Рупия Rp"
+        }
+    }
+
+    /// Number of decimal places for display (matches Telegram app)
+    var decimals: Int {
+        switch self {
+        case .rub, .vnd, .thb, .idr: return 0
+        case .usd, .eur: return 2
         }
     }
 }

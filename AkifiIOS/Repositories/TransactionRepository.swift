@@ -55,19 +55,19 @@ final class TransactionRepository: Sendable {
 
 struct CreateTransactionInput: Encodable, Sendable {
     let account_id: String?
-    let amount: Int64
-    let tx_type: String
+    let amount: Decimal
+    let type: String
     let date: String
     let description: String?
     let category_id: String?
-    let merchant: String?
+    let merchant_name: String?
 }
 
 struct UpdateTransactionInput: Encodable, Sendable {
-    let amount: Int64?
-    let tx_type: String?
+    let amount: Decimal?
+    let type: String?
     let date: String?
     let description: String?
     let category_id: String?
-    let merchant: String?
+    let merchant_name: String?
 }

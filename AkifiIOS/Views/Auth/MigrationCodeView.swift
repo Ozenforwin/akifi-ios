@@ -79,6 +79,7 @@ struct MigrationCodeView: View {
 
         do {
             try await appViewModel.authManager.migrateWithCode(code.uppercased())
+            await appViewModel.loadAfterAuth()
             dismiss()
         } catch {
             errorMessage = "Неверный или просроченный код. Попробуйте получить новый."

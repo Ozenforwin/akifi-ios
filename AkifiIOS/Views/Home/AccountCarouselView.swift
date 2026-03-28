@@ -87,6 +87,7 @@ struct AccountCarouselView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
+                .accessibilityLabel("Добавить счёт")
             }
         }
     }
@@ -126,6 +127,7 @@ struct AccountCardView: View {
                     // Eye — hide/show balance
                     actionButton(
                         icon: isBalanceHidden ? "eye.slash" : "eye",
+                        label: isBalanceHidden ? "Показать баланс" : "Скрыть баланс",
                         action: { onToggleHidden?() }
                     )
 
@@ -140,16 +142,19 @@ struct AccountCardView: View {
                             .background(.primary.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
+                    .accessibilityLabel(account.isPrimary ? "Основной счёт" : "Сделать основным")
 
                     // Share
                     actionButton(
                         icon: "square.and.arrow.up",
+                        label: "Поделиться",
                         action: { onShare?() }
                     )
 
                     // Settings
                     actionButton(
                         icon: "gearshape",
+                        label: "Настройки счёта",
                         action: { onEdit?() }
                     )
                 }
@@ -165,19 +170,11 @@ struct AccountCardView: View {
             .padding(.bottom, 2)
 
             // Balance
-            Group {
-                if isBalanceHidden {
-                    Text(appViewModel.currencyManager.formatAmount(balance.displayAmount))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(balance < 0 ? Color.expense : .primary)
-                        .blur(radius: 10)
-                } else {
-                    Text(appViewModel.currencyManager.formatAmount(balance.displayAmount))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(balance < 0 ? Color.expense : .primary)
-                }
-            }
-            .padding(.bottom, 16)
+            Text(appViewModel.currencyManager.formatAmount(balance.displayAmount))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(balance < 0 ? Color.expense : .primary)
+                .blur(radius: isBalanceHidden ? 10 : 0)
+                .padding(.bottom, 16)
 
             // Income / Expense pills
             HStack(spacing: 8) {
@@ -207,7 +204,7 @@ struct AccountCardView: View {
 
     // MARK: - Subviews
 
-    private func actionButton(icon: String, action: @escaping () -> Void) -> some View {
+    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 12))
@@ -216,6 +213,7 @@ struct AccountCardView: View {
                 .background(.primary.opacity(0.04))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .accessibilityLabel(label)
     }
 
     private var incomePill: some View {
@@ -223,16 +221,10 @@ struct AccountCardView: View {
             Text("↑")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.income)
-            Group {
-                if isBalanceHidden {
-                    Text("+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))")
-                        .blur(radius: 6)
-                } else {
-                    Text("+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))")
-                }
-            }
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color.income)
+            Text("+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.income)
+                .blur(radius: isBalanceHidden ? 6 : 0)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -245,16 +237,10 @@ struct AccountCardView: View {
             Text("↓")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.expense)
-            Group {
-                if isBalanceHidden {
-                    Text("-\(appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount))")
-                        .blur(radius: 6)
-                } else {
-                    Text("-\(appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount))")
-                }
-            }
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Color.expense)
+            Text("-\(appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount))")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.expense)
+                .blur(radius: isBalanceHidden ? 6 : 0)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

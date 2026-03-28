@@ -20,19 +20,81 @@ final class DataStore {
     private let accountRepo = AccountRepository()
     private let transactionRepo = TransactionRepository()
     private let categoryRepo = CategoryRepository()
+    private let budgetRepo = BudgetRepository()
+    private let subscriptionRepo = SubscriptionTrackerRepository()
+    private let profileRepo = ProfileRepository()
+
+    var budgets: [Budget] = []
+    var subscriptions: [SubscriptionTracker] = []
+    var profile: Profile?
+    var profilesMap: [String: Profile] = [:]
 
     func loadAll() async {
         isLoading = true
         error = nil
+        var errors: [String] = []
+
         do {
-            async let a = accountRepo.fetchAll()
-            async let t = transactionRepo.fetchAll()
-            async let c = categoryRepo.fetchAll()
-            accounts = try await a
-            transactions = try await t
-            categories = try await c
+            accounts = try await accountRepo.fetchAll()
         } catch {
-            self.error = error.localizedDescription
+            print("[DataStore] ❌ accounts fetch error: \(error)")
+            errors.append("accounts: \(error)")
+        }
+
+        do {
+            transactions = try await transactionRepo.fetchAll()
+        } catch {
+            print("[DataStore] ❌ transactions fetch error: \(error)")
+            errors.append("transactions: \(error)")
+        }
+
+        do {
+            categories = try await categoryRepo.fetchAll()
+        } catch {
+            print("[DataStore] ❌ categories fetch error: \(error)")
+            errors.append("categories: \(error)")
+        }
+
+        do {
+            budgets = try await budgetRepo.fetchAll()
+        } catch {
+            print("[DataStore] ❌ budgets fetch error: \(error)")
+            errors.append("budgets: \(error)")
+        }
+
+        do {
+            subscriptions = try await subscriptionRepo.fetchAll()
+        } catch {
+            print("[DataStore] ❌ subscriptions fetch error: \(error)")
+            errors.append("subscriptions: \(error)")
+        }
+
+        do {
+            profile = try await profileRepo.fetch()
+        } catch {
+            print("[DataStore] ❌ profile fetch error: \(error)")
+        }
+
+        // Load profiles for transaction creators (shared accounts)
+        do {
+            let currentUserId = profile?.id ?? ""
+            let otherUserIds = Array(Set(transactions.map(\.userId)).filter { $0 != currentUserId })
+            if !otherUserIds.isEmpty {
+                let otherProfiles = try await profileRepo.fetchAll(ids: otherUserIds)
+                for p in otherProfiles {
+                    profilesMap[p.id] = p
+                }
+            }
+            if let profile { profilesMap[profile.id] = profile }
+        } catch {
+            print("[DataStore] ❌ profiles map fetch error: \(error)")
+        }
+
+        if !errors.isEmpty {
+            self.error = errors.joined(separator: "; ")
+            print("[DataStore] ⚠️ Load completed with errors: \(self.error!)")
+        } else {
+            print("[DataStore] ✅ All data loaded: \(accounts.count) accounts, \(transactions.count) transactions, \(categories.count) categories, \(budgets.count) budgets, \(subscriptions.count) subscriptions")
         }
         isLoading = false
     }
@@ -45,7 +107,12 @@ final class DataStore {
 
     func updateTransaction(id: String, _ input: UpdateTransactionInput) async throws {
         try await transactionRepo.update(id: id, input)
-        await loadAll()
+        // Reload only transactions instead of all data
+        do {
+            transactions = try await transactionRepo.fetchAll()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     func deleteTransaction(_ transaction: Transaction) async {

@@ -179,7 +179,7 @@ enum TransactionTypeFilter: String, CaseIterable {
         case .all: return .accent
         case .expense: return .expense
         case .income: return .income
-        case .transfer: return Color(red: 0.23, green: 0.51, blue: 0.96)
+        case .transfer: return .transfer
         }
     }
 }

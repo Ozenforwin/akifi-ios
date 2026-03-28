@@ -120,7 +120,6 @@ struct TransferFormView: View {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let dateStr = df.string(from: date)
-        let groupId = UUID().uuidString
         let desc = description.isEmpty ? "Перевод" : description
 
         do {

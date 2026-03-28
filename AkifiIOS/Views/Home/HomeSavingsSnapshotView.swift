@@ -59,9 +59,8 @@ struct HomeSavingsSnapshotView: View {
                     }
                 }
                 .padding()
-                .background(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .background(.background)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         .task {
