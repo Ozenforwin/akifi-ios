@@ -38,67 +38,76 @@ struct AccountCarouselView: View {
     var onSetPrimary: ((Account) -> Void)?
 
     @State private var hiddenBalances: Set<String> = HiddenBalancesStore.get()
+    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 10) {
-            ZStack {
-                // Stacked cards behind (peek effect)
-                if accounts.count > 1 {
-                    // Second card behind
-                    let nextIdx = (selectedIndex + 1) % accounts.count
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color(hex: accounts[nextIdx].color).opacity(0.08))
-                        )
-                        .frame(height: 170)
-                        .padding(.horizontal, 20)
-                        .offset(y: 8)
-                        .opacity(0.7)
-                }
-                if accounts.count > 2 {
-                    // Third card behind
-                    let thirdIdx = (selectedIndex + 2) % accounts.count
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color(hex: accounts[thirdIdx].color).opacity(0.06))
-                        )
-                        .frame(height: 160)
-                        .padding(.horizontal, 32)
-                        .offset(y: 14)
-                        .opacity(0.4)
-                }
-
-                // Main card carousel
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
-                        AccountCardView(
-                            account: account,
-                            balance: balanceFor(account),
-                            isBalanceHidden: hiddenBalances.contains(account.id),
-                            onToggleHidden: {
-                                hiddenBalances = HiddenBalancesStore.toggle(account.id)
-                            },
-                            onTogglePrimary: {
-                                onSetPrimary?(account)
-                            },
-                            onShare: {
-                                onShareAccount?(account)
-                            },
-                            onEdit: {
-                                onEditAccount?(account)
-                            }
-                        )
-                        .tag(index)
+            GeometryReader { geo in
+                let cardWidth = geo.size.width - 8 // padding .horizontal 4 each side
+                ZStack {
+                    // Stacked cards behind (peek effect)
+                    ForEach(Array(stackLayers.enumerated()), id: \.offset) { layerIndex, accountIndex in
+                        let layerOffset = CGFloat(layerIndex + 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Color(hex: accounts[accountIndex].color).opacity(0.06 + 0.02 * layerOffset))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color(hex: accounts[accountIndex].color).opacity(0.08), lineWidth: 0.5)
+                            )
+                            .frame(height: 190 - layerOffset * 12)
+                            .padding(.horizontal, 4 + layerOffset * 12)
+                            .offset(y: layerOffset * 6)
+                            .opacity(1.0 - layerOffset * 0.25)
                     }
+
+                    // Active card with drag gesture
+                    AccountCardView(
+                        account: accounts[selectedIndex],
+                        balance: balanceFor(accounts[selectedIndex]),
+                        isBalanceHidden: hiddenBalances.contains(accounts[selectedIndex].id),
+                        onToggleHidden: {
+                            hiddenBalances = HiddenBalancesStore.toggle(accounts[selectedIndex].id)
+                        },
+                        onTogglePrimary: {
+                            onSetPrimary?(accounts[selectedIndex])
+                        },
+                        onShare: {
+                            onShareAccount?(accounts[selectedIndex])
+                        },
+                        onEdit: {
+                            onEditAccount?(accounts[selectedIndex])
+                        }
+                    )
+                    .offset(x: dragOffset)
+                    .gesture(
+                        accounts.count > 1
+                        ? DragGesture(minimumDistance: 20)
+                            .onChanged { value in
+                                dragOffset = value.translation.width
+                            }
+                            .onEnded { value in
+                                let threshold = cardWidth * 0.25
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    if value.translation.width < -threshold || value.predictedEndTranslation.width < -cardWidth * 0.5 {
+                                        // Swipe left → next (circular)
+                                        selectedIndex = (selectedIndex + 1) % accounts.count
+                                    } else if value.translation.width > threshold || value.predictedEndTranslation.width > cardWidth * 0.5 {
+                                        // Swipe right → previous (circular)
+                                        selectedIndex = (selectedIndex - 1 + accounts.count) % accounts.count
+                                    }
+                                    dragOffset = 0
+                                }
+                            }
+                        : nil
+                    )
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 190)
+                .frame(height: 210)
             }
-            .animation(.easeInOut(duration: 0.25), value: selectedIndex)
+            .frame(height: 210)
 
             // Custom page dots + add button
             HStack(spacing: 6) {
@@ -124,6 +133,17 @@ struct AccountCarouselView: View {
                 .accessibilityLabel("Добавить счёт")
             }
         }
+    }
+
+    /// Indices of accounts to show as stacked layers behind the active card
+    private var stackLayers: [Int] {
+        guard accounts.count > 1 else { return [] }
+        var layers: [Int] = []
+        let maxLayers = min(accounts.count - 1, 2)
+        for i in 1...maxLayers {
+            layers.append((selectedIndex + i) % accounts.count)
+        }
+        return layers
     }
 }
 
@@ -158,14 +178,12 @@ struct AccountCardView: View {
 
                 // Action buttons
                 HStack(spacing: 4) {
-                    // Eye — hide/show balance
                     actionButton(
                         icon: isBalanceHidden ? "eye.slash" : "eye",
                         label: isBalanceHidden ? "Показать баланс" : "Скрыть баланс",
                         action: { onToggleHidden?() }
                     )
 
-                    // Star — make primary
                     Button {
                         onTogglePrimary?()
                     } label: {
@@ -178,14 +196,12 @@ struct AccountCardView: View {
                     }
                     .accessibilityLabel(account.isPrimary ? "Основной счёт" : "Сделать основным")
 
-                    // Share
                     actionButton(
                         icon: "square.and.arrow.up",
                         label: "Поделиться",
                         action: { onShare?() }
                     )
 
-                    // Settings
                     actionButton(
                         icon: "gearshape",
                         label: "Настройки счёта",
@@ -220,10 +236,8 @@ struct AccountCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
-                // Frosted glass base
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(.ultraThinMaterial)
-                // Color tint overlay
                 LinearGradient(
                     colors: [
                         accountColor.opacity(0.10),
