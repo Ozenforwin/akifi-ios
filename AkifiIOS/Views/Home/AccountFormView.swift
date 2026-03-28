@@ -34,11 +34,9 @@ struct AccountFormView: View {
                     TextField("Мой счёт", text: $name)
                 }
 
-                if !isEditing {
-                    Section("Начальный баланс") {
-                        TextField("0.00", text: $initialBalanceText)
-                            .keyboardType(.decimalPad)
-                    }
+                Section(isEditing ? "Баланс" : "Начальный баланс") {
+                    TextField("0.00", text: $initialBalanceText)
+                        .keyboardType(.decimalPad)
                 }
 
                 Section("Валюта") {
@@ -125,13 +123,23 @@ struct AccountFormView: View {
         selectedIcon = account.icon
         selectedColor = account.color
         selectedCurrency = account.currencyCode
+        // Show current balance from DataStore (initial + income - expense)
+        let balance = appViewModel.dataStore.balance(for: account)
+        initialBalanceText = "\(balance.displayAmount)"
     }
 
     private func save() async {
         isSaving = true
         do {
             if let account = editingAccount {
-                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor, currency: selectedCurrency.rawValue.lowercased())
+                let newBalance: Int64?
+                if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
+                    let kopecks = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+                    newBalance = kopecks != account.initialBalance ? kopecks : nil
+                } else {
+                    newBalance = nil
+                }
+                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor, currency: selectedCurrency.rawValue.lowercased(), initialBalance: newBalance)
             } else {
                 let balance: Int64
                 if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {

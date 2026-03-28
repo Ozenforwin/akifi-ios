@@ -70,17 +70,19 @@ final class AccountRepository: Sendable {
             .value
     }
 
-    func update(id: String, name: String, icon: String, color: String, currency: String) async throws {
+    func update(id: String, name: String, icon: String, color: String, currency: String, initialBalance: Int64? = nil) async throws {
         struct UpdateInput: Encodable {
             let name: String
             let icon: String
             let color: String
             let currency: String
+            let initial_balance: Int64?
         }
 
+        let balanceRubles = initialBalance.map { $0 / 100 }
         try await supabase
             .from("accounts")
-            .update(UpdateInput(name: name, icon: icon, color: color, currency: currency))
+            .update(UpdateInput(name: name, icon: icon, color: color, currency: currency, initial_balance: balanceRubles))
             .eq("id", value: id)
             .execute()
     }
