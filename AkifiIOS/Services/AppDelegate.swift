@@ -28,7 +28,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
 
 // Separate delegate class to avoid Sendable issues with Swift 6
 final class NotificationDelegate: NSObject, MessagingDelegate, UNUserNotificationCenterDelegate, @unchecked Sendable {
-    nonisolated(unsafe) static let shared = NotificationDelegate()
+    static let shared = NotificationDelegate()
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }

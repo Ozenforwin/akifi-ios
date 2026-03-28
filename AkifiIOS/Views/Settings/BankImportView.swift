@@ -363,7 +363,6 @@ struct BankImportView: View {
         }
 
         do {
-            let supabase = SupabaseManager.shared.client
             var imported = 0
 
             for tx in txToImport {
