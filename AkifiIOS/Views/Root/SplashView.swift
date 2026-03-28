@@ -48,7 +48,7 @@ struct SplashView: View {
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
-                    Text("Умные финансы")
+                    Text(String(localized: "splash.tagline"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
