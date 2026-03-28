@@ -124,11 +124,22 @@ final class AssistantViewModel {
         recordingURL = nil
     }
 
+    /// Max conversations to keep (oldest auto-archived beyond this)
+    private static let maxConversations = 30
+
     // MARK: - Conversations
 
     func loadConversations() async {
         do {
             conversations = try await repo.fetchConversations()
+            // Auto-archive old conversations beyond limit
+            if conversations.count > Self.maxConversations {
+                let toArchive = conversations.suffix(from: Self.maxConversations)
+                for conv in toArchive {
+                    try? await repo.archiveConversation(id: conv.id)
+                }
+                conversations = Array(conversations.prefix(Self.maxConversations))
+            }
         } catch {
             self.error = AssistantErrorType.classify(error).userMessage
         }

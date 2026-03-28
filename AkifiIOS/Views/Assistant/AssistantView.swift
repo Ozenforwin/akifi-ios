@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AssistantView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var viewModel = AssistantViewModel()
+    @Bindable var viewModel: AssistantViewModel
     @State private var showFeedbackSheet = false
     @State private var feedbackMessage: ChatMessage?
     @State private var feedbackReason: FeedbackReason = .notHelpful

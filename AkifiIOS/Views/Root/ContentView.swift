@@ -46,6 +46,7 @@ struct MainTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var selectedTab = 0
     @State private var showAssistant = false
+    @State private var assistantVM = AssistantViewModel()
     @State private var showAddTransaction = false
     @State private var showAddTransfer = false
     @State private var showAddIncome = false
@@ -96,7 +97,7 @@ struct MainTabView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .fullScreenCover(isPresented: $showAssistant) {
-            AssistantView { target in
+            AssistantView(viewModel: assistantVM) { target in
                 handleNavigationTarget(target)
             }
         }
