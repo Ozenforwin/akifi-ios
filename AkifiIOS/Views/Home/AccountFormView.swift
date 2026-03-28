@@ -10,6 +10,7 @@ struct AccountFormView: View {
     @State private var name = ""
     @State private var selectedIcon = "💳"
     @State private var selectedColor = "#4ADE80"
+    @State private var selectedCurrency: CurrencyCode = .rub
     @State private var initialBalanceText = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -37,6 +38,27 @@ struct AccountFormView: View {
                     Section("Начальный баланс") {
                         TextField("0.00", text: $initialBalanceText)
                             .keyboardType(.decimalPad)
+                    }
+                }
+
+                Section("Валюта") {
+                    ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                        Button {
+                            selectedCurrency = currency
+                        } label: {
+                            HStack {
+                                Text(currency.symbol)
+                                    .font(.title3)
+                                    .frame(width: 30)
+                                Text(currency.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if selectedCurrency == currency {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.accent)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -102,13 +124,14 @@ struct AccountFormView: View {
         name = account.name
         selectedIcon = account.icon
         selectedColor = account.color
+        selectedCurrency = account.currencyCode
     }
 
     private func save() async {
         isSaving = true
         do {
             if let account = editingAccount {
-                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor)
+                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor, currency: selectedCurrency.rawValue.lowercased())
             } else {
                 let balance: Int64
                 if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
@@ -116,7 +139,7 @@ struct AccountFormView: View {
                 } else {
                     balance = 0
                 }
-                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: balance)
+                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: balance, currency: selectedCurrency.rawValue.lowercased())
             }
             await onSave()
             dismiss()

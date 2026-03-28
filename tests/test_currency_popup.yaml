@@ -1,0 +1,13 @@
+appId: ru.akifi.app
+---
+# Test currency popup menu
+- tapOn:
+    text: "₽"
+    index: 0
+
+# Should see currency options in popup
+- assertVisible:
+    text: "Доллар"
+    optional: true
+
+- takeScreenshot: test_currency_popup

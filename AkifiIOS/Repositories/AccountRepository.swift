@@ -4,42 +4,83 @@ import Supabase
 final class AccountRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    private struct MembershipRow: Decodable {
+        let accountId: String
+        let role: String
+        let isPrimary: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case accountId = "account_id"
+            case role
+            case isPrimary = "is_primary"
+        }
+    }
+
     func fetchAll() async throws -> [Account] {
-        try await supabase
+        var accounts: [Account] = try await supabase
             .from("accounts")
             .select()
             .order("created_at")
             .execute()
             .value
+
+        // Fetch per-user is_primary from account_members (same as Telegram app)
+        let userId = try await supabase.auth.session.user.id.uuidString
+        let memberships: [MembershipRow] = try await supabase
+            .from("account_members")
+            .select("account_id, role, is_primary")
+            .eq("user_id", value: userId)
+            .execute()
+            .value
+
+        let memberMap = Dictionary(uniqueKeysWithValues: memberships.map { ($0.accountId, $0) })
+
+        for i in accounts.indices {
+            if let membership = memberMap[accounts[i].id] {
+                accounts[i].isPrimary = membership.isPrimary
+            }
+        }
+
+        // Sort: primary first, then by creation date
+        accounts.sort { a, b in
+            if a.isPrimary != b.isPrimary { return a.isPrimary }
+            return (a.createdAt ?? "") < (b.createdAt ?? "")
+        }
+
+        return accounts
     }
 
-    func create(name: String, icon: String, color: String, initialBalance: Int64) async throws -> Account {
+    func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String = "rub") async throws -> Account {
         struct CreateInput: Encodable {
             let name: String
             let icon: String
             let color: String
             let initial_balance: Int64
+            let currency: String
         }
 
+        // iOS stores kopecks, DB stores whole rubles
+        let balanceRubles = initialBalance / 100
         return try await supabase
             .from("accounts")
-            .insert(CreateInput(name: name, icon: icon, color: color, initial_balance: initialBalance))
+            .insert(CreateInput(name: name, icon: icon, color: color, initial_balance: balanceRubles, currency: currency))
             .select()
             .single()
             .execute()
             .value
     }
 
-    func update(id: String, name: String, icon: String, color: String) async throws {
+    func update(id: String, name: String, icon: String, color: String, currency: String) async throws {
         struct UpdateInput: Encodable {
             let name: String
             let icon: String
             let color: String
+            let currency: String
         }
 
         try await supabase
             .from("accounts")
-            .update(UpdateInput(name: name, icon: icon, color: color))
+            .update(UpdateInput(name: name, icon: icon, color: color, currency: currency))
             .eq("id", value: id)
             .execute()
     }
@@ -50,5 +91,9 @@ final class AccountRepository: Sendable {
             .delete()
             .eq("id", value: id)
             .execute()
+    }
+
+    func setPrimary(id: String) async throws {
+        try await supabase.rpc("set_my_primary_account", params: ["p_account_id": id]).execute()
     }
 }

@@ -1,0 +1,21 @@
+appId: ru.akifi.app
+---
+# Dismiss popup if open
+- tapOn:
+    point: "50%,50%"
+
+# Wait for home
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 3000
+
+# Look for the gear/edit button on the account card
+# The account carousel has action buttons - tap gear icon
+- tapOn:
+    point: "90%,18%"
+
+- extendedWaitUntil:
+    visible: "Редактировать"
+    timeout: 3000
+
+- takeScreenshot: test_account_edit_form
