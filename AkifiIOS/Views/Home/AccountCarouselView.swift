@@ -39,6 +39,7 @@ struct AccountCarouselView: View {
 
     @State private var hiddenBalances: Set<String> = HiddenBalancesStore.get()
     @State private var dragOffset: CGFloat = 0
+    @State private var isAnimating = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -87,19 +88,42 @@ struct AccountCarouselView: View {
                         accounts.count > 1
                         ? DragGesture(minimumDistance: 20)
                             .onChanged { value in
+                                guard !isAnimating else { return }
                                 dragOffset = value.translation.width
                             }
                             .onEnded { value in
+                                guard !isAnimating else { return }
                                 let threshold = cardWidth * 0.25
-                                withAnimation(.easeOut(duration: 0.25)) {
-                                    if value.translation.width < -threshold || value.predictedEndTranslation.width < -cardWidth * 0.5 {
-                                        // Swipe left → next (circular)
-                                        selectedIndex = (selectedIndex + 1) % accounts.count
-                                    } else if value.translation.width > threshold || value.predictedEndTranslation.width > cardWidth * 0.5 {
-                                        // Swipe right → previous (circular)
-                                        selectedIndex = (selectedIndex - 1 + accounts.count) % accounts.count
+                                let goNext = value.translation.width < -threshold || value.predictedEndTranslation.width < -cardWidth * 0.5
+                                let goPrev = value.translation.width > threshold || value.predictedEndTranslation.width > cardWidth * 0.5
+
+                                if goNext || goPrev {
+                                    let direction: CGFloat = goNext ? -1 : 1
+                                    isAnimating = true
+                                    // Phase 1: slide current card out
+                                    withAnimation(.easeIn(duration: 0.18)) {
+                                        dragOffset = direction * cardWidth
                                     }
-                                    dragOffset = 0
+                                    // Phase 2: change index, position new card off-screen, slide in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                                        if goNext {
+                                            selectedIndex = (selectedIndex + 1) % accounts.count
+                                        } else {
+                                            selectedIndex = (selectedIndex - 1 + accounts.count) % accounts.count
+                                        }
+                                        dragOffset = -direction * cardWidth
+                                        withAnimation(.easeOut(duration: 0.22)) {
+                                            dragOffset = 0
+                                        }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                                            isAnimating = false
+                                        }
+                                    }
+                                } else {
+                                    // Snap back
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        dragOffset = 0
+                                    }
                                 }
                             }
                         : nil
