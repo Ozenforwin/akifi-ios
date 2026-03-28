@@ -13,12 +13,12 @@ struct BudgetsTabView: View {
         NavigationStack {
             List {
                 // MARK: - Budgets
-                if viewModel.isLoading && viewModel.budgets.isEmpty {
+                if dataStore.isLoading && dataStore.budgets.isEmpty {
                     Section { LoadingView() }
                         .listRowSeparator(.hidden)
-                } else if !viewModel.budgets.isEmpty {
+                } else if !dataStore.budgets.isEmpty {
                     Section {
-                        ForEach(viewModel.budgets) { budget in
+                        ForEach(dataStore.budgets) { budget in
                             let metrics = BudgetMath.compute(budget: budget, transactions: dataStore.transactions)
                             BudgetCardView(budget: budget, metrics: metrics, categories: dataStore.categories)
                                 .listRowSeparator(.hidden)
@@ -26,7 +26,10 @@ struct BudgetsTabView: View {
                                 .listRowBackground(Color.clear)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        Task { await viewModel.deleteBudget(budget) }
+                                        Task {
+                                            await viewModel.deleteBudget(budget)
+                                            await dataStore.loadAll()
+                                        }
                                     } label: {
                                         Label("Архивировать", systemImage: "archivebox.fill")
                                     }
@@ -123,7 +126,6 @@ struct BudgetsTabView: View {
             }
             .listStyle(.plain)
             .refreshable {
-                await viewModel.load()
                 await dataStore.loadAll()
             }
             .navigationTitle("Бюджеты")
@@ -134,13 +136,12 @@ struct BudgetsTabView: View {
                     }
                 }
             }
-            .task { await viewModel.load() }
             .sheet(isPresented: $viewModel.showForm) {
                 BudgetFormView(
                     categories: dataStore.categories,
                     accounts: dataStore.accounts
                 ) {
-                    await viewModel.reloadBudgets()
+                    await dataStore.loadAll()
                 }
             }
             .sheet(item: $viewModel.editingBudget) { budget in
@@ -149,7 +150,7 @@ struct BudgetsTabView: View {
                     accounts: dataStore.accounts,
                     editingBudget: budget
                 ) {
-                    await viewModel.reloadBudgets()
+                    await dataStore.loadAll()
                 }
             }
             .sheet(isPresented: $showSubscriptionForm) {
