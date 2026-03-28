@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 
 @Observable @MainActor
 final class AssistantViewModel {
@@ -29,7 +30,96 @@ final class AssistantViewModel {
     var lastConfidence: Double?
     var lastRecommendedActions: [RecommendedAction]?
 
+    // Voice recording
+    var isRecording = false
+    var recordingDuration: TimeInterval = 0
+    var isTranscribing = false
+    private var audioRecorder: AVAudioRecorder?
+    private var recordingTimer: Timer?
+    private var recordingURL: URL?
+
     private let repo = AiRepository()
+
+    // MARK: - Voice Recording
+
+    func startRecording() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playAndRecord, mode: .default)
+            try session.setActive(true)
+        } catch {
+            self.error = "Нет доступа к микрофону"
+            return
+        }
+
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("voice_\(UUID().uuidString).m4a")
+        recordingURL = url
+
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 44100,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        ]
+
+        do {
+            audioRecorder = try AVAudioRecorder(url: url, settings: settings)
+            audioRecorder?.record()
+            isRecording = true
+            recordingDuration = 0
+            recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.recordingDuration += 1
+                    if self.recordingDuration >= 60 {
+                        await self.stopRecordingAndSend()
+                    }
+                }
+            }
+        } catch {
+            self.error = "Ошибка записи"
+        }
+    }
+
+    func cancelRecording() {
+        audioRecorder?.stop()
+        audioRecorder = nil
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        isRecording = false
+        recordingDuration = 0
+        if let url = recordingURL { try? FileManager.default.removeItem(at: url) }
+        recordingURL = nil
+    }
+
+    func stopRecordingAndSend() async {
+        audioRecorder?.stop()
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        isRecording = false
+
+        guard let url = recordingURL,
+              let data = try? Data(contentsOf: url),
+              data.count > 1000 else {
+            recordingDuration = 0
+            recordingURL = nil
+            self.error = "Запись слишком короткая"
+            return
+        }
+
+        isTranscribing = true
+        do {
+            let text = try await repo.transcribeAudio(data: data, mimeType: "audio/mp4")
+            inputText = text
+            await send()
+        } catch {
+            self.error = "Не удалось распознать: \(error.localizedDescription)"
+        }
+        isTranscribing = false
+        recordingDuration = 0
+        try? FileManager.default.removeItem(at: url)
+        recordingURL = nil
+    }
 
     // MARK: - Conversations
 

@@ -116,10 +116,15 @@ struct AssistantView: View {
                 // Input
                 AssistantInputBar(
                     text: $viewModel.inputText,
-                    isProcessing: viewModel.isProcessing
-                ) {
-                    Task { await viewModel.send() }
-                }
+                    isProcessing: viewModel.isProcessing,
+                    isRecording: viewModel.isRecording,
+                    isTranscribing: viewModel.isTranscribing,
+                    recordingDuration: viewModel.recordingDuration,
+                    onSend: { Task { await viewModel.send() } },
+                    onStartRecording: { viewModel.startRecording() },
+                    onStopRecording: { Task { await viewModel.stopRecordingAndSend() } },
+                    onCancelRecording: { viewModel.cancelRecording() }
+                )
             }
             .navigationTitle("Ассистент")
             .navigationBarTitleDisplayMode(.inline)
@@ -337,28 +342,109 @@ struct SuggestionChip: View {
 struct AssistantInputBar: View {
     @Binding var text: String
     let isProcessing: Bool
+    let isRecording: Bool
+    let isTranscribing: Bool
+    let recordingDuration: TimeInterval
     let onSend: () -> Void
+    let onStartRecording: () -> Void
+    let onStopRecording: () -> Void
+    let onCancelRecording: () -> Void
+
+    private var hasText: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            TextField("Спросите что-нибудь...", text: $text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color(.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+        VStack(spacing: 0) {
+            if isRecording {
+                // Recording mode
+                HStack(spacing: 16) {
+                    Button(action: onCancelRecording) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.red)
+                    }
 
-            Button(action: onSend) {
-                Image(systemName: isProcessing ? "stop.circle.fill" : "arrow.up.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Color.accent)
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 8, height: 8)
+                        Text(formatDuration(recordingDuration))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer()
+
+                    Button(action: onStopRecording) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.aiGradientStart, .aiGradientEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+            } else if isTranscribing {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Распознаю речь...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
+                // Normal mode
+                HStack(spacing: 8) {
+                    TextField("Спросите что-нибудь...", text: $text, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .lineLimit(1...4)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                    if hasText || isProcessing {
+                        Button(action: onSend) {
+                            Image(systemName: isProcessing ? "stop.circle.fill" : "arrow.up.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Color.accent)
+                        }
+                        .disabled(!hasText && !isProcessing)
+                    } else {
+                        Button(action: onStartRecording) {
+                            Image(systemName: "mic.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.aiGradientStart, .aiGradientEnd],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                        .accessibilityLabel("Голосовой ввод")
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
-            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
         .background(.bar)
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%d:%02d", m, s)
     }
 }
 

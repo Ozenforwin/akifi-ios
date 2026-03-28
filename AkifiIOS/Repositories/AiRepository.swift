@@ -100,6 +100,43 @@ final class AiRepository: Sendable {
         )
     }
 
+    // MARK: - Voice Transcription
+
+    func transcribeAudio(data: Data, mimeType: String) async throws -> String {
+        let boundary = UUID().uuidString
+        var body = Data()
+
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"voice.m4a\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        let session = try await supabase.auth.session
+        let url = URL(string: "\(AppConstants.supabaseURL)/functions/v1/transcribe-voice")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = 30
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NSError(domain: "transcribe", code: -1, userInfo: [NSLocalizedDescriptionKey: "Ошибка транскрипции"])
+        }
+
+        struct TranscribeResponse: Decodable {
+            let ok: Bool
+            let text: String?
+        }
+        let result = try JSONDecoder().decode(TranscribeResponse.self, from: responseData)
+        guard result.ok, let text = result.text, !text.isEmpty else {
+            throw NSError(domain: "transcribe", code: -2, userInfo: [NSLocalizedDescriptionKey: "Не удалось распознать речь"])
+        }
+        return text
+    }
+
     // MARK: - Feedback
 
     func submitFeedback(requestId: String, score: Int, reason: String?) async throws {

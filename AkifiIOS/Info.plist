@@ -24,6 +24,8 @@
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Akifi использует микрофон для голосового ввода в AI ассистенте</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
