@@ -82,6 +82,10 @@ struct MonthlySummaryView: View {
             .padding(.vertical, 8)
             .background(.background)
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+            )
         }
     }
 
@@ -115,6 +119,11 @@ struct MonthlySummaryView: View {
         .padding(12)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 
     private func changeBadgeColor(change: Int, isIncome: Bool) -> Color {
