@@ -75,7 +75,8 @@ struct AnalyticsTabView: View {
                             data: viewModel.categoryBreakdown(
                                 from: filteredByPeriod(categoryPeriod),
                                 categories: dataStore.categories
-                            )
+                            ),
+                            transactions: filteredByPeriod(categoryPeriod)
                         )
                     }
                 }
