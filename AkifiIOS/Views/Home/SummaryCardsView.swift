@@ -7,30 +7,32 @@ struct SummaryCardsView: View {
 
     private var monthlyIncome: Int64 {
         transactions
-            .filter { $0.type == .income }
+            .filter { $0.type == .income && !$0.isTransfer }
             .reduce(0) { $0 + $1.amount }
     }
 
     private var monthlyExpense: Int64 {
         transactions
-            .filter { $0.type == .expense }
+            .filter { $0.type == .expense && !$0.isTransfer }
             .reduce(0) { $0 + $1.amount }
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             SummaryCard(
-                title: "Доходы",
-                formattedAmount: appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount),
-                icon: "arrow.up.right",
-                color: .green
+                title: "Доходы за месяц",
+                formattedAmount: "+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))",
+                systemIcon: "arrow.up.right",
+                iconColor: Color.income,
+                amountColor: Color.income
             )
 
             SummaryCard(
-                title: "Расходы",
-                formattedAmount: appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount),
-                icon: "arrow.down.left",
-                color: .red
+                title: "Расходы за месяц",
+                formattedAmount: "-\(appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount))",
+                systemIcon: "arrow.down.left",
+                iconColor: Color.expense,
+                amountColor: Color.expense
             )
         }
     }
@@ -39,27 +41,33 @@ struct SummaryCardsView: View {
 struct SummaryCard: View {
     let title: String
     let formattedAmount: String
-    let icon: String
-    let color: Color
+    let systemIcon: String
+    let iconColor: Color
+    let amountColor: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                // Icon in colored square (matches HTML design)
+                Image(systemName: systemIcon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 24, height: 24)
+                    .background(iconColor.opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
                 Text(title)
-                    .font(.caption)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
             Text(formattedAmount)
-                .font(.headline)
-                .foregroundStyle(color)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(amountColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .padding(12)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

@@ -29,6 +29,7 @@ struct CashflowTrendView: View {
             var income: Decimal = 0
             var expense: Decimal = 0
             for tx in transactions {
+                guard !tx.isTransfer else { continue }
                 guard let date = df.date(from: tx.date) else { continue }
                 let txComps = cal.dateComponents([.year, .month], from: date)
                 guard txComps.year == comps.year, txComps.month == comps.month else { continue }

@@ -59,13 +59,13 @@ final class AnalyticsViewModel {
 
     func totalIncome(from transactions: [Transaction]) -> Decimal {
         transactions
-            .filter { $0.type == .income }
+            .filter { $0.type == .income && !$0.isTransfer }
             .reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
     }
 
     func totalExpense(from transactions: [Transaction]) -> Decimal {
         transactions
-            .filter { $0.type == .expense }
+            .filter { $0.type == .expense && !$0.isTransfer }
             .reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
     }
 
@@ -92,6 +92,7 @@ final class AnalyticsViewModel {
         }
 
         for tx in transactions {
+            guard !tx.isTransfer else { continue }
             guard let txDate = dateFormatter.date(from: tx.date) else { continue }
 
             let key: String
@@ -121,7 +122,7 @@ final class AnalyticsViewModel {
     }
 
     func categoryBreakdown(from transactions: [Transaction], categories: [Category]) -> [CategorySpending] {
-        let expenses = transactions.filter { $0.type == .expense }
+        let expenses = transactions.filter { $0.type == .expense && !$0.isTransfer }
         let totalExpense = expenses.reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
         guard totalExpense > 0 else { return [] }
 

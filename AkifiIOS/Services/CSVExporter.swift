@@ -8,7 +8,7 @@ enum CSVExporter {
         let accountMap = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
 
         for tx in transactions.sorted(by: { $0.date > $1.date }) {
-            let type = tx.type == .income ? "Доход" : "Расход"
+            let type = tx.isTransfer ? "Перевод" : (tx.type == .income ? "Доход" : "Расход")
             let amount = String(format: "%.2f", Double(truncating: tx.amount.displayAmount as NSDecimalNumber))
             let category = tx.categoryId.flatMap { categoryMap[$0]?.name } ?? ""
             let description = (tx.description ?? "").replacingOccurrences(of: ",", with: ";")

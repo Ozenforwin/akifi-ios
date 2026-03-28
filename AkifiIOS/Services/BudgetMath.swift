@@ -103,7 +103,7 @@ enum BudgetMath {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         return transactions.filter { tx in
-            guard tx.type == .expense else { return false }
+            guard tx.type == .expense && !tx.isTransfer else { return false }
             if let cats = budget.categoryIds, !cats.isEmpty {
                 guard let catId = tx.categoryId, cats.contains(catId) else { return false }
             }
