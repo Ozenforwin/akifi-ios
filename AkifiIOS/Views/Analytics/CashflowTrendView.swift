@@ -65,6 +65,14 @@ struct CashflowTrendView: View {
                 ContentUnavailableView("Нет данных", systemImage: "chart.line.uptrend.xyaxis")
                     .frame(height: 180)
             } else {
+                // Tooltip above chart
+                if let selected = selectedPoint {
+                    tooltipView(point: selected)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .transition(.opacity)
+                        .animation(.easeOut(duration: 0.15), value: selectedLabel)
+                }
+
                 trendChart
                     .frame(height: 200)
 
@@ -99,16 +107,28 @@ struct CashflowTrendView: View {
                 RuleMark(x: .value("Месяц", selected.label))
                     .foregroundStyle(Color.gray.opacity(0.3))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .annotation(position: .top, alignment: .center) {
-                        tooltipView(point: selected)
-                    }
             }
         }
         .chartLegend(.hidden)
         .chartYAxis {
             AxisMarks(position: .leading)
         }
-        .chartXSelection(value: $selectedLabel)
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture { location in
+                        let plotOrigin = geo[proxy.plotFrame!].origin
+                        let x = location.x - plotOrigin.x
+                        if let label: String = proxy.value(atX: x) {
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                selectedLabel = selectedLabel == label ? nil : label
+                            }
+                        }
+                    }
+            }
+        }
     }
 
     private func incomeMarks(point: TrendPoint) -> some ChartContent {
