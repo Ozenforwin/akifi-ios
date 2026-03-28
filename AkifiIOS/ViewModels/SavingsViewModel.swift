@@ -96,14 +96,13 @@ final class SavingsViewModel {
             )
             let contribution = try await repo.addContribution(input)
 
-            // Also create linked transaction for money tracking
+            // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }
-            let txType = type == .withdrawal ? "income" : "expense"
             let desc = "\(goal?.name ?? "Накопления"): \(type == .withdrawal ? "снятие" : "пополнение")\(note != nil ? " — \(note!)" : "")"
             let txInput = CreateTransactionInput(
                 account_id: goal?.accountId,
-                amount: Decimal(amount) / 100, // kopecks → rubles for DB
-                type: txType,
+                amount: Decimal(amount) / 100,
+                type: "transfer",
                 date: isoDateFormatter.string(from: Date()),
                 description: desc,
                 category_id: nil,
