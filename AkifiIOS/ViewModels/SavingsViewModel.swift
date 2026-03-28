@@ -1,5 +1,29 @@
 import Foundation
 
+enum SavingsStatus {
+    case onTrack, behind, critical, completed, noDeadline
+
+    var label: String {
+        switch self {
+        case .onTrack: return String(localized: "savings.status.onTrack")
+        case .behind: return String(localized: "savings.status.behind")
+        case .critical: return String(localized: "savings.status.critical")
+        case .completed: return String(localized: "savings.status.completed")
+        case .noDeadline: return String(localized: "savings.status.noDeadline")
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .onTrack: return "#22C55E"
+        case .behind: return "#F59E0B"
+        case .critical: return "#EF4444"
+        case .completed: return "#22C55E"
+        case .noDeadline: return "#6B7280"
+        }
+    }
+}
+
 @Observable @MainActor
 final class SavingsViewModel {
     var goals: [SavingsGoal] = []
@@ -72,38 +96,53 @@ final class SavingsViewModel {
             )
             let contribution = try await repo.addContribution(input)
 
-            // Update local contributions
+            // Also create linked transaction for money tracking
+            let goal = goals.first { $0.id == goalId }
+            let txType = type == .withdrawal ? "income" : "expense"
+            let desc = "\(goal?.name ?? "Накопления"): \(type == .withdrawal ? "снятие" : "пополнение")\(note != nil ? " — \(note!)" : "")"
+            let txInput = CreateTransactionInput(
+                account_id: goal?.accountId,
+                amount: Decimal(amount) / 100, // kopecks → rubles for DB
+                type: txType,
+                date: isoDateFormatter.string(from: Date()),
+                description: desc,
+                category_id: nil,
+                merchant_name: nil,
+                currency: nil
+            )
+            _ = try? await TransactionRepository().create(txInput)
+
+            // Update local state
             var existing = contributions[goalId] ?? []
             existing.insert(contribution, at: 0)
             contributions[goalId] = existing
 
-            // Update goal's current amount locally
-            if let index = goals.firstIndex(where: { $0.id == goalId }) {
-                switch type {
-                case .contribution, .interest:
-                    goals[index].currentAmount += amount
-                case .withdrawal:
-                    goals[index].currentAmount -= amount
-                }
-                // Check completion
-                if goals[index].currentAmount >= goals[index].targetAmount {
-                    goals[index].status = .completed
-                    try await repo.update(id: goalId, UpdateSavingsGoalInput(
-                        name: nil, target_amount: nil,
-                        current_amount: goals[index].currentAmount,
-                        status: "completed", deadline: nil
-                    ))
-                } else {
-                    try await repo.update(id: goalId, UpdateSavingsGoalInput(
-                        name: nil, target_amount: nil,
-                        current_amount: goals[index].currentAmount,
-                        status: nil, deadline: nil
-                    ))
-                }
-            }
+            // Reload goal from DB (trigger auto-updates current_amount)
+            await load()
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// Savings status based on pace
+    func savingsStatus(for goal: SavingsGoal) -> SavingsStatus {
+        guard goal.targetAmount > goal.currentAmount else { return .completed }
+        guard let days = daysRemaining(for: goal), days > 0 else {
+            if goal.deadline != nil { return .critical }
+            return .noDeadline
+        }
+        let remaining = goal.targetAmount - goal.currentAmount
+        let dailyNeeded = Double(remaining) / Double(days)
+
+        // Check if on track based on contributions
+        let contribs = contributions[goal.id] ?? []
+        let goalAge = max(1, Calendar.current.dateComponents([.day], from: isoDateFormatter.date(from: goal.createdAt ?? "") ?? Date(), to: Date()).day ?? 1)
+        let avgDaily = contribs.filter { $0.type == .contribution }.reduce(Int64(0)) { $0 + $1.amount }
+        let avgDailyRate = Double(avgDaily) / Double(goalAge)
+
+        if avgDailyRate >= dailyNeeded * 0.8 { return .onTrack }
+        if avgDailyRate >= dailyNeeded * 0.4 { return .behind }
+        return .critical
     }
 
     func deleteGoal(_ goal: SavingsGoal) async {

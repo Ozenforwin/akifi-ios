@@ -5719,8 +5719,13 @@
       }
     },
     "savings.deadline": {
-      "extractionState": "stale",
       "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дедлайн"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5730,13 +5735,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deadline"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Дедлайн"
+            "value": "Fecha límite"
           }
         }
       }
@@ -5765,8 +5764,13 @@
       }
     },
     "savings.goal": {
-      "extractionState": "stale",
       "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цель"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5776,13 +5780,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Goal"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Цель"
+            "value": "Objetivo"
           }
         }
       }
@@ -5811,8 +5809,13 @@
       }
     },
     "savings.newGoal": {
-      "extractionState": "stale",
       "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая цель"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -5822,13 +5825,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Goal"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Новая цель"
+            "value": "Nuevo objetivo"
           }
         }
       }
@@ -5926,47 +5923,45 @@
       }
     },
     "savings.setDeadline": {
-      "extractionState": "stale",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set deadline"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Set deadline"
-          }
-        },
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Установить дедлайн"
           }
-        }
-      }
-    },
-    "savings.targetAmount": {
-      "extractionState": "stale",
-      "localizations": {
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Target amount"
+            "value": "Set Deadline"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Target amount"
+            "value": "Establecer fecha límite"
           }
-        },
+        }
+      }
+    },
+    "savings.targetAmount": {
+      "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Целевая сумма"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target Amount"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importe objetivo"
           }
         }
       }
@@ -9210,6 +9205,358 @@
           "stringUnit": {
             "state": "translated",
             "value": "Logro de objetivos"
+          }
+        }
+      }
+    },
+    "savings.icon": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Иконка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icono"
+          }
+        }
+      }
+    },
+    "savings.color": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цвет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        }
+      }
+    },
+    "savings.interest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Процентная ставка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interest Rate"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasa de interés"
+          }
+        }
+      }
+    },
+    "savings.interestRate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ставка (%)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rate (%)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasa (%)"
+          }
+        }
+      }
+    },
+    "savings.interestType": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тип"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo"
+          }
+        }
+      }
+    },
+    "savings.annual": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Годовая"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annual"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anual"
+          }
+        }
+      }
+    },
+    "savings.monthly": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месячная"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensual"
+          }
+        }
+      }
+    },
+    "savings.compound": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сложный процент"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compound Interest"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interés compuesto"
+          }
+        }
+      }
+    },
+    "savings.linkAccount": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Привязать к счёту"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link to Account"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vincular a cuenta"
+          }
+        }
+      }
+    },
+    "savings.notLinked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не привязан"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Linked"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No vinculado"
+          }
+        }
+      }
+    },
+    "savings.editGoal": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редактировать цель"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Goal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar objetivo"
+          }
+        }
+      }
+    },
+    "savings.status.onTrack": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В темпе"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Track"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En ritmo"
+          }
+        }
+      }
+    },
+    "savings.status.behind": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отстаёт"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Behind"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrasado"
+          }
+        }
+      }
+    },
+    "savings.status.critical": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Критично"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crítico"
+          }
+        }
+      }
+    },
+    "savings.status.completed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершена"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completado"
+          }
+        }
+      }
+    },
+    "savings.status.noDeadline": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без срока"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Deadline"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin plazo"
           }
         }
       }
