@@ -106,6 +106,9 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "square.grid.2x2", color: .teal, title: "Вид категорий")
                     }
+
+                    // Haptic feedback
+                    HapticToggleRow()
                 }
 
                 Section(header: Text("ФИНАНСЫ")) {
@@ -368,5 +371,22 @@ struct CurrencyPickerView: View {
             }
         }
         .navigationTitle("Валюта")
+    }
+}
+
+struct HapticToggleRow: View {
+    @AppStorage("hapticEnabled") private var hapticEnabled = true
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "hand.tap.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.pink)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            Toggle("Тактильный отклик", isOn: $hapticEnabled)
+        }
     }
 }

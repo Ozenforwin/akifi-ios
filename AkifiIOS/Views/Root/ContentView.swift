@@ -164,6 +164,7 @@ struct MainTabView: View {
 
 private struct CustomTabBar: View {
     @Binding var selectedTab: Int
+    @AppStorage("hapticEnabled") private var hapticEnabled = true
     var onAITap: () -> Void
 
     var body: some View {
@@ -173,29 +174,24 @@ private struct CustomTabBar: View {
                 tabButton("house.fill", "Главная", 0)
                 tabButton("arrow.left.arrow.right", "Операции", 1)
 
-                // Center AI button with logo
-                Button(action: onAITap) {
+                // Center AI button
+                Button {
+                    if hapticEnabled { HapticManager.medium() }
+                    onAITap()
+                } label: {
                     ZStack {
-                        if UIImage(named: "AkifiLogo") != nil {
-                            Image("AkifiLogo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 56, height: 56)
-                                .clipShape(Circle())
-                        } else {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.aiGradientStart, .aiGradientEnd],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "#8BD2FF"), Color(hex: "#FFB347")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
-                                .frame(width: 56, height: 56)
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundStyle(.white)
-                        }
+                            )
+                            .frame(width: 56, height: 56)
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white)
                     }
                     .shadow(color: Color(hex: "#8BD2FF").opacity(0.3), radius: 8, x: 0, y: 4)
                     .overlay {
@@ -219,6 +215,7 @@ private struct CustomTabBar: View {
 
     private func tabButton(_ icon: String, _ label: String, _ tag: Int) -> some View {
         Button {
+            if hapticEnabled { HapticManager.light() }
             selectedTab = tag
         } label: {
             VStack(spacing: 4) {

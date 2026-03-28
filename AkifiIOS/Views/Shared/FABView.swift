@@ -181,8 +181,12 @@ struct FABView: View {
     @ViewBuilder
     private var categoryWheelContent: some View {
         VStack(spacing: 0) {
-            Spacer()
-            Spacer()
+            if categoryLayout != "wheel" {
+                Spacer()
+            } else {
+                Spacer()
+                Spacer()
+            }
 
             if selectedType == .transfer {
                 // Placeholder for transfer — show message, user taps "Перевод" confirm
@@ -269,113 +273,83 @@ struct FABView: View {
         }
     }
 
-    // MARK: - Grid layout
+    // MARK: - Grid layout (Telegram-style bottom sheet)
 
     @ViewBuilder
     private func categoryGridView(categories: [Category]) -> some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 12) {
-                ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 16) {
+                ForEach(categories) { cat in
                     Button {
+                        HapticManager.light()
                         withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
                         onAction(selectedType == .income ? .income : .expense)
                     } label: {
-                        VStack(spacing: 4) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color(.systemGray5))
-                                    .frame(width: 56, height: 56)
-                                Text(cat.icon)
-                                    .font(.system(size: 24))
-                            }
+                        VStack(spacing: 6) {
+                            Circle()
+                                .fill(Color(hex: cat.color).opacity(0.15))
+                                .frame(width: 60, height: 60)
+                                .overlay {
+                                    Text(cat.icon)
+                                        .font(.system(size: 28))
+                                }
                             Text(cat.name)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                         }
                     }
                     .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
-                    .animation(
-                        .spring(duration: 0.35, bounce: 0.2).delay(Double(index) * 0.03),
-                        value: showCategoryWheel
-                    )
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
         }
-        .frame(maxHeight: 360)
-
-        // Close button
-        Button {
-            withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Закрыть")
-                    .font(.subheadline.weight(.medium))
-            }
-            .foregroundStyle(.secondary)
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
+        .frame(maxHeight: 400)
     }
 
-    // MARK: - List layout
+    // MARK: - List layout (Telegram-style bottom sheet)
 
     @ViewBuilder
     private func categoryListView(categories: [Category]) -> some View {
         ScrollView {
-            VStack(spacing: 2) {
-                ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
+            VStack(spacing: 0) {
+                ForEach(categories) { cat in
                     Button {
+                        HapticManager.light()
                         withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
                         onAction(selectedType == .income ? .income : .expense)
                     } label: {
-                        HStack(spacing: 12) {
-                            Text(cat.icon)
-                                .font(.title3)
-                                .frame(width: 36)
+                        HStack(spacing: 14) {
+                            Circle()
+                                .fill(Color(hex: cat.color).opacity(0.12))
+                                .frame(width: 44, height: 44)
+                                .overlay {
+                                    Text(cat.icon)
+                                        .font(.system(size: 22))
+                                }
                             Text(cat.name)
-                                .font(.subheadline)
+                                .font(.body)
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.quaternary)
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 20)
                         .padding(.vertical, 12)
-                        .background(Color(.systemBackground).opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(
-                        .spring(duration: 0.3).delay(Double(index) * 0.03),
-                        value: showCategoryWheel
-                    )
+
+                    if cat.id != categories.last?.id {
+                        Divider()
+                            .padding(.leading, 78)
+                    }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .frame(maxHeight: 360)
-
-        // Close button
-        Button {
-            withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Закрыть")
-                    .font(.subheadline.weight(.medium))
-            }
-            .foregroundStyle(.secondary)
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
+        .frame(maxHeight: 400)
     }
 
     // MARK: - Wheel page (single page of wheel)

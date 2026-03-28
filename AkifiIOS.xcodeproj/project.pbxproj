@@ -111,6 +111,7 @@
 		E45A0B3830B992820C3B6BAF /* AnalyticsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DFF0BEC556EF5A7CE6DD4C /* AnalyticsTabView.swift */; };
 		E6E02C1A73EFE9D9C0BD0849 /* LevelUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AF2D37ED5C32336B1C3554 /* LevelUpView.swift */; };
 		E8F3EE26B63DC6074D347C6F /* UserSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79EB1D3B16CBD84AD0DCA51E /* UserSubscription.swift */; };
+		E984E71638C44E9E7534312C /* akifi_logo.png in Resources */ = {isa = PBXBuildFile; fileRef = 5656863DA0BB761890744ECF /* akifi_logo.png */; };
 		EABF9430D7D93E4004AD3770 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F548FDEE64F06C210D42CBDA /* Profile.swift */; };
 		EBA923FDEBF7B8719FB6B953 /* AccountRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C07ED176280108B620D58C /* AccountRepository.swift */; };
 		ECCE3593C65DF683F1EF0EB1 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DBCC780D7A28DE9DC71A9B /* NotificationSettings.swift */; };
@@ -166,6 +167,7 @@
 		538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		53FDEFCC827F6CD5FCB66A64 /* SavingsGoalFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalFormView.swift; sourceTree = "<group>"; };
 		547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBadgeView.swift; sourceTree = "<group>"; };
+		5656863DA0BB761890744ECF /* akifi_logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = akifi_logo.png; sourceTree = "<group>"; };
 		596E30134A0FA5750FF736B6 /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
 		59E5F93F8BC1E265B6438CCB /* SavingsGoalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalCardView.swift; sourceTree = "<group>"; };
 		60E9E3612446CC1E7CCC72C7 /* FilterHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterHeaderView.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 		313DC3EDEA3A86A7118467B5 /* AkifiIOS */ = {
 			isa = PBXGroup;
 			children = (
+				5656863DA0BB761890744ECF /* akifi_logo.png */,
 				99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */,
 				474BCE7E89D91936D05860D2 /* AkifiIOS.entitlements */,
 				6280C5856C5C60280581779C /* AppConstants.swift */,
@@ -641,6 +644,7 @@
 				2BA016C0A6CA70898CDAAA95 /* Assets.xcassets in Resources */,
 				783FFD042EEC7ACD4105F3F5 /* Localizable.xcstrings in Resources */,
 				7DF2299704B2A55F5A1FB703 /* PrivacyInfo.xcprivacy in Resources */,
+				E984E71638C44E9E7534312C /* akifi_logo.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
