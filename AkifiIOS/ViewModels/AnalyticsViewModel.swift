@@ -79,14 +79,14 @@ final class AnalyticsViewModel {
         let groupFormatter: DateFormatter
         switch selectedPeriod {
         case .week:
-            labelFormatter.dateFormat = "E"
+            labelFormatter.dateFormat = "dd.MM"
             groupFormatter = labelFormatter
         case .month:
-            labelFormatter.dateFormat = "dd MMM"
+            labelFormatter.dateFormat = "dd.MM"
             groupFormatter = DateFormatter()
             groupFormatter.dateFormat = "yyyy-MM-dd"
         case .quarter, .year:
-            labelFormatter.dateFormat = "LLL"
+            labelFormatter.dateFormat = "MM.yy"
             groupFormatter = DateFormatter()
             groupFormatter.dateFormat = "yyyy-MM"
         }
@@ -101,10 +101,8 @@ final class AnalyticsViewModel {
                 key = labelFormatter.string(from: txDate)
             case .month:
                 let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: txDate))!
-                labelFormatter.dateFormat = "dd MMM"
                 key = labelFormatter.string(from: weekStart)
             case .quarter, .year:
-                labelFormatter.dateFormat = "LLL"
                 let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: txDate))!
                 key = labelFormatter.string(from: monthStart)
             }
