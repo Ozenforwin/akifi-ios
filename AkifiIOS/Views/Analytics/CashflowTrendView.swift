@@ -62,23 +62,46 @@ struct CashflowTrendView: View {
                     ForEach(trendData) { point in
                         LineMark(
                             x: .value("Месяц", point.label),
-                            y: .value("Доходы", point.income)
+                            y: .value("Сумма", point.income),
+                            series: .value("Тип", "Доходы")
                         )
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.income)
                         .symbol(.circle)
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+
+                        AreaMark(
+                            x: .value("Месяц", point.label),
+                            y: .value("Сумма", point.income),
+                            series: .value("Тип", "Доходы")
+                        )
+                        .foregroundStyle(Color.income.opacity(0.08))
+                        .interpolationMethod(.catmullRom)
 
                         LineMark(
                             x: .value("Месяц", point.label),
-                            y: .value("Расходы", point.expense)
+                            y: .value("Сумма", point.expense),
+                            series: .value("Тип", "Расходы")
                         )
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.expense)
                         .symbol(.triangle)
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+
+                        AreaMark(
+                            x: .value("Месяц", point.label),
+                            y: .value("Сумма", point.expense),
+                            series: .value("Тип", "Расходы")
+                        )
+                        .foregroundStyle(Color.expense.opacity(0.08))
+                        .interpolationMethod(.catmullRom)
                     }
                 }
                 .chartForegroundStyleScale([
-                    "Доходы": Color.green,
-                    "Расходы": Color.red
+                    "Доходы": Color.income,
+                    "Расходы": Color.expense
                 ])
+                .chartLegend(position: .top, alignment: .leading)
                 .chartYAxis {
                     AxisMarks(position: .leading)
                 }

@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct PortfolioChartView: View {
     @Environment(AppViewModel.self) private var appViewModel
@@ -18,54 +17,93 @@ struct PortfolioChartView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Портфель")
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack(alignment: .firstTextBaseline) {
+                Text("Портфель счетов")
                     .font(.headline)
                 Spacer()
-                Text(appViewModel.currencyManager.formatAmount(totalBalance))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "creditcard")
+                        .font(.caption)
+                    Text("Все балансы")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
             }
 
-            if portfolioData.isEmpty {
-                ContentUnavailableView("Нет счетов", systemImage: "creditcard")
-                    .frame(height: 150)
-            } else {
-                Chart(portfolioData, id: \.account.id) { item in
-                    BarMark(
-                        x: .value("Баланс", item.balance),
-                        y: .value("Счёт", "\(item.account.icon) \(item.account.name)")
-                    )
-                    .foregroundStyle(Color(hex: item.account.color).gradient)
-                    .cornerRadius(6)
-                }
-                .chartXAxis(.hidden)
-                .frame(height: CGFloat(portfolioData.count * 44 + 20))
+            // Total balance
+            Text(appViewModel.currencyManager.formatAmount(totalBalance))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
 
-                ForEach(portfolioData, id: \.account.id) { item in
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color(hex: item.account.color))
-                            .frame(width: 10, height: 10)
-                        Text("\(item.account.icon) \(item.account.name)")
-                            .font(.caption)
-                        Spacer()
-                        Text(appViewModel.currencyManager.formatAmount(item.balance))
-                            .font(.caption.weight(.medium))
-                        if totalBalance > 0 {
-                            let pct = Double(truncating: (item.balance / totalBalance * 100) as NSDecimalNumber)
-                            Text("\(Int(pct))%")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 32, alignment: .trailing)
+            // Stacked progress bar
+            if totalBalance > 0 {
+                GeometryReader { geo in
+                    HStack(spacing: 1.5) {
+                        ForEach(portfolioData, id: \.account.id) { item in
+                            let pct = item.balance > 0
+                                ? CGFloat(truncating: (item.balance / totalBalance) as NSDecimalNumber)
+                                : 0
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(hex: item.account.color).gradient)
+                                .frame(width: max(4, geo.size.width * pct))
                         }
                     }
                 }
+                .frame(height: 8)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+
+            // Account list
+            if !portfolioData.isEmpty {
+                Divider()
+
+                VStack(spacing: 0) {
+                    ForEach(Array(portfolioData.enumerated()), id: \.element.account.id) { index, item in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(Color(hex: item.account.color))
+                                .frame(width: 8, height: 8)
+
+                            Text(item.account.icon)
+                                .font(.title3)
+
+                            Text(item.account.name)
+                                .font(.subheadline)
+
+                            Spacer()
+
+                            Text(appViewModel.currencyManager.formatAmount(item.balance))
+                                .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
+
+                            if totalBalance > 0 {
+                                let pct = Double(truncating: (item.balance / totalBalance * 100) as NSDecimalNumber)
+                                Text("\(Int(pct))%")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 36, alignment: .trailing)
+                            }
+                        }
+                        .padding(.vertical, 10)
+
+                        if index < portfolioData.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            } else {
+                ContentUnavailableView("Нет счетов", systemImage: "creditcard")
+                    .frame(height: 100)
             }
         }
         .padding()
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 }

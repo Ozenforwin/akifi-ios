@@ -54,7 +54,10 @@ struct AnalyticsTabView: View {
                         DailyLimitWidgetView()
                     }
 
-                    // 3. Cashflow Chart with own filter
+                    // 3. Portfolio (moved up)
+                    PortfolioChartView()
+
+                    // 4. Cashflow Chart with own filter
                     VStack(alignment: .leading, spacing: 8) {
                         WidgetFilterView(selectedPeriod: $cashflowPeriod)
                         CashflowChartView(
@@ -62,10 +65,10 @@ struct AnalyticsTabView: View {
                         )
                     }
 
-                    // 4. 6-month Trend
+                    // 5. 6-month Trend
                     CashflowTrendView(transactions: allTransactions)
 
-                    // 5. Category Breakdown with own filter
+                    // 6. Category Breakdown with own filter
                     VStack(alignment: .leading, spacing: 8) {
                         WidgetFilterView(selectedPeriod: $categoryPeriod)
                         CategoryBreakdownView(
@@ -75,9 +78,6 @@ struct AnalyticsTabView: View {
                             )
                         )
                     }
-
-                    // 6. Portfolio
-                    PortfolioChartView()
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
