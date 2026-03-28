@@ -66,12 +66,12 @@ struct BudgetFormView: View {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
-                // Period
+                // Period (DB only supports monthly, weekly, custom)
                 Section("Период") {
                     Picker("Период", selection: $period) {
-                        ForEach(BillingPeriod.allCases, id: \.self) { p in
-                            Text(p.displayName).tag(p)
-                        }
+                        Text("Неделя").tag(BillingPeriod.weekly)
+                        Text("Месяц").tag(BillingPeriod.monthly)
+                        Text("Свой период").tag(BillingPeriod.custom)
                     }
 
                     if period == .custom {
@@ -255,10 +255,12 @@ struct BudgetFormView: View {
                 try await budgetRepo.update(id: budget.id, input)
             } else {
                 // Create new budget
+                let userId = try await SupabaseManager.shared.client.auth.session.user.id.uuidString
                 let input = CreateBudgetInput(
+                    user_id: userId,
                     amount: amountForDB,
                     period_type: period.rawValue,
-                    category_ids: cats,
+                    category_ids: cats ?? [],
                     account_ids: accountIds,
                     rollover_enabled: rolloverEnabled,
                     alert_thresholds: alertThresholds,
