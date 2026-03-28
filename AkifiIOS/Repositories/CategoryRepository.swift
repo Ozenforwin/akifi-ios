@@ -14,6 +14,24 @@ final class CategoryRepository: Sendable {
             .value
     }
 
+    func fetchAllIncludingHidden() async throws -> [Category] {
+        try await supabase
+            .from("categories")
+            .select()
+            .order("is_active", ascending: false)
+            .order("created_at")
+            .execute()
+            .value
+    }
+
+    func toggleActive(id: String, isActive: Bool) async throws {
+        try await supabase
+            .from("categories")
+            .update(["is_active": isActive])
+            .eq("id", value: id)
+            .execute()
+    }
+
     func create(name: String, icon: String, color: String, type: CategoryType, accountId: String? = nil) async throws -> Category {
         struct Input: Encodable {
             let name: String

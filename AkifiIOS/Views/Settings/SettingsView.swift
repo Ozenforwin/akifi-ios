@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appLanguage") private var appLanguage = "system"
     @State private var showDeleteConfirmation = false
+    @State private var showReceiptScanner = false
     @State private var showDeleteFinalConfirmation = false
     @State private var deleteError: String?
 
@@ -168,6 +169,18 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "square.and.arrow.up", color: .blue, title: String(localized: "settings.export"))
                     }
+
+                    NavigationLink {
+                        BankImportView()
+                    } label: {
+                        SettingsRow(icon: "square.and.arrow.down", color: .green, title: String(localized: "settings.import"))
+                    }
+
+                    Button {
+                        showReceiptScanner = true
+                    } label: {
+                        SettingsRow(icon: "doc.text.viewfinder", color: .orange, title: String(localized: "settings.scanReceipt"))
+                    }
                 }
 
                 Section(String(localized: "settings.about")) {
@@ -176,6 +189,14 @@ struct SettingsView: View {
                         Spacer()
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundStyle(.secondary)
+                    }
+
+                    ShareLink(
+                        item: URL(string: "https://apps.apple.com/app/akifi")!,
+                        subject: Text("Akifi"),
+                        message: Text(String(localized: "settings.shareMessage"))
+                    ) {
+                        SettingsRow(icon: "square.and.arrow.up.fill", color: .purple, title: String(localized: "settings.share"))
                     }
 
                     Link(destination: URL(string: "https://akifi.ru/privacy")!) {
@@ -233,6 +254,11 @@ struct SettingsView: View {
                 Button("OK") { deleteError = nil }
             } message: {
                 Text(deleteError ?? "")
+            }
+            .sheet(isPresented: $showReceiptScanner) {
+                ReceiptScannerView {
+                    await appViewModel.dataStore.loadAll()
+                }
             }
             .navigationTitle(String(localized: "common.settings"))
             .toolbar {

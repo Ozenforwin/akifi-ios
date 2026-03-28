@@ -107,6 +107,7 @@
 		DF46766C21FC5B46B9335070 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */; };
 		E1A7BB737C6BDB410DA975D5 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2075D79E0839CC0130C2C3D /* Account.swift */; };
 		E1E25ABAC2A149E04C8B73E1 /* TransactionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911532E4FE4098727AD61757 /* TransactionRowView.swift */; };
+		E22BB9091A5326C6EBA09738 /* BankImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07EB6E35A24CA838F4D2F29 /* BankImportView.swift */; };
 		E2C1E5CDFF2E178FCBF3A27F /* AnalyticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */; };
 		E3B4E9D76D72DBB97EA82A43 /* EvidenceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD55F50CC21E0102EDCD83BC /* EvidenceCardView.swift */; };
 		E45A0B3830B992820C3B6BAF /* AnalyticsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DFF0BEC556EF5A7CE6DD4C /* AnalyticsTabView.swift */; };
@@ -221,6 +222,7 @@
 		BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPromptsView.swift; sourceTree = "<group>"; };
 		BD71B178C79E5256314A6EC4 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagRepository.swift; sourceTree = "<group>"; };
+		C07EB6E35A24CA838F4D2F29 /* BankImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankImportView.swift; sourceTree = "<group>"; };
 		C2581E364E97B98BFB00509A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributionSheetView.swift; sourceTree = "<group>"; };
 		C38B51D9D8B9B10155A3CC0D /* TransactionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsViewModel.swift; sourceTree = "<group>"; };
@@ -489,6 +491,7 @@
 			isa = PBXGroup;
 			children = (
 				538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */,
+				C07EB6E35A24CA838F4D2F29 /* BankImportView.swift */,
 				79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */,
 				2EE410C427EC7280B21ECFE8 /* ExportView.swift */,
 				EF5E0807225F173AC0E211EB /* NotificationSettingsView.swift */,
@@ -682,6 +685,7 @@
 				F3F7C64643ADEA64509928E6 /* AssistantView.swift in Sources */,
 				1991DC6405A7EBB651C84992 /* AssistantViewModel.swift in Sources */,
 				DC9D5F73ECBB4B2767F4D1FB /* AuthManager.swift in Sources */,
+				E22BB9091A5326C6EBA09738 /* BankImportView.swift in Sources */,
 				67653039202E4322F26F51E5 /* Budget.swift in Sources */,
 				A525AF8C213E918E5565684D /* BudgetCardView.swift in Sources */,
 				F5ADA701D2725ABCBB1E2822 /* BudgetFormView.swift in Sources */,

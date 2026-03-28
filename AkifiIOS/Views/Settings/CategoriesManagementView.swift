@@ -31,12 +31,16 @@ struct CategoriesManagementView: View {
         return uniqueCategories.filter { $0.userId == currentUserId || $0.accountId == nil }
     }
 
-    private var incomeCategories: [Category] {
-        uniqueCategories.filter { $0.type == .income }
+    private var activeExpense: [Category] {
+        uniqueCategories.filter { $0.type == .expense && $0.isActive }
     }
 
-    private var expenseCategories: [Category] {
-        uniqueCategories.filter { $0.type == .expense }
+    private var activeIncome: [Category] {
+        uniqueCategories.filter { $0.type == .income && $0.isActive }
+    }
+
+    private var hiddenCategories: [Category] {
+        uniqueCategories.filter { !$0.isActive }
     }
 
     private var activeCount: Int {
@@ -45,43 +49,52 @@ struct CategoriesManagementView: View {
 
     var body: some View {
         List {
-            if !expenseCategories.isEmpty {
-                Section("Расходы") {
-                    ForEach(expenseCategories) { cat in
-                        CategoryManagementRow(category: cat)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                editingCategory = cat
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    Task { await confirmDelete(cat) }
-                                } label: {
-                                    Label("Удалить", systemImage: "trash")
-                                }
-                            }
+            if !activeExpense.isEmpty {
+                Section(String(localized: "common.expenses")) {
+                    ForEach(activeExpense) { cat in
+                        categoryRow(cat)
                     }
                 }
             }
 
-            if !incomeCategories.isEmpty {
-                Section("Доходы") {
-                    ForEach(incomeCategories) { cat in
-                        CategoryManagementRow(category: cat)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                editingCategory = cat
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    Task { await confirmDelete(cat) }
-                                } label: {
-                                    Label("Удалить", systemImage: "trash")
-                                }
-                            }
+            if !activeIncome.isEmpty {
+                Section(String(localized: "common.incomes")) {
+                    ForEach(activeIncome) { cat in
+                        categoryRow(cat)
                     }
                 }
             }
+
+            if !hiddenCategories.isEmpty {
+                Section(String(localized: "categories.hidden.\(hiddenCategories.count)")) {
+                    ForEach(hiddenCategories) { cat in
+                        HStack(spacing: 12) {
+                            Text(cat.icon)
+                                .font(.title3)
+                                .frame(width: 32)
+                            Text(cat.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button {
+                                Task {
+                                    try? await categoryRepo.toggleActive(id: cat.id, isActive: true)
+                                    await reloadCategories()
+                                }
+                            } label: {
+                                Text(String(localized: "categories.show"))
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(Color.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            Color.clear.frame(height: 100)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
         .navigationTitle("Категории")
         .toolbar {
@@ -101,8 +114,7 @@ struct CategoriesManagementView: View {
             }
         }
         .task {
-            categories = dataStore.categories
-            isLoading = false
+            await reloadCategories()
         }
         .sheet(isPresented: $showAddCategory) {
             AddCategoryView { name, icon, color, type in
@@ -147,6 +159,34 @@ struct CategoriesManagementView: View {
                 Text("Категория «\(cat.name)» используется в \(deletingTxCount) транзакциях. Она будет скрыта, но транзакции сохранятся.")
             }
         }
+    }
+
+    @ViewBuilder
+    private func categoryRow(_ cat: Category) -> some View {
+        HStack(spacing: 12) {
+            CategoryManagementRow(category: cat)
+            Toggle("", isOn: Binding(
+                get: { cat.isActive },
+                set: { newVal in
+                    Task {
+                        try? await categoryRepo.toggleActive(id: cat.id, isActive: newVal)
+                        await reloadCategories()
+                    }
+                }
+            ))
+            .labelsHidden()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { editingCategory = cat }
+    }
+
+    private func reloadCategories() async {
+        do {
+            categories = try await categoryRepo.fetchAllIncludingHidden()
+        } catch {
+            categories = dataStore.categories
+        }
+        isLoading = false
     }
 
     private func confirmDelete(_ category: Category) async {

@@ -5005,6 +5005,282 @@
         }
       }
     },
+    "receipt.analyzing": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing receipt..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analizando recibo..."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распознаём чек..."
+          }
+        }
+      }
+    },
+    "receipt.analyzingDetail": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This may take a few seconds"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto puede tardar unos segundos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это может занять несколько секунд"
+          }
+        }
+      }
+    },
+    "receipt.compressError": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image compression error"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de compresión de imagen"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка сжатия изображения"
+          }
+        }
+      }
+    },
+    "receipt.fromGallery": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose from Gallery"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir de la galería"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать из галереи"
+          }
+        }
+      }
+    },
+    "receipt.instruction": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take a photo of the receipt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tome una foto del recibo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сфотографируйте чек"
+          }
+        }
+      }
+    },
+    "receipt.instructionDetail": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI will recognize the store, amount and items, and create a transaction automatically"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La IA reconocerá la tienda, el importe y los artículos, y creará una operación automáticamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI распознает магазин, сумму и товары, и создаст операцию автоматически"
+          }
+        }
+      }
+    },
+    "receipt.items": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Items"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artículos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Товары"
+          }
+        }
+      }
+    },
+    "receipt.loadError": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load image"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al cargar la imagen"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить изображение"
+          }
+        }
+      }
+    },
+    "receipt.merchant": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merchant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comercio"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Магазин"
+          }
+        }
+      }
+    },
+    "receipt.saveTransaction": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Transaction"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar operación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить операцию"
+          }
+        }
+      }
+    },
+    "receipt.takePhoto": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take Photo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tomar foto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сделать фото"
+          }
+        }
+      }
+    },
+    "receipt.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipt Scanner"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escáner de recibos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сканер чеков"
+          }
+        }
+      }
+    },
     "savings.active": {
       "extractionState": "stale",
       "localizations": {
@@ -8238,7 +8514,29 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "receipt.title": {
+    "settings.import": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импорт выписки"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Statement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importar extracto"
+          }
+        }
+      }
+    },
+    "settings.scanReceipt": {
       "localizations": {
         "ru": {
           "stringUnit": {
@@ -8260,244 +8558,354 @@
         }
       }
     },
-    "receipt.instruction": {
+    "settings.share": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сфотографируйте чек"
+            "value": "Поделиться"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take a photo of the receipt"
+            "value": "Share App"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tome una foto del recibo"
+            "value": "Compartir"
           }
         }
       }
     },
-    "receipt.instructionDetail": {
+    "settings.shareMessage": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "AI распознает магазин, сумму и товары, и создаст операцию автоматически"
+            "value": "Akifi — умный финансовый помощник для учёта расходов"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AI will recognize the store, amount and items, and create a transaction automatically"
+            "value": "Akifi — smart personal finance tracker"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La IA reconocerá la tienda, el importe y los artículos, y creará una operación automáticamente"
+            "value": "Akifi — asistente financiero inteligente"
           }
         }
       }
     },
-    "receipt.takePhoto": {
+    "import.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сделать фото"
+            "value": "Импорт выписки"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Take Photo"
+            "value": "Import Statement"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tomar foto"
+            "value": "Importar extracto"
           }
         }
       }
     },
-    "receipt.fromGallery": {
+    "import.instruction": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выбрать из галереи"
+            "value": "Загрузите банковскую выписку"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose from Gallery"
+            "value": "Upload bank statement"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elegir de la galería"
+            "value": "Carga tu extracto bancario"
           }
         }
       }
     },
-    "receipt.analyzing": {
+    "import.instructionDetail": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Распознаём чек..."
+            "value": "AI распознает транзакции из PDF и предложит их импортировать"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analyzing receipt..."
+            "value": "AI will recognize transactions from PDF and suggest importing them"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analizando recibo..."
+            "value": "La IA reconocerá las transacciones del PDF y sugerirá importarlas"
           }
         }
       }
     },
-    "receipt.analyzingDetail": {
+    "import.autoDetect": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Это может занять несколько секунд"
+            "value": "Автоопределение"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This may take a few seconds"
+            "value": "Auto-detect"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esto puede tardar unos segundos"
+            "value": "Autodetectar"
           }
         }
       }
     },
-    "receipt.merchant": {
+    "import.selectPDF": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Магазин"
+            "value": "Выбрать PDF файл"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merchant"
+            "value": "Select PDF File"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comercio"
+            "value": "Seleccionar archivo PDF"
           }
         }
       }
     },
-    "receipt.items": {
+    "import.parsing": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Товары"
+            "value": "Распознаём выписку..."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Items"
+            "value": "Parsing statement..."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Artículos"
+            "value": "Analizando extracto..."
           }
         }
       }
     },
-    "receipt.saveTransaction": {
+    "import.parsingDetail": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сохранить операцию"
+            "value": "AI анализирует транзакции, это может занять до минуты"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save Transaction"
+            "value": "AI is analyzing transactions, this may take up to a minute"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardar operación"
+            "value": "La IA está analizando transacciones, puede tardar hasta un minuto"
           }
         }
       }
     },
-    "receipt.loadError": {
+    "import.selectAll": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось загрузить изображение"
+            "value": "Выбрать все"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Failed to load image"
+            "value": "Select All"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error al cargar la imagen"
+            "value": "Seleccionar todo"
           }
         }
       }
     },
-    "receipt.compressError": {
+    "import.deselectAll": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ошибка сжатия изображения"
+            "value": "Снять все"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Image compression error"
+            "value": "Deselect All"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error de compresión de imagen"
+            "value": "Deseleccionar todo"
+          }
+        }
+      }
+    },
+    "import.duplicate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дубликат"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicate"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicado"
+          }
+        }
+      }
+    },
+    "import.success": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Импорт завершён!"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Complete!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Importación completada!"
+          }
+        }
+      }
+    },
+    "import.accessError": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет доступа к файлу"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot access file"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede acceder al archivo"
+          }
+        }
+      }
+    },
+    "import.readError": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ошибка чтения файла"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File read error"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de lectura del archivo"
+          }
+        }
+      }
+    },
+    "categories.show": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar"
           }
         }
       }
