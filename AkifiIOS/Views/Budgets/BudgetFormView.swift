@@ -299,6 +299,7 @@ struct BudgetFormView: View {
                     custom_end_date: period == .custom ? df.string(from: customEndDate) : nil
                 )
                 _ = try await budgetRepo.create(input)
+                AnalyticsService.logCreateBudget(period: period.rawValue)
             }
             await onSave()
             dismiss()

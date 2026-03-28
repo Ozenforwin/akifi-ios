@@ -242,6 +242,7 @@ struct ReceiptScannerView: View {
         do {
             let result = try await uploadAndAnalyze(imageData: jpegData)
             analysisResult = result
+            AnalyticsService.logScanReceipt()
 
             // Pre-fill with suggestions
             selectedAccountId = result.suggestedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id

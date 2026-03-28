@@ -225,6 +225,7 @@ private struct CustomTabBar: View {
         Button {
             if hapticEnabled { HapticManager.light() }
             selectedTab = tag
+            AnalyticsService.logScreen(["Home", "Transactions", "Analytics", "Budgets"][tag])
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: icon)

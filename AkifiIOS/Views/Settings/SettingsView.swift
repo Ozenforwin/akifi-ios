@@ -432,6 +432,7 @@ struct CurrencyPickerView: View {
             ForEach(CurrencyCode.allCases, id: \.self) { currency in
                 Button {
                     appViewModel.currencyManager.selectedCurrency = currency
+                    AnalyticsService.logChangeCurrency(to: currency.rawValue)
                 } label: {
                     HStack {
                         Text(currency.symbol)
@@ -520,5 +521,6 @@ struct LanguagePickerView: View {
         } else {
             UserDefaults.standard.set([code], forKey: "AppleLanguages")
         }
+        AnalyticsService.logChangeLanguage(to: code)
     }
 }

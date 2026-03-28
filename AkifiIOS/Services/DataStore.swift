@@ -101,6 +101,11 @@ final class DataStore {
         let tx = try await transactionRepo.create(input)
         transactions.insert(tx, at: 0)
         rebuildCaches()
+        AnalyticsService.logAddTransaction(
+            type: input.type,
+            amount: Double(truncating: input.amount as NSDecimalNumber),
+            category: input.category_id
+        )
         return tx
     }
 
@@ -119,6 +124,7 @@ final class DataStore {
             try await transactionRepo.delete(id: transaction.id)
             transactions.removeAll { $0.id == transaction.id }
             rebuildCaches()
+            AnalyticsService.logDeleteTransaction()
         } catch {
             self.error = error.localizedDescription
         }

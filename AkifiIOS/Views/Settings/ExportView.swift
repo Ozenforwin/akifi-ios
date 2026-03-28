@@ -94,6 +94,7 @@ struct ExportView: View {
             try csv.write(to: tempURL, atomically: true, encoding: .utf8)
             exportURL = tempURL
             showShareSheet = true
+            AnalyticsService.logExportCSV()
         } catch {
             // Handle error
         }

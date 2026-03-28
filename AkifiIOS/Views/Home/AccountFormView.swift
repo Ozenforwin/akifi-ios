@@ -173,6 +173,7 @@ struct AccountFormView: View {
                     balance = 0
                 }
                 _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: balance, currency: selectedCurrency.rawValue.lowercased())
+                AnalyticsService.logCreateAccount()
             }
             await onSave()
             dismiss()

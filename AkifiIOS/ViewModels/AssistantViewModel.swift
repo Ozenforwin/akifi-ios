@@ -111,6 +111,7 @@ final class AssistantViewModel {
         isTranscribing = true
         do {
             let text = try await repo.transcribeAudio(data: data, mimeType: "audio/mp4")
+            AnalyticsService.logAIVoice()
             inputText = text
             await send()
         } catch let nsError as NSError {
@@ -211,6 +212,7 @@ final class AssistantViewModel {
         error = nil
 
         await repo.logAnalyticsEvent(event: "ai_prompt_sent")
+        AnalyticsService.logAIChat()
 
         do {
             let response = try await repo.sendMessage(

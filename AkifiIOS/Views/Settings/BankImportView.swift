@@ -381,6 +381,7 @@ struct BankImportView: View {
             }
 
             await appViewModel.dataStore.loadAll()
+            AnalyticsService.logImportStatement()
             importResult = ImportResult(imported: imported, skipped: result.transactions.count - imported)
         } catch {
             self.error = error.localizedDescription

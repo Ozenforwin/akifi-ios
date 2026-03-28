@@ -81,6 +81,7 @@ final class SavingsViewModel {
             )
             let goal = try await repo.create(input)
             goals.insert(goal, at: 0)
+            AnalyticsService.logCreateGoal()
         } catch {
             self.error = error.localizedDescription
         }
@@ -95,6 +96,7 @@ final class SavingsViewModel {
                 note: note
             )
             let contribution = try await repo.addContribution(input)
+            AnalyticsService.logContribution(type: type.rawValue, amount: Double(amount) / 100)
 
             // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }

@@ -28,12 +28,14 @@ final class AuthManager {
         )
         currentUser = session.user
         isAuthenticated = true
+        AnalyticsService.logSignIn(method: "apple")
     }
 
     func signInWithEmail(email: String, password: String) async throws {
         let session = try await supabase.auth.signIn(email: email, password: password)
         currentUser = session.user
         isAuthenticated = true
+        AnalyticsService.logSignIn(method: "email")
     }
 
     func signUpWithEmail(email: String, password: String) async throws {
@@ -41,6 +43,7 @@ final class AuthManager {
         if let session = session.session {
             currentUser = session.user
             isAuthenticated = true
+            AnalyticsService.logSignUp(method: "email")
         }
     }
 
@@ -64,6 +67,7 @@ final class AuthManager {
         let session = try await supabase.auth.session
         currentUser = session.user
         isAuthenticated = true
+        AnalyticsService.logSignIn(method: "migration")
     }
 
     func signOut() async throws {
