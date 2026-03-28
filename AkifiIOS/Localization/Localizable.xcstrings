@@ -82,6 +82,9 @@
     "+%@ очков" : {
 
     },
+    "A" : {
+
+    },
     "achievements.achievementUnlocked" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2583,9 +2586,6 @@
 
     },
     "Завершённые" : {
-
-    },
-    "Закрыть" : {
 
     },
     "из" : {
