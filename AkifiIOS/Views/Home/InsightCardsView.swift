@@ -16,48 +16,125 @@ struct InsightCardsView: View {
         let transactions = dataStore.transactions
         let calendar = Calendar.current
         let df = Self.dateFormatter
+        let fmt = appViewModel.currencyManager
 
         let now = Date()
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
         let prevMonthStart = calendar.date(byAdding: .month, value: -1, to: monthStart)!
 
-        var thisTotal: Int64 = 0
-        var prevTotal: Int64 = 0
+        // Also compute weekly data
+        let weekStart = calendar.date(byAdding: .day, value: -7, to: now)!
+        let prevWeekStart = calendar.date(byAdding: .day, value: -14, to: now)!
+
+        var thisMonthExp: Int64 = 0
+        var prevMonthExp: Int64 = 0
+        var thisWeekExp: Int64 = 0
+        var prevWeekExp: Int64 = 0
         var thisMonthCount = 0
-        var biggestThisMonth: Int64 = 0
+        var biggestAmount: Int64 = 0
+        var biggestCatId: String?
+        var catSpending: [String: Int64] = [:]
 
         for tx in transactions {
-            guard tx.type == .expense, let d = df.date(from: tx.date) else { continue }
+            guard tx.type == .expense, !tx.isTransfer else { continue }
+            guard let d = df.date(from: tx.date) else { continue }
+
             if d >= monthStart {
-                thisTotal += tx.amount
+                thisMonthExp += tx.amount
                 thisMonthCount += 1
-                if tx.amount > biggestThisMonth { biggestThisMonth = tx.amount }
+                if tx.amount > biggestAmount {
+                    biggestAmount = tx.amount
+                    biggestCatId = tx.categoryId
+                }
+                if let catId = tx.categoryId {
+                    catSpending[catId, default: 0] += tx.amount
+                }
             } else if d >= prevMonthStart {
-                prevTotal += tx.amount
+                prevMonthExp += tx.amount
+            }
+
+            if d >= weekStart {
+                thisWeekExp += tx.amount
+            } else if d >= prevWeekStart {
+                prevWeekExp += tx.amount
             }
         }
 
-        if prevTotal > 0 && thisTotal > 0 {
-            let change = Double(thisTotal - prevTotal) / Double(prevTotal) * 100
-            if abs(change) > 10 {
-                let icon = change > 0 ? "arrow.up.right" : "arrow.down.right"
-                let color: Color = change > 0 ? Color.expense : Color.income
-                let label = change > 0 ? "Расходы выросли на \(Int(abs(change)))%" : "Расходы снизились на \(Int(abs(change)))%"
-                result.append(Insight(icon: icon, color: color, text: label))
+        // 1. Weekly trend
+        if prevWeekExp > 0 && thisWeekExp > 0 {
+            let change = Double(thisWeekExp - prevWeekExp) / Double(prevWeekExp) * 100
+            if change > 15 {
+                result.append(Insight(
+                    emoji: "📈",
+                    title: "Расходы растут",
+                    subtitle: "На этой неделе потрачено на \(Int(change))% больше, чем на прошлой",
+                    color: Color.warning
+                ))
+            } else if change < -15 {
+                result.append(Insight(
+                    emoji: "📉",
+                    title: "Расходы снижаются",
+                    subtitle: "На этой неделе потрачено на \(Int(abs(change)))% меньше — так держать!",
+                    color: Color.income
+                ))
             }
         }
 
+        // 2. Monthly comparison
+        if prevMonthExp > 0 && thisMonthExp > 0 {
+            let change = Double(thisMonthExp - prevMonthExp) / Double(prevMonthExp) * 100
+            if change > 20 {
+                let thisFormatted = fmt.formatAmount(thisMonthExp.displayAmount)
+                let prevFormatted = fmt.formatAmount(prevMonthExp.displayAmount)
+                result.append(Insight(
+                    emoji: "⚡️",
+                    title: "Месяц дороже прошлого",
+                    subtitle: "Уже \(thisFormatted) против \(prevFormatted) за прошлый месяц",
+                    color: Color.expense
+                ))
+            }
+        }
+
+        // 3. Big single expense
+        if thisMonthCount >= 3 && biggestAmount > 0 {
+            let avg = thisMonthExp / Int64(thisMonthCount)
+            if biggestAmount > avg * 3 {
+                let catName = biggestCatId.flatMap { id in dataStore.categories.first { $0.id == id }?.name } ?? "Прочее"
+                let pct = thisMonthExp > 0 ? Int(Double(biggestAmount) / Double(thisMonthExp) * 100) : 0
+                result.append(Insight(
+                    emoji: "💸",
+                    title: "Крупная трата: \(catName)",
+                    subtitle: "Одна операция — \(pct)% месячных расходов",
+                    color: Color.expense
+                ))
+            }
+        }
+
+        // 4. Top category eating budget
+        if let topCat = catSpending.max(by: { $0.value < $1.value }),
+           thisMonthExp > 0 {
+            let pct = Int(Double(topCat.value) / Double(thisMonthExp) * 100)
+            if pct >= 40 {
+                let catName = dataStore.categories.first { $0.id == topCat.key }?.name ?? "Категория"
+                let catIcon = dataStore.categories.first { $0.id == topCat.key }?.icon ?? "📦"
+                result.append(Insight(
+                    emoji: catIcon,
+                    title: "\(catName) — \(pct)% расходов",
+                    subtitle: "Эта категория съедает почти половину бюджета",
+                    color: Color.warning
+                ))
+            }
+        }
+
+        // 5. No transactions warning
         let noTxDays = daysSinceLastTransaction(transactions: transactions, df: df)
         if noTxDays >= 3 {
-            result.append(Insight(icon: "clock.badge.exclamationmark", color: Color.warning, text: "Нет операций уже \(noTxDays) дн."))
-        }
-
-        if thisMonthCount >= 5 {
-            let avg = thisTotal / Int64(thisMonthCount)
-            if biggestThisMonth > avg * 3 {
-                let formatted = appViewModel.currencyManager.formatAmount(biggestThisMonth.displayAmount)
-                result.append(Insight(icon: "exclamationmark.triangle", color: Color.expense, text: "Крупный расход: \(formatted)"))
-            }
+            result.append(Insight(
+                emoji: "😴",
+                title: "Тишина уже \(noTxDays) дн.",
+                subtitle: "Вы давно не записывали операции — не забывайте вести учёт",
+                color: Color.warning
+            ))
         }
 
         return result
@@ -68,19 +145,24 @@ struct InsightCardsView: View {
             VStack(spacing: 8) {
                 ForEach(insights) { insight in
                     HStack(spacing: 12) {
-                        Image(systemName: insight.icon)
-                            .font(.system(size: 16))
-                            .foregroundStyle(insight.color)
+                        Text(insight.emoji)
+                            .font(.title2)
 
-                        Text(insight.text)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Text(insight.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Image(systemName: "sparkles")
+                                    .font(.caption2)
+                                    .foregroundStyle(insight.color.opacity(0.6))
+                            }
+                            Text(insight.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
 
-                        Spacer()
-
-                        Image(systemName: "sparkles")
-                            .font(.caption)
-                            .foregroundStyle(insight.color.opacity(0.5))
+                        Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
@@ -111,7 +193,8 @@ struct InsightCardsView: View {
 
 struct Insight: Identifiable {
     let id = UUID()
-    let icon: String
+    let emoji: String
+    let title: String
+    let subtitle: String
     let color: Color
-    let text: String
 }
