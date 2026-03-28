@@ -1,0 +1,26 @@
+appId: ru.akifi.app
+---
+# Test 3: Analytics tab - verify new widgets
+- tapOn: "Аналитика"
+- assertVisible: "Аналитика"
+
+# Monthly summary should be visible
+- assertVisible:
+    text: ".*Доходы.*"
+    optional: true
+
+# Scroll down to see more widgets
+- scroll
+- takeScreenshot: test_analytics_scrolled
+
+# Check for cashflow chart
+- assertVisible:
+    text: "Денежный поток"
+    optional: true
+
+# Scroll more to see category breakdown and portfolio
+- scroll
+- takeScreenshot: test_analytics_bottom
+
+# Go back home
+- tapOn: "Главная"

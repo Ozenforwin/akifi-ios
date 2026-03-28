@@ -1,0 +1,40 @@
+appId: ru.akifi.app
+---
+# === FULL TEST SUITE ===
+
+# 1. HOME TAB
+- assertVisible: "Главная"
+- assertVisible: "Последние операции"
+
+# 2. TRANSACTIONS TAB
+- tapOn: "Операции"
+- assertVisible: "Операции"
+
+# 3. Try adding transaction (FAB button)
+- tapOn: "Главная"
+
+# 4. ANALYTICS TAB
+- tapOn: "Аналитика"
+- assertVisible: "Аналитика"
+# Check account filter exists (Все button)
+- assertVisible:
+    text: "Все"
+    optional: true
+
+# 5. BUDGETS TAB
+- tapOn: "Бюджеты"
+- assertVisible: "Бюджеты"
+
+# Check for + button to create budget
+- assertVisible:
+    id: ".*plus.*"
+    optional: true
+
+# 6. Open Settings from Home
+- tapOn: "Главная"
+- tapOn:
+    point: "92%,5%"
+# Settings should open (gear icon at top-right of home)
+
+# 7. Go back
+- tapOn: "Главная"

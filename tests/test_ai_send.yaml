@@ -1,0 +1,17 @@
+appId: ru.akifi.app
+---
+# Send message to AI assistant
+
+# Tap quick prompt
+- tapOn: "Сколько я потратил в этом месяце?"
+
+# Wait for response
+- extendedWaitUntil:
+    notVisible: "Спросите что-нибудь..."
+    timeout: 3000
+
+# Wait more for backend response
+- waitForAnimationToEnd:
+    timeout: 20000
+
+- takeScreenshot: test_ai_response

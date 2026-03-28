@@ -7,7 +7,7 @@ struct TransferFormView: View {
     let accounts: [Account]
     let onSave: () async -> Void
 
-    @State private var amount = ""
+    @State private var calculatorState = CalculatorState()
     @State private var fromAccountId: String?
     @State private var toAccountId: String?
     @State private var date = Date()
@@ -18,19 +18,17 @@ struct TransferFormView: View {
     private let transactionRepo = TransactionRepository()
 
     private var isValid: Bool {
-        !amount.isEmpty &&
-        fromAccountId != nil &&
-        toAccountId != nil &&
-        fromAccountId != toAccountId
+        guard let amount = calculatorState.getResult(), amount > 0 else { return false }
+        return fromAccountId != nil &&
+               toAccountId != nil &&
+               fromAccountId != toAccountId
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Сумма") {
-                    TextField("0.00", text: $amount)
-                        .keyboardType(.decimalPad)
-                        .font(.title2)
+                    CalculatorKeyboardView(state: calculatorState)
                 }
 
                 Section("Откуда") {
@@ -110,7 +108,8 @@ struct TransferFormView: View {
     }
 
     private func save() async {
-        guard let amountValue = Decimal(string: amount.replacingOccurrences(of: ",", with: ".")),
+        guard let amountValue = calculatorState.getResult(),
+              amountValue > 0,
               let fromId = fromAccountId,
               let toId = toAccountId else {
             errorMessage = "Заполните все поля"
@@ -118,7 +117,6 @@ struct TransferFormView: View {
         }
 
         isLoading = true
-        let amountCents = Int64(truncating: (amountValue * 100) as NSDecimalNumber)
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let dateStr = df.string(from: date)
@@ -129,22 +127,22 @@ struct TransferFormView: View {
             // Expense from source
             _ = try await transactionRepo.create(CreateTransactionInput(
                 account_id: fromId,
-                amount: amountCents,
-                tx_type: TransactionType.transfer.rawValue,
+                amount: amountValue,
+                type: TransactionType.transfer.rawValue,
                 date: dateStr,
                 description: desc,
                 category_id: nil,
-                merchant: nil
+                merchant_name: nil
             ))
             // Income to destination
             _ = try await transactionRepo.create(CreateTransactionInput(
                 account_id: toId,
-                amount: amountCents,
-                tx_type: TransactionType.transfer.rawValue,
+                amount: amountValue,
+                type: TransactionType.transfer.rawValue,
                 date: dateStr,
                 description: desc,
                 category_id: nil,
-                merchant: nil
+                merchant_name: nil
             ))
             await onSave()
             dismiss()

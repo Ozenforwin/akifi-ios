@@ -26,6 +26,8 @@ struct ContentView: View {
     }
 }
 
+// MARK: - MainTabView
+
 struct MainTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var selectedTab = 0
@@ -36,63 +38,21 @@ struct MainTabView: View {
     @State private var unlockedAchievement: Achievement?
 
     var body: some View {
-        ZStack {
-            TabView(selection: $selectedTab) {
-                Tab(String(localized: "tabs.home"), systemImage: "house.fill", value: 0) {
-                    HomeTabView()
-                }
-
-                Tab(String(localized: "tabs.transactions"), systemImage: "arrow.left.arrow.right", value: 1) {
-                    TransactionsTabView()
-                }
-
-                // Spacer tab for center AI button
-                Tab("", systemImage: "sparkles", value: 99) {
-                    Color.clear
-                }
-                .hidden()
-
-                Tab(String(localized: "tabs.analytics"), systemImage: "chart.bar.fill", value: 2) {
-                    AnalyticsTabView()
-                }
-
-                Tab(String(localized: "tabs.budgets"), systemImage: "wallet.bifold.fill", value: 3) {
-                    BudgetsTabView()
+        ZStack(alignment: .bottom) {
+            // Content area
+            Group {
+                switch selectedTab {
+                case 0: HomeTabView()
+                case 1: TransactionsTabView()
+                case 2: AnalyticsTabView()
+                case 3: BudgetsTabView()
+                default: HomeTabView()
                 }
             }
-            .tint(Color.accent)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Center AI button
-            VStack {
-                Spacer()
-                Button {
-                    showAssistant = true
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.aiGradientStart, .aiGradientEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 56, height: 56)
-                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
-
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
-                    .overlay {
-                        Circle()
-                            .stroke(Color(.systemBackground), lineWidth: 4)
-                    }
-                }
-                .buttonStyle(.plain)
-                .offset(y: -5)
-                .padding(.bottom, 28)
-            }
+            // Custom opaque tab bar (replaces system TabView to avoid iOS 26 liquid glass)
+            CustomTabBar(selectedTab: $selectedTab, onAITap: { showAssistant = true })
 
             // FAB
             FABView { action in
@@ -120,8 +80,11 @@ struct MainTabView: View {
                 .transition(.opacity)
             }
         }
+        .ignoresSafeArea(edges: .bottom)
         .fullScreenCover(isPresented: $showAssistant) {
-            AssistantView()
+            AssistantView { target in
+                handleNavigationTarget(target)
+            }
         }
         .sheet(isPresented: $showAddTransaction) {
             TransactionFormView(
@@ -148,6 +111,21 @@ struct MainTabView: View {
         .task { await checkNewAchievements() }
     }
 
+    private func handleNavigationTarget(_ target: NavigationTarget) {
+        switch target {
+        case .transactions:
+            selectedTab = 1
+        case .budgets:
+            selectedTab = 3
+        case .savings:
+            selectedTab = 3
+        case .addExpense:
+            showAddTransaction = true
+        case .addIncome:
+            showAddIncome = true
+        }
+    }
+
     private func checkNewAchievements() async {
         let repo = AchievementRepository()
         do {
@@ -164,5 +142,72 @@ struct MainTabView: View {
         } catch {
             // Silent — achievements are non-critical
         }
+    }
+}
+
+// MARK: - Custom Tab Bar (opaque, no liquid glass)
+
+private struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+    var onAITap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 0) {
+                tabButton("house.fill", "Главная", 0)
+                tabButton("arrow.left.arrow.right", "Операции", 1)
+
+                // Center AI button
+                Button(action: onAITap) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.aiGradientStart, .aiGradientEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 56, height: 56)
+                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    .overlay {
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 4)
+                    }
+                    .offset(y: -18)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+
+                tabButton("chart.bar.fill", "Аналитика", 2)
+                tabButton("wallet.bifold.fill", "Бюджеты", 3)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+        }
+        .background(Color(.systemBackground))
+    }
+
+    private func tabButton(_ icon: String, _ label: String, _ tag: Int) -> some View {
+        Button {
+            selectedTab = tag
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(selectedTab == tag ? Color.accent : Color(.secondaryLabel))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 }

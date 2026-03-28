@@ -1,0 +1,8 @@
+appId: ru.akifi.app
+---
+# Test 1: Home Tab - verify data loads
+- assertVisible: "Главная"
+- assertVisible: "Операции"
+- assertVisible: "Аналитика"
+- assertVisible: "Бюджеты"
+- takeScreenshot: test_home

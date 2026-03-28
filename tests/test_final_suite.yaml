@@ -1,0 +1,44 @@
+appId: ru.akifi.app
+---
+# Wait for app to load
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 10000
+
+# === 1. HOME TAB ===
+- assertVisible: "Последние операции"
+- takeScreenshot: final_1_home
+
+# === 2. TRANSACTIONS TAB ===
+- tapOn: "Операции"
+- extendedWaitUntil:
+    visible: "Операции"
+    timeout: 3000
+- takeScreenshot: final_2_transactions
+
+# === 3. ANALYTICS TAB ===
+- tapOn: "Аналитика"
+- extendedWaitUntil:
+    visible: "Аналитика"
+    timeout: 3000
+- takeScreenshot: final_3_analytics_top
+
+- scroll
+- takeScreenshot: final_3_analytics_mid
+
+- scroll
+- takeScreenshot: final_3_analytics_btm
+
+# === 4. BUDGETS TAB ===
+- tapOn: "Бюджеты"
+- extendedWaitUntil:
+    visible: "Бюджеты"
+    timeout: 3000
+- takeScreenshot: final_4_budgets
+
+- scroll
+- takeScreenshot: final_4_budgets_subs
+
+# === 5. BACK HOME ===
+- tapOn: "Главная"
+- takeScreenshot: final_5_home_return

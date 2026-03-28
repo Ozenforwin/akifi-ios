@@ -1,0 +1,22 @@
+appId: ru.akifi.app
+---
+# Test AI Assistant chat - send a message
+
+# We're already on assistant screen, tap a quick prompt
+- tapOn:
+    text: ".*потратил.*"
+    optional: false
+
+# Wait for typing indicator or response (up to 15 sec)
+- waitForAnimationToEnd:
+    timeout: 15000
+
+- takeScreenshot: test_assistant_after_send
+
+# Close assistant
+- tapOn:
+    point: "7%,6%"
+
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 5000

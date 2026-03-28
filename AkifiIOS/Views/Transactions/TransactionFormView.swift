@@ -8,7 +8,7 @@ struct TransactionFormView: View {
     let editingTransaction: Transaction?
     let onSave: () async -> Void
 
-    @State private var amount = ""
+    @State private var calculatorState = CalculatorState()
     @State private var description = ""
     @State private var selectedType: TransactionType = .expense
     @State private var selectedCategoryId: String?
@@ -17,6 +17,7 @@ struct TransactionFormView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showCategoryPicker = false
+    @State private var showCalculator = true
 
     private let transactionRepo = TransactionRepository()
     private let isoDateFormatter: DateFormatter = {
@@ -53,9 +54,7 @@ struct TransactionFormView: View {
                 }
 
                 Section("Сумма") {
-                    TextField("0.00", text: $amount)
-                        .keyboardType(.decimalPad)
-                        .font(.title2)
+                    CalculatorKeyboardView(state: calculatorState)
                 }
 
                 Section("Категория") {
@@ -126,7 +125,7 @@ struct TransactionFormView: View {
                     Button(isEditing ? "Обновить" : "Сохранить") {
                         Task { await save() }
                     }
-                    .disabled(amount.isEmpty || isLoading)
+                    .disabled(calculatorState.getResult() == nil || isLoading)
                 }
             }
             .onAppear { prefillIfEditing() }
@@ -143,7 +142,7 @@ struct TransactionFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else { return }
-        amount = "\(tx.amount.displayAmount)"
+        calculatorState.setValue(tx.amount.displayAmount)
         description = tx.description ?? ""
         selectedType = tx.type
         selectedCategoryId = tx.categoryId
@@ -154,35 +153,34 @@ struct TransactionFormView: View {
     }
 
     private func save() async {
-        guard let amountValue = Decimal(string: amount.replacingOccurrences(of: ",", with: ".")) else {
+        guard let amountValue = calculatorState.getResult(), amountValue > 0 else {
             errorMessage = "Некорректная сумма"
             return
         }
 
         isLoading = true
-        let amountCents = Int64(truncating: (amountValue * 100) as NSDecimalNumber)
         let dateStr = isoDateFormatter.string(from: date)
 
         do {
             if let tx = editingTransaction {
                 let input = UpdateTransactionInput(
-                    amount: amountCents,
-                    tx_type: selectedType.rawValue,
+                    amount: amountValue,
+                    type: selectedType.rawValue,
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant: nil
+                    merchant_name: nil
                 )
                 try await transactionRepo.update(id: tx.id, input)
             } else {
                 let input = CreateTransactionInput(
                     account_id: selectedAccountId,
-                    amount: amountCents,
-                    tx_type: selectedType.rawValue,
+                    amount: amountValue,
+                    type: selectedType.rawValue,
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant: nil
+                    merchant_name: nil
                 )
                 _ = try await transactionRepo.create(input)
             }

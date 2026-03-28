@@ -3,6 +3,13 @@ import SwiftUI
 struct AssistantView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel = AssistantViewModel()
+    @State private var showFeedbackSheet = false
+    @State private var feedbackMessage: ChatMessage?
+    @State private var feedbackReason: FeedbackReason = .notHelpful
+    @State private var feedbackCustomText = ""
+
+    /// Callback for navigation actions from the assistant
+    var onNavigate: ((NavigationTarget) -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -11,19 +18,39 @@ struct AssistantView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 8) {
-                            if viewModel.messages.isEmpty && !viewModel.isProcessing {
+                            if viewModel.chatMessages.isEmpty && !viewModel.isProcessing {
                                 AssistantWelcomeView { prompt in
                                     Task { await viewModel.sendFollowUp(prompt) }
                                 }
                                 .padding(.top, 40)
                             }
 
-                            ForEach(viewModel.messages) { message in
+                            ForEach(viewModel.chatMessages) { message in
                                 MessageBubbleView(
                                     message: message,
-                                    isUser: message.role == .user
+                                    onAction: { action in
+                                        Task {
+                                            await viewModel.requestActionPreview(action, messageId: message.messageId)
+                                        }
+                                    },
+                                    onRecommendedAction: { rec in
+                                        handleRecommendedAction(rec)
+                                    },
+                                    onThumbsUp: {
+                                        Task { await viewModel.submitPositiveFeedback(for: message) }
+                                    },
+                                    onThumbsDown: {
+                                        feedbackMessage = message
+                                        feedbackReason = .notHelpful
+                                        feedbackCustomText = ""
+                                        showFeedbackSheet = true
+                                    }
                                 )
                                 .id(message.id)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .opacity
+                                ))
                             }
 
                             if viewModel.isProcessing {
@@ -37,9 +64,9 @@ struct AssistantView: View {
                         .padding(.horizontal)
                         .padding(.vertical, 8)
                     }
-                    .onChange(of: viewModel.messages.count) {
-                        withAnimation {
-                            if let last = viewModel.messages.last {
+                    .onChange(of: viewModel.chatMessages.count) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            if let last = viewModel.chatMessages.last {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }
                         }
@@ -82,6 +109,8 @@ struct AssistantView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .padding(.horizontal)
+                        .padding(.vertical, 4)
+                        .transition(.move(edge: .bottom))
                 }
 
                 // Input
@@ -123,7 +152,138 @@ struct AssistantView: View {
             .sheet(isPresented: $viewModel.showConversations) {
                 ConversationListView(viewModel: viewModel)
             }
+            .sheet(isPresented: $viewModel.showActionPreview) {
+                if let action = viewModel.pendingAction,
+                   let preview = viewModel.pendingActionPreview {
+                    ActionPreviewSheet(
+                        action: action,
+                        preview: preview,
+                        isProcessing: viewModel.actionProcessing,
+                        onConfirm: {
+                            Task { await viewModel.confirmAction() }
+                        },
+                        onCancel: {
+                            viewModel.cancelAction()
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showFeedbackSheet) {
+                FeedbackSheet(
+                    reason: $feedbackReason,
+                    customText: $feedbackCustomText,
+                    onSubmit: {
+                        if let message = feedbackMessage {
+                            Task {
+                                await viewModel.submitNegativeFeedback(
+                                    for: message,
+                                    reason: feedbackReason,
+                                    customText: feedbackReason == .other ? feedbackCustomText : nil
+                                )
+                            }
+                        }
+                        showFeedbackSheet = false
+                    },
+                    onCancel: {
+                        showFeedbackSheet = false
+                    }
+                )
+            }
         }
+    }
+
+    private func handleRecommendedAction(_ rec: RecommendedAction) {
+        let action = AssistantAction(
+            type: AssistantActionType(rawValue: rec.actionType.rawValue) ?? .openTransactions,
+            label: rec.label,
+            payload: rec.payload.map {
+                ActionPayload(
+                    txIds: $0.txIds, category: $0.category,
+                    merchant: $0.merchant, minAmount: $0.minAmount,
+                    amount: nil, type: nil, categoryId: nil,
+                    accountId: nil, description: nil, date: nil,
+                    budgetId: nil, categoryIds: nil, accountIds: nil,
+                    periodType: nil, budgetType: nil,
+                    goalId: nil, goalName: nil, targetAmount: nil
+                )
+            }
+        )
+        if let target = viewModel.handleNavigationAction(action) {
+            dismiss()
+            onNavigate?(target)
+        }
+    }
+}
+
+// MARK: - Feedback Sheet
+
+struct FeedbackSheet: View {
+    @Binding var reason: FeedbackReason
+    @Binding var customText: String
+    let onSubmit: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text("Что пошло не так?")
+                    .font(.headline)
+
+                ForEach(FeedbackReason.allCases, id: \.self) { r in
+                    Button {
+                        reason = r
+                    } label: {
+                        HStack {
+                            Text(r.displayName)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if reason == r {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.accent)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if reason == .other {
+                    TextField("Опишите проблему...", text: $customText, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .lineLimit(2...4)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+
+                Spacer()
+
+                Button {
+                    onSubmit()
+                } label: {
+                    Text("Отправить")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.accent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding()
+            .navigationTitle("Отзыв")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Отмена") { onCancel() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

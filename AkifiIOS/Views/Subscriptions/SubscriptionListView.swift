@@ -100,9 +100,11 @@ struct SubscriptionRowView: View {
 
     private var periodLabel: String {
         switch subscription.billingPeriod {
+        case .weekly: "Еженедельно"
         case .monthly: "Ежемесячно"
         case .quarterly: "Ежеквартально"
         case .yearly: "Ежегодно"
+        case .custom: "Произвольный"
         }
     }
 }

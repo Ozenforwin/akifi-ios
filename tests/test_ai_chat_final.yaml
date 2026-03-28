@@ -1,0 +1,17 @@
+appId: ru.akifi.app
+---
+# Open assistant and send message
+- tapOn:
+    point: "50%,96%"
+- extendedWaitUntil:
+    visible: "Ассистент"
+    timeout: 5000
+
+# Tap quick prompt
+- tapOn: "Сколько я потратил в этом месяце?"
+
+# Wait for response (up to 20 seconds)
+- extendedWaitUntil:
+    visible:
+      text: ".*₽.*"
+    timeout: 20000

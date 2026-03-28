@@ -33,22 +33,8 @@ final class BudgetsViewModel {
         isLoading = false
     }
 
-    func createBudget(name: String, amount: Int64, period: BillingPeriod, categories: [String]?, accountId: String?, rollover: Bool, alertThreshold: Double?) async {
-        do {
-            let input = CreateBudgetInput(
-                name: name,
-                amount: amount,
-                billing_period: period.rawValue,
-                categories: categories,
-                account_id: accountId,
-                rollover_enabled: rollover,
-                alert_threshold: alertThreshold
-            )
-            let budget = try await budgetRepo.create(input)
-            budgets.insert(budget, at: 0)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func reloadBudgets() async {
+        await load()
     }
 
     func deleteBudget(_ budget: Budget) async {
@@ -67,6 +53,12 @@ final class BudgetsViewModel {
         let now = Date()
 
         switch budget.billingPeriod {
+        case .weekly:
+            let weekday = calendar.component(.weekday, from: now)
+            let daysToMonday = (weekday + 5) % 7
+            let start = calendar.date(byAdding: .day, value: -daysToMonday, to: calendar.startOfDay(for: now))!
+            let end = calendar.date(byAdding: .day, value: 6, to: start)! // Sunday
+            return (start, end)
         case .monthly:
             let start = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
             let end = calendar.date(byAdding: .month, value: 1, to: start)!
@@ -83,6 +75,17 @@ final class BudgetsViewModel {
         case .yearly:
             let start = calendar.date(from: calendar.dateComponents([.year], from: now))!
             let end = calendar.date(byAdding: .year, value: 1, to: start)!
+            return (start, end)
+        case .custom:
+            if let startStr = budget.customStartDate,
+               let endStr = budget.customEndDate,
+               let start = isoDateFormatter.date(from: startStr),
+               let end = isoDateFormatter.date(from: endStr) {
+                return (start, end)
+            }
+            // Fallback to monthly
+            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+            let end = calendar.date(byAdding: .month, value: 1, to: start)!
             return (start, end)
         }
     }
@@ -116,6 +119,12 @@ final class BudgetsViewModel {
 
     func periodLabel(for budget: Budget) -> String {
         switch budget.billingPeriod {
+        case .weekly:
+            let period = currentPeriod(for: budget)
+            let df = DateFormatter()
+            df.dateFormat = "d MMM"
+            df.locale = Locale(identifier: "ru_RU")
+            return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
         case .monthly:
             periodLabelFormatter.dateFormat = "LLLL yyyy"
             return periodLabelFormatter.string(from: Date()).capitalized
@@ -125,6 +134,12 @@ final class BudgetsViewModel {
             return "\(quarter)-й квартал \(Calendar.current.component(.year, from: Date()))"
         case .yearly:
             return "\(Calendar.current.component(.year, from: Date())) год"
+        case .custom:
+            let period = currentPeriod(for: budget)
+            let df = DateFormatter()
+            df.dateFormat = "d MMM yyyy"
+            df.locale = Locale(identifier: "ru_RU")
+            return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
         }
     }
 }

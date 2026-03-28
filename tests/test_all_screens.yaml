@@ -1,0 +1,43 @@
+appId: ru.akifi.app
+---
+# Close assistant if open
+- tapOn:
+    point: "7%,6%"
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 5000
+
+# === Test Analytics Tab ===
+- tapOn: "Аналитика"
+- assertVisible: "Аналитика"
+# Account filter "Все" should exist
+- assertVisible:
+    text: "Все"
+    optional: true
+- takeScreenshot: test_final_analytics_top
+
+- scroll
+- takeScreenshot: test_final_analytics_mid
+
+- scroll
+- takeScreenshot: test_final_analytics_bottom
+
+# === Test Budgets Tab ===
+- tapOn: "Бюджеты"
+- assertVisible: "Бюджеты"
+- takeScreenshot: test_final_budgets
+
+- scroll
+- assertVisible:
+    text: "Подписки"
+    optional: true
+- takeScreenshot: test_final_budgets_subs
+
+# === Test Transactions Tab ===
+- tapOn: "Операции"
+- assertVisible: "Операции"
+- takeScreenshot: test_final_transactions
+
+# === Back to Home ===
+- tapOn: "Главная"
+- takeScreenshot: test_final_home

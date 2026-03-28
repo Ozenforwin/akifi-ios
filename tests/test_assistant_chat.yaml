@@ -1,0 +1,26 @@
+appId: ru.akifi.app
+---
+# Test AI Assistant chat
+
+- tapOn: "Главная"
+
+# Open assistant
+- tapOn:
+    point: "50%,96%"
+- extendedWaitUntil:
+    visible: "Ассистент"
+    timeout: 5000
+
+# Tap on quick prompt
+- tapOn: "Сколько я потратил в этом месяце?"
+
+# Wait for response
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 15000
+
+- takeScreenshot: test_assistant_response
+
+# Close
+- tapOn:
+    point: "10%,6%"

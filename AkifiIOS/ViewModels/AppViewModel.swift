@@ -6,6 +6,7 @@ final class AppViewModel {
     let currencyManager = CurrencyManager()
     let paymentManager = PaymentManager()
     let dataStore = DataStore()
+    let themeManager = ThemeManager()
 
     var hasCompletedOnboarding = false
 

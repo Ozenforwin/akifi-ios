@@ -1,0 +1,17 @@
+appId: ru.akifi.app
+---
+# Test budgets tab detailed
+
+- tapOn: "Бюджеты"
+- assertVisible: "Бюджеты"
+
+# Check subscriptions section exists
+- scroll
+- assertVisible:
+    text: "Подписки"
+    optional: true
+
+# Scroll back up
+- scrollUntilVisible:
+    element: "Бюджеты"
+    direction: UP

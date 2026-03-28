@@ -1,0 +1,11 @@
+appId: ru.akifi.app
+---
+- tapOn: "Аналитика"
+- takeScreenshot: test_analytics_1
+- scroll
+- takeScreenshot: test_analytics_2
+- scroll
+- takeScreenshot: test_analytics_3
+- scroll
+- takeScreenshot: test_analytics_4
+- tapOn: "Главная"

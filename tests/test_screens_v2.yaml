@@ -1,0 +1,40 @@
+appId: ru.akifi.app
+---
+# Close assistant - tap X button at top-left
+- tapOn:
+    point: "8%,7%"
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 3000
+
+# If still open, try swipe down
+- runFlow:
+    when:
+      notVisible: "Главная"
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 500
+
+- extendedWaitUntil:
+    visible: "Главная"
+    timeout: 3000
+
+# === ANALYTICS ===
+- tapOn: "Аналитика"
+- takeScreenshot: final_analytics
+
+- scroll
+- takeScreenshot: final_analytics_2
+
+# === BUDGETS ===
+- tapOn: "Бюджеты"
+- takeScreenshot: final_budgets
+
+# === TRANSACTIONS ===
+- tapOn: "Операции"
+- takeScreenshot: final_transactions
+
+# === HOME ===
+- tapOn: "Главная"
+- takeScreenshot: final_home

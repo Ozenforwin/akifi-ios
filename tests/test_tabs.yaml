@@ -1,0 +1,19 @@
+appId: ru.akifi.app
+---
+# Test 2: Navigate through all tabs
+
+# Go to Transactions tab
+- tapOn: "Операции"
+- takeScreenshot: test_transactions_tab
+
+# Go to Analytics tab
+- tapOn: "Аналитика"
+- takeScreenshot: test_analytics_tab
+
+# Go to Budgets tab
+- tapOn: "Бюджеты"
+- takeScreenshot: test_budgets_tab
+
+# Back to Home
+- tapOn: "Главная"
+- takeScreenshot: test_back_home

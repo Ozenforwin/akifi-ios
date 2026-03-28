@@ -12,9 +12,11 @@ final class SubscriptionsViewModel {
     var monthlyTotal: Int64 {
         subscriptions.reduce(Int64(0)) { total, sub in
             switch sub.billingPeriod {
+            case .weekly: total + sub.amount * 4
             case .monthly: total + sub.amount
             case .quarterly: total + sub.amount / 3
             case .yearly: total + sub.amount / 12
+            case .custom: total + sub.amount
             }
         }
     }
@@ -34,9 +36,10 @@ final class SubscriptionsViewModel {
         do {
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
+            let amountDecimal = Decimal(amount) / 100 // kopecks → rubles for DB
             let input = CreateSubscriptionInput(
                 service_name: name,
-                amount: amount,
+                amount: amountDecimal,
                 billing_period: period.rawValue,
                 start_date: df.string(from: Date()),
                 icon_color: color

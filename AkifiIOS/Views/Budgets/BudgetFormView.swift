@@ -6,40 +6,81 @@ struct BudgetFormView: View {
 
     let categories: [Category]
     let accounts: [Account]
-    let onSave: (String, Int64, BillingPeriod, [String]?, String?, Bool, Double?) async -> Void
+    let editingBudget: Budget?
+    let onSave: () async -> Void
 
-    @State private var name = ""
-    @State private var amountText = ""
+    @State private var calculatorState = CalculatorState()
     @State private var period: BillingPeriod = .monthly
+    @State private var budgetType: BudgetType = .hard
     @State private var selectedCategories: Set<String> = []
     @State private var selectedAccountId: String?
     @State private var rolloverEnabled = false
-    @State private var alertThreshold: Double = 0.8
+    @State private var alertThresholds: [Int] = [80]
+    @State private var customStartDate = Date()
+    @State private var customEndDate = Calendar.current.date(byAdding: .month, value: 1, to: Date())!
     @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private let budgetRepo = BudgetRepository()
+
+    init(categories: [Category], accounts: [Account], editingBudget: Budget? = nil, onSave: @escaping () async -> Void) {
+        self.categories = categories
+        self.accounts = accounts
+        self.editingBudget = editingBudget
+        self.onSave = onSave
+    }
+
+    private var isEditing: Bool { editingBudget != nil }
 
     private var expenseCategories: [Category] {
         categories.filter { $0.type == .expense }
     }
 
     private var isValid: Bool {
-        !name.isEmpty && !amountText.isEmpty && (Decimal(string: amountText) ?? 0) > 0
+        let amount = calculatorState.getResult() ?? 0
+        return amount > 0
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Основное") {
-                    TextField("Название бюджета", text: $name)
-                    TextField("Сумма", text: $amountText)
-                        .keyboardType(.decimalPad)
+                // Budget Type
+                Section {
+                    Picker("Тип", selection: $budgetType) {
+                        ForEach(BudgetType.allCases, id: \.self) { type in
+                            VStack(alignment: .leading) {
+                                Text(type.displayName)
+                            }
+                            .tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Тип бюджета")
+                } footer: {
+                    Text(budgetType.description)
+                }
 
+                // Amount
+                Section("Сумма") {
+                    CalculatorKeyboardView(state: calculatorState)
+                }
+
+                // Period
+                Section("Период") {
                     Picker("Период", selection: $period) {
-                        Text("Месяц").tag(BillingPeriod.monthly)
-                        Text("Квартал").tag(BillingPeriod.quarterly)
-                        Text("Год").tag(BillingPeriod.yearly)
+                        ForEach(BillingPeriod.allCases, id: \.self) { p in
+                            Text(p.displayName).tag(p)
+                        }
+                    }
+
+                    if period == .custom {
+                        DatePicker("Начало", selection: $customStartDate, displayedComponents: .date)
+                        DatePicker("Конец", selection: $customEndDate, displayedComponents: .date)
                     }
                 }
 
+                // Categories
                 Section("Категории") {
                     if expenseCategories.isEmpty {
                         Text("Нет категорий расходов")
@@ -74,6 +115,7 @@ struct BudgetFormView: View {
                     }
                 }
 
+                // Account
                 if !accounts.isEmpty {
                     Section("Счёт") {
                         Picker("Счёт", selection: $selectedAccountId) {
@@ -85,39 +127,153 @@ struct BudgetFormView: View {
                     }
                 }
 
+                // Settings
                 Section("Настройки") {
                     Toggle("Перенос остатка", isOn: $rolloverEnabled)
 
-                    VStack(alignment: .leading) {
-                        Text("Предупреждение при \(Int(alertThreshold * 100))%")
-                            .font(.subheadline)
-                        Slider(value: $alertThreshold, in: 0.5...1.0, step: 0.05)
-                            .tint(.orange)
+                    // Alert thresholds
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Пороги предупреждений")
+                                .font(.subheadline)
+                            Spacer()
+                            Button {
+                                if alertThresholds.count < 4 {
+                                    let next = (alertThresholds.last ?? 70) + 10
+                                    alertThresholds.append(min(next, 100))
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(Color.accent)
+                            }
+                            .disabled(alertThresholds.count >= 4)
+                        }
+
+                        ForEach(alertThresholds.indices, id: \.self) { index in
+                            HStack {
+                                Text("\(alertThresholds[index])%")
+                                    .font(.caption.monospacedDigit())
+                                    .frame(width: 40)
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(alertThresholds[index]) },
+                                        set: { alertThresholds[index] = Int($0) }
+                                    ),
+                                    in: 10...100,
+                                    step: 5
+                                )
+                                .tint(.orange)
+
+                                if alertThresholds.count > 1 {
+                                    Button {
+                                        alertThresholds.remove(at: index)
+                                    } label: {
+                                        Image(systemName: "minus.circle")
+                                            .foregroundStyle(.red)
+                                            .font(.caption)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.caption)
                     }
                 }
             }
-            .navigationTitle("Новый бюджет")
+            .navigationTitle(isEditing ? "Редактирование" : "Новый бюджет")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Создать") {
+                    Button(isEditing ? "Сохранить" : "Создать") {
                         Task { await save() }
                     }
                     .disabled(!isValid || isSaving)
                 }
             }
+            .onAppear { prefillIfEditing() }
+        }
+    }
+
+    private func prefillIfEditing() {
+        guard let budget = editingBudget else { return }
+        calculatorState.setValue(budget.amount.displayAmount)
+        period = budget.billingPeriod
+        budgetType = budget.budgetTypeEnum
+        selectedCategories = Set(budget.categoryIds ?? [])
+        selectedAccountId = budget.accountId
+        rolloverEnabled = budget.rolloverEnabled
+        alertThresholds = budget.alertThresholds ?? [80]
+        if let start = budget.customStartDate {
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            customStartDate = df.date(from: start) ?? Date()
+        }
+        if let end = budget.customEndDate {
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            customEndDate = df.date(from: end) ?? Date()
         }
     }
 
     private func save() async {
+        guard let decimalAmount = calculatorState.getResult(), decimalAmount > 0 else {
+            errorMessage = "Введите сумму"
+            return
+        }
+
         isSaving = true
-        guard let decimalAmount = Decimal(string: amountText) else { return }
-        let amountInCents = Int64(truncating: (decimalAmount * 100) as NSDecimalNumber)
+        let amountForDB = decimalAmount // CalculatorState returns display amount, convert to rubles for DB
         let cats = selectedCategories.isEmpty ? nil : Array(selectedCategories)
-        await onSave(name, amountInCents, period, cats, selectedAccountId, rolloverEnabled, alertThreshold)
-        dismiss()
+        let accountIds = selectedAccountId.map { [$0] }
+
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+
+        do {
+            if let budget = editingBudget {
+                // Update existing budget
+                let input = UpdateBudgetInput(
+                    amount: amountForDB,
+                    period_type: period.rawValue,
+                    category_ids: cats,
+                    account_ids: accountIds,
+                    rollover_enabled: rolloverEnabled,
+                    alert_thresholds: alertThresholds,
+                    budget_type: budgetType.rawValue,
+                    custom_start_date: period == .custom ? df.string(from: customStartDate) : nil,
+                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil
+                )
+                try await budgetRepo.update(id: budget.id, input)
+            } else {
+                // Create new budget
+                let input = CreateBudgetInput(
+                    amount: amountForDB,
+                    period_type: period.rawValue,
+                    category_ids: cats,
+                    account_ids: accountIds,
+                    rollover_enabled: rolloverEnabled,
+                    alert_thresholds: alertThresholds,
+                    budget_type: budgetType.rawValue,
+                    custom_start_date: period == .custom ? df.string(from: customStartDate) : nil,
+                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil
+                )
+                _ = try await budgetRepo.create(input)
+            }
+            await onSave()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isSaving = false
     }
 }

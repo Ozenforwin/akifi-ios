@@ -1,0 +1,28 @@
+appId: ru.akifi.app
+---
+# Test AI Assistant
+
+- tapOn: "Главная"
+
+# Tap on AI button (center of tab bar - sparkles icon)
+- tapOn:
+    point: "50%,96%"
+- extendedWaitUntil:
+    visible: "Ассистент"
+    timeout: 5000
+
+# Should see welcome screen
+- assertVisible:
+    text: "Привет"
+    optional: true
+
+# Should see quick prompts
+- assertVisible:
+    text: "Сколько я потратил"
+    optional: true
+
+- takeScreenshot: test_assistant_welcome
+
+# Close assistant
+- tapOn:
+    point: "10%,6%"

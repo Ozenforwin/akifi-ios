@@ -38,6 +38,17 @@ struct SettingsView: View {
                     .listRowBackground(Color.clear)
                 }
 
+                // Stats
+                Section {
+                    HStack(spacing: 16) {
+                        StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: "Счетов")
+                        StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: "Операций")
+                        StatBadge(value: "\(appViewModel.dataStore.categories.count)", label: "Категорий")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                }
+
                 Section(header: Text("ОСНОВНОЕ")) {
                     NavigationLink {
                         ProfileEditView()
@@ -60,9 +71,29 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        AISettingsView()
+                    } label: {
+                        SettingsRow(icon: "sparkles", color: .purple, title: "AI ассистент")
+                    }
+
+                    NavigationLink {
                         NotificationSettingsView()
                     } label: {
                         SettingsRow(icon: "bell.fill", color: .orange, title: String(localized: "settings.notifications"))
+                    }
+
+                    // Theme
+                    NavigationLink {
+                        ThemePickerView()
+                    } label: {
+                        SettingsRow(icon: "paintbrush.fill", color: .indigo, title: "Тема", value: appViewModel.themeManager.themeName)
+                    }
+
+                    // Category Layout
+                    NavigationLink {
+                        CategoryLayoutPickerView()
+                    } label: {
+                        SettingsRow(icon: "square.grid.2x2", color: .teal, title: "Вид категорий")
                     }
                 }
 
@@ -98,6 +129,14 @@ struct SettingsView: View {
                                     .foregroundStyle(Color.accent)
                             }
                         }
+                    }
+                }
+
+                Section(header: Text("ДАННЫЕ")) {
+                    NavigationLink {
+                        ExportView()
+                    } label: {
+                        SettingsRow(icon: "square.and.arrow.up", color: .blue, title: "Экспорт CSV")
                     }
                 }
 
@@ -157,6 +196,110 @@ struct SettingsRow: View {
                 Text(value)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+struct StatBadge: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.title3.weight(.bold))
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct ThemePickerView: View {
+    @Environment(AppViewModel.self) private var appViewModel
+
+    var body: some View {
+        List {
+            Button {
+                appViewModel.themeManager.setTheme(nil)
+            } label: {
+                HStack {
+                    Label("Системная", systemImage: "gear")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if appViewModel.themeManager.selectedScheme == nil {
+                        Image(systemName: "checkmark").foregroundStyle(Color.accent)
+                    }
+                }
+            }
+
+            Button {
+                appViewModel.themeManager.setTheme(.light)
+            } label: {
+                HStack {
+                    Label("Светлая", systemImage: "sun.max.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if appViewModel.themeManager.selectedScheme == .light {
+                        Image(systemName: "checkmark").foregroundStyle(Color.accent)
+                    }
+                }
+            }
+
+            Button {
+                appViewModel.themeManager.setTheme(.dark)
+            } label: {
+                HStack {
+                    Label("Тёмная", systemImage: "moon.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if appViewModel.themeManager.selectedScheme == .dark {
+                        Image(systemName: "checkmark").foregroundStyle(Color.accent)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Тема")
+    }
+}
+
+struct CategoryLayoutPickerView: View {
+    @AppStorage("categoryLayout") private var layout = "grid"
+
+    var body: some View {
+        List {
+            ForEach(["grid", "sheet"], id: \.self) { option in
+                Button {
+                    layout = option
+                } label: {
+                    HStack {
+                        Label(displayName(option), systemImage: iconName(option))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if layout == option {
+                            Image(systemName: "checkmark").foregroundStyle(Color.accent)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Вид категорий")
+    }
+
+    private func displayName(_ option: String) -> String {
+        switch option {
+        case "grid": return "Сетка"
+        case "sheet": return "Список"
+        default: return option
+        }
+    }
+
+    private func iconName(_ option: String) -> String {
+        switch option {
+        case "grid": return "square.grid.2x2"
+        case "sheet": return "list.bullet"
+        default: return "questionmark"
         }
     }
 }
