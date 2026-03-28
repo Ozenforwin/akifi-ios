@@ -112,8 +112,11 @@ final class AssistantViewModel {
             let text = try await repo.transcribeAudio(data: data, mimeType: "audio/mp4")
             inputText = text
             await send()
+        } catch let nsError as NSError {
+            let desc = nsError.userInfo[NSLocalizedDescriptionKey] as? String ?? nsError.localizedDescription
+            self.error = desc
         } catch {
-            self.error = "Не удалось распознать: \(error.localizedDescription)"
+            self.error = error.localizedDescription
         }
         isTranscribing = false
         recordingDuration = 0

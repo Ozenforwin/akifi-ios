@@ -124,9 +124,9 @@ final class AiRepository: Sendable {
         request.timeoutInterval = 30
 
         let (responseData, response) = try await URLSession.shared.data(for: request)
-        let httpResponse = response as? HTTPURLResponse
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let rawBody = String(data: responseData.prefix(500), encoding: .utf8) ?? "(binary)"
 
-        // Try to parse response regardless of status code
         struct TranscribeResponse: Decodable {
             let ok: Bool?
             let text: String?
@@ -137,16 +137,13 @@ final class AiRepository: Sendable {
             if result.ok == true, let text = result.text, !text.isEmpty {
                 return text
             }
-            // Server returned an error message
-            let serverError = result.error ?? result.text ?? "Неизвестная ошибка"
-            throw NSError(domain: "transcribe", code: httpResponse?.statusCode ?? -1,
+            let serverError = result.error ?? "Сервер (\(statusCode)): \(rawBody)"
+            throw NSError(domain: "transcribe", code: statusCode,
                           userInfo: [NSLocalizedDescriptionKey: serverError])
         }
 
-        // Non-JSON response
-        let bodyStr = String(data: responseData.prefix(200), encoding: .utf8) ?? "empty"
-        throw NSError(domain: "transcribe", code: httpResponse?.statusCode ?? -1,
-                      userInfo: [NSLocalizedDescriptionKey: "Сервер: \(httpResponse?.statusCode ?? 0) — \(bodyStr)"])
+        throw NSError(domain: "transcribe", code: statusCode,
+                      userInfo: [NSLocalizedDescriptionKey: "HTTP \(statusCode): \(rawBody)"])
     }
 
     // MARK: - Feedback
