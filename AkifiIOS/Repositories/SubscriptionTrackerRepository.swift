@@ -47,6 +47,7 @@ struct CreateSubscriptionInput: Encodable, Sendable {
     let billing_period: String
     let start_date: String
     let icon_color: String?
+    let reminder_days: Int?
 }
 
 struct UpdateSubscriptionInput: Encodable, Sendable {
@@ -54,4 +55,5 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let amount: Decimal?
     let billing_period: String?
     let icon_color: String?
+    let reminder_days: Int?
 }

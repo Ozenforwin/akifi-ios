@@ -12,6 +12,9 @@ struct AkifiApp: App {
         UINavigationBar.appearance().standardAppearance = navAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
         UINavigationBar.appearance().compactAppearance = navAppearance
+
+        // Dismiss keyboard on scroll/tap in all scrollable views (Forms, Lists, ScrollViews)
+        UIScrollView.appearance().keyboardDismissMode = .interactiveWithAccessory
     }
 
     var body: some Scene {
@@ -19,6 +22,15 @@ struct AkifiApp: App {
             ContentView()
                 .environment(appViewModel)
                 .preferredColorScheme(appViewModel.themeManager.selectedScheme)
+                .onAppear { installTapToDismissKeyboard() }
         }
+    }
+
+    private func installTapToDismissKeyboard() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else { return }
+        let tap = UITapGestureRecognizer(target: window, action: #selector(UIView.endEditing))
+        tap.cancelsTouchesInView = false
+        window.addGestureRecognizer(tap)
     }
 }

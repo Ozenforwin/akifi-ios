@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppViewModel.self) private var appViewModel
 
     let categories: [Category]
     let accounts: [Account]
@@ -18,9 +19,15 @@ struct TransactionFormView: View {
     @State private var errorMessage: String?
     @State private var showCategoryPicker = false
     @State private var showCalculator = true
+    @State private var selectedCurrency: CurrencyCode = .rub
 
     private let transactionRepo = TransactionRepository()
-    private let isoDateFormatter: DateFormatter = {
+    private static let isoDateTimeFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return df
+    }()
+    private static let isoDateFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         return df
@@ -104,7 +111,12 @@ struct TransactionFormView: View {
 
                 Section("Детали") {
                     TextField("Описание", text: $description)
-                    DatePicker("Дата", selection: $date, displayedComponents: .date)
+                    DatePicker("Дата и время", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    Picker("Валюта", selection: $selectedCurrency) {
+                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                            Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
                 }
 
                 if let errorMessage {
@@ -141,13 +153,22 @@ struct TransactionFormView: View {
     }
 
     private func prefillIfEditing() {
-        guard let tx = editingTransaction else { return }
+        guard let tx = editingTransaction else {
+            // New transaction: default to the user's selected display currency
+            selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            return
+        }
         calculatorState.setValue(tx.amount.displayAmount)
         description = tx.description ?? ""
         selectedType = tx.type
         selectedCategoryId = tx.categoryId
         selectedAccountId = tx.accountId
-        if let txDate = isoDateFormatter.date(from: tx.date) {
+        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+            selectedCurrency = code
+        } else {
+            selectedCurrency = appViewModel.currencyManager.selectedCurrency
+        }
+        if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
             date = txDate
         }
     }
@@ -159,7 +180,7 @@ struct TransactionFormView: View {
         }
 
         isLoading = true
-        let dateStr = isoDateFormatter.string(from: date)
+        let dateStr = Self.isoDateTimeFormatter.string(from: date)
 
         do {
             if let tx = editingTransaction {
@@ -169,7 +190,8 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil
+                    merchant_name: nil,
+                    currency: selectedCurrency.rawValue
                 )
                 try await transactionRepo.update(id: tx.id, input)
             } else {
@@ -180,7 +202,8 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil
+                    merchant_name: nil,
+                    currency: selectedCurrency.rawValue
                 )
                 _ = try await transactionRepo.create(input)
             }

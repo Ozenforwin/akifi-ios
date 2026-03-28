@@ -16,19 +16,27 @@ final class BudgetsViewModel {
         return df
     }()
 
+    private var hasLoaded = false
+
     func load() async {
+        guard !hasLoaded else { return }
+        await forceLoad()
+    }
+
+    func reloadBudgets() async {
+        await forceLoad()
+    }
+
+    private func forceLoad() async {
         isLoading = true
         error = nil
         do {
             budgets = try await budgetRepo.fetchAll()
+            hasLoaded = true
         } catch {
             self.error = error.localizedDescription
         }
         isLoading = false
-    }
-
-    func reloadBudgets() async {
-        await load()
     }
 
     func deleteBudget(_ budget: Budget) async {

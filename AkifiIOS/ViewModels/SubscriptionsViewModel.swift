@@ -32,7 +32,7 @@ final class SubscriptionsViewModel {
         isLoading = false
     }
 
-    func create(name: String, amount: Int64, period: BillingPeriod, color: String?) async {
+    func create(name: String, amount: Int64, period: BillingPeriod, color: String?, reminderDays: Int = 1) async {
         do {
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
@@ -42,7 +42,8 @@ final class SubscriptionsViewModel {
                 amount: amountDecimal,
                 billing_period: period.rawValue,
                 start_date: df.string(from: Date()),
-                icon_color: color
+                icon_color: color,
+                reminder_days: reminderDays
             )
             let sub = try await repo.create(input)
             subscriptions.append(sub)

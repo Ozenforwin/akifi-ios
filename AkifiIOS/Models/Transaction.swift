@@ -9,7 +9,8 @@ struct Transaction: Decodable, Identifiable, Sendable {
     var description: String?
     var categoryId: String?
     var type: TransactionType
-    var date: String
+    var date: String          // "yyyy-MM-dd" for filtering
+    var rawDateTime: String   // full timestamp from DB for time display
     var merchantName: String?
     var merchantFuzzy: String?
     var transferGroupId: String?
@@ -33,11 +34,12 @@ struct Transaction: Decodable, Identifiable, Sendable {
         case updatedAt = "updated_at"
     }
 
-    init(id: String, userId: String, accountId: String?, amount: Int64, currency: String?, description: String?, categoryId: String?, type: TransactionType, date: String, merchantName: String?, merchantFuzzy: String?, transferGroupId: String?, status: String?, createdAt: String?, updatedAt: String?) {
+    init(id: String, userId: String, accountId: String?, amount: Int64, currency: String?, description: String?, categoryId: String?, type: TransactionType, date: String, rawDateTime: String? = nil, merchantName: String?, merchantFuzzy: String?, transferGroupId: String?, status: String?, createdAt: String?, updatedAt: String?) {
         self.id = id; self.userId = userId; self.accountId = accountId; self.amount = amount
         self.currency = currency; self.description = description; self.categoryId = categoryId
-        self.type = type; self.date = date; self.merchantName = merchantName
-        self.merchantFuzzy = merchantFuzzy; self.transferGroupId = transferGroupId
+        self.type = type; self.date = date; self.rawDateTime = rawDateTime ?? date
+        self.merchantName = merchantName; self.merchantFuzzy = merchantFuzzy
+        self.transferGroupId = transferGroupId
         self.status = status; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
@@ -51,8 +53,8 @@ struct Transaction: Decodable, Identifiable, Sendable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
         type = try container.decode(TransactionType.self, forKey: .type)
-        // Normalize timestamptz "2026-03-26 00:00:00+00" → "2026-03-26"
         let rawDate = try container.decode(String.self, forKey: .date)
+        rawDateTime = rawDate
         date = String(rawDate.prefix(10))
         merchantName = try container.decodeIfPresent(String.self, forKey: .merchantName)
         merchantFuzzy = try container.decodeIfPresent(String.self, forKey: .merchantFuzzy)

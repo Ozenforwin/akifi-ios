@@ -79,9 +79,6 @@
     "+%@ очков" : {
 
     },
-    "🔥%@" : {
-
-    },
     "achievements.achievementUnlocked" : {
       "extractionState" : "stale",
       "localizations" : {

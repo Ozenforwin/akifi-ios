@@ -136,11 +136,11 @@ struct AccountCardView: View {
                         onTogglePrimary?()
                     } label: {
                         Image(systemName: account.isPrimary ? "star.fill" : "star")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundStyle(account.isPrimary ? accountColor : .primary.opacity(0.4))
-                            .frame(width: 28, height: 28)
+                            .frame(width: 36, height: 36)
                             .background(.primary.opacity(0.04))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .accessibilityLabel(account.isPrimary ? "Основной счёт" : "Сделать основным")
 
@@ -207,11 +207,11 @@ struct AccountCardView: View {
     private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(.primary.opacity(0.4))
-                .frame(width: 28, height: 28)
+                .frame(width: 36, height: 36)
                 .background(.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .accessibilityLabel(label)
     }

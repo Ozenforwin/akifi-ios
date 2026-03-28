@@ -169,40 +169,61 @@ struct BudgetsTabView: View {
     // MARK: - Subscription row
 
     private func subscriptionRow(_ sub: SubscriptionTracker) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(Color(hex: sub.iconColor ?? "#60A5FA"))
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Text(String(sub.serviceName.prefix(1)).uppercased())
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                }
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color(hex: sub.iconColor ?? "#60A5FA"))
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Text(String(sub.serviceName.prefix(1)).uppercased())
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sub.serviceName)
-                    .font(.subheadline.weight(.medium))
-                HStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(sub.serviceName)
+                        .font(.subheadline.weight(.medium))
                     Text(periodLabel(sub.billingPeriod))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if let next = sub.nextPaymentDate {
-                        Text("· \(next)")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(formatSubscriptionAmount(sub))
+                        .font(.subheadline.weight(.semibold))
+                    let days = sub.daysRemaining
+                    Text(days == 0 ? "Сегодня" : "через \(days) дн.")
+                        .font(.caption2)
+                        .foregroundStyle(days <= 3 ? Color.expense : .secondary)
                 }
             }
 
-            Spacer()
-
-            Text(formatSubscriptionAmount(sub))
-                .font(.subheadline.weight(.semibold))
+            // Progress bar
+            GeometryReader { geo in
+                let progress = sub.cycleProgress
+                let color = progressColor(daysRemaining: sub.daysRemaining)
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color(.systemGray5))
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color.gradient)
+                        .frame(width: geo.size.width * min(progress, 1.0))
+                }
+            }
+            .frame(height: 4)
         }
         .padding(12)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
+    }
+
+    private func progressColor(daysRemaining: Int) -> Color {
+        if daysRemaining <= 2 { return Color.expense }
+        if daysRemaining <= 7 { return Color.warning }
+        return Color.accent
     }
 
     private func formatSubscriptionAmount(_ sub: SubscriptionTracker) -> String {
@@ -243,8 +264,10 @@ struct EditSubscriptionFormView: View {
     @State private var amountText: String = ""
     @State private var period: BillingPeriod = .monthly
     @State private var selectedColor: String = "#60A5FA"
+    @State private var reminderDays: Int = 1
     @State private var isSaving = false
 
+    private static let reminderOptions = [0, 1, 2, 3, 5, 7, 14, 30]
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
     private let repo = SubscriptionTrackerRepository()
 
@@ -259,6 +282,19 @@ struct EditSubscriptionFormView: View {
                         Text("Месяц").tag(BillingPeriod.monthly)
                         Text("Квартал").tag(BillingPeriod.quarterly)
                         Text("Год").tag(BillingPeriod.yearly)
+                    }
+                }
+
+                Section("Напоминание") {
+                    Picker("Напомнить", selection: $reminderDays) {
+                        Text("В день списания").tag(0)
+                        Text("За 1 день").tag(1)
+                        Text("За 2 дня").tag(2)
+                        Text("За 3 дня").tag(3)
+                        Text("За 5 дней").tag(5)
+                        Text("За 7 дней").tag(7)
+                        Text("За 14 дней").tag(14)
+                        Text("За 30 дней").tag(30)
                     }
                 }
 
@@ -298,6 +334,7 @@ struct EditSubscriptionFormView: View {
                 amountText = "\(subscription.amount.displayAmount)"
                 period = subscription.billingPeriod
                 selectedColor = subscription.iconColor ?? "#60A5FA"
+                reminderDays = subscription.reminderDays
             }
         }
     }
@@ -309,7 +346,8 @@ struct EditSubscriptionFormView: View {
             service_name: name,
             amount: decimal,
             billing_period: period.rawValue,
-            icon_color: selectedColor
+            icon_color: selectedColor,
+            reminder_days: reminderDays
         )
         try? await repo.update(id: subscription.id, input)
         await onSave()
