@@ -25,21 +25,32 @@ struct SplashView: View {
             VStack(spacing: 24) {
                 // Logo: stylized "A" with gradient
                 ZStack {
-                    // Glow behind logo
-                    Image("AkifiLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 130, height: 130)
-                        .blur(radius: 25)
-                        .opacity(0.4)
+                    if UIImage(named: "AkifiLogo") != nil {
+                        Image("AkifiLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 130, height: 130)
+                            .blur(radius: 25)
+                            .opacity(0.4)
 
-                    // Main logo
-                    Image("AkifiLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 120, height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                        .shadow(color: Color(hex: "#8BD2FF").opacity(0.4), radius: 16, x: 0, y: 8)
+                        Image("AkifiLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 120, height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .shadow(color: Color(hex: "#8BD2FF").opacity(0.4), radius: 16, x: 0, y: 8)
+                    } else {
+                        Text("A")
+                            .font(.system(size: 90, weight: .black, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color(hex: "#8BD2FF"), Color(hex: "#FFB347")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: Color(hex: "#8BD2FF").opacity(0.3), radius: 12, x: 0, y: 6)
+                    }
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
