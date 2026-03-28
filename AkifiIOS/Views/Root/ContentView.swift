@@ -89,7 +89,8 @@ struct MainTabView: View {
                 LevelUpView(
                     achievementName: achievement.nameRu,
                     points: achievement.points,
-                    icon: achievement.icon
+                    icon: achievement.icon,
+                    tier: achievement.tier.rawValue
                 ) {
                     unlockedAchievement = nil
                 }
