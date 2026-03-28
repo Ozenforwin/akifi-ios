@@ -52,7 +52,7 @@ struct MonthlySummaryView: View {
             HStack(spacing: 8) {
                 // Income card
                 summaryCard(
-                    title: "Доходы",
+                    title: String(localized: "common.incomes"),
                     amount: currentMonthTotals.income,
                     change: changePercent(current: currentMonthTotals.income, previous: previousMonthTotals.income),
                     isIncome: true
@@ -60,7 +60,7 @@ struct MonthlySummaryView: View {
 
                 // Expense card
                 summaryCard(
-                    title: "Расходы",
+                    title: String(localized: "common.expenses"),
                     amount: currentMonthTotals.expense,
                     change: changePercent(current: currentMonthTotals.expense, previous: previousMonthTotals.expense),
                     isIncome: false
@@ -70,7 +70,7 @@ struct MonthlySummaryView: View {
             // Net income
             let net = currentMonthTotals.income - currentMonthTotals.expense
             HStack {
-                Text("Нетто")
+                Text(String(localized: "analytics.net"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

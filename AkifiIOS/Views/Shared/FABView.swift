@@ -21,10 +21,10 @@ struct FABView: View {
     // Angles match Telegram: arc from bottom-right going up-left
     private var menuItems: [(action: FABAction, label: String, icon: String, color: Color, angle: Double)] {
         [
-            (.income, "Доход", "arrow.up.right", Color.income.opacity(0.85), -100),
-            (.expense, "Расход", "arrow.down.left", Color.expense.opacity(0.85), -125),
-            (.transfer, "Перевод", "arrow.left.arrow.right", Color.transfer.opacity(0.85), -150),
-            (.receipt, "Чек", "doc.text.viewfinder", Color.budget.opacity(0.85), -175),
+            (.income, String(localized: "common.income"), "arrow.up.right", Color.income.opacity(0.85), -100),
+            (.expense, String(localized: "common.expense"), "arrow.down.left", Color.expense.opacity(0.85), -125),
+            (.transfer, String(localized: "common.transfer"), "arrow.left.arrow.right", Color.transfer.opacity(0.85), -150),
+            (.receipt, String(localized: "fab.receipt"), "doc.text.viewfinder", Color.budget.opacity(0.85), -175),
         ]
     }
 
@@ -78,8 +78,8 @@ struct FABView: View {
                     HStack {
                         Spacer()
                         fabCircle(icon: "plus")
-                            .accessibilityLabel("Добавить операцию")
-                            .accessibilityHint("Нажмите для быстрого добавления, удерживайте для меню")
+                            .accessibilityLabel(String(localized: "fab.addTransaction"))
+                            .accessibilityHint(String(localized: "fab.addHint"))
                             .onLongPressGesture(minimumDuration: 0.4, perform: {
                                 // Long press → arc menu
                                 didLongPress = true
@@ -216,7 +216,7 @@ struct FABView: View {
                         .font(.system(size: 48, weight: .light))
                         .foregroundStyle(.secondary)
 
-                    Text("Перевод между счетами")
+                    Text(String(localized: "fab.transferBetweenAccounts"))
                         .font(.headline)
                         .foregroundStyle(.primary)
 
@@ -224,7 +224,7 @@ struct FABView: View {
                         withAnimation { showCategoryWheel = false }
                         onAction(.transfer)
                     } label: {
-                        Text("Продолжить")
+                        Text(String(localized: "common.continue"))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 32)
@@ -253,7 +253,7 @@ struct FABView: View {
             segmentControl
                 .padding(.top, 12)
 
-            Text("Выберите категорию")
+            Text(String(localized: "fab.selectCategory"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
@@ -443,9 +443,9 @@ struct FABView: View {
 
     private var segmentControl: some View {
         HStack(spacing: 0) {
-            segmentButton("Расход", type: .expense)
-            segmentButton("Доход", type: .income)
-            segmentButton("Перевод", type: .transfer)
+            segmentButton(String(localized: "common.expense"), type: .expense)
+            segmentButton(String(localized: "common.income"), type: .income)
+            segmentButton(String(localized: "common.transfer"), type: .transfer)
         }
         .background(Color(.systemGray5))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -494,9 +494,9 @@ struct CategorySheetView: View {
             VStack(spacing: 0) {
                 // Segment control
                 HStack(spacing: 0) {
-                    sheetSegment("Расход", type: .expense)
-                    sheetSegment("Доход", type: .income)
-                    sheetSegment("Перевод", type: .transfer)
+                    sheetSegment(String(localized: "common.expense"), type: .expense)
+                    sheetSegment(String(localized: "common.income"), type: .income)
+                    sheetSegment(String(localized: "common.transfer"), type: .transfer)
                 }
                 .background(Color(.systemGray5))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -509,12 +509,12 @@ struct CategorySheetView: View {
                         Image(systemName: "arrow.left.arrow.right")
                             .font(.system(size: 48, weight: .light))
                             .foregroundStyle(.secondary)
-                        Text("Перевод между счетами")
+                        Text(String(localized: "fab.transferBetweenAccounts"))
                             .font(.headline)
                         Button {
                             onTransfer()
                         } label: {
-                            Text("Продолжить")
+                            Text(String(localized: "common.continue"))
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 32)
@@ -534,7 +534,7 @@ struct CategorySheetView: View {
                     }
                 }
             }
-            .navigationTitle("Выберите категорию")
+            .navigationTitle(String(localized: "fab.selectCategory"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }

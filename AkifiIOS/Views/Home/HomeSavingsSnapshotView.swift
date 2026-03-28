@@ -11,13 +11,13 @@ struct HomeSavingsSnapshotView: View {
             if !goals.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Накопления")
+                        Text(String(localized: "savings.title"))
                             .font(.headline)
                         Spacer()
                         NavigationLink {
                             SavingsGoalListView()
                         } label: {
-                            Text("Все")
+                            Text(String(localized: "common.all"))
                                 .font(.subheadline)
                                 .foregroundStyle(Color.accent)
                         }
@@ -46,7 +46,7 @@ struct HomeSavingsSnapshotView: View {
                                             .fill(Color(hex: goal.color).gradient)
                                             .frame(width: geo.size.width * progress)
                                     }
-                                    .accessibilityLabel("Прогресс \(Int(progress * 100)) процентов")
+                                    .accessibilityLabel(String(localized: "savings.progress.\(Int(progress * 100))"))
                                 }
                                 .frame(height: 5)
                             }

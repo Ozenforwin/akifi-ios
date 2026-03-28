@@ -10,10 +10,10 @@ struct BudgetCardView: View {
 
     private var categoryNames: String {
         guard let catIds = budget.categories, !catIds.isEmpty else {
-            return "Все категории"
+            return String(localized: "budget.allCategories")
         }
         let names = categories.filter { catIds.contains($0.id) }.map(\.name)
-        return names.isEmpty ? "Все категории" : names.joined(separator: ", ")
+        return names.isEmpty ? String(localized: "budget.allCategories") : names.joined(separator: ", ")
     }
 
     private var categoryIcons: String {
@@ -23,10 +23,10 @@ struct BudgetCardView: View {
 
     private var statusLabel: (text: String, color: Color) {
         switch metrics.status {
-        case .onTrack: return ("В норме", .green)
-        case .warning: return ("Внимание", Color.warning)
-        case .nearLimit: return ("Почти лимит", .orange)
-        case .overLimit: return ("Превышен", .red)
+        case .onTrack: return (String(localized: "budget.status.onTrack"), .green)
+        case .warning: return (String(localized: "budget.status.warning"), Color.warning)
+        case .nearLimit: return (String(localized: "budget.status.nearLimit"), .orange)
+        case .overLimit: return (String(localized: "budget.status.overLimit"), .red)
         }
     }
 
@@ -41,7 +41,7 @@ struct BudgetCardView: View {
 
     private var paceText: (text: String, color: Color) {
         if metrics.paceRatio <= 1.0 {
-            return ("В темпе", .green)
+            return (String(localized: "budget.onPace"), .green)
         } else {
             let overage = Int((metrics.paceRatio - 1.0) * 100)
             return ("+\(overage)%", Color.warning)
@@ -110,7 +110,7 @@ struct BudgetCardView: View {
                 Text("\(fmt.formatAmount(metrics.spent.displayAmount))")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(progressColor)
-                + Text(" из \(fmt.formatAmount(metrics.effectiveLimit.displayAmount))")
+                + Text(" \(String(localized: "common.of")) \(fmt.formatAmount(metrics.effectiveLimit.displayAmount))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -139,7 +139,7 @@ struct BudgetCardView: View {
                     }
 
                     Label {
-                        Text("\(metrics.remainingDays) дн. осталось")
+                        Text(String(localized: "budget.daysRemaining.\(metrics.remainingDays)"))
                             .font(.caption)
                     } icon: {
                         Image(systemName: "calendar")
@@ -153,7 +153,7 @@ struct BudgetCardView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                         .font(.caption)
-                    Text("Бюджет превышен на \(fmt.formatAmount(abs(metrics.remaining).displayAmount))")
+                    Text(String(localized: "budget.exceeded.\(fmt.formatAmount(abs(metrics.remaining).displayAmount))"))
                         .font(.caption)
                         .foregroundStyle(.red)
                 }

@@ -31,14 +31,14 @@ struct BudgetsTabView: View {
                                             await dataStore.loadAll()
                                         }
                                     } label: {
-                                        Label("Архивировать", systemImage: "archivebox.fill")
+                                        Label(String(localized: "budget.archive"), systemImage: "archivebox.fill")
                                     }
                                 }
                                 .swipeActions(edge: .leading) {
                                     Button {
                                         viewModel.editingBudget = budget
                                     } label: {
-                                        Label("Изменить", systemImage: "pencil")
+                                        Label(String(localized: "common.edit"), systemImage: "pencil")
                                     }
                                     .tint(.blue)
                                 }
@@ -47,10 +47,10 @@ struct BudgetsTabView: View {
                 } else {
                     Section {
                         EmptyStateView(
-                            title: "Нет бюджетов",
+                            title: String(localized: "budget.noBudgets"),
                             systemImage: "wallet.bifold.fill",
-                            description: "Создайте бюджет, чтобы контролировать расходы",
-                            actionTitle: "Создать"
+                            description: String(localized: "budget.noBudgets.description"),
+                            actionTitle: String(localized: "common.create")
                         ) { viewModel.showForm = true }
                     }
                     .listRowSeparator(.hidden)
@@ -60,7 +60,7 @@ struct BudgetsTabView: View {
                 // MARK: - Subscriptions
                 Section {
                     HStack {
-                        Text("Подписки")
+                        Text(String(localized: "subscriptions.title"))
                             .font(.headline)
                         Spacer()
                         Button {
@@ -80,7 +80,7 @@ struct BudgetsTabView: View {
                                 Image(systemName: "repeat.circle")
                                     .font(.largeTitle)
                                     .foregroundStyle(.secondary)
-                                Text("Нет активных подписок")
+                                Text(String(localized: "subscriptions.noActive"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -104,14 +104,14 @@ struct BudgetsTabView: View {
                                             await dataStore.loadAll()
                                         }
                                     } label: {
-                                        Label("Удалить", systemImage: "trash.fill")
+                                        Label(String(localized: "common.delete"), systemImage: "trash.fill")
                                     }
                                 }
                                 .swipeActions(edge: .leading) {
                                     Button {
                                         editingSubscription = sub
                                     } label: {
-                                        Label("Изменить", systemImage: "pencil")
+                                        Label(String(localized: "common.edit"), systemImage: "pencil")
                                     }
                                     .tint(.blue)
                                 }
@@ -128,7 +128,7 @@ struct BudgetsTabView: View {
             .refreshable {
                 await dataStore.loadAll()
             }
-            .navigationTitle("Бюджеты")
+            .navigationTitle(String(localized: "budget.title"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { viewModel.showForm = true } label: {
@@ -195,7 +195,7 @@ struct BudgetsTabView: View {
                     Text(formatSubscriptionAmount(sub))
                         .font(.subheadline.weight(.semibold))
                     let days = sub.daysRemaining
-                    Text(days == 0 ? "Сегодня" : "через \(days) дн.")
+                    Text(days == 0 ? String(localized: "subscriptions.today") : String(localized: "subscriptions.inDays.\(days)"))
                         .font(.caption2)
                         .foregroundStyle(days <= 3 ? Color.expense : .secondary)
                 }
@@ -245,11 +245,11 @@ struct BudgetsTabView: View {
 
     private func periodLabel(_ period: BillingPeriod) -> String {
         switch period {
-        case .weekly: "Еженедельно"
-        case .monthly: "Ежемесячно"
-        case .quarterly: "Ежеквартально"
-        case .yearly: "Ежегодно"
-        case .custom: "Произвольный"
+        case .weekly: String(localized: "period.weekly")
+        case .monthly: String(localized: "period.monthly")
+        case .quarterly: String(localized: "period.quarterly")
+        case .yearly: String(localized: "period.yearly")
+        case .custom: String(localized: "period.custom")
         }
     }
 }
@@ -276,36 +276,36 @@ struct EditSubscriptionFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Подписка") {
-                    TextField("Название", text: $name)
-                    TextField("Сумма", text: $amountText)
+                Section(String(localized: "subscriptions.subscription")) {
+                    TextField(String(localized: "common.name"), text: $name)
+                    TextField(String(localized: "common.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
-                    Picker("Период", selection: $period) {
-                        Text("Месяц").tag(BillingPeriod.monthly)
-                        Text("Квартал").tag(BillingPeriod.quarterly)
-                        Text("Год").tag(BillingPeriod.yearly)
+                    Picker(String(localized: "common.period"), selection: $period) {
+                        Text(String(localized: "period.monthShort")).tag(BillingPeriod.monthly)
+                        Text(String(localized: "period.quarterShort")).tag(BillingPeriod.quarterly)
+                        Text(String(localized: "period.yearShort")).tag(BillingPeriod.yearly)
                     }
-                    Picker("Валюта", selection: $selectedCurrency) {
+                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
                         }
                     }
                 }
 
-                Section("Напоминание") {
-                    Picker("Напомнить", selection: $reminderDays) {
-                        Text("В день списания").tag(0)
-                        Text("За 1 день").tag(1)
-                        Text("За 2 дня").tag(2)
-                        Text("За 3 дня").tag(3)
-                        Text("За 5 дней").tag(5)
-                        Text("За 7 дней").tag(7)
-                        Text("За 14 дней").tag(14)
-                        Text("За 30 дней").tag(30)
+                Section(String(localized: "subscriptions.reminder")) {
+                    Picker(String(localized: "subscriptions.remind"), selection: $reminderDays) {
+                        Text(String(localized: "subscriptions.onChargeDay")).tag(0)
+                        Text(String(localized: "subscriptions.daysBefore.1")).tag(1)
+                        Text(String(localized: "subscriptions.daysBefore.2")).tag(2)
+                        Text(String(localized: "subscriptions.daysBefore.3")).tag(3)
+                        Text(String(localized: "subscriptions.daysBefore.5")).tag(5)
+                        Text(String(localized: "subscriptions.daysBefore.7")).tag(7)
+                        Text(String(localized: "subscriptions.daysBefore.14")).tag(14)
+                        Text(String(localized: "subscriptions.daysBefore.30")).tag(30)
                     }
                 }
 
-                Section("Цвет") {
+                Section(String(localized: "common.color")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                         ForEach(colors, id: \.self) { color in
                             Circle()
@@ -323,14 +323,14 @@ struct EditSubscriptionFormView: View {
                     }
                 }
             }
-            .navigationTitle("Редактировать")
+            .navigationTitle(String(localized: "common.editTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") {
+                    Button(String(localized: "common.save")) {
                         Task { await save() }
                     }
                     .disabled(name.isEmpty || amountText.isEmpty || isSaving)

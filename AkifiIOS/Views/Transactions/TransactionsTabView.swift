@@ -86,11 +86,11 @@ struct TransactionsTabView: View {
                     HStack {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
                             .foregroundStyle(Color.accent)
-                        Text("Фильтры активны")
+                        Text(String(localized: "transactions.filtersActive"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Button("Сбросить") {
+                        Button(String(localized: "transactions.reset")) {
                             filterAccountId = nil
                             filterDateFrom = nil
                             filterDateTo = nil
@@ -103,7 +103,7 @@ struct TransactionsTabView: View {
                     // Summary cells: income / expense / transfer
                     HStack(spacing: 8) {
                         summaryCellView(
-                            label: "Доход",
+                            label: String(localized: "common.income"),
                             amount: summaryTotals.income,
                             color: Color.income,
                             icon: "arrow.up.right",
@@ -111,7 +111,7 @@ struct TransactionsTabView: View {
                         ) { filterType = filterType == .income ? .all : .income }
 
                         summaryCellView(
-                            label: "Расход",
+                            label: String(localized: "common.expense"),
                             amount: summaryTotals.expense,
                             color: Color.expense,
                             icon: "arrow.down.left",
@@ -119,7 +119,7 @@ struct TransactionsTabView: View {
                         ) { filterType = filterType == .expense ? .all : .expense }
 
                         summaryCellView(
-                            label: "Перевод",
+                            label: String(localized: "common.transfer"),
                             amount: summaryTotals.transfer,
                             color: Color.transfer,
                             icon: "arrow.left.arrow.right",
@@ -147,14 +147,14 @@ struct TransactionsTabView: View {
                         Button(role: .destructive) {
                             Task { await dataStore.deleteTransaction(transaction) }
                         } label: {
-                            Label("Удалить", systemImage: "trash.fill")
+                            Label(String(localized: "common.delete"), systemImage: "trash.fill")
                         }
                     }
                     .swipeActions(edge: .leading) {
                         Button {
                             editingTransaction = transaction
                         } label: {
-                            Label("Изменить", systemImage: "pencil")
+                            Label(String(localized: "common.edit"), systemImage: "pencil")
                         }
                         .tint(.blue)
                     }
@@ -169,7 +169,7 @@ struct TransactionsTabView: View {
             .refreshable {
                 await dataStore.loadAll()
             }
-            .navigationTitle("Операции")
+            .navigationTitle(String(localized: "transactions.title"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -177,7 +177,7 @@ struct TransactionsTabView: View {
                     } label: {
                         Image(systemName: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     }
-                    .accessibilityLabel("Фильтры")
+                    .accessibilityLabel(String(localized: "transactions.filters"))
                 }
             }
             .sheet(isPresented: $showAddTransaction) {
@@ -251,11 +251,17 @@ struct TransactionsTabView: View {
 
 // MARK: - Transaction Type Filter
 
-enum TransactionTypeFilter: String, CaseIterable {
-    case all = "Все"
-    case expense = "Расходы"
-    case income = "Доходы"
-    case transfer = "Переводы"
+enum TransactionTypeFilter: CaseIterable {
+    case all, expense, income, transfer
+
+    var label: String {
+        switch self {
+        case .all: String(localized: "common.all")
+        case .expense: String(localized: "common.expenses")
+        case .income: String(localized: "common.incomes")
+        case .transfer: String(localized: "common.transfers")
+        }
+    }
 
     var color: Color {
         switch self {
@@ -282,28 +288,34 @@ struct TransactionFilterSheet: View {
     @State private var calendarFrom = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
     @State private var calendarTo = Date()
 
-    enum FilterPeriod: String, CaseIterable {
-        case all = "Все"
-        case today = "Сегодня"
-        case week = "Неделя"
-        case month = "Месяц"
+    enum FilterPeriod: CaseIterable {
+        case all, today, week, month
+
+        var label: String {
+            switch self {
+            case .all: String(localized: "common.all")
+            case .today: String(localized: "filter.today")
+            case .week: String(localized: "filter.week")
+            case .month: String(localized: "filter.month")
+            }
+        }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Фильтры")
+                    Text(String(localized: "transactions.filters"))
                         .font(.title2.weight(.bold))
                         .padding(.horizontal)
 
                     // Type filter
-                    filterSection(title: "ТИП") {
+                    filterSection(title: String(localized: "transactions.filterType")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(TransactionTypeFilter.allCases, id: \.self) { type in
                                     filterChip(
-                                        label: type.rawValue,
+                                        label: type.label,
                                         isSelected: selectedType == type,
                                         activeColor: type.color
                                     ) {
@@ -315,12 +327,12 @@ struct TransactionFilterSheet: View {
                     }
 
                     // Period filter
-                    filterSection(title: "ПЕРИОД") {
+                    filterSection(title: String(localized: "transactions.filterPeriod")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                             ForEach(FilterPeriod.allCases, id: \.self) { period in
                                 filterChip(
-                                    label: period.rawValue,
+                                    label: period.label,
                                     isSelected: selectedPeriod == period && !showCalendar,
                                     activeColor: .accent
                                 ) {
@@ -355,20 +367,20 @@ struct TransactionFilterSheet: View {
                     // Calendar date pickers
                     if showCalendar {
                         VStack(spacing: 12) {
-                            DatePicker("С", selection: $calendarFrom, displayedComponents: .date)
+                            DatePicker(String(localized: "filter.from"), selection: $calendarFrom, displayedComponents: .date)
                                 .datePickerStyle(.compact)
-                            DatePicker("По", selection: $calendarTo, displayedComponents: .date)
+                            DatePicker(String(localized: "filter.to"), selection: $calendarTo, displayedComponents: .date)
                                 .datePickerStyle(.compact)
                         }
                         .padding(.horizontal)
                     }
 
                     // Account filter
-                    filterSection(title: "СЧЁТ") {
+                    filterSection(title: String(localized: "transactions.filterAccount")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 filterChip(
-                                    label: "Все счета",
+                                    label: String(localized: "budget.allAccounts"),
                                     isSelected: selectedAccountId == nil,
                                     activeColor: .accent
                                 ) {
@@ -398,7 +410,7 @@ struct TransactionFilterSheet: View {
                     applyFilters()
                     dismiss()
                 } label: {
-                    Text("Применить")
+                    Text(String(localized: "common.apply"))
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

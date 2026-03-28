@@ -88,7 +88,7 @@ struct AnalyticsTabView: View {
                     await appViewModel.dataStore.loadAll()
                 }
             }
-            .navigationTitle("Аналитика")
+            .navigationTitle(String(localized: "analytics.title"))
         }
     }
 
@@ -98,7 +98,7 @@ struct AnalyticsTabView: View {
                 Button {
                     selectedAccountId = nil
                 } label: {
-                    Text("Все")
+                    Text(String(localized: "common.all"))
                         .font(.system(size: 13, weight: .medium))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)

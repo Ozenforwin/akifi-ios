@@ -19,7 +19,7 @@ struct SavingsGoalCardView: View {
                     Text(goal.name)
                         .font(.headline)
                     if let days = daysRemaining {
-                        Text(days > 0 ? "\(days) дн. осталось" : "Срок истёк")
+                        Text(days > 0 ? String(localized: "budget.daysRemaining.\(days)") : String(localized: "savings.expired"))
                             .font(.caption)
                             .foregroundStyle(days > 0 ? Color.secondary : Color.red)
                     }
@@ -51,7 +51,7 @@ struct SavingsGoalCardView: View {
                     HStack {
                         Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
                             .font(.subheadline.weight(.semibold))
-                        Text("из")
+                        Text(String(localized: "common.of"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))

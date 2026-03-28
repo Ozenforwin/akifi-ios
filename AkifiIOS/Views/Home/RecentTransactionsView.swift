@@ -10,16 +10,16 @@ struct RecentTransactionsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Последние операции")
+                Text(String(localized: "home.recentTransactions"))
                     .font(.subheadline.weight(.semibold))
                 Spacer()
             }
 
             if transactions.isEmpty {
                 ContentUnavailableView(
-                    "Нет операций",
+                    String(localized: "home.noTransactions"),
                     systemImage: "tray",
-                    description: Text("Добавьте первую операцию")
+                    description: Text(String(localized: "home.addFirstTransaction"))
                 )
                 .frame(height: 120)
             } else {
@@ -40,14 +40,14 @@ struct RecentTransactionsView: View {
                             Button(role: .destructive) {
                                 onDelete?(transaction)
                             } label: {
-                                Label("Удалить", systemImage: "trash.fill")
+                                Label(String(localized: "common.delete"), systemImage: "trash.fill")
                             }
                         }
                         .swipeActions(edge: .leading) {
                             Button {
                                 onEdit?(transaction)
                             } label: {
-                                Label("Изменить", systemImage: "pencil")
+                                Label(String(localized: "common.edit"), systemImage: "pencil")
                             }
                             .tint(.blue)
                         }

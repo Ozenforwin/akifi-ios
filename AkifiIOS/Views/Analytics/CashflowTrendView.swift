@@ -58,11 +58,11 @@ struct CashflowTrendView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Тренд доходов и расходов")
+            Text(String(localized: "analytics.cashflowTrend"))
                 .font(.headline)
 
             if trendData.allSatisfy({ $0.income == 0 && $0.expense == 0 }) {
-                ContentUnavailableView("Нет данных", systemImage: "chart.line.uptrend.xyaxis")
+                ContentUnavailableView(String(localized: "common.noData"), systemImage: "chart.line.uptrend.xyaxis")
                     .frame(height: 180)
             } else {
                 // Tooltip above chart
@@ -79,8 +79,8 @@ struct CashflowTrendView: View {
                 // Legend
                 HStack(spacing: 20) {
                     Spacer()
-                    legendItem(color: Color.income, label: "Доход")
-                    legendItem(color: Color.expense, label: "Расход")
+                    legendItem(color: Color.income, label: String(localized: "common.income"))
+                    legendItem(color: Color.expense, label: String(localized: "common.expense"))
                     Spacer()
                 }
                 .padding(.top, 4)
@@ -135,7 +135,7 @@ struct CashflowTrendView: View {
         LineMark(
             x: .value("Месяц", point.label),
             y: .value("Сумма", point.income),
-            series: .value("Тип", "Доходы")
+            series: .value("type", String(localized: "common.incomes"))
         )
         .foregroundStyle(Color.income)
         .symbol(.circle)
@@ -147,7 +147,7 @@ struct CashflowTrendView: View {
         LineMark(
             x: .value("Месяц", point.label),
             y: .value("Сумма", point.expense),
-            series: .value("Тип", "Расходы")
+            series: .value("type", String(localized: "common.expenses"))
         )
         .foregroundStyle(Color.expense)
         .symbol(.circle)

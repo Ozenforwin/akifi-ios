@@ -66,15 +66,15 @@ struct InsightCardsView: View {
             if change > 15 {
                 result.append(Insight(
                     emoji: "📈",
-                    title: "Расходы растут",
-                    subtitle: "На этой неделе потрачено на \(Int(change))% больше, чем на прошлой",
+                    title: String(localized: "insight.expensesGrowing"),
+                    subtitle: String(localized: "insight.expensesGrowing.detail.\(Int(change))"),
                     color: Color.warning
                 ))
             } else if change < -15 {
                 result.append(Insight(
                     emoji: "📉",
-                    title: "Расходы снижаются",
-                    subtitle: "На этой неделе потрачено на \(Int(abs(change)))% меньше — так держать!",
+                    title: String(localized: "insight.expensesDecreasing"),
+                    subtitle: String(localized: "insight.expensesDecreasing.detail.\(Int(abs(change)))"),
                     color: Color.income
                 ))
             }
@@ -88,8 +88,8 @@ struct InsightCardsView: View {
                 let prevFormatted = fmt.formatAmount(prevMonthExp.displayAmount)
                 result.append(Insight(
                     emoji: "⚡️",
-                    title: "Месяц дороже прошлого",
-                    subtitle: "Уже \(thisFormatted) против \(prevFormatted) за прошлый месяц",
+                    title: String(localized: "insight.monthMoreExpensive"),
+                    subtitle: String(localized: "insight.monthMoreExpensive.detail.\(thisFormatted).\(prevFormatted)"),
                     color: Color.expense
                 ))
             }
@@ -99,12 +99,12 @@ struct InsightCardsView: View {
         if thisMonthCount >= 3 && biggestAmount > 0 {
             let avg = thisMonthExp / Int64(thisMonthCount)
             if biggestAmount > avg * 3 {
-                let catName = biggestCatId.flatMap { id in dataStore.categories.first { $0.id == id }?.name } ?? "Прочее"
+                let catName = biggestCatId.flatMap { id in dataStore.categories.first { $0.id == id }?.name } ?? String(localized: "insight.other")
                 let pct = thisMonthExp > 0 ? Int(Double(biggestAmount) / Double(thisMonthExp) * 100) : 0
                 result.append(Insight(
                     emoji: "💸",
-                    title: "Крупная трата: \(catName)",
-                    subtitle: "Одна операция — \(pct)% месячных расходов",
+                    title: String(localized: "insight.bigExpense.\(catName)"),
+                    subtitle: String(localized: "insight.bigExpense.detail.\(pct)"),
                     color: Color.expense
                 ))
             }
@@ -115,12 +115,12 @@ struct InsightCardsView: View {
            thisMonthExp > 0 {
             let pct = Int(Double(topCat.value) / Double(thisMonthExp) * 100)
             if pct >= 40 {
-                let catName = dataStore.categories.first { $0.id == topCat.key }?.name ?? "Категория"
+                let catName = dataStore.categories.first { $0.id == topCat.key }?.name ?? String(localized: "insight.category")
                 let catIcon = dataStore.categories.first { $0.id == topCat.key }?.icon ?? "📦"
                 result.append(Insight(
                     emoji: catIcon,
-                    title: "\(catName) — \(pct)% расходов",
-                    subtitle: "Эта категория съедает почти половину бюджета",
+                    title: String(localized: "insight.topCategory.\(catName).\(pct)"),
+                    subtitle: String(localized: "insight.topCategory.detail"),
                     color: Color.warning
                 ))
             }
@@ -131,8 +131,8 @@ struct InsightCardsView: View {
         if noTxDays >= 3 {
             result.append(Insight(
                 emoji: "😴",
-                title: "Тишина уже \(noTxDays) дн.",
-                subtitle: "Вы давно не записывали операции — не забывайте вести учёт",
+                title: String(localized: "insight.noTransactions.\(noTxDays)"),
+                subtitle: String(localized: "insight.noTransactions.detail"),
                 color: Color.warning
             ))
         }

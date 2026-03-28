@@ -126,7 +126,7 @@ struct AssistantView: View {
                     onCancelRecording: { viewModel.cancelRecording() }
                 )
             }
-            .navigationTitle("Ассистент")
+            .navigationTitle(String(localized: "assistant.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -142,12 +142,12 @@ struct AssistantView: View {
                         Button {
                             Task { await viewModel.startNewConversation() }
                         } label: {
-                            Label("Новый чат", systemImage: "plus.message")
+                            Label(String(localized: "assistant.newChat"), systemImage: "plus.message")
                         }
                         Button {
                             viewModel.showConversations = true
                         } label: {
-                            Label("История", systemImage: "clock")
+                            Label(String(localized: "assistant.history"), systemImage: "clock")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -231,7 +231,7 @@ struct FeedbackSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text("Что пошло не так?")
+                Text(String(localized: "feedback.whatWentWrong"))
                     .font(.headline)
 
                 ForEach(FeedbackReason.allCases, id: \.self) { r in
@@ -257,7 +257,7 @@ struct FeedbackSheet: View {
                 }
 
                 if reason == .other {
-                    TextField("Опишите проблему...", text: $customText, axis: .vertical)
+                    TextField(String(localized: "feedback.describeProblem"), text: $customText, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(2...4)
                         .padding(12)
@@ -270,7 +270,7 @@ struct FeedbackSheet: View {
                 Button {
                     onSubmit()
                 } label: {
-                    Text("Отправить")
+                    Text(String(localized: "common.send"))
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -280,11 +280,11 @@ struct FeedbackSheet: View {
                 }
             }
             .padding()
-            .navigationTitle("Отзыв")
+            .navigationTitle(String(localized: "feedback.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { onCancel() }
+                    Button(String(localized: "common.cancel")) { onCancel() }
                 }
             }
         }
@@ -305,10 +305,10 @@ struct AssistantWelcomeView: View {
                     LinearGradient(colors: [.aiGradientStart, .aiGradientEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
 
-            Text("Привет! Я Akifi")
+            Text(String(localized: "assistant.welcome"))
                 .font(.title2.weight(.bold))
 
-            Text("Спросите меня о ваших финансах — расходы, бюджеты, советы по экономии")
+            Text(String(localized: "assistant.welcomeSubtitle"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -395,7 +395,7 @@ struct AssistantInputBar: View {
             } else if isTranscribing {
                 HStack(spacing: 8) {
                     ProgressView()
-                    Text("Распознаю речь...")
+                    Text(String(localized: "assistant.transcribing"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -404,7 +404,7 @@ struct AssistantInputBar: View {
             } else {
                 // Normal mode
                 HStack(spacing: 8) {
-                    TextField("Спросите что-нибудь...", text: $text, axis: .vertical)
+                    TextField(String(localized: "assistant.askSomething"), text: $text, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...4)
                         .padding(.horizontal, 14)
@@ -431,7 +431,7 @@ struct AssistantInputBar: View {
                                     )
                                 )
                         }
-                        .accessibilityLabel("Голосовой ввод")
+                        .accessibilityLabel(String(localized: "assistant.voiceInput"))
                     }
                 }
                 .padding(.horizontal)
@@ -486,7 +486,7 @@ struct ConversationListView: View {
         NavigationStack {
             List {
                 if viewModel.conversations.isEmpty {
-                    ContentUnavailableView("Нет бесед", systemImage: "bubble.left.and.bubble.right")
+                    ContentUnavailableView(String(localized: "assistant.noConversations"), systemImage: "bubble.left.and.bubble.right")
                 } else {
                     ForEach(viewModel.conversations) { conversation in
                         Button {
@@ -496,7 +496,7 @@ struct ConversationListView: View {
                             }
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(conversation.title ?? "Новая беседа")
+                                Text(conversation.title ?? String(localized: "assistant.newConversation"))
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.primary)
                                 if let date = conversation.updatedAt ?? conversation.createdAt {
@@ -510,17 +510,17 @@ struct ConversationListView: View {
                             Button(role: .destructive) {
                                 Task { await viewModel.archiveConversation(conversation) }
                             } label: {
-                                Label("Архив", systemImage: "archivebox")
+                                Label(String(localized: "common.archive"), systemImage: "archivebox")
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("История")
+            .navigationTitle(String(localized: "assistant.history"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
             }
             .task {

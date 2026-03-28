@@ -6,11 +6,11 @@ struct CashflowChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Денежный поток")
+            Text(String(localized: "analytics.cashflow"))
                 .font(.headline)
 
             if data.isEmpty {
-                ContentUnavailableView("Нет данных", systemImage: "chart.bar")
+                ContentUnavailableView(String(localized: "common.noData"), systemImage: "chart.bar")
                     .frame(height: 200)
             } else {
                 Chart(data) { point in
@@ -19,18 +19,18 @@ struct CashflowChartView: View {
                         y: .value("Сумма", point.income)
                     )
                     .foregroundStyle(.green.gradient)
-                    .position(by: .value("Тип", "Доходы"))
+                    .position(by: .value("type", String(localized: "common.incomes")))
 
                     BarMark(
                         x: .value("Период", point.label),
                         y: .value("Сумма", point.expense)
                     )
                     .foregroundStyle(.red.gradient)
-                    .position(by: .value("Тип", "Расходы"))
+                    .position(by: .value("type", String(localized: "common.expenses")))
                 }
                 .chartForegroundStyleScale([
-                    "Доходы": Color.green,
-                    "Расходы": Color.red
+                    String(localized: "common.incomes"): Color.green,
+                    String(localized: "common.expenses"): Color.red
                 ])
                 .frame(height: 220)
             }

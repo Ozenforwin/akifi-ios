@@ -37,7 +37,7 @@ struct SummaryCardsView: View {
     var body: some View {
         HStack(spacing: 8) {
             SummaryCard(
-                title: "Доходы за месяц",
+                title: String(localized: "summary.monthlyIncome"),
                 formattedAmount: "+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))",
                 systemIcon: "arrow.up.right",
                 iconColor: Color.income,
@@ -45,7 +45,7 @@ struct SummaryCardsView: View {
             )
 
             SummaryCard(
-                title: "Расходы за месяц",
+                title: String(localized: "summary.monthlyExpense"),
                 formattedAmount: "-\(appViewModel.currencyManager.formatAmount(monthlyExpense.displayAmount))",
                 systemIcon: "arrow.down.left",
                 iconColor: Color.expense,

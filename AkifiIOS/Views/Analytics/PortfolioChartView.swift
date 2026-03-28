@@ -20,13 +20,13 @@ struct PortfolioChartView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack(alignment: .firstTextBaseline) {
-                Text("Портфель счетов")
+                Text(String(localized: "analytics.portfolio"))
                     .font(.headline)
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "creditcard")
                         .font(.caption)
-                    Text("Все балансы")
+                    Text(String(localized: "analytics.allBalances"))
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)
@@ -93,7 +93,7 @@ struct PortfolioChartView: View {
                     }
                 }
             } else {
-                ContentUnavailableView("Нет счетов", systemImage: "creditcard")
+                ContentUnavailableView(String(localized: "analytics.noAccounts"), systemImage: "creditcard")
                     .frame(height: 100)
             }
         }

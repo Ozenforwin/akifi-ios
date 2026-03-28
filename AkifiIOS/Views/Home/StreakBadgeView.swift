@@ -36,7 +36,7 @@ struct StreakBadgeView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(currentStreak) \(streakLabel)")
                             .font(.subheadline.weight(.semibold))
-                        Text("подряд с операциями")
+                        Text(String(localized: "streak.consecutiveDays"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -63,10 +63,10 @@ struct StreakBadgeView: View {
     private var streakLabel: String {
         let mod10 = currentStreak % 10
         let mod100 = currentStreak % 100
-        if mod100 >= 11 && mod100 <= 19 { return "дней" }
-        if mod10 == 1 { return "день" }
-        if mod10 >= 2 && mod10 <= 4 { return "дня" }
-        return "дней"
+        if mod100 >= 11 && mod100 <= 19 { return String(localized: "streak.days.many") }
+        if mod10 == 1 { return String(localized: "streak.days.one") }
+        if mod10 >= 2 && mod10 <= 4 { return String(localized: "streak.days.few") }
+        return String(localized: "streak.days.many")
     }
 
     private static let dateFormatter: DateFormatter = {

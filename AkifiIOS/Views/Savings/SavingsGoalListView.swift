@@ -12,10 +12,10 @@ struct SavingsGoalListView: View {
                 LoadingView()
             } else if viewModel.goals.isEmpty {
                 EmptyStateView(
-                    title: "Нет целей",
+                    title: String(localized: "savings.noGoals"),
                     systemImage: "target",
-                    description: "Создайте цель, чтобы начать копить",
-                    actionTitle: "Создать"
+                    description: String(localized: "savings.noGoals.description"),
+                    actionTitle: String(localized: "common.create")
                 ) {
                     viewModel.showForm = true
                 }
@@ -54,12 +54,12 @@ struct SavingsGoalListView: View {
                                         Button(role: .destructive) {
                                             Task { await viewModel.deleteGoal(goal) }
                                         } label: {
-                                            Label("Удалить", systemImage: "trash")
+                                            Label(String(localized: "common.delete"), systemImage: "trash")
                                         }
                                     }
                                 }
                             } header: {
-                                Text("Активные")
+                                Text(String(localized: "savings.active"))
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,7 +77,7 @@ struct SavingsGoalListView: View {
                                     .opacity(0.7)
                                 }
                             } header: {
-                                Text("Завершённые")
+                                Text(String(localized: "savings.completed"))
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,7 +91,7 @@ struct SavingsGoalListView: View {
         .refreshable {
             await viewModel.load()
         }
-        .navigationTitle("Накопления")
+        .navigationTitle(String(localized: "savings.title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

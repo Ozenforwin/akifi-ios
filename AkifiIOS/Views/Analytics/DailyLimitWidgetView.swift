@@ -29,7 +29,7 @@ struct DailyLimitWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Доступно на сегодня")
+            Text(String(localized: "analytics.availableToday"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -37,7 +37,7 @@ struct DailyLimitWidgetView: View {
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(safeToSpend > 0 ? .primary : .red)
 
-            Text("Рекомендуемый дневной лимит расходов")
+            Text(String(localized: "analytics.recommendedDailyLimit"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

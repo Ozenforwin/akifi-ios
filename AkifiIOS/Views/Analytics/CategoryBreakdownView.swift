@@ -24,11 +24,11 @@ struct CategoryBreakdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("По категориям")
+            Text(String(localized: "analytics.byCategory"))
                 .font(.headline)
 
             if data.isEmpty {
-                ContentUnavailableView("Нет расходов", systemImage: "chart.pie")
+                ContentUnavailableView(String(localized: "analytics.noExpenses"), systemImage: "chart.pie")
                     .frame(height: 200)
             } else {
                 // Donut chart
@@ -64,7 +64,7 @@ struct CategoryBreakdownView: View {
                         } label: {
                             HStack {
                                 Spacer()
-                                Text(isExpanded ? "Свернуть" : "Ещё \(data.count - collapsedCount) категорий")
+                                Text(isExpanded ? String(localized: "common.collapse") : String(localized: "analytics.moreCategories.\(data.count - collapsedCount)"))
                                     .font(.caption.weight(.medium))
                                     .foregroundStyle(Color.accent)
                                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -136,7 +136,7 @@ struct CategoryTransactionsSheet: View {
         NavigationStack {
             Group {
                 if transactions.isEmpty {
-                    ContentUnavailableView("Нет операций", systemImage: "tray")
+                    ContentUnavailableView(String(localized: "home.noTransactions"), systemImage: "tray")
                 } else {
                     List {
                         // Summary
@@ -147,7 +147,7 @@ struct CategoryTransactionsSheet: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(category.name)
                                         .font(.headline)
-                                    Text("\(transactions.count) операций")
+                                    Text(String(localized: "analytics.transactionsCount.\(transactions.count)"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -184,7 +184,7 @@ struct CategoryTransactionsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }

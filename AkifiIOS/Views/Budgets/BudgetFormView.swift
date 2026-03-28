@@ -48,14 +48,14 @@ struct BudgetFormView: View {
         NavigationStack {
             Form {
                 // Name & description
-                Section("Название") {
-                    TextField("Название бюджета", text: $budgetName)
-                    TextField("Описание (необязательно)", text: $budgetDescription)
+                Section(String(localized: "common.name")) {
+                    TextField(String(localized: "budget.budgetName"), text: $budgetName)
+                    TextField(String(localized: "budget.descriptionOptional"), text: $budgetDescription)
                 }
 
                 // Budget Type
                 Section {
-                    Picker("Тип", selection: $budgetType) {
+                    Picker(String(localized: "common.type"), selection: $budgetType) {
                         ForEach(BudgetType.allCases, id: \.self) { type in
                             Text(type.displayName).tag(type)
                         }
@@ -66,32 +66,32 @@ struct BudgetFormView: View {
                 }
 
                 // Amount
-                Section("Сумма") {
+                Section(String(localized: "common.amount")) {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
                 // Period (DB only supports monthly, weekly, custom)
-                Section("Период") {
-                    Picker("Период", selection: $period) {
-                        Text("Неделя").tag(BillingPeriod.weekly)
-                        Text("Месяц").tag(BillingPeriod.monthly)
-                        Text("Свой период").tag(BillingPeriod.custom)
+                Section(String(localized: "common.period")) {
+                    Picker(String(localized: "common.period"), selection: $period) {
+                        Text(String(localized: "period.week")).tag(BillingPeriod.weekly)
+                        Text(String(localized: "period.monthShort")).tag(BillingPeriod.monthly)
+                        Text(String(localized: "period.customRange")).tag(BillingPeriod.custom)
                     }
 
                     if period == .custom {
-                        DatePicker("Начало", selection: $customStartDate, displayedComponents: .date)
-                        DatePicker("Конец", selection: $customEndDate, displayedComponents: .date)
+                        DatePicker(String(localized: "common.start"), selection: $customStartDate, displayedComponents: .date)
+                        DatePicker(String(localized: "common.end"), selection: $customEndDate, displayedComponents: .date)
                     }
                 }
 
                 // Categories — compact collapsible
-                Section("Категории") {
+                Section(String(localized: "budget.categories")) {
                     Button {
                         showCategoryPicker.toggle()
                     } label: {
                         HStack {
                             if selectedCategories.isEmpty {
-                                Text("Все категории")
+                                Text(String(localized: "budget.allCategories"))
                                     .foregroundStyle(.primary)
                             } else {
                                 let icons = expenseCategories.filter { selectedCategories.contains($0.id) }.map(\.icon).prefix(5).joined()
@@ -141,9 +141,9 @@ struct BudgetFormView: View {
 
                 // Account
                 if !accounts.isEmpty {
-                    Section("Счёт") {
-                        Picker("Счёт", selection: $selectedAccountId) {
-                            Text("Все счета").tag(nil as String?)
+                    Section(String(localized: "common.account")) {
+                        Picker(String(localized: "common.account"), selection: $selectedAccountId) {
+                            Text(String(localized: "budget.allAccounts")).tag(nil as String?)
                             ForEach(accounts) { account in
                                 Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
@@ -152,13 +152,13 @@ struct BudgetFormView: View {
                 }
 
                 // Settings
-                Section("Настройки") {
-                    Toggle("Перенос остатка", isOn: $rolloverEnabled)
+                Section(String(localized: "common.settings")) {
+                    Toggle(String(localized: "budget.rollover"), isOn: $rolloverEnabled)
 
                     // Alert thresholds
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Пороги предупреждений")
+                            Text(String(localized: "budget.alertThresholds"))
                                 .font(.subheadline)
                             Spacer()
                             Button {
@@ -210,14 +210,14 @@ struct BudgetFormView: View {
                     }
                 }
             }
-            .navigationTitle(isEditing ? "Редактирование" : "Новый бюджет")
+            .navigationTitle(isEditing ? String(localized: "common.editing") : String(localized: "budget.newBudget"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Сохранить" : "Создать") {
+                    Button(isEditing ? String(localized: "common.save") : String(localized: "common.create")) {
                         Task { await save() }
                     }
                     .disabled(!isValid || isSaving)
@@ -252,7 +252,7 @@ struct BudgetFormView: View {
 
     private func save() async {
         guard let decimalAmount = calculatorState.getResult(), decimalAmount > 0 else {
-            errorMessage = "Введите сумму"
+            errorMessage = String(localized: "common.enterAmount")
             return
         }
 

@@ -53,18 +53,18 @@ struct TransactionFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Тип", selection: $selectedType) {
-                        Text("Расход").tag(TransactionType.expense)
-                        Text("Доход").tag(TransactionType.income)
+                    Picker(String(localized: "common.type"), selection: $selectedType) {
+                        Text(String(localized: "common.expense")).tag(TransactionType.expense)
+                        Text(String(localized: "common.income")).tag(TransactionType.income)
                     }
                     .pickerStyle(.segmented)
                 }
 
-                Section("Сумма") {
+                Section(String(localized: "common.amount")) {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
-                Section("Категория") {
+                Section(String(localized: "common.category")) {
                     if filteredCategories.count > 8 {
                         Button {
                             showCategoryPicker = true
@@ -76,7 +76,7 @@ struct TransactionFormView: View {
                                     Text(cat.name)
                                         .foregroundStyle(.primary)
                                 } else {
-                                    Text("Выбрать категорию")
+                                    Text(String(localized: "transaction.selectCategory"))
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -99,9 +99,9 @@ struct TransactionFormView: View {
                 }
 
                 if !accounts.isEmpty {
-                    Section("Счёт") {
-                        Picker("Счёт", selection: $selectedAccountId) {
-                            Text("Без счёта").tag(nil as String?)
+                    Section(String(localized: "common.account")) {
+                        Picker(String(localized: "common.account"), selection: $selectedAccountId) {
+                            Text(String(localized: "transaction.noAccount")).tag(nil as String?)
                             ForEach(accounts) { account in
                                 Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
@@ -109,10 +109,10 @@ struct TransactionFormView: View {
                     }
                 }
 
-                Section("Детали") {
-                    TextField("Описание", text: $description)
-                    DatePicker("Дата и время", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                    Picker("Валюта", selection: $selectedCurrency) {
+                Section(String(localized: "transaction.details")) {
+                    TextField(String(localized: "transaction.description"), text: $description)
+                    DatePicker(String(localized: "transaction.dateTime"), selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
                         }
@@ -127,14 +127,14 @@ struct TransactionFormView: View {
                     }
                 }
             }
-            .navigationTitle(isEditing ? "Редактирование" : "Новая операция")
+            .navigationTitle(isEditing ? String(localized: "common.editing") : String(localized: "transaction.newTransaction"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Обновить" : "Сохранить") {
+                    Button(isEditing ? String(localized: "common.update") : String(localized: "common.save")) {
                         Task { await save() }
                     }
                     .disabled(calculatorState.getResult() == nil || isLoading)
@@ -175,7 +175,7 @@ struct TransactionFormView: View {
 
     private func save() async {
         guard let amountValue = calculatorState.getResult(), amountValue > 0 else {
-            errorMessage = "Некорректная сумма"
+            errorMessage = String(localized: "transaction.invalidAmount")
             return
         }
 
