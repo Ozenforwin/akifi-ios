@@ -173,23 +173,15 @@ private struct CustomTabBar: View {
                 tabButton("house.fill", "Главная", 0)
                 tabButton("arrow.left.arrow.right", "Операции", 1)
 
-                // Center AI button
+                // Center AI button with logo
                 Button(action: onAITap) {
                     ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.aiGradientStart, .aiGradientEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        Image("AkifiLogo")
+                            .resizable()
+                            .scaledToFit()
                             .frame(width: 56, height: 56)
-                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
-
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white)
+                            .clipShape(Circle())
+                            .shadow(color: Color(hex: "#8BD2FF").opacity(0.35), radius: 8, x: 0, y: 4)
                     }
                     .overlay {
                         Circle()

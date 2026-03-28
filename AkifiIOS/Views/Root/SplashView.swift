@@ -25,54 +25,21 @@ struct SplashView: View {
             VStack(spacing: 24) {
                 // Logo: stylized "A" with gradient
                 ZStack {
-                    // Glow
-                    Text("A")
-                        .font(.system(size: 90, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: "#F4A0A0"),
-                                    Color(hex: "#F7CE68"),
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .blur(radius: 20)
-                        .opacity(0.5)
+                    // Glow behind logo
+                    Image("AkifiLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 130, height: 130)
+                        .blur(radius: 25)
+                        .opacity(0.4)
 
-                    // Main letter
-                    Text("A")
-                        .font(.system(size: 90, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: "#F4A0A0"),
-                                    Color(hex: "#F7CE68"),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .shadow(color: Color(hex: "#F4A0A0").opacity(0.3), radius: 12, x: 0, y: 6)
-
-                    // Shimmer overlay
-                    Text("A")
-                        .font(.system(size: 90, weight: .black, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .mask(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .clear, location: 0),
-                                    .init(color: .white, location: 0.45),
-                                    .init(color: .white, location: 0.55),
-                                    .init(color: .clear, location: 1),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            .offset(x: shimmerOffset)
-                        )
+                    // Main logo
+                    Image("AkifiLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 120, height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .shadow(color: Color(hex: "#8BD2FF").opacity(0.4), radius: 16, x: 0, y: 8)
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
