@@ -41,30 +41,64 @@ struct AccountCarouselView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            TabView(selection: $selectedIndex) {
-                ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
-                    AccountCardView(
-                        account: account,
-                        balance: balanceFor(account),
-                        isBalanceHidden: hiddenBalances.contains(account.id),
-                        onToggleHidden: {
-                            hiddenBalances = HiddenBalancesStore.toggle(account.id)
-                        },
-                        onTogglePrimary: {
-                            onSetPrimary?(account)
-                        },
-                        onShare: {
-                            onShareAccount?(account)
-                        },
-                        onEdit: {
-                            onEditAccount?(account)
-                        }
-                    )
-                    .tag(index)
+            ZStack {
+                // Stacked cards behind (peek effect)
+                if accounts.count > 1 {
+                    // Second card behind
+                    let nextIdx = (selectedIndex + 1) % accounts.count
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color(hex: accounts[nextIdx].color).opacity(0.08))
+                        )
+                        .frame(height: 170)
+                        .padding(.horizontal, 20)
+                        .offset(y: 8)
+                        .opacity(0.7)
                 }
+                if accounts.count > 2 {
+                    // Third card behind
+                    let thirdIdx = (selectedIndex + 2) % accounts.count
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color(hex: accounts[thirdIdx].color).opacity(0.06))
+                        )
+                        .frame(height: 160)
+                        .padding(.horizontal, 32)
+                        .offset(y: 14)
+                        .opacity(0.4)
+                }
+
+                // Main card carousel
+                TabView(selection: $selectedIndex) {
+                    ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
+                        AccountCardView(
+                            account: account,
+                            balance: balanceFor(account),
+                            isBalanceHidden: hiddenBalances.contains(account.id),
+                            onToggleHidden: {
+                                hiddenBalances = HiddenBalancesStore.toggle(account.id)
+                            },
+                            onTogglePrimary: {
+                                onSetPrimary?(account)
+                            },
+                            onShare: {
+                                onShareAccount?(account)
+                            },
+                            onEdit: {
+                                onEditAccount?(account)
+                            }
+                        )
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 190)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 190)
+            .animation(.easeInOut(duration: 0.25), value: selectedIndex)
 
             // Custom page dots + add button
             HStack(spacing: 6) {
@@ -185,20 +219,27 @@ struct AccountCardView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(
-                colors: [
-                    accountColor.opacity(0.08),
-                    accountColor.opacity(0.18)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            ZStack {
+                // Frosted glass base
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                // Color tint overlay
+                LinearGradient(
+                    colors: [
+                        accountColor.opacity(0.10),
+                        accountColor.opacity(0.20)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(accountColor.opacity(0.12), lineWidth: 1)
+                .stroke(accountColor.opacity(0.18), lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: accountColor.opacity(0.08), radius: 12, x: 0, y: 4)
         .padding(.horizontal, 4)
     }
 

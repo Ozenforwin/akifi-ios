@@ -57,11 +57,32 @@ struct TransactionsTabView: View {
         filterAccountId != nil || filterDateFrom != nil || filterDateTo != nil || filterType != .all
     }
 
+    private var summaryTotals: (income: Int64, expense: Int64, transfer: Int64) {
+        var inc: Int64 = 0
+        var exp: Int64 = 0
+        var trf: Int64 = 0
+        var seenGroups: Set<String> = []
+        for tx in displayedTransactions {
+            if let gid = tx.transferGroupId {
+                if !seenGroups.contains(gid) {
+                    seenGroups.insert(gid)
+                    trf += tx.amount
+                }
+                continue
+            }
+            if tx.isTransfer { trf += tx.amount; continue }
+            if tx.type == .income { inc += tx.amount }
+            else if tx.type == .expense { exp += tx.amount }
+        }
+        return (inc, exp, trf)
+    }
+
     var body: some View {
         @Bindable var vm = viewModel
         NavigationStack {
             List {
                 if hasActiveFilters {
+                    // Filter indicator + reset
                     HStack {
                         Image(systemName: "line.3.horizontal.decrease.circle.fill")
                             .foregroundStyle(Color.accent)
@@ -78,6 +99,36 @@ struct TransactionsTabView: View {
                         .font(.caption)
                     }
                     .listRowSeparator(.hidden)
+
+                    // Summary cells: income / expense / transfer
+                    HStack(spacing: 8) {
+                        summaryCellView(
+                            label: "Доход",
+                            amount: summaryTotals.income,
+                            color: Color.income,
+                            icon: "arrow.up.right",
+                            isActive: filterType == .income
+                        ) { filterType = filterType == .income ? .all : .income }
+
+                        summaryCellView(
+                            label: "Расход",
+                            amount: summaryTotals.expense,
+                            color: Color.expense,
+                            icon: "arrow.down.left",
+                            isActive: filterType == .expense
+                        ) { filterType = filterType == .expense ? .all : .expense }
+
+                        summaryCellView(
+                            label: "Перевод",
+                            amount: summaryTotals.transfer,
+                            color: Color.transfer,
+                            icon: "arrow.left.arrow.right",
+                            isActive: filterType == .transfer
+                        ) { filterType = filterType == .transfer ? .all : .transfer }
+                    }
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
 
                 ForEach(displayedTransactions) { transaction in
@@ -163,6 +214,38 @@ struct TransactionsTabView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+    }
+    private func summaryCellView(label: String, amount: Int64, color: Color, icon: String, isActive: Bool, onTap: @escaping () -> Void) -> some View {
+        Button(action: onTap) {
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(label)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(color)
+
+                Text(appViewModel.currencyManager.formatAmount(amount.displayAmount))
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                isActive
+                    ? color.opacity(0.15)
+                    : color.opacity(0.06)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isActive ? color.opacity(0.4) : color.opacity(0.12), lineWidth: isActive ? 1.5 : 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

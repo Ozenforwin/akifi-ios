@@ -29,24 +29,30 @@ struct DailyLimitWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "calendar.badge.clock")
-                    .foregroundStyle(Color.accent)
-                Text("Дневной лимит")
-                    .font(.subheadline.weight(.medium))
-            }
+            Text("Доступно на сегодня")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             Text(appViewModel.currencyManager.formatAmount(safeToSpend))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(safeToSpend > 0 ? .primary : .red)
 
-            Text("Безопасно потратить сегодня")
+            Text("Рекомендуемый дневной лимит расходов")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(.background)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.fabEnd.opacity(0.08),
+                    Color(.systemBackground)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

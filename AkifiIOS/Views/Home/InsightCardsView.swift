@@ -75,12 +75,29 @@ struct InsightCardsView: View {
                         Text(insight.text)
                             .font(.subheadline)
                             .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundStyle(insight.color.opacity(0.5))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .background(insight.color.opacity(0.06))
+                    .background(insight.color.opacity(0.04))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [insight.color.opacity(0.4), insight.color.opacity(0.15)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
                 }
             }
         }
