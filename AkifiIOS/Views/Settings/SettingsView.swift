@@ -280,17 +280,25 @@ struct ThemePickerView: View {
 }
 
 struct CategoryLayoutPickerView: View {
-    @AppStorage("categoryLayout") private var layout = "grid"
+    @AppStorage("categoryLayout") private var layout = "wheel"
 
     var body: some View {
         List {
-            ForEach(["grid", "sheet"], id: \.self) { option in
+            ForEach(["wheel", "grid", "list"], id: \.self) { option in
                 Button {
                     layout = option
                 } label: {
                     HStack {
-                        Label(displayName(option), systemImage: iconName(option))
-                            .foregroundStyle(.primary)
+                        Image(systemName: iconName(option))
+                            .frame(width: 28)
+                            .foregroundStyle(Color.accent)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(displayName(option))
+                                .foregroundStyle(.primary)
+                            Text(descriptionText(option))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
                         if layout == option {
                             Image(systemName: "checkmark").foregroundStyle(Color.accent)
@@ -304,16 +312,27 @@ struct CategoryLayoutPickerView: View {
 
     private func displayName(_ option: String) -> String {
         switch option {
+        case "wheel": return "Кольцо"
         case "grid": return "Сетка"
-        case "sheet": return "Список"
+        case "list": return "Список"
         default: return option
+        }
+    }
+
+    private func descriptionText(_ option: String) -> String {
+        switch option {
+        case "wheel": return "Категории по кругу"
+        case "grid": return "Компактная сетка иконок"
+        case "list": return "Полный список с названиями"
+        default: return ""
         }
     }
 
     private func iconName(_ option: String) -> String {
         switch option {
+        case "wheel": return "circle.circle"
         case "grid": return "square.grid.2x2"
-        case "sheet": return "list.bullet"
+        case "list": return "list.bullet"
         default: return "questionmark"
         }
     }

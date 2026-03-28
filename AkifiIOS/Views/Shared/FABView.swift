@@ -6,6 +6,7 @@ enum FABAction {
 
 struct FABView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @AppStorage("categoryLayout") private var categoryLayout = "wheel"
     @State private var isMenuExpanded = false
     @State private var showCategoryWheel = false
     @State private var selectedType: TransactionType = .expense
@@ -211,31 +212,14 @@ struct FABView: View {
                 .frame(height: 300)
             } else {
                 let cats = filteredCategories
-                let pageSize = 8
-                let pages = max((cats.count + pageSize - 1) / pageSize, 1)
 
-                TabView(selection: $currentPage) {
-                    ForEach(0..<pages, id: \.self) { page in
-                        let start = page * pageSize
-                        let end = min(start + pageSize, cats.count)
-                        let pageCats = start < cats.count ? Array(cats[start..<end]) : []
-                        categoryPage(categories: pageCats)
-                            .tag(page)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 360)
-
-                // Custom page dots below wheel with spacing
-                if pages > 1 {
-                    HStack(spacing: 6) {
-                        ForEach(0..<pages, id: \.self) { i in
-                            Capsule()
-                                .fill(i == currentPage ? Color.white : Color.white.opacity(0.4))
-                                .frame(width: i == currentPage ? 16 : 6, height: 6)
-                        }
-                    }
-                    .padding(.top, 8)
+                switch categoryLayout {
+                case "grid":
+                    categoryGridView(categories: cats)
+                case "list":
+                    categoryListView(categories: cats)
+                default: // "wheel"
+                    categoryWheelPages(categories: cats)
                 }
             }
 
@@ -253,7 +237,150 @@ struct FABView: View {
         .padding(.horizontal, 20)
     }
 
-    private func categoryPage(categories: [Category]) -> some View {
+    // MARK: - Wheel layout (pages)
+
+    private func categoryWheelPages(categories: [Category]) -> some View {
+        let pageSize = 8
+        let pages = max((categories.count + pageSize - 1) / pageSize, 1)
+
+        return VStack(spacing: 0) {
+            TabView(selection: $currentPage) {
+                ForEach(0..<pages, id: \.self) { page in
+                    let start = page * pageSize
+                    let end = min(start + pageSize, categories.count)
+                    let pageCats = start < categories.count ? Array(categories[start..<end]) : []
+                    categoryWheelPage(categories: pageCats)
+                        .tag(page)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 360)
+
+            if pages > 1 {
+                HStack(spacing: 6) {
+                    ForEach(0..<pages, id: \.self) { i in
+                        Capsule()
+                            .fill(i == currentPage ? Color.white : Color.white.opacity(0.4))
+                            .frame(width: i == currentPage ? 16 : 6, height: 6)
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    // MARK: - Grid layout
+
+    @ViewBuilder
+    private func categoryGridView(categories: [Category]) -> some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72))], spacing: 12) {
+                ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
+                    Button {
+                        withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
+                        onAction(selectedType == .income ? .income : .expense)
+                    } label: {
+                        VStack(spacing: 4) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 56, height: 56)
+                                Text(cat.icon)
+                                    .font(.system(size: 24))
+                            }
+                            Text(cat.name)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(
+                        .spring(duration: 0.35, bounce: 0.2).delay(Double(index) * 0.03),
+                        value: showCategoryWheel
+                    )
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+        .frame(maxHeight: 360)
+
+        // Close button
+        Button {
+            withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Закрыть")
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - List layout
+
+    @ViewBuilder
+    private func categoryListView(categories: [Category]) -> some View {
+        ScrollView {
+            VStack(spacing: 2) {
+                ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
+                    Button {
+                        withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
+                        onAction(selectedType == .income ? .income : .expense)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(cat.icon)
+                                .font(.title3)
+                                .frame(width: 36)
+                            Text(cat.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemBackground).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(
+                        .spring(duration: 0.3).delay(Double(index) * 0.03),
+                        value: showCategoryWheel
+                    )
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .frame(maxHeight: 360)
+
+        // Close button
+        Button {
+            withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Закрыть")
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Wheel page (single page of wheel)
+
+    private func categoryWheelPage(categories: [Category]) -> some View {
         let radius: CGFloat = 130
         let positions = wheelPositions(count: categories.count, radius: radius)
 
