@@ -71,4 +71,21 @@ final class AuthManager {
         currentUser = nil
         isAuthenticated = false
     }
+
+    func deleteAccount() async throws {
+        // Call edge function to delete all user data and auth record
+        try await supabase.functions.invoke(
+            "delete-account",
+            options: .init(body: ["confirm": true])
+        )
+        // Clear local state
+        UserDefaults.standard.removeObject(forKey: "onboarding_completed")
+        UserDefaults.standard.removeObject(forKey: "selected_currency")
+        UserDefaults.standard.removeObject(forKey: "data_currency")
+        UserDefaults.standard.removeObject(forKey: "appLanguage")
+        UserDefaults.standard.removeObject(forKey: "categoryLayout")
+        UserDefaults.standard.removeObject(forKey: "hapticEnabled")
+        currentUser = nil
+        isAuthenticated = false
+    }
 }

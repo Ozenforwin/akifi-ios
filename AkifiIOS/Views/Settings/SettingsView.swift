@@ -4,6 +4,9 @@ struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appLanguage") private var appLanguage = "system"
+    @State private var showDeleteConfirmation = false
+    @State private var showDeleteFinalConfirmation = false
+    @State private var deleteError: String?
 
     private var currentLanguageName: String {
         switch appLanguage {
@@ -174,6 +177,14 @@ struct SettingsView: View {
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                             .foregroundStyle(.secondary)
                     }
+
+                    Link(destination: URL(string: "https://akifi.ru/privacy")!) {
+                        SettingsRow(icon: "hand.raised.fill", color: .blue, title: String(localized: "settings.privacy"))
+                    }
+
+                    Link(destination: URL(string: "https://akifi.ru/terms")!) {
+                        SettingsRow(icon: "doc.text.fill", color: .gray, title: String(localized: "settings.terms"))
+                    }
                 }
 
                 Section {
@@ -184,11 +195,44 @@ struct SettingsView: View {
                     } label: {
                         Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
+
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label(String(localized: "settings.deleteAccount"), systemImage: "person.crop.circle.badge.minus")
+                    }
                 }
 
                 Color.clear.frame(height: 40)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+            }
+            .alert(String(localized: "settings.deleteAccount.title"), isPresented: $showDeleteConfirmation) {
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+                Button(String(localized: "settings.deleteAccount.confirm"), role: .destructive) {
+                    showDeleteFinalConfirmation = true
+                }
+            } message: {
+                Text(String(localized: "settings.deleteAccount.warning"))
+            }
+            .alert(String(localized: "settings.deleteAccount.finalTitle"), isPresented: $showDeleteFinalConfirmation) {
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+                Button(String(localized: "settings.deleteAccount.finalConfirm"), role: .destructive) {
+                    Task {
+                        do {
+                            try await appViewModel.authManager.deleteAccount()
+                        } catch {
+                            deleteError = error.localizedDescription
+                        }
+                    }
+                }
+            } message: {
+                Text(String(localized: "settings.deleteAccount.finalWarning"))
+            }
+            .alert("Error", isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
+                Button("OK") { deleteError = nil }
+            } message: {
+                Text(deleteError ?? "")
             }
             .navigationTitle(String(localized: "common.settings"))
             .toolbar {
