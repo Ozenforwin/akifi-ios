@@ -32,6 +32,7 @@ targets:
   AkifiIOS:
     type: application
     platform: iOS
+    bundleIdOverride: ru.akifi.app
     sources:
       - AkifiIOS
     dependencies:
