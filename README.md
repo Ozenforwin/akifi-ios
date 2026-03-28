@@ -1,6 +1,6 @@
 # Akifi iOS
 
-Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase. Работает параллельно с Telegram Mini App версией Akifi.
+Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase и Firebase. Работает параллельно с Telegram Mini App версией Akifi.
 
 ## Tech Stack
 
@@ -11,8 +11,10 @@
 | Min Deployment | iOS 18.0 |
 | IDE | Xcode 16+ |
 | Backend | Supabase (supabase-swift v2.43+) |
+| Analytics & Push | Firebase (Analytics, Crashlytics, FCM, Performance) |
 | Графики | Swift Charts (нативный) |
 | Auth | Sign in with Apple, Email/Password, Telegram migration |
+| Локализация | 3 языка: Русский, English, Español (470+ ключей) |
 | Project Gen | XcodeGen (project.yml) |
 
 ## Архитектура
@@ -31,8 +33,9 @@
 │  (shared state,       │  (Supabase CRUD,     │
 │   кэш balance/cat)    │   Sendable)          │
 ├─────────────────────────────────────────────┤
-│              SupabaseManager                 │
-│         (Sendable singleton client)          │
+│  SupabaseManager  │  Firebase  │  Services   │
+│  (Singleton)      │  (FCM,     │  (Analytics │
+│                   │   Crash)   │   Haptics)  │
 └─────────────────────────────────────────────┘
 ```
 
@@ -40,185 +43,116 @@
 
 `AppViewModel` (root) владеет:
 - `AuthManager` — аутентификация (Apple, Email, Telegram migration)
-- `CurrencyManager` — курсы валют, форматирование сумм
+- `CurrencyManager` — курсы валют, форматирование, конвертация
 - `PaymentManager` — проверка Premium статуса
-- `DataStore` — shared хранилище accounts/transactions/categories с кэшированием
+- `DataStore` — shared хранилище с предвычисленными кэшами (balance, income/expense по счетам, category index)
+- `ThemeManager` — тема оформления
 
 Инжектируется через `.environment(appViewModel)` из `AkifiApp.swift`.
 
-### State Management
+## Основные функции
 
-| Wrapper | Использование |
-|---------|--------------|
-| `@Observable` | ViewModels, Services (property-level tracking) |
-| `@State` | View-local ViewModels, UI state |
-| `@Environment` | AppViewModel injection |
-| `@Bindable` | Two-way binding к @Observable |
-| `@MainActor` | Все ViewModels и Services |
+### Финансы
+- **Мультисчета** — карусель с круговой прокруткой, frosted glass эффект, стек-подложки
+- **Транзакции** — CRUD с категориями, описанием, датой+временем, валютой
+- **Переводы** между счетами
+- **Бюджеты** — недельные/месячные/произвольные, прогресс-бар, статусы (В норме → Внимание → Превышен)
+- **Цели накоплений** — прогресс-кольцо, пополнения/снятия как переводы, процентная ставка, статусы pace
+- **Подписки** — трекер с прогресс-баром обратного отсчёта до списания, reminder days
 
-## Фичи
+### Аналитика
+- **Портфель счетов** — цветная полоса-прогресс, список с процентами
+- **Тренд доходов/расходов** — 6 месяцев, две кривые, тап-для-тултипа
+- **Денежный поток** — bar chart по периодам (dd.MM формат)
+- **По категориям** — donut chart, сворачиваемый список, тап→sheet с транзакциями
+- **Дневной лимит** — рекомендуемый расход на сегодня
+- **Summary карточки** — доходы/расходы за текущий месяц
 
-### Core (Фаза 1)
-- Мультисчета с иконками-эмодзи и цветами
-- Транзакции CRUD (доходы/расходы)
-- Карусель счетов с расчётом баланса
-- Категории с фильтрацией по типу
-- Summary cards (доходы/расходы за период)
-- Поиск по транзакциям
-- Swipe-to-delete
+### AI Ассистент
+- **Полноэкранный чат** с Supabase Edge Function (assistant-query)
+- **Голосовой ввод** — запись через AVAudioRecorder, транскрипция через Whisper (transcribe-voice)
+- **Умный fallback** — нераспознанные вопросы направляются в LLM coaching с финансовым контекстом пользователя
+- **Действия** — создание транзакций, бюджетов, навигация с preview→confirm
+- **Smart budget creation** — чекбоксы для выбора предложенных бюджетов
+- **Evidence карточки** — аномалии с heatmap и delta bars
+- **Обратная связь** — thumbs up/down с причинами
+- **История бесед** — до 30 сохранённых, автоархивация
+- **Сохранение контекста** — диалог сохраняется при переходе между экранами
 
-### Бюджеты и Аналитика (Фаза 2)
-- Бюджеты (месяц/квартал/год) с прогресс-барами
-- Порог оповещения (зелёный → оранжевый → красный)
-- Привязка к категориям и счетам
-- Cashflow bar chart (Swift Charts BarMark)
-- Category breakdown donut chart (SectorMark)
-- Фильтрация по периодам (неделя/месяц/квартал/год)
-- Реальные курсы валют (open.er-api.com, кэш 1 час)
-- 6 валют: USD, RUB, EUR, GBP, CNY, JPY
+### Сканер чеков
+- **Камера или галерея** → сжатие до 1800px JPEG
+- **AI OCR** через analyze-receipt edge function (OpenAI Vision)
+- **Извлечение**: магазин, сумма, валюта, дата, товары
+- **Умные подсказки**: история мерчанта, автоопределение категории
+- **Подтверждение** → finalize-receipt создаёт транзакцию
 
-### Накопления и Подписки (Фаза 3)
-- Цели накоплений с прогресс-кольцом
-- Вклады/снятия с историей
-- Быстрые чипы (остаток, 50%, 25%)
-- Дедлайн с обратным отсчётом
-- Автозавершение при достижении цели
-- Трекер подписок с месячным итогом
-- Управление профилем
-- CRUD категорий
-- Настройки уведомлений
+### Импорт/Экспорт
+- **Импорт банковских выписок** (PDF) — AI парсинг, превью транзакций с чекбоксами, дубликаты
+- **Экспорт CSV** — фильтр по датам и счетам
 
-### AI-ассистент и Достижения (Фаза 4)
-- Полноэкранный чат с Supabase Edge Function
-- Typing indicator, follow-up подсказки
-- История бесед, архивация
-- Система достижений (9 категорий, 4 тира)
-- Бейджи с прогрессом и очками
-- Фильтрация по категориям
+### Геймификация
+- **10 уровней**: Новичок → Ученик → Финансист → ... → Магнат
+- **Достижения** — 9 категорий, 4 тира (bronze/silver/gold/diamond)
+- **Celebration popup** — emoji-конфетти, tier-градиенты, count-up очков, haptic feedback
+- **Прогресс-кольца** на бейджах, points badge
 
-### Premium и Онбординг (Фаза 5)
-- Premium paywall (Akifi Pro) — StoreKit 2 заглушка в v1
-- Проверка статуса через Supabase
-- 5-шаговый онбординг (приветствие → валюта → счёт → фичи → завершение)
-- Анимированный splash screen
-- Секция накоплений на Home
+### Push-уведомления (серверные через FCM)
+- **Budget warning** — при достижении 80%/100% лимита (event-driven)
+- **Large expense** — крупный расход выше порога (event-driven)
+- **Savings milestone** — 25/50/75/100% цели (event-driven)
+- **Inactivity reminder** — нет транзакций >3 дня (cron ежедневно)
+- **Weekly pace** — темп расходов >120% бюджета (cron среда)
+- **Subscription reminder** — N дней до списания (cron ежедневно)
+- **Настройки** синхронизируются с сервером
 
-## Структура проекта
+### Другое
+- **Аватар** — PhotosPicker, сжатие, Supabase Storage
+- **Общие счета** — бейдж "Общая", аватары участников
+- **Удаление аккаунта** — двухшаговое подтверждение, edge function
+- **Тактильный отклик** — haptic на таббар, FAB, достижения (отключаемый)
+- **Тёмная тема** — адаптивные цвета на всех экранах
+- **Только portrait** на iPhone, все ориентации на iPad
 
-```
-AkifiIOS/
-├── AkifiApp.swift                    # @main, environment setup
-├── AppConstants.swift                # Supabase URL/Key из Info.plist
-├── AkifiIOS.entitlements             # Sign in with Apple
-├── PrivacyInfo.xcprivacy             # App Store privacy manifest
-├── Info.plist                        # Конфигурация приложения
-│
-├── Models/                           # Codable/Sendable structs (13 файлов)
-│   ├── Account.swift                 # Account, AccountMember, AccountRole
-│   ├── Transaction.swift             # Transaction, TransactionType
-│   ├── Category.swift                # Category, CategoryType
-│   ├── Budget.swift                  # Budget, BillingPeriod
-│   ├── SavingsGoal.swift             # SavingsGoal, SavingsContribution
-│   ├── Subscription.swift            # SubscriptionTracker
-│   ├── Achievement.swift             # Achievement, UserAchievement
-│   ├── AiConversation.swift          # AiConversation, AiMessage
-│   ├── Profile.swift                 # Profile
-│   ├── UserSubscription.swift        # UserSubscription, SubscriptionTier
-│   ├── NotificationSettings.swift    # NotificationSettings
-│   ├── ExchangeRates.swift           # ExchangeRates
-│   └── ReceiptScan.swift             # ReceiptScan
-│
-├── Services/                         # Singletons и managers (6 файлов)
-│   ├── SupabaseManager.swift         # Sendable singleton client
-│   ├── AuthManager.swift             # Apple/Email/Migration auth
-│   ├── DataStore.swift               # Shared state с кэшированием
-│   ├── CurrencyManager.swift         # Курсы, форматирование, UserDefaults
-│   ├── PaymentManager.swift          # Premium check + StoreKit protocol
-│   └── ExchangeRateService.swift     # Actor, API + кэш
-│
-├── Repositories/                     # Data access layer (9 файлов)
-│   ├── AccountRepository.swift
-│   ├── TransactionRepository.swift
-│   ├── CategoryRepository.swift
-│   ├── BudgetRepository.swift
-│   ├── SavingsGoalRepository.swift
-│   ├── SubscriptionTrackerRepository.swift
-│   ├── ProfileRepository.swift
-│   ├── AiRepository.swift            # Edge Function calls
-│   └── AchievementRepository.swift
-│
-├── ViewModels/                       # @Observable @MainActor (9 файлов)
-│   ├── AppViewModel.swift            # Root: auth, currency, data
-│   ├── HomeViewModel.swift           # Carousel index
-│   ├── TransactionsViewModel.swift   # Search, filtering
-│   ├── BudgetsViewModel.swift        # Periods, spending, progress
-│   ├── AnalyticsViewModel.swift      # Charts data, breakdowns
-│   ├── SavingsViewModel.swift        # Goals, contributions
-│   ├── SubscriptionsViewModel.swift  # Monthly totals
-│   ├── AssistantViewModel.swift      # Chat, conversations
-│   └── AchievementsViewModel.swift   # Points, categories
-│
-├── Views/                            # SwiftUI views (28 файлов)
-│   ├── Root/
-│   │   ├── ContentView.swift         # Auth gate → TabView
-│   │   ├── SplashView.swift          # Animated splash
-│   │   └── OnboardingView.swift      # 5-step wizard
-│   ├── Auth/
-│   │   ├── LoginView.swift           # Apple + Email + Migration
-│   │   └── MigrationCodeView.swift   # 6-char Telegram code
-│   ├── Home/
-│   │   ├── HomeTabView.swift
-│   │   ├── AccountCarouselView.swift
-│   │   ├── SummaryCardsView.swift
-│   │   ├── RecentTransactionsView.swift
-│   │   └── HomeSavingsSnapshotView.swift
-│   ├── Transactions/
-│   │   ├── TransactionsTabView.swift
-│   │   ├── TransactionFormView.swift
-│   │   └── TransactionRowView.swift
-│   ├── Budgets/
-│   │   ├── BudgetsTabView.swift
-│   │   ├── BudgetCardView.swift
-│   │   └── BudgetFormView.swift
-│   ├── Analytics/
-│   │   ├── AnalyticsTabView.swift
-│   │   ├── CashflowChartView.swift
-│   │   └── CategoryBreakdownView.swift
-│   ├── Savings/
-│   │   ├── SavingsGoalListView.swift
-│   │   ├── SavingsGoalCardView.swift
-│   │   ├── SavingsGoalDetailView.swift
-│   │   ├── SavingsGoalFormView.swift
-│   │   └── ContributionSheetView.swift
-│   ├── Subscriptions/
-│   │   └── SubscriptionListView.swift
-│   ├── Assistant/
-│   │   ├── AssistantView.swift       # Full-screen chat
-│   │   └── MessageBubbleView.swift
-│   ├── Achievements/
-│   │   ├── AchievementsView.swift
-│   │   └── AchievementBadgeView.swift
-│   └── Settings/
-│       ├── SettingsView.swift
-│       ├── ProfileEditView.swift
-│       ├── CategoriesManagementView.swift
-│       ├── NotificationSettingsView.swift
-│       └── PremiumPaywallView.swift
-│
-└── Extensions/                       # Утилиты (5 файлов)
-    ├── Color+Hex.swift               # Color(hex:) с поддержкой 3/6/8 digit
-    ├── View+Glass.swift              # .glassBackground() modifier
-    ├── Date+Formatting.swift
-    ├── Decimal+Currency.swift        # Int64.displayAmount → Decimal
-    └── String+Nonce.swift            # randomNonce() + SHA256
+## Локализация
 
-Config/
-├── Config.xcconfig.template          # Шаблон (в git)
-├── Debug.xcconfig                    # Credentials (gitignored)
-└── Release.xcconfig                  # Credentials (gitignored)
+470+ ключей на 3 языка:
+- 🇷🇺 Русский (основной)
+- 🇺🇸 English
+- 🇪🇸 Español
 
-project.yml                           # XcodeGen конфигурация
-```
+Выбор языка: Настройки → Язык (системный / ручной)
+
+## Firebase
+
+| Сервис | Назначение |
+|--------|-----------|
+| Analytics | 18 типов событий (auth, transactions, budgets, savings, AI, scanner, import/export, settings, screens) |
+| Crashlytics | Автоматический сбор крашей |
+| Cloud Messaging | Push-уведомления через FCM + APNs |
+| Performance | Мониторинг скорости |
+
+## Supabase
+
+### Таблицы
+`profiles`, `accounts`, `account_members`, `transactions`, `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`
+
+### Edge Functions
+| Функция | Назначение |
+|---------|-----------|
+| `assistant-query` | AI-ассистент (intent classification + coaching LLM) |
+| `assistant-action` | Действия ассистента (preview/confirm) |
+| `transcribe-voice` | Голосовая транскрипция (Whisper) |
+| `analyze-receipt` | OCR чеков (OpenAI Vision) |
+| `finalize-receipt` | Создание транзакции из чека |
+| `parse-bank-statement` | Парсинг PDF выписок |
+| `import-bank-statement` | Импорт транзакций из выписки |
+| `smart-notifications` | Серверные push (FCM + Telegram) |
+| `check-subscriptions` | Напоминания о подписках + авто-транзакции |
+| `ios-migrate-auth` | Миграция из Telegram |
+| `delete-account` | Удаление аккаунта (Apple compliance) |
+
+### RLS
+Все таблицы защищены Row Level Security. Данные фильтруются по `user_id`.
 
 ## Установка и запуск
 
@@ -226,75 +160,52 @@ project.yml                           # XcodeGen конфигурация
 - macOS 15+ с Xcode 16+
 - iOS 18.0+ симулятор или устройство
 - XcodeGen (`brew install xcodegen`)
-- Supabase проект с настроенными таблицами
+- Supabase проект
+- Firebase проект с GoogleService-Info.plist
 
 ### Шаги
 
-1. Клонировать репозиторий:
 ```bash
+# 1. Клонировать
 git clone https://github.com/Ozenforwin/akifi-ios.git
 cd akifi-ios
-```
 
-2. Создать конфигурационные файлы из шаблона:
-```bash
+# 2. Конфиг
 cp Config/Config.xcconfig.template Config/Debug.xcconfig
 cp Config/Config.xcconfig.template Config/Release.xcconfig
-```
+# Заполнить SUPABASE_URL и SUPABASE_ANON_KEY
 
-3. Заполнить Supabase credentials в обоих xcconfig файлах:
-```
-SUPABASE_URL = https://YOUR_PROJECT.supabase.co
-SUPABASE_ANON_KEY = YOUR_ANON_KEY_HERE
-```
+# 3. Firebase
+# Положить GoogleService-Info.plist в AkifiIOS/
 
-4. Сгенерировать Xcode project:
-```bash
+# 4. Генерация проекта
 xcodegen generate
-```
 
-5. Открыть проект и собрать:
-```bash
+# 5. Открыть и собрать
 open AkifiIOS.xcodeproj
+# Xcode подтянет SPM зависимости (Supabase + Firebase)
+# Cmd+R для запуска
 ```
-Xcode автоматически подтянет supabase-swift через SPM.
 
-6. Выбрать симулятор iOS 18+ и запустить (Cmd+R).
+## App Store Compliance
 
-## Supabase
-
-### Необходимые таблицы
-`profiles`, `accounts`, `account_members`, `transactions`, `categories`, `budgets`, `savings_goals`, `savings_contributions`, `subscriptions`, `user_subscriptions`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `migration_codes`
-
-### Edge Functions
-- `assistant-query` — AI-ассистент (обработка запросов, intent classification)
-- `assistant-action` — Выполнение действий по запросу ассистента
-- `ios-migrate-auth` — Миграция пользователей из Telegram бота
-
-### RLS
-Все таблицы защищены Row Level Security. Данные фильтруются по `user_id` автоматически.
-
-## App Store
-
-### Entitlements
-- Sign in with Apple (`com.apple.developer.applesignin`)
-
-### Privacy Manifest (PrivacyInfo.xcprivacy)
-- Tracking: отключён
-- Collected data: email, name, user ID (для функциональности)
-- Accessed APIs: UserDefaults (кэш валют и настроек)
-
-### Permissions (добавить при реализации)
-- `NSCameraUsageDescription` — при реализации сканера чеков
-- `NSUserNotificationsUsageDescription` — при реализации push-уведомлений
+- ✅ Sign in with Apple
+- ✅ Account deletion (двухшаговое подтверждение)
+- ✅ Privacy Manifest (PrivacyInfo.xcprivacy)
+- ✅ NSCameraUsageDescription, NSMicrophoneUsageDescription, NSPhotoLibraryUsageDescription
+- ✅ Portrait-only iPhone + all orientations iPad
+- ✅ Privacy Policy & Terms of Service ссылки
+- ✅ Push Notifications (aps-environment, remote-notification background mode)
 
 ## Дизайн
 
-- **Glass morphism**: `.ultraThinMaterial` / `.regularMaterial` фон карточек
-- **SF Symbols**: вместо кастомных иконок
-- **Dynamic Type**: семантические шрифты (`.headline`, `.body`, `.caption`)
-- **Dark/Light mode**: автоматическая адаптация через material и semantic colors
-- **Accent color**: зелёный (`.green`)
+- **Frosted glass** — `.ultraThinMaterial` на карточках счетов
+- **SF Symbols** — нативные иконки
+- **Tier градиенты** — bronze/silver/gold/diamond для достижений
+- **Адаптивные цвета** — `secondarySystemGroupedBackground` для контраста в dark mode
+- **Стек-карточки** — peek-эффект за активной карточкой
+- **Emoji конфетти** — particle system для celebration popup
+- **Скруглённый таббар** — 24pt radius, тень, 44pt touch targets
 
 ## Лицензия
 
