@@ -179,12 +179,22 @@ private struct CustomTabBar: View {
                     if hapticEnabled { HapticManager.medium() }
                     onAITap()
                 } label: {
-                    Image("AkifiLogo")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(Circle())
-                        .shadow(color: Color(hex: "#8BD2FF").opacity(0.3), radius: 8, x: 0, y: 4)
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.aiGradientStart, .aiGradientEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 56, height: 56)
+                            .shadow(color: Color.aiGradientStart.opacity(0.25), radius: 8, x: 0, y: 4)
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
                     .overlay {
                         Circle()
                             .stroke(Color(.systemBackground), lineWidth: 4)
