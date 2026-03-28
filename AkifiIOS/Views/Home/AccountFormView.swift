@@ -34,8 +34,8 @@ struct AccountFormView: View {
                     TextField("Мой счёт", text: $name)
                 }
 
-                Section(isEditing ? "Баланс" : "Начальный баланс") {
-                    TextField("0.00", text: $initialBalanceText)
+                Section(isEditing ? "Баланс (\(selectedCurrency.symbol))" : "Начальный баланс (\(selectedCurrency.symbol))") {
+                    TextField("0", text: $initialBalanceText)
                         .keyboardType(.decimalPad)
                 }
 
@@ -123,28 +123,22 @@ struct AccountFormView: View {
         selectedIcon = account.icon
         selectedColor = account.color
         selectedCurrency = account.currencyCode
-        // Show current balance from DataStore (initial + income - expense)
-        let balance = appViewModel.dataStore.balance(for: account)
-        initialBalanceText = "\(balance.displayAmount)"
+        // Show initial_balance from DB in account's own currency (no conversion)
+        // DB stores whole units, model multiplies by 100 for internal kopecks
+        let dbUnits = account.initialBalance / 100  // back to DB units
+        initialBalanceText = "\(dbUnits)"
     }
 
     private func save() async {
         isSaving = true
         do {
             if let account = editingAccount {
-                // User enters desired total balance.
-                // DB stores initial_balance, displayed = initial + income - expense.
-                // So: new_initial = desired - income + expense
+                // User enters initial_balance in account's currency (whole units)
+                // DB stores whole units, we send as kopecks to repo (which divides by 100)
                 let newBalance: Int64?
                 if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
-                    let desiredKopecks = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-                    let currentBalance = appViewModel.dataStore.balance(for: account)
-                    if desiredKopecks != currentBalance {
-                        let delta = desiredKopecks - currentBalance
-                        newBalance = account.initialBalance + delta
-                    } else {
-                        newBalance = nil
-                    }
+                    let kopecks = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+                    newBalance = kopecks != account.initialBalance ? kopecks : nil
                 } else {
                     newBalance = nil
                 }
