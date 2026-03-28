@@ -34,9 +34,18 @@ struct AccountFormView: View {
                     TextField("Мой счёт", text: $name)
                 }
 
-                Section(isEditing ? "Баланс (\(selectedCurrency.symbol))" : "Начальный баланс (\(selectedCurrency.symbol))") {
-                    TextField("0", text: $initialBalanceText)
-                        .keyboardType(.decimalPad)
+                Section(isEditing ? "Начальный баланс" : "Начальный баланс") {
+                    HStack {
+                        TextField("0", text: $initialBalanceText)
+                            .keyboardType(.decimalPad)
+                        Text(selectedCurrency.symbol)
+                            .foregroundStyle(.secondary)
+                    }
+                    if isEditing {
+                        Text("Текущий баланс на карточке = начальный + доходы − расходы")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
 
                 Section("Валюта") {
@@ -123,22 +132,22 @@ struct AccountFormView: View {
         selectedIcon = account.icon
         selectedColor = account.color
         selectedCurrency = account.currencyCode
-        // Show initial_balance from DB in account's own currency (no conversion)
-        // DB stores whole units, model multiplies by 100 for internal kopecks
-        let dbUnits = account.initialBalance / 100  // back to DB units
-        initialBalanceText = "\(dbUnits)"
+        // Show initial_balance from DB as-is (DB stores whole currency units)
+        // Model has: initialBalance = dbValue * 100
+        let dbValue = account.initialBalance / 100
+        initialBalanceText = "\(dbValue)"
     }
 
     private func save() async {
         isSaving = true
         do {
             if let account = editingAccount {
-                // User enters initial_balance in account's currency (whole units)
-                // DB stores whole units, we send as kopecks to repo (which divides by 100)
+                // User enters value in account's base currency (whole units, as stored in DB)
+                // We multiply by 100 for internal "kopecks", repo divides back by 100 for DB
                 let newBalance: Int64?
-                if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
-                    let kopecks = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-                    newBalance = kopecks != account.initialBalance ? kopecks : nil
+                if let text = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
+                    let asKopecks = Int64(truncating: (text * 100) as NSDecimalNumber)
+                    newBalance = asKopecks != account.initialBalance ? asKopecks : nil
                 } else {
                     newBalance = nil
                 }
