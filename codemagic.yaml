@@ -39,8 +39,13 @@ workflows:
 
       - name: Prepare API Key for Xcode signing
         script: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+          KEY_DIR=~/.appstoreconnect/private_keys
+          KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          mkdir -p "$KEY_DIR"
+          printf '%b\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$KEY_FILE"
+          echo "Key file written, size: $(wc -c < "$KEY_FILE") bytes"
+          head -1 "$KEY_FILE"
+          tail -1 "$KEY_FILE"
 
       - name: Resolve SPM dependencies
         script: |
