@@ -6,7 +6,7 @@ workflows:
 
     environment:
       groups:
-        - akifi_credentials
+        - Akifi
       ios_signing:
         distribution_type: app_store
         bundle_identifier: ru.akifi.app
