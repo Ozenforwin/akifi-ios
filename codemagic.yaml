@@ -29,26 +29,36 @@ workflows:
 
       - name: Generate xcconfig from environment variables
         script: |
-          # Escape // in URL for xcconfig format (// = comment in xcconfig)
-          ESCAPED_URL=$(echo "$SUPABASE_URL" | sed 's|://|:/$()/|')
-          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' \
-            "$ESCAPED_URL" "$SUPABASE_ANON_KEY" > Config/Release.xcconfig
-          cp Config/Release.xcconfig Config/Debug.xcconfig
-          echo "xcconfig contents:"
-          cat Config/Release.xcconfig
+          python3 << 'PYEOF'
+          import os
+          url = os.environ["SUPABASE_URL"].strip().replace("//", "/$()/")
+          key = os.environ["SUPABASE_ANON_KEY"].strip().replace("\n", "").replace(" ", "")
+          with open("Config/Release.xcconfig", "w") as f:
+              f.write(f"SUPABASE_URL = {url}\nSUPABASE_ANON_KEY = {key}\n")
+          with open("Config/Debug.xcconfig", "w") as f:
+              f.write(f"SUPABASE_URL = {url}\nSUPABASE_ANON_KEY = {key}\n")
+          print(f"URL: {url[:40]}...")
+          print(f"KEY: {key[:20]}...{key[-10:]}")
+          print(f"KEY length: {len(key)}")
+          PYEOF
 
       - name: Generate Xcode project
         script: |
           xcodegen generate
 
-      - name: Prepare API Key for Xcode signing
+      - name: Set up signing certificates and API key
         script: |
+          # Write API key from base64
           KEY_DIR="$HOME/.appstoreconnect/private_keys"
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
-          echo "Key: $(wc -l < "$KEY_FILE") lines, $(wc -c < "$KEY_FILE") bytes"
-          head -1 "$KEY_FILE"
+          # Fetch distribution certificate via Codemagic CLI
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
 
       - name: Resolve SPM dependencies
         script: |
@@ -58,7 +68,6 @@ workflows:
 
       - name: Increment build number
         script: |
-          keychain initialize
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           agvtool new-version -all $(($LATEST + 1))
 
