@@ -42,23 +42,9 @@ workflows:
           KEY_DIR="$HOME/.appstoreconnect/private_keys"
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
-          python3 << 'PYEOF'
-          import os
-          key = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"]
-          key = key.replace("\\n", "\n").strip()
-          if not key.endswith("\n"):
-              key += "\n"
-          path = os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER']}.p8")
-          with open(path, "w") as f:
-              f.write(key)
-          lines = key.strip().split("\n")
-          print(f"Written {len(key)} bytes, {len(lines)} lines")
-          print(f"First: {lines[0]}")
-          print(f"Last:  {lines[-1]}")
-          assert "BEGIN PRIVATE KEY" in lines[0], "Bad PEM header!"
-          assert "END PRIVATE KEY" in lines[-1], "Bad PEM footer!"
-          print("PEM OK")
-          PYEOF
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
+          echo "Key: $(wc -l < "$KEY_FILE") lines, $(wc -c < "$KEY_FILE") bytes"
+          head -1 "$KEY_FILE"
 
       - name: Resolve SPM dependencies
         script: |
@@ -74,6 +60,7 @@ workflows:
 
       - name: Build archive
         script: |
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           xcodebuild archive \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
@@ -81,7 +68,7 @@ workflows:
             -archivePath build/ios/AkifiIOS.xcarchive \
             -destination "generic/platform=iOS" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/".appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$KEY_FILE" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
@@ -90,7 +77,8 @@ workflows:
 
       - name: Export IPA
         script: |
-          cat > exportOptions.plist <<PLIST
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          cat > exportOptions.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -114,9 +102,21 @@ workflows:
             -exportPath build/ios/ipa \
             -exportOptionsPlist exportOptions.plist \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/".appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyPath "$KEY_FILE" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        script: |
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
+          if [ -n "$IPA_PATH" ]; then
+            xcrun altool --upload-app \
+              --file "$IPA_PATH" \
+              --type ios \
+              --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+              --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+          fi
 
       - name: Upload dSYMs to Firebase Crashlytics
         script: |
@@ -135,11 +135,6 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
 
     publishing:
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
       email:
         recipients:
           - dyadichev.biz@gmail.com
