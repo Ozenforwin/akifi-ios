@@ -32,21 +32,15 @@ workflows:
           printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' \
             "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > Config/Release.xcconfig
           cp Config/Release.xcconfig Config/Debug.xcconfig
-          echo "Generated xcconfig:"
-          cat Config/Release.xcconfig | head -c 200
 
       - name: Generate Xcode project
         script: |
           xcodegen generate
 
-      - name: Set up code signing
+      - name: Prepare API Key for Xcode signing
         script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
 
       - name: Resolve SPM dependencies
         script: |
@@ -56,19 +50,59 @@ workflows:
 
       - name: Increment build number
         script: |
+          keychain initialize
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           agvtool new-version -all $(($LATEST + 1))
 
-      - name: Build IPA
+      - name: Build archive
         script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --config Release
+          xcodebuild archive \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -archivePath build/ios/AkifiIOS.xcarchive \
+            -destination "generic/platform=iOS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/".appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Export IPA
+        script: |
+          cat > exportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>8GPVB9MQ58</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath build/ios/AkifiIOS.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist exportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/".appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
 
       - name: Upload dSYMs to Firebase Crashlytics
         script: |
-          DSYM_DIR=$(find build/ios/xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
+          DSYM_DIR=$(find build/ios/AkifiIOS.xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
           if [ -n "$DSYM_DIR" ]; then
             UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" -name "upload-symbols" -type f 2>/dev/null | head -1)
             if [ -n "$UPLOAD_SCRIPT" ]; then
@@ -79,7 +113,7 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - build/ios/xcarchive/*.xcarchive
+      - build/ios/AkifiIOS.xcarchive
       - /tmp/xcodebuild_logs/*.log
 
     publishing:
