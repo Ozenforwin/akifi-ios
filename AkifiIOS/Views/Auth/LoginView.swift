@@ -57,7 +57,7 @@ struct LoginView: View {
                     }
                     .signInWithAppleButtonStyle(.whiteOutline)
                     .frame(height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .cornerRadius(14)
 
                     // Continue with Google
                     Button {

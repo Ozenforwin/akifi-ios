@@ -1,0 +1,96 @@
+workflows:
+  ios-release:
+    name: iOS Release to TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      groups:
+        - akifi_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: ru.akifi.app
+      vars:
+        XCODE_PROJECT: "AkifiIOS.xcodeproj"
+        XCODE_SCHEME: "AkifiIOS"
+      xcode: 16.2
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          brew install xcodegen
+
+      - name: Generate xcconfig from environment variables
+        script: |
+          echo "SUPABASE_URL = $SUPABASE_URL" > Config/Release.xcconfig
+          echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> Config/Release.xcconfig
+          echo "SUPABASE_URL = $SUPABASE_URL" > Config/Debug.xcconfig
+          echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> Config/Debug.xcconfig
+
+      - name: Generate Xcode project
+        script: |
+          xcodegen generate
+
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "ru.akifi.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Resolve SPM dependencies
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME"
+
+      - name: Increment build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "ru.akifi.app" || echo "0")
+          agvtool new-version -all $(($LATEST + 1))
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+
+      - name: Upload dSYMs to Firebase Crashlytics
+        script: |
+          DSYM_DIR=$(find build/ios/xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
+          if [ -n "$DSYM_DIR" ]; then
+            UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" -name "upload-symbols" -type f 2>/dev/null | head -1)
+            if [ -n "$UPLOAD_SCRIPT" ]; then
+              "$UPLOAD_SCRIPT" -gsp AkifiIOS/GoogleService-Info.plist -p ios "$DSYM_DIR"
+            else
+              echo "Warning: upload-symbols not found, skipping dSYM upload"
+            fi
+          fi
+        ignore_failure: true
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/xcarchive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - dyadichev.biz@gmail.com
+        notify:
+          success: true
+          failure: true
