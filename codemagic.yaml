@@ -53,11 +53,14 @@ workflows:
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
-          # Fetch distribution certificate via Codemagic CLI
+          # Generate fresh RSA key for certificate creation
+          openssl genrsa 2048 2>/dev/null > /tmp/cert_key.pem
+          # Fetch/create distribution certificate and profile
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key=@file:/tmp/cert_key.pem
           keychain add-certificates
 
       - name: Resolve SPM dependencies
