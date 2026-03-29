@@ -41,7 +41,8 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "ru.akifi.app" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --strict-match-identifier
           keychain add-certificates
           xcode-project use-profiles
 
