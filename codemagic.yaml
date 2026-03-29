@@ -39,10 +39,15 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
+          # Delete old profiles and create fresh ones with all capabilities
+          app-store-connect list-profiles \
+            --bundle-id-identifier "ru.akifi.app" \
+            --profile-type IOS_APP_STORE \
+            | grep -oE '[0-9a-f-]{36}' \
+            | xargs -I{} app-store-connect delete-profile {} 2>/dev/null || true
           app-store-connect fetch-signing-files "ru.akifi.app" \
             --type IOS_APP_STORE \
-            --create \
-            --strict-match-identifier
+            --create
           keychain add-certificates
           xcode-project use-profiles
 
