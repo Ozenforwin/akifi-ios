@@ -11,6 +11,7 @@ workflows:
         XCODE_PROJECT: "AkifiIOS.xcodeproj"
         XCODE_SCHEME: "AkifiIOS"
         BUNDLE_ID: "ru.akifi.app"
+        TEAM_ID: "8GPVB9MQ58"
       xcode: 16.2
 
     triggering:
@@ -28,10 +29,11 @@ workflows:
 
       - name: Generate xcconfig from environment variables
         script: |
-          echo "SUPABASE_URL = $SUPABASE_URL" > Config/Release.xcconfig
-          echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> Config/Release.xcconfig
-          echo "SUPABASE_URL = $SUPABASE_URL" > Config/Debug.xcconfig
-          echo "SUPABASE_ANON_KEY = $SUPABASE_ANON_KEY" >> Config/Debug.xcconfig
+          printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' \
+            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > Config/Release.xcconfig
+          cp Config/Release.xcconfig Config/Debug.xcconfig
+          echo "Generated xcconfig:"
+          cat Config/Release.xcconfig | head -c 200
 
       - name: Generate Xcode project
         script: |
@@ -44,20 +46,7 @@ workflows:
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
-
-          # Get the provisioning profile UUID and certificate name
-          PROFILE_PATH=$(find ~/Library/MobileDevice/Provisioning\ Profiles -name "*.mobileprovision" -print | head -1)
-          echo "Profile found: $PROFILE_PATH"
-
-          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
-          echo "Profile UUID: $PROFILE_UUID"
-
-          CERT_NAME=$(security find-identity -v -p codesigning | grep "Apple Distribution" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "Certificate: $CERT_NAME"
-
-          # Export for use in build step
-          echo "export PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
-          echo "export CERT_NAME=$CERT_NAME" >> $CM_ENV
+          xcode-project use-profiles
 
       - name: Resolve SPM dependencies
         script: |
@@ -70,54 +59,16 @@ workflows:
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           agvtool new-version -all $(($LATEST + 1))
 
-      - name: Build archive
+      - name: Build IPA
         script: |
-          xcodebuild archive \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -archivePath build/ios/AkifiIOS.xcarchive \
-            -destination "generic/platform=iOS" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="$CERT_NAME" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
-            PROVISIONING_PROFILE="$PROFILE_UUID" \
-            COMPILER_INDEX_STORE_ENABLE=NO
-
-      - name: Export IPA
-        script: |
-          cat > exportOptions.plist <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>8GPVB9MQ58</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>ru.akifi.app</key>
-              <string>$PROFILE_UUID</string>
-            </dict>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
-          </dict>
-          </plist>
-          PLIST
-
-          xcodebuild -exportArchive \
-            -archivePath build/ios/AkifiIOS.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist exportOptions.plist
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
 
       - name: Upload dSYMs to Firebase Crashlytics
         script: |
-          DSYM_DIR=$(find build/ios/AkifiIOS.xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
+          DSYM_DIR=$(find build/ios/xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
           if [ -n "$DSYM_DIR" ]; then
             UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" -name "upload-symbols" -type f 2>/dev/null | head -1)
             if [ -n "$UPLOAD_SCRIPT" ]; then
@@ -128,7 +79,7 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - build/ios/AkifiIOS.xcarchive
+      - build/ios/xcarchive/*.xcarchive
       - /tmp/xcodebuild_logs/*.log
 
     publishing:
