@@ -29,9 +29,13 @@ workflows:
 
       - name: Generate xcconfig from environment variables
         script: |
+          # Escape // in URL for xcconfig format (// = comment in xcconfig)
+          ESCAPED_URL=$(echo "$SUPABASE_URL" | sed 's|://|:/$()/|')
           printf 'SUPABASE_URL = %s\nSUPABASE_ANON_KEY = %s\n' \
-            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > Config/Release.xcconfig
+            "$ESCAPED_URL" "$SUPABASE_ANON_KEY" > Config/Release.xcconfig
           cp Config/Release.xcconfig Config/Debug.xcconfig
+          echo "xcconfig contents:"
+          cat Config/Release.xcconfig
 
       - name: Generate Xcode project
         script: |
