@@ -2,11 +2,17 @@ import UIKit
 import FirebaseCore
 import FirebaseMessaging
 import FirebaseCrashlytics
+import GoogleSignIn
 
 class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         FirebaseApp.configure()
+
+        // Configure Google Sign In with client ID from Firebase
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        }
 
         // Push notifications
         let delegate = NotificationDelegate.shared
@@ -22,6 +28,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
+    }
+
+    // MARK: - Google Sign In URL handling
+
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
     }
 }
 

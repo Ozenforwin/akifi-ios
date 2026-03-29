@@ -1,36 +1,52 @@
 import SwiftUI
+import UIKit
 import AuthenticationServices
+import GoogleSignIn
 
 struct LoginView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showMigration = false
-    @State private var showEmailLogin = false
+    @State private var showEmailAuth = false
     @State private var errorMessage: String?
     @State private var currentNonce: String?
+    @State private var isGoogleLoading = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            VStack(spacing: 0) {
                 Spacer()
 
-                // Logo
-                VStack(spacing: 12) {
+                // MARK: - Branding
+                VStack(spacing: 16) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 60))
-                        .foregroundStyle(Color.accent)
+                        .font(.system(size: 64, weight: .medium))
+                        .foregroundStyle(Color.accent.gradient)
 
-                    Text("Akifi")
-                        .font(.largeTitle.bold())
+                    VStack(spacing: 6) {
+                        Text("Akifi")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
 
-                    Text("Личные финансы")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Text(String(localized: "auth.subtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer()
 
-                // Auth buttons
-                VStack(spacing: 16) {
+                // MARK: - Features
+                VStack(alignment: .leading, spacing: 14) {
+                    AuthFeatureRow(icon: "chart.pie.fill", text: String(localized: "auth.feature.analytics"))
+                    AuthFeatureRow(icon: "target", text: String(localized: "auth.feature.budgets"))
+                    AuthFeatureRow(icon: "sparkles", text: String(localized: "auth.feature.assistant"))
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+
+                // MARK: - Auth Buttons
+                VStack(spacing: 12) {
+                    // Sign in with Apple
                     SignInWithAppleButton(.signIn) { request in
                         let nonce = String.randomNonce()
                         currentNonce = nonce
@@ -41,47 +57,87 @@ struct LoginView: View {
                     }
                     .signInWithAppleButtonStyle(.whiteOutline)
                     .frame(height: 50)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
 
+                    // Continue with Google
                     Button {
-                        showEmailLogin = true
+                        Task { await handleGoogleSignIn() }
                     } label: {
-                        HStack {
-                            Image(systemName: "envelope.fill")
-                            Text("Войти с Email")
+                        HStack(spacing: 8) {
+                            GoogleLogo()
+                                .frame(width: 20, height: 20)
+                            Text(String(localized: "auth.continueGoogle"))
+                                .font(.headline)
                         }
-                        .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(height: 50)
+                    }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .foregroundStyle(.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(.separator), lineWidth: 0.5)
+                    )
+                    .disabled(isGoogleLoading)
+                    .overlay {
+                        if isGoogleLoading {
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(.ultraThinMaterial)
+                            ProgressView()
+                        }
                     }
 
+                    // Continue with Email
+                    Button {
+                        showEmailAuth = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "envelope.fill")
+                            Text(String(localized: "auth.continueEmail"))
+                                .font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                    }
+                    .background(Color.accent)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    // Telegram migration link
                     Button {
                         showMigration = true
                     } label: {
-                        Text("У меня есть код из Telegram")
+                        Text(String(localized: "auth.telegramCode"))
                             .font(.subheadline)
                             .foregroundStyle(Color.accent)
                     }
+                    .padding(.top, 4)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 40)
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(.bottom)
+                // MARK: - Legal links
+                HStack(spacing: 4) {
+                    Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.ru/privacy")!)
+                    Text("&")
+                    Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.ru/terms")!)
                 }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
             }
             .sheet(isPresented: $showMigration) {
                 MigrationCodeView()
             }
-            .sheet(isPresented: $showEmailLogin) {
-                EmailLoginView()
+            .sheet(isPresented: $showEmailAuth) {
+                EmailAuthView()
             }
+            .errorToast($errorMessage)
         }
     }
+
+    // MARK: - Apple Sign In
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
         switch result {
@@ -89,113 +145,92 @@ struct LoginView: View {
             guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
                   let tokenData = credential.identityToken,
                   let idToken = String(data: tokenData, encoding: .utf8) else {
-                errorMessage = "Не удалось получить токен Apple"
+                errorMessage = AuthErrorMapper.message(for: NSError(domain: "", code: -1))
                 return
             }
 
-            guard let nonce = currentNonce else {
-                errorMessage = "Ошибка: nonce не был сгенерирован"
-                return
-            }
+            guard let nonce = currentNonce else { return }
 
             do {
                 try await appViewModel.authManager.signInWithApple(idToken: idToken, nonce: nonce)
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = AuthErrorMapper.message(for: error)
             }
 
         case .failure(let error):
-            errorMessage = error.localizedDescription
+            // Error 1001 = user canceled — silently ignore
+            let nsError = error as NSError
+            if nsError.code == ASAuthorizationError.canceled.rawValue ||
+               nsError.code == ASAuthorizationError.unknown.rawValue {
+                return
+            }
+            errorMessage = AuthErrorMapper.message(for: error)
+        }
+    }
+
+    // MARK: - Google Sign In
+
+    private func handleGoogleSignIn() async {
+        isGoogleLoading = true
+        defer { isGoogleLoading = false }
+
+        do {
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let rootVC = windowScene.windows.first?.rootViewController else { return }
+
+            let idToken = try await GIDSignInHelper.signIn(presenting: rootVC)
+            try await appViewModel.authManager.signInWithGoogle(idToken: idToken)
+        } catch let error as GIDSignInError where error.code == .canceled {
+            // User canceled — silently ignore
+            return
+        } catch {
+            errorMessage = AuthErrorMapper.message(for: error)
         }
     }
 }
 
-struct EmailLoginView: View {
-    @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var email = ""
-    @State private var password = ""
-    @State private var isSignUp = false
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+// MARK: - Supporting Views
+
+private struct AuthFeatureRow: View {
+    let icon: String
+    let text: String
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                TextField("Email", text: $email)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                SecureField("Пароль", text: $password)
-                    .textContentType(isSignUp ? .newPassword : .password)
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                Button {
-                    Task { await authenticate() }
-                } label: {
-                    if isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    } else {
-                        Text(isSignUp ? "Зарегистрироваться" : "Войти")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    }
-                }
-                .background(Color.accent)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .disabled(isLoading || email.isEmpty || password.isEmpty)
-
-                Button {
-                    isSignUp.toggle()
-                } label: {
-                    Text(isSignUp ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Зарегистрироваться")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.accent)
-                }
-            }
-            .padding(24)
-            .navigationTitle(isSignUp ? "Регистрация" : "Вход")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
-                }
-            }
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(Color.accent)
+                .frame(width: 28)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
+}
 
-    private func authenticate() async {
-        isLoading = true
-        errorMessage = nil
+private struct GoogleLogo: View {
+    var body: some View {
+        Text("G")
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [.red, .yellow, .green, .blue],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+    }
+}
 
-        do {
-            if isSignUp {
-                try await appViewModel.authManager.signUpWithEmail(email: email, password: password)
-            } else {
-                try await appViewModel.authManager.signInWithEmail(email: email, password: password)
-            }
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
+// MARK: - Google Sign In Helper
+
+enum GIDSignInHelper {
+    @MainActor
+    static func signIn(presenting viewController: UIViewController) async throws -> String {
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: viewController)
+        guard let idToken = result.user.idToken?.tokenString else {
+            throw NSError(domain: "GIDSignIn", code: -1, userInfo: [NSLocalizedDescriptionKey: "No ID token"])
         }
-
-        isLoading = false
+        return idToken
     }
 }

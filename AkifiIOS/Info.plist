@@ -20,16 +20,20 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>SupabaseAnonKey</key>
-	<string>$(SUPABASE_ANON_KEY)</string>
-	<key>SupabaseURL</key>
-	<string>$(SUPABASE_URL)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Akifi uses the camera to scan receipts and automatically create transactions</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Akifi uses your microphone for voice messages with the AI financial assistant</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Akifi needs access to your photos to set a profile picture or scan receipts</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Akifi uses the camera to scan receipts and automatically create transactions</string>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
@@ -42,10 +46,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

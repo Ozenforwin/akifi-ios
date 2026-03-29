@@ -27,6 +27,9 @@ packages:
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk
     from: "11.0.0"
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "8.0.0"
 
 targets:
   AkifiIOS:
@@ -45,11 +48,13 @@ targets:
         product: FirebaseMessaging
       - package: Firebase
         product: FirebasePerformance
+      - package: GoogleSignIn
     entitlements:
       path: AkifiIOS/AkifiIOS.entitlements
       properties:
         com.apple.developer.applesignin:
           - Default
+        aps-environment: development
     info:
       path: AkifiIOS/Info.plist
       properties:
@@ -57,6 +62,18 @@ targets:
         UILaunchScreen: {}
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        NSMicrophoneUsageDescription: Akifi uses your microphone for voice messages with the AI financial assistant
+        NSPhotoLibraryUsageDescription: Akifi needs access to your photos to set a profile picture or scan receipts
+        NSCameraUsageDescription: Akifi uses the camera to scan receipts and automatically create transactions
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIBackgroundModes:
+          - remote-notification
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app

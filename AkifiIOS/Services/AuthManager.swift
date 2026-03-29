@@ -10,6 +10,23 @@ final class AuthManager {
 
     private let supabase = SupabaseManager.shared.client
 
+    // MARK: - Password Reset
+
+    func resetPassword(email: String) async throws {
+        try await supabase.auth.resetPasswordForEmail(email)
+    }
+
+    // MARK: - Google Sign In
+
+    func signInWithGoogle(idToken: String) async throws {
+        let session = try await supabase.auth.signInWithIdToken(
+            credentials: .init(provider: .google, idToken: idToken)
+        )
+        currentUser = session.user
+        isAuthenticated = true
+        AnalyticsService.logSignIn(method: "google")
+    }
+
     func checkSession() async {
         do {
             let session = try await supabase.auth.session
