@@ -7,9 +7,6 @@ workflows:
     environment:
       groups:
         - Akifi
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: ru.akifi.app
       vars:
         XCODE_PROJECT: "AkifiIOS.xcodeproj"
         XCODE_SCHEME: "AkifiIOS"
