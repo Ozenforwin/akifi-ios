@@ -9,7 +9,10 @@ final class SupabaseManager: Sendable {
     private init() {
         client = SupabaseClient(
             supabaseURL: URL(string: AppConstants.supabaseURL)!,
-            supabaseKey: AppConstants.supabaseAnonKey
+            supabaseKey: AppConstants.supabaseAnonKey,
+            options: .init(
+                auth: .init(autoRefreshToken: true, emitLocalSessionAsInitialSession: true)
+            )
         )
     }
 }
