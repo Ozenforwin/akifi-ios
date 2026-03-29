@@ -39,13 +39,23 @@ workflows:
 
       - name: Prepare API Key for Xcode signing
         script: |
-          KEY_DIR=~/.appstoreconnect/private_keys
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
-          printf '%b\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$KEY_FILE"
-          echo "Key file written, size: $(wc -c < "$KEY_FILE") bytes"
+          # Handle both real newlines and literal \n in env var
+          echo -n "$APP_STORE_CONNECT_PRIVATE_KEY" | sed 's/\\n/\'$'\n/g' > "$KEY_FILE"
+          # Verify the file looks correct
+          echo "Key file: $(wc -l < "$KEY_FILE") lines, $(wc -c < "$KEY_FILE") bytes"
           head -1 "$KEY_FILE"
           tail -1 "$KEY_FILE"
+          # Validate PEM structure
+          if grep -q "BEGIN PRIVATE KEY" "$KEY_FILE" && grep -q "END PRIVATE KEY" "$KEY_FILE"; then
+            echo "PEM structure OK"
+          else
+            echo "ERROR: Invalid PEM structure!"
+            cat "$KEY_FILE" | head -c 100
+            exit 1
+          fi
 
       - name: Resolve SPM dependencies
         script: |
