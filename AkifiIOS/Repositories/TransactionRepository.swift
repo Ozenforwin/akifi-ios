@@ -26,6 +26,10 @@ final class TransactionRepository: Sendable {
             .value
     }
 
+    func currentUserId() async throws -> String {
+        try await supabase.auth.session.user.id.uuidString
+    }
+
     func create(_ input: CreateTransactionInput) async throws -> Transaction {
         try await supabase
             .from("transactions")
@@ -54,6 +58,7 @@ final class TransactionRepository: Sendable {
 }
 
 struct CreateTransactionInput: Encodable, Sendable {
+    let user_id: String
     let account_id: String?
     let amount: Decimal
     let type: String

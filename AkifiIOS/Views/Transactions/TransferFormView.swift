@@ -123,8 +123,10 @@ struct TransferFormView: View {
         let desc = description.isEmpty ? "Перевод" : description
 
         do {
+            let userId = try await transactionRepo.currentUserId()
             // Expense from source
             _ = try await transactionRepo.create(CreateTransactionInput(
+                    user_id: userId,
                 account_id: fromId,
                 amount: amountValue,
                 type: TransactionType.transfer.rawValue,
@@ -135,6 +137,7 @@ struct TransferFormView: View {
             ))
             // Income to destination
             _ = try await transactionRepo.create(CreateTransactionInput(
+                    user_id: userId,
                 account_id: toId,
                 amount: amountValue,
                 type: TransactionType.transfer.rawValue,

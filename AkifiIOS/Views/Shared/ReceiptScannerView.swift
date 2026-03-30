@@ -394,7 +394,9 @@ struct ReceiptScannerView: View {
                 .joined(separator: " · ") + originalSuffix
 
             let txRepo = TransactionRepository()
+            let userId = try await txRepo.currentUserId()
             _ = try await txRepo.create(CreateTransactionInput(
+                    user_id: userId,
                 account_id: selectedAccountId,
                 amount: Decimal(amountRounded),
                 type: "expense",

@@ -363,10 +363,13 @@ struct BankImportView: View {
         }
 
         do {
+            let txRepo = TransactionRepository()
+            let userId = try await txRepo.currentUserId()
             var imported = 0
 
             for tx in txToImport {
                 let input = CreateTransactionInput(
+                    user_id: userId,
                     account_id: selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id,
                     amount: Decimal(tx.amount),
                     type: tx.type == "income" ? "income" : "expense",
@@ -375,7 +378,7 @@ struct BankImportView: View {
                     category_id: tx.categoryId,
                     merchant_name: tx.merchantName
                 )
-                _ = try await TransactionRepository().create(input)
+                _ = try await txRepo.create(input)
                 imported += 1
             }
 

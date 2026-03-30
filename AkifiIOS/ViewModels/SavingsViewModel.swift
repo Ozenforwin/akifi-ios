@@ -101,7 +101,10 @@ final class SavingsViewModel {
             // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }
             let desc = "\(goal?.name ?? "Накопления"): \(type == .withdrawal ? "снятие" : "пополнение")\(note != nil ? " — \(note!)" : "")"
+            let txRepo = TransactionRepository()
+            let userId = try await txRepo.currentUserId()
             let txInput = CreateTransactionInput(
+                    user_id: userId,
                 account_id: goal?.accountId,
                 amount: Decimal(amount) / 100,
                 type: "transfer",
@@ -110,7 +113,7 @@ final class SavingsViewModel {
                 category_id: nil,
                 merchant_name: nil
             )
-            _ = try? await TransactionRepository().create(txInput)
+            _ = try? await txRepo.create(txInput)
 
             // Update local state
             var existing = contributions[goalId] ?? []

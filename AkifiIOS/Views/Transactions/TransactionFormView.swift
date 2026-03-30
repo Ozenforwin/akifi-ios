@@ -183,6 +183,7 @@ struct TransactionFormView: View {
         let dateStr = Self.isoDateTimeFormatter.string(from: date)
 
         do {
+            let userId = try await transactionRepo.currentUserId()
             if let tx = editingTransaction {
                 let input = UpdateTransactionInput(
                     amount: amountValue,
@@ -195,6 +196,7 @@ struct TransactionFormView: View {
                 try await transactionRepo.update(id: tx.id, input)
             } else {
                 let input = CreateTransactionInput(
+                    user_id: userId,
                     account_id: selectedAccountId,
                     amount: amountValue,
                     type: selectedType.rawValue,
