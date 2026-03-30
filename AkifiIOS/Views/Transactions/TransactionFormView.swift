@@ -190,8 +190,7 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil,
-                    currency: selectedCurrency.rawValue
+                    merchant_name: nil
                 )
                 try await transactionRepo.update(id: tx.id, input)
             } else {

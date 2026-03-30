@@ -189,6 +189,7 @@ struct ReceiptScannerView: View {
 
             Section(String(localized: "common.category")) {
                 Picker(String(localized: "common.category"), selection: $selectedCategoryId) {
+                    Text(String(localized: "common.notSelected")).tag(nil as String?)
                     ForEach(dataStore.categories.filter { $0.type == .expense }) { cat in
                         Text("\(cat.icon) \(cat.name)").tag(cat.id as String?)
                     }

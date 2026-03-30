@@ -70,5 +70,4 @@ struct UpdateTransactionInput: Encodable, Sendable {
     let description: String?
     let category_id: String?
     let merchant_name: String?
-    let currency: String?
 }
