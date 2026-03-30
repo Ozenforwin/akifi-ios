@@ -22,7 +22,7 @@ struct ReportsView: View {
             monthPager
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 0) {
                     // Expense / Income segment
                     Picker("", selection: $vm.selectedType) {
                         Text(String(localized: "common.expenses")).tag(CategoryType.expense)
@@ -30,9 +30,11 @@ struct ReportsView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal)
+                    .padding(.bottom, 20)
 
                     // Donut chart with icons
                     donutSection
+                        .padding(.bottom, 24)
 
                     // Category list
                     categoryList
@@ -155,6 +157,8 @@ struct ReportsView: View {
 
     private var donutSection: some View {
         let items = breakdown
+        let donutSize: CGFloat = 200
+        let iconRadius: CGFloat = donutSize / 2 + 50
 
         return Group {
             if !items.isEmpty {
@@ -168,10 +172,8 @@ struct ReportsView: View {
                         )
                         .foregroundStyle(Color(hex: item.category.color))
                     }
-                    .frame(height: 220)
-                    .padding(.horizontal, 50)
+                    .frame(width: donutSize, height: donutSize)
                     .chartBackground { _ in
-                        // Center text
                         VStack(spacing: 2) {
                             let total = items.reduce(Int64(0)) { $0 + $1.amount }
                             Text(cm.formatAmount(total.displayAmount))
@@ -184,35 +186,49 @@ struct ReportsView: View {
                         }
                     }
 
-                    // Icons around donut
-                    GeometryReader { geo in
-                        let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-                        let radius = min(geo.size.width, geo.size.height) / 2 + 5
-                        ForEach(Array(items.prefix(8).enumerated()), id: \.element.category.id) { index, item in
-                            let angle = angleFor(index: index, total: min(items.count, 8))
-                            let x = center.x + radius * cos(angle)
-                            let y = center.y + radius * sin(angle)
+                    // Icons around donut with lines
+                    let visibleItems = Array(items.prefix(8))
+                    let center = CGPoint(x: donutSize / 2 + 50, y: donutSize / 2 + 50)
+                    let donutEdge = donutSize / 2
 
-                            VStack(spacing: 1) {
-                                Text(item.category.icon)
-                                    .font(.caption)
-                                    .frame(width: 24, height: 24)
-                                    .background(Color(hex: item.category.color).opacity(0.2))
-                                    .clipShape(Circle())
-                                Text(String(format: "%.0f%%", item.percentage))
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(Color(hex: item.category.color))
-                            }
-                            .position(x: x, y: y)
+                    Canvas { context, size in
+                        // Draw lines from donut edge to icon positions
+                        for (index, _) in visibleItems.enumerated() {
+                            let angle = angleFor(index: index, total: visibleItems.count)
+                            let fromX = center.x + donutEdge * CGFloat(cos(angle))
+                            let fromY = center.y + donutEdge * CGFloat(sin(angle))
+                            let toX = center.x + (iconRadius - 16) * CGFloat(cos(angle))
+                            let toY = center.y + (iconRadius - 16) * CGFloat(sin(angle))
+
+                            var path = Path()
+                            path.move(to: CGPoint(x: fromX, y: fromY))
+                            path.addLine(to: CGPoint(x: toX, y: toY))
+                            context.stroke(path, with: .color(.gray.opacity(0.3)), lineWidth: 0.5)
                         }
                     }
-                    .frame(height: 220)
+                    .frame(width: donutSize + 100, height: donutSize + 100)
+
+                    ForEach(Array(visibleItems.enumerated()), id: \.element.category.id) { index, item in
+                        let angle = angleFor(index: index, total: visibleItems.count)
+                        let x = center.x + iconRadius * CGFloat(cos(angle))
+                        let y = center.y + iconRadius * CGFloat(sin(angle))
+
+                        VStack(spacing: 2) {
+                            Text(item.category.icon)
+                                .font(.system(size: 16))
+                                .frame(width: 28, height: 28)
+                                .background(Color(hex: item.category.color).opacity(0.15))
+                                .clipShape(Circle())
+                            Text(String(format: "%.0f%%", item.percentage))
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Color(hex: item.category.color))
+                        }
+                        .position(x: x, y: y)
+                    }
                 }
-                .padding(.horizontal)
-                .onTapGesture {
-                    // Tap donut = show first category
-                    if let first = items.first { selectedCategoryItem = first }
-                }
+                .frame(height: donutSize + 100)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
             }
         }
     }
