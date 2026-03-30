@@ -51,6 +51,7 @@ struct ReceiptScannerView: View {
             CameraView(
                 onCapture: { image in
                     capturedImage = image
+                    isAnalyzing = true
                     showCamera = false
                     Task { await analyzeImage(image) }
                 },
@@ -455,11 +456,12 @@ struct CameraView: UIViewControllerRepresentable {
             if let image = info[.originalImage] as? UIImage {
                 onCapture(image)
             }
-            picker.dismiss(animated: true)
+            // Don't call picker.dismiss() — SwiftUI's showCamera=false handles it.
+            // Explicit dismiss causes race condition that closes parent sheet too.
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            picker.dismiss(animated: true)
+            // Don't call picker.dismiss() — let SwiftUI handle via onCancel → showCamera=false
             onCancel()
         }
     }
