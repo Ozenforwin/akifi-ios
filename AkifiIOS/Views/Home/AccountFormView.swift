@@ -38,7 +38,7 @@ struct AccountFormView: View {
                     HStack {
                         TextField("0", text: $initialBalanceText)
                             .keyboardType(.decimalPad)
-                        Text(appViewModel.currencyManager.selectedCurrency.symbol)
+                        Text(selectedCurrency.symbol)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -121,6 +121,29 @@ struct AccountFormView: View {
         }
     }
 
+    // MARK: - Helpers
+
+    /// Rate for converting between account currency and base (data) currency
+    private func rateForCurrency(_ currency: CurrencyCode) -> Double {
+        let cm = appViewModel.currencyManager
+        let baseRate = cm.rates[cm.dataCurrency.rawValue] ?? 1.0
+        let targetRate = cm.rates[currency.rawValue] ?? 1.0
+        guard baseRate > 0 else { return 1.0 }
+        return targetRate / baseRate
+    }
+
+    /// Convert base currency amount (RUB) to account currency using Double
+    private func baseToAccount(_ rubles: Double, currency: CurrencyCode) -> Double {
+        rubles * rateForCurrency(currency)
+    }
+
+    /// Convert account currency amount to base currency (RUB) using Double
+    private func accountToBase(_ amount: Double, currency: CurrencyCode) -> Double {
+        let rate = rateForCurrency(currency)
+        guard rate > 0 else { return amount }
+        return amount / rate
+    }
+
     /// Net transaction amount for account (income - expense) in kopecks
     private func accountNet(for account: Account) -> Int64 {
         var net: Int64 = 0
@@ -132,47 +155,48 @@ struct AccountFormView: View {
         return net
     }
 
+    // MARK: - Prefill
+
     private func prefill() {
         guard let account = editingAccount else { return }
         name = account.name
         selectedIcon = account.icon
         selectedColor = account.color
         selectedCurrency = account.currencyCode
-        // Show current total balance (initial + net) converted to display currency
-        // This is exactly what the user sees on the card
+
+        // Current total balance in kopecks (initial + net)
         let totalKopecks = appViewModel.dataStore.balance(for: account)
-        let totalInBase = totalKopecks.displayAmount  // kopecks → base currency units
-        let converted = appViewModel.currencyManager.convert(totalInBase)
-        let rounded = NSDecimalNumber(decimal: converted * 100).rounding(accordingToBehavior: nil)
-        let final = Decimal(string: rounded.stringValue)! / 100
-        initialBalanceText = "\(final)"
+        // Convert kopecks → rubles (Double) → account currency
+        let totalRubles = Double(totalKopecks) / 100.0
+        let inAccountCurrency = baseToAccount(totalRubles, currency: account.currencyCode)
+        // Round to 2 decimals
+        let rounded = (inAccountCurrency * 100).rounded() / 100
+        initialBalanceText = rounded == rounded.rounded() ? "\(Int(rounded))" : String(format: "%.2f", rounded)
     }
+
+    // MARK: - Save
 
     private func save() async {
         isSaving = true
         do {
+            let parsed = Double(initialBalanceText.replacingOccurrences(of: ",", with: ".")) ?? 0
+
             if let account = editingAccount {
-                // User entered desired balance in display currency
-                // Convert back to base (RUB), subtract net to get new initial_balance
-                let newBalance: Int64?
-                if let desired = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
-                    let desiredInBase = appViewModel.currencyManager.toBase(desired)
-                    let desiredKopecks = Int64(truncating: (desiredInBase * 100) as NSDecimalNumber)
-                    let net = accountNet(for: account)
-                    let newInitial = desiredKopecks - net
-                    newBalance = newInitial != account.initialBalance ? newInitial : nil
-                } else {
-                    newBalance = nil
-                }
+                // User entered desired total balance in account's currency
+                // Convert to base (RUB), then to kopecks
+                let desiredRubles = accountToBase(parsed, currency: selectedCurrency)
+                let desiredKopecks = Int64((desiredRubles * 100).rounded())
+                // Subtract net transactions to get new initial_balance
+                let net = accountNet(for: account)
+                let newInitial = desiredKopecks - net
+                let newBalance: Int64? = newInitial != account.initialBalance ? newInitial : nil
                 try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor, currency: selectedCurrency.rawValue.lowercased(), initialBalance: newBalance)
             } else {
-                let balance: Int64
-                if let decimal = Decimal(string: initialBalanceText.replacingOccurrences(of: ",", with: ".")) {
-                    balance = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-                } else {
-                    balance = 0
-                }
-                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: balance, currency: selectedCurrency.rawValue.lowercased())
+                // New account: entered balance IS the initial balance in account currency
+                // Convert to base (RUB) kopecks
+                let rubles = accountToBase(parsed, currency: selectedCurrency)
+                let kopecks = Int64((rubles * 100).rounded())
+                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: kopecks, currency: selectedCurrency.rawValue.lowercased())
                 AnalyticsService.logCreateAccount()
             }
             await onSave()

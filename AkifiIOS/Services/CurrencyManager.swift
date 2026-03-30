@@ -66,6 +66,22 @@ final class CurrencyManager {
         return amountInDisplayCurrency / toRate * fromRate
     }
 
+    /// Convert amount from base (data) currency to a specific account currency
+    func convertToAccountCurrency(_ amountInBase: Decimal, accountCurrency: CurrencyCode) -> Decimal {
+        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
+        let toRate = Decimal(rates[accountCurrency.rawValue] ?? 1.0)
+        guard fromRate != 0 else { return amountInBase }
+        return amountInBase / fromRate * toRate
+    }
+
+    /// Convert amount from a specific account currency back to base (data) currency
+    func convertFromAccountCurrency(_ amount: Decimal, accountCurrency: CurrencyCode) -> Decimal {
+        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
+        let toRate = Decimal(rates[accountCurrency.rawValue] ?? 1.0)
+        guard toRate != 0 else { return amount }
+        return amount / toRate * fromRate
+    }
+
     func format(_ amount: Decimal) -> String {
         let converted = convert(amount)
         return currencyFormatter.string(from: converted as NSDecimalNumber) ?? "0"
