@@ -53,21 +53,11 @@ workflows:
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
-          # Decode persistent RSA key for certificate (reused across builds)
-          echo "$CERT_PRIVATE_KEY_BASE64" | base64 --decode > /tmp/cert_key.pem
-          # Fetch/create distribution certificate and profile
+          # CERTIFICATE_PRIVATE_KEY env var is auto-read by Codemagic CLI
           keychain initialize
-          # Revoke orphaned distribution certs (no matching private key)
-          # to make room for a new one
-          app-store-connect list-certificates \
-            --type DISTRIBUTION \
-            --type IOS_DISTRIBUTION 2>/dev/null \
-            | grep -oE '[0-9A-Za-z]{10,}' | head -1 \
-            | xargs -I{} app-store-connect revoke-certificate {} 2>/dev/null || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create \
-            --certificate-key=@file:/tmp/cert_key.pem
+            --create
           keychain add-certificates
 
       - name: Resolve SPM dependencies
