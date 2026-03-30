@@ -1,0 +1,122 @@
+import SwiftUI
+import Charts
+
+struct TransactionsMiniDashboardView: View {
+    let transactions: [Transaction]
+    var onOpenReports: () -> Void
+
+    @Environment(AppViewModel.self) private var appVM
+
+    private var monthlyData: [MonthEntry] {
+        let cal = Calendar.current
+        let now = Date()
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+
+        let months: [(date: Date, key: String)] = (0..<6).reversed().compactMap { offset in
+            guard let d = cal.date(byAdding: .month, value: -offset, to: now) else { return nil }
+            let comps = cal.dateComponents([.year, .month], from: d)
+            return (d, "\(comps.year!)-\(String(format: "%02d", comps.month!))")
+        }
+
+        let shortLabels: [Int: String] = [
+            1: "Янв.", 2: "Февр.", 3: "Март", 4: "Апр.",
+            5: "Май", 6: "Июнь", 7: "Июль", 8: "Авг.",
+            9: "Сент.", 10: "Окт.", 11: "Нояб.", 12: "Дек."
+        ]
+
+        let currentKey: String = {
+            let c = cal.dateComponents([.year, .month], from: now)
+            return "\(c.year!)-\(String(format: "%02d", c.month!))"
+        }()
+
+        return months.map { item in
+            let filtered = transactions.filter { tx in
+                !tx.isTransfer && tx.date.hasPrefix(item.key)
+            }
+            let inc = filtered.filter { $0.type == .income }.reduce(Int64(0)) { $0 + $1.amount }
+            let exp = filtered.filter { $0.type == .expense }.reduce(Int64(0)) { $0 + $1.amount }
+            let month = cal.component(.month, from: item.date)
+            return MonthEntry(
+                label: shortLabels[month] ?? "",
+                income: Double(inc) / 100,
+                expense: Double(exp) / 100,
+                isCurrent: item.key == currentKey
+            )
+        }
+    }
+
+    private var maxValue: Double {
+        let vals = monthlyData.flatMap { [$0.income, $0.expense] }
+        return max(vals.max() ?? 1, 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Chart(monthlyData) { entry in
+                BarMark(
+                    x: .value("Месяц", entry.label),
+                    y: .value("Сумма", entry.income)
+                )
+                .foregroundStyle(Color.income)
+                .position(by: .value("Тип", "income"))
+
+                BarMark(
+                    x: .value("Месяц", entry.label),
+                    y: .value("Сумма", entry.expense)
+                )
+                .foregroundStyle(Color.expense)
+                .position(by: .value("Тип", "expense"))
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text(abbreviate(v))
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks { value in
+                    AxisValueLabel {
+                        if let label = value.as(String.self) {
+                            let isCurrent = monthlyData.first(where: { $0.label == label })?.isCurrent == true
+                            Text(label)
+                                .font(.caption2)
+                                .fontWeight(isCurrent ? .bold : .regular)
+                                .foregroundStyle(isCurrent ? .primary : .secondary)
+                        }
+                    }
+                }
+            }
+            .chartLegend(.hidden)
+            .frame(height: 120)
+
+            Button(action: onOpenReports) {
+                Text("Обзор расходов >")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func abbreviate(_ value: Double) -> String {
+        if value >= 1_000_000 { return "\(Int(value / 1_000_000))M" }
+        if value >= 1_000 { return "\(Int(value / 1_000))k" }
+        return "\(Int(value))"
+    }
+}
+
+private struct MonthEntry: Identifiable {
+    let id = UUID()
+    let label: String
+    let income: Double
+    let expense: Double
+    let isCurrent: Bool
+}

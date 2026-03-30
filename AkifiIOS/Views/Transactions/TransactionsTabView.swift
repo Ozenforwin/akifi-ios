@@ -12,6 +12,8 @@ struct TransactionsTabView: View {
     @State private var filterDateTo: Date?
     @State private var filterType: TransactionTypeFilter = .all
     @State private var filterCategoryId: String?
+    @State private var showSearch = false
+    @State private var showReports = false
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -79,6 +81,17 @@ struct TransactionsTabView: View {
         @Bindable var vm = viewModel
         NavigationStack {
             List {
+                // Mini dashboard
+                if !hasActiveFilters {
+                    TransactionsMiniDashboardView(
+                        transactions: dataStore.transactions
+                    ) {
+                        showReports = true
+                    }
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+                }
+
                 if hasActiveFilters {
                     // Filter indicator + reset
                     HStack {
@@ -90,6 +103,7 @@ struct TransactionsTabView: View {
                         Spacer()
                         Button(String(localized: "transactions.reset")) {
                             filterAccountId = nil
+                            filterCategoryId = nil
                             filterDateFrom = nil
                             filterDateTo = nil
                             filterType = .all
@@ -177,6 +191,22 @@ struct TransactionsTabView: View {
                     }
                     .accessibilityLabel(String(localized: "transactions.filters"))
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
+            }
+            .navigationDestination(isPresented: $showReports) {
+                ReportsView()
+            }
+            .sheet(isPresented: $showSearch) {
+                TransactionSearchView(
+                    transactions: dataStore.transactions,
+                    categories: dataStore.categories
+                )
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
