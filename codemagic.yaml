@@ -75,18 +75,14 @@ workflows:
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           BUILD_NUMBER=$(($LATEST + 1))
           echo "Build number: $BUILD_NUMBER"
-          # Set in Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" AkifiIOS/Info.plist
-          # Override in pbxproj (after use-profiles)
-          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" AkifiIOS.xcodeproj/project.pbxproj
-          echo "Verify plist: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" AkifiIOS/Info.plist)"
-          echo "Verify pbxproj: $(grep 'CURRENT_PROJECT_VERSION' AkifiIOS.xcodeproj/project.pbxproj | head -1)"
-          # Build with explicit version override
+          # agvtool works with VERSIONING_SYSTEM=apple-generic
+          agvtool new-version -all $BUILD_NUMBER
+          # Build with version override via xcargs (not flags)
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
             --config Release \
-            --archive-flags "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
 
       - name: Upload to TestFlight
         script: |
