@@ -16,6 +16,9 @@ struct ReceiptScannerView: View {
     @State private var error: String?
 
     // User editable fields
+    @State private var editMerchant = ""
+    @State private var editAmount = ""
+    @State private var editDescription = ""
     @State private var selectedAccountId: String?
     @State private var selectedCategoryId: String?
     @State private var transactionDate = Date()
@@ -148,17 +151,18 @@ struct ReceiptScannerView: View {
 
     private func resultView(_ result: ReceiptAnalysis) -> some View {
         Form {
-            if let merchant = result.merchantName {
-                Section(String(localized: "receipt.merchant")) {
-                    Text(merchant)
-                        .font(.headline)
-                }
+            Section(String(localized: "receipt.merchant")) {
+                TextField(String(localized: "receipt.merchant"), text: $editMerchant)
+                    .font(.headline)
             }
 
             Section(String(localized: "common.amount")) {
                 HStack {
-                    Text(appViewModel.currencyManager.formatAmount(Decimal(result.totalAmount)))
+                    TextField("0", text: $editAmount)
+                        .keyboardType(.decimalPad)
                         .font(.title2.weight(.bold))
+                    Text(appViewModel.currencyManager.selectedCurrency.symbol)
+                        .foregroundStyle(.secondary)
                     Spacer()
                     if let conf = result.confidence {
                         Text("\(Int(conf * 100))%")
@@ -168,12 +172,10 @@ struct ReceiptScannerView: View {
                 }
             }
 
-            if let summary = result.summary {
-                Section(String(localized: "receipt.items")) {
-                    Text(summary)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            Section(String(localized: "receipt.items")) {
+                TextField(String(localized: "receipt.items"), text: $editDescription, axis: .vertical)
+                    .lineLimit(2...5)
+                    .font(.subheadline)
             }
 
             Section(String(localized: "common.account")) {
@@ -219,7 +221,7 @@ struct ReceiptScannerView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .disabled(isFinalizing)
+                .disabled(isFinalizing || editAmount.isEmpty)
             }
         }
     }
@@ -277,7 +279,10 @@ struct ReceiptScannerView: View {
             analysisResult = result
             AnalyticsService.logScanReceipt()
 
-            // Pre-fill with suggestions
+            // Pre-fill editable fields
+            editMerchant = result.merchantName ?? ""
+            editAmount = result.totalAmount > 0 ? String(format: "%.2f", result.totalAmount) : ""
+            editDescription = result.summary ?? ""
             selectedAccountId = result.suggestedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id
             selectedCategoryId = result.suggestedCategoryId ?? result.categoryId
 
