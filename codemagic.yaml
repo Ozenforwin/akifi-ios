@@ -42,9 +42,17 @@ workflows:
           print(f"KEY length: {len(key)}")
           PYEOF
 
-      - name: Generate Xcode project
+      - name: Set build number and generate Xcode project
         script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
+          BUILD_NUMBER=$(($LATEST + 1))
+          echo "Build number: $BUILD_NUMBER"
+          # Set version in project.yml BEFORE xcodegen
+          sed -i '' "s/CURRENT_PROJECT_VERSION: 1/CURRENT_PROJECT_VERSION: $BUILD_NUMBER/" project.yml
           xcodegen generate
+          # Verify
+          echo "Info.plist CFBundleVersion: $(grep -A1 CFBundleVersion AkifiIOS/Info.plist | tail -1)"
+          echo "pbxproj: $(grep CURRENT_PROJECT_VERSION AkifiIOS.xcodeproj/project.pbxproj | head -1)"
 
       - name: Set up signing certificates and API key
         script: |
@@ -70,19 +78,12 @@ workflows:
         script: |
           xcode-project use-profiles
 
-      - name: Increment build number and build IPA
+      - name: Build IPA
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
-          BUILD_NUMBER=$(($LATEST + 1))
-          echo "Build number: $BUILD_NUMBER"
-          # agvtool works with VERSIONING_SYSTEM=apple-generic
-          agvtool new-version -all $BUILD_NUMBER
-          # Build with version override via xcargs (not flags)
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
-            --config Release \
-            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+            --config Release
 
       - name: Upload to TestFlight
         script: |
