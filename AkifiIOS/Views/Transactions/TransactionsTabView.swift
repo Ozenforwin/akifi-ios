@@ -11,6 +11,7 @@ struct TransactionsTabView: View {
     @State private var filterDateFrom: Date?
     @State private var filterDateTo: Date?
     @State private var filterType: TransactionTypeFilter = .all
+    @State private var filterCategoryId: String?
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -38,6 +39,8 @@ struct TransactionsTabView: View {
             }
             // Account
             if let accountId = filterAccountId, tx.accountId != accountId { return false }
+            // Category
+            if let categoryId = filterCategoryId, tx.categoryId != categoryId { return false }
             // Date range
             if fromDate != nil || toDate != nil {
                 guard let d = df.date(from: tx.date) else { return true }
@@ -200,12 +203,14 @@ struct TransactionsTabView: View {
             .sheet(isPresented: $showFilters) {
                 TransactionFilterSheet(
                     accounts: dataStore.accounts,
+                    categories: dataStore.categories,
                     selectedAccountId: $filterAccountId,
+                    selectedCategoryId: $filterCategoryId,
                     dateFrom: $filterDateFrom,
                     dateTo: $filterDateTo,
                     selectedType: $filterType
                 )
-                .presentationDetents([.fraction(0.65), .large])
+                .presentationDetents([.fraction(0.75), .large])
                 .presentationDragIndicator(.visible)
             }
         }
@@ -273,7 +278,9 @@ enum TransactionTypeFilter: CaseIterable {
 struct TransactionFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     let accounts: [Account]
+    let categories: [Category]
     @Binding var selectedAccountId: String?
+    @Binding var selectedCategoryId: String?
     @Binding var dateFrom: Date?
     @Binding var dateTo: Date?
     @Binding var selectedType: TransactionTypeFilter
@@ -368,6 +375,32 @@ struct TransactionFilterSheet: View {
                                 .datePickerStyle(.compact)
                         }
                         .padding(.horizontal)
+                    }
+
+                    // Category filter
+                    filterSection(title: String(localized: "transactions.filterCategory")) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                filterChip(
+                                    label: String(localized: "common.all"),
+                                    isSelected: selectedCategoryId == nil,
+                                    activeColor: .accent
+                                ) {
+                                    selectedCategoryId = nil
+                                }
+
+                                ForEach(categories) { cat in
+                                    filterChip(
+                                        icon: cat.icon,
+                                        label: cat.name,
+                                        isSelected: selectedCategoryId == cat.id,
+                                        activeColor: .accent
+                                    ) {
+                                        selectedCategoryId = cat.id
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Account filter

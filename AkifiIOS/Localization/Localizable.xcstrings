@@ -4036,6 +4036,29 @@
         }
       }
     },
+    "common.notSelected": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not selected"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seleccionado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не выбрано"
+          }
+        }
+      }
+    },
     "common.of": {
       "extractionState": "stale",
       "localizations": {
@@ -10712,24 +10735,24 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "common.notSelected": {
+    "transactions.filterCategory": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не выбрано"
+            "value": "Категория"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not selected"
+            "value": "Category"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No seleccionado"
+            "value": "Categoría"
           }
         }
       }
