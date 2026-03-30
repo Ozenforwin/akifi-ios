@@ -79,7 +79,10 @@ workflows:
       - name: Increment build number
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
-          agvtool new-version -all $(($LATEST + 1))
+          BUILD_NUMBER=$(($LATEST + 1))
+          echo "Build number: $BUILD_NUMBER"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" AkifiIOS/Info.plist
+          echo "export BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
 
       - name: Apply profiles to project
         script: |
@@ -90,7 +93,8 @@ workflows:
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
-            --config Release
+            --config Release \
+            --archive-flags="CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
 
       - name: Upload to TestFlight
         script: |
