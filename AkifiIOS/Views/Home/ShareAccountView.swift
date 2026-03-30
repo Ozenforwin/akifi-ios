@@ -1,5 +1,5 @@
 import SwiftUI
-import Supabase
+@preconcurrency import Supabase
 
 struct ShareAccountView: View {
     @Environment(AppViewModel.self) private var appViewModel

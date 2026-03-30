@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 import AuthenticationServices
-import GoogleSignIn
+@preconcurrency import GoogleSignIn
 
 struct LoginView: View {
     @Environment(AppViewModel.self) private var appViewModel

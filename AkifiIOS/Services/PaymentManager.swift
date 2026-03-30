@@ -1,4 +1,5 @@
 import Foundation
+@preconcurrency import Supabase
 
 struct PremiumProduct: Sendable {
     let id: String
