@@ -1,5 +1,7 @@
 import SwiftUI
+import UIKit
 import PhotosUI
+import AVFoundation
 
 struct ReceiptScannerView: View {
     @Environment(AppViewModel.self) private var appViewModel
@@ -46,11 +48,16 @@ struct ReceiptScannerView: View {
             Task { await loadSelectedPhoto() }
         }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraView { image in
-                capturedImage = image
-                showCamera = false
-                Task { await analyzeImage(image) }
-            }
+            CameraView(
+                onCapture: { image in
+                    capturedImage = image
+                    showCamera = false
+                    Task { await analyzeImage(image) }
+                },
+                onCancel: {
+                    showCamera = false
+                }
+            )
         }
     }
 
@@ -78,7 +85,7 @@ struct ReceiptScannerView: View {
 
             VStack(spacing: 12) {
                 Button {
-                    showCamera = true
+                    openCamera()
                 } label: {
                     Label(String(localized: "receipt.takePhoto"), systemImage: "camera.fill")
                         .font(.headline)
@@ -213,6 +220,31 @@ struct ReceiptScannerView: View {
                 }
                 .disabled(isFinalizing)
             }
+        }
+    }
+
+    // MARK: - Camera
+
+    private func openCamera() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            error = String(localized: "receipt.cameraUnavailable")
+            return
+        }
+
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            Task {
+                let granted = await AVCaptureDevice.requestAccess(for: .video)
+                if granted { showCamera = true }
+                else { error = String(localized: "receipt.cameraPermissionDenied") }
+            }
+        case .denied, .restricted:
+            error = String(localized: "receipt.cameraPermissionDenied")
+        @unknown default:
+            showCamera = true
         }
     }
 
@@ -395,6 +427,7 @@ struct FinalizeReceiptResponse: Decodable {
 
 struct CameraView: UIViewControllerRepresentable {
     let onCapture: (UIImage) -> Void
+    let onCancel: () -> Void
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -406,14 +439,16 @@ struct CameraView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onCapture: onCapture)
+        Coordinator(onCapture: onCapture, onCancel: onCancel)
     }
 
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let onCapture: (UIImage) -> Void
+        let onCancel: () -> Void
 
-        init(onCapture: @escaping (UIImage) -> Void) {
+        init(onCapture: @escaping (UIImage) -> Void, onCancel: @escaping () -> Void) {
             self.onCapture = onCapture
+            self.onCancel = onCancel
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
@@ -425,6 +460,7 @@ struct CameraView: UIViewControllerRepresentable {
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             picker.dismiss(animated: true)
+            onCancel()
         }
     }
 }
