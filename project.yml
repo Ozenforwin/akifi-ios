@@ -75,6 +75,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:
           - remote-notification
         CFBundleURLTypes:
