@@ -323,6 +323,9 @@ struct ReceiptScannerView: View {
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"receipt.jpg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(imageData)
+        body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"create_transaction\"\r\n\r\n".data(using: .utf8)!)
+        body.append("false".data(using: .utf8)!)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
         let url = URL(string: "\(AppConstants.supabaseURL)/functions/v1/analyze-receipt")!
@@ -361,10 +364,53 @@ struct ReceiptScannerView: View {
     }
 
     private func finalizeReceipt(_ result: ReceiptAnalysis) async {
-        // The edge function analyze-receipt already creates the transaction.
-        // Just reload data and close.
-        await onComplete()
-        dismiss()
+        guard let amount = Double(editAmount.replacingOccurrences(of: ",", with: ".")), amount > 0 else {
+            error = String(localized: "receipt.enterAmount")
+            return
+        }
+
+        isFinalizing = true
+        error = nil
+
+        do {
+            // Convert entered amount from editCurrency to base (RUB)
+            let cm = appViewModel.currencyManager
+            let baseRate = cm.rates[cm.dataCurrency.rawValue] ?? 1.0
+            let targetRate = cm.rates[editCurrency.rawValue] ?? 1.0
+            let amountInRub = targetRate > 0 ? amount / targetRate * baseRate : amount
+            let amountRounded = max(1, Int(amountInRub.rounded()))
+
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+
+            let originalSuffix = editCurrency != cm.dataCurrency
+                ? " · \(editAmount) \(editCurrency.rawValue)"
+                : ""
+            let description = [
+                editMerchant.isEmpty ? nil : "Чек: \(editMerchant)",
+                editDescription.isEmpty ? nil : editDescription,
+            ]
+                .compactMap { $0 }
+                .joined(separator: " · ") + originalSuffix
+
+            let txRepo = TransactionRepository()
+            _ = try await txRepo.create(CreateTransactionInput(
+                account_id: selectedAccountId,
+                amount: Decimal(amountRounded),
+                type: "expense",
+                date: df.string(from: transactionDate),
+                description: description.isEmpty ? nil : description,
+                category_id: selectedCategoryId,
+                merchant_name: editMerchant.isEmpty ? nil : editMerchant
+            ))
+
+            await onComplete()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isFinalizing = false
     }
 
     private func resizeImage(_ image: UIImage, maxSize: CGFloat) -> UIImage {
