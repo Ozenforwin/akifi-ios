@@ -203,7 +203,7 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil,
+                    merchant_name: nil
                 )
                 _ = try await transactionRepo.create(input)
             }
