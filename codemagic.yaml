@@ -74,53 +74,16 @@ workflows:
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           agvtool new-version -all $(($LATEST + 1))
 
-      - name: Build archive
+      - name: Apply profiles to project
         script: |
-          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
-          xcodebuild archive \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -archivePath build/ios/AkifiIOS.xcarchive \
-            -destination "generic/platform=iOS" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_FILE" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            COMPILER_INDEX_STORE_ENABLE=NO
+          xcode-project use-profiles
 
-      - name: Export IPA
+      - name: Build IPA
         script: |
-          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
-          cat > exportOptions.plist << 'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>8GPVB9MQ58</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
-          </dict>
-          </plist>
-          PLIST
-
-          xcodebuild -exportArchive \
-            -archivePath build/ios/AkifiIOS.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist exportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_FILE" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
 
       - name: Upload to TestFlight
         script: |
