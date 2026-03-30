@@ -1,11 +1,17 @@
 import SwiftUI
 
 enum WidgetPeriod: String, CaseIterable, Sendable {
-    case day = "День"
-    case week = "Неделя"
-    case month = "Месяц"
-    case threeMonths = "3 мес."
-    case year = "Год"
+    case day, week, month, threeMonths, year
+
+    var label: String {
+        switch self {
+        case .day: String(localized: "period.today")
+        case .week: String(localized: "period.week")
+        case .month: String(localized: "period.month")
+        case .threeMonths: String(localized: "period.threeMonths")
+        case .year: String(localized: "period.year")
+        }
+    }
 
     var dateOffset: DateComponents {
         switch self {
@@ -32,7 +38,7 @@ struct WidgetFilterView: View {
                     Button {
                         selectedPeriod = period
                     } label: {
-                        Text(period.rawValue)
+                        Text(period.label)
                             .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)

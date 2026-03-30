@@ -71,13 +71,10 @@ struct AnalyticsTabView: View {
                         data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
                     )
 
-                    // 7. Category Breakdown
+                    // 7. Category Breakdown (self-filtering)
                     CategoryBreakdownView(
-                        data: viewModel.categoryBreakdown(
-                            from: filteredByPeriod(selectedPeriod),
-                            categories: dataStore.categories
-                        ),
-                        transactions: filteredByPeriod(selectedPeriod)
+                        allTransactions: allTransactions,
+                        categories: dataStore.categories
                     )
                 }
                     .padding(.horizontal)

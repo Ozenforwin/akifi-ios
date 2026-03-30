@@ -7,11 +7,11 @@ struct TransactionsTabView: View {
     @State private var showTransfer = false
     @State private var editingTransaction: Transaction?
     @State private var showFilters = false
-    @State private var filterAccountId: String?
+    @State private var filterAccountIds: Set<String> = []
     @State private var filterDateFrom: Date?
     @State private var filterDateTo: Date?
     @State private var filterType: TransactionTypeFilter = .all
-    @State private var filterCategoryId: String?
+    @State private var filterCategoryIds: Set<String> = []
     @State private var showSearch = false
     @State private var showReports = false
 
@@ -39,10 +39,10 @@ struct TransactionsTabView: View {
             case .income: guard tx.type == .income && !tx.isTransfer else { return false }
             case .transfer: guard tx.isTransfer else { return false }
             }
-            // Account
-            if let accountId = filterAccountId, tx.accountId != accountId { return false }
-            // Category
-            if let categoryId = filterCategoryId, tx.categoryId != categoryId { return false }
+            // Account (multi-select)
+            if !filterAccountIds.isEmpty, let accId = tx.accountId, !filterAccountIds.contains(accId) { return false }
+            // Category (multi-select)
+            if !filterCategoryIds.isEmpty, let catId = tx.categoryId, !filterCategoryIds.contains(catId) { return false }
             // Date range
             if fromDate != nil || toDate != nil {
                 guard let d = df.date(from: tx.date) else { return true }
@@ -54,7 +54,7 @@ struct TransactionsTabView: View {
     }
 
     private var hasActiveFilters: Bool {
-        filterAccountId != nil || filterDateFrom != nil || filterDateTo != nil || filterType != .all
+        !filterAccountIds.isEmpty || !filterCategoryIds.isEmpty || filterDateFrom != nil || filterDateTo != nil || filterType != .all
     }
 
     private var summaryTotals: (income: Int64, expense: Int64, transfer: Int64) {
@@ -102,8 +102,8 @@ struct TransactionsTabView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button(String(localized: "transactions.reset")) {
-                            filterAccountId = nil
-                            filterCategoryId = nil
+                            filterAccountIds = []
+                            filterCategoryIds = []
                             filterDateFrom = nil
                             filterDateTo = nil
                             filterType = .all
@@ -234,8 +234,8 @@ struct TransactionsTabView: View {
                 TransactionFilterSheet(
                     accounts: dataStore.accounts,
                     categories: dataStore.categories,
-                    selectedAccountId: $filterAccountId,
-                    selectedCategoryId: $filterCategoryId,
+                    selectedAccountIds: $filterAccountIds,
+                    selectedCategoryIds: $filterCategoryIds,
                     dateFrom: $filterDateFrom,
                     dateTo: $filterDateTo,
                     selectedType: $filterType
@@ -309,8 +309,8 @@ struct TransactionFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     let accounts: [Account]
     let categories: [Category]
-    @Binding var selectedAccountId: String?
-    @Binding var selectedCategoryId: String?
+    @Binding var selectedAccountIds: Set<String>
+    @Binding var selectedCategoryIds: Set<String>
     @Binding var dateFrom: Date?
     @Binding var dateTo: Date?
     @Binding var selectedType: TransactionTypeFilter
@@ -362,41 +362,37 @@ struct TransactionFilterSheet: View {
                     filterSection(title: String(localized: "transactions.filterPeriod")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                            ForEach(FilterPeriod.allCases, id: \.self) { period in
-                                filterChip(
-                                    label: period.label,
-                                    isSelected: selectedPeriod == period && !showCalendar,
-                                    activeColor: .accent
-                                ) {
-                                    selectedPeriod = period
-                                    showCalendar = false
+                                ForEach(FilterPeriod.allCases, id: \.self) { period in
+                                    filterChip(
+                                        label: period.label,
+                                        isSelected: selectedPeriod == period && !showCalendar,
+                                        activeColor: .accent
+                                    ) {
+                                        selectedPeriod = period
+                                        showCalendar = false
+                                    }
                                 }
-                            }
 
-                            // Calendar button
-                            Button {
-                                showCalendar.toggle()
-                                if showCalendar {
-                                    selectedPeriod = .all
+                                Button {
+                                    showCalendar.toggle()
+                                    if showCalendar { selectedPeriod = .all }
+                                } label: {
+                                    Image(systemName: "calendar")
+                                        .font(.subheadline)
+                                        .frame(width: 40, height: 36)
+                                        .background(showCalendar ? Color.accent : Color(.systemGray6))
+                                        .foregroundStyle(showCalendar ? .white : .primary)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(showCalendar ? .clear : Color(.systemGray4), lineWidth: 0.5)
+                                        )
                                 }
-                            } label: {
-                                Image(systemName: "calendar")
-                                    .font(.subheadline)
-                                    .frame(width: 40, height: 36)
-                                    .background(showCalendar ? Color.accent : Color(.systemGray6))
-                                    .foregroundStyle(showCalendar ? .white : .primary)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(showCalendar ? .clear : Color(.systemGray4), lineWidth: 0.5)
-                                    )
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                        }
                         }
                     }
 
-                    // Calendar date pickers
                     if showCalendar {
                         VStack(spacing: 12) {
                             DatePicker(String(localized: "filter.from"), selection: $calendarFrom, displayedComponents: .date)
@@ -407,52 +403,60 @@ struct TransactionFilterSheet: View {
                         .padding(.horizontal)
                     }
 
-                    // Category filter
+                    // Category filter (multi-select)
                     filterSection(title: String(localized: "transactions.filterCategory")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 filterChip(
                                     label: String(localized: "common.all"),
-                                    isSelected: selectedCategoryId == nil,
+                                    isSelected: selectedCategoryIds.isEmpty,
                                     activeColor: .accent
                                 ) {
-                                    selectedCategoryId = nil
+                                    selectedCategoryIds.removeAll()
                                 }
 
                                 ForEach(categories) { cat in
                                     filterChip(
                                         icon: cat.icon,
                                         label: cat.name,
-                                        isSelected: selectedCategoryId == cat.id,
+                                        isSelected: selectedCategoryIds.contains(cat.id),
                                         activeColor: .accent
                                     ) {
-                                        selectedCategoryId = cat.id
+                                        if selectedCategoryIds.contains(cat.id) {
+                                            selectedCategoryIds.remove(cat.id)
+                                        } else {
+                                            selectedCategoryIds.insert(cat.id)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Account filter
+                    // Account filter (multi-select)
                     filterSection(title: String(localized: "transactions.filterAccount")) {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 filterChip(
                                     label: String(localized: "budget.allAccounts"),
-                                    isSelected: selectedAccountId == nil,
+                                    isSelected: selectedAccountIds.isEmpty,
                                     activeColor: .accent
                                 ) {
-                                    selectedAccountId = nil
+                                    selectedAccountIds.removeAll()
                                 }
 
                                 ForEach(accounts) { account in
                                     filterChip(
                                         icon: account.icon,
                                         label: account.name,
-                                        isSelected: selectedAccountId == account.id,
+                                        isSelected: selectedAccountIds.contains(account.id),
                                         activeColor: .accent
                                     ) {
-                                        selectedAccountId = account.id
+                                        if selectedAccountIds.contains(account.id) {
+                                            selectedAccountIds.remove(account.id)
+                                        } else {
+                                            selectedAccountIds.insert(account.id)
+                                        }
                                     }
                                 }
                             }
@@ -462,7 +466,6 @@ struct TransactionFilterSheet: View {
                 .padding(.top, 20)
             }
 
-            // Apply button
             VStack {
                 Button {
                     applyFilters()
@@ -489,15 +492,12 @@ struct TransactionFilterSheet: View {
         }
     }
 
-    // MARK: - Reusable Components
-
     private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
-
             content()
                 .padding(.horizontal)
         }
@@ -507,8 +507,7 @@ struct TransactionFilterSheet: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 if let icon {
-                    Text(icon)
-                        .font(.caption)
+                    Text(icon).font(.caption)
                 }
                 Text(label)
                     .font(.subheadline.weight(.medium))
@@ -525,8 +524,6 @@ struct TransactionFilterSheet: View {
         }
         .buttonStyle(.plain)
     }
-
-    // MARK: - Apply
 
     private func applyFilters() {
         if showCalendar {

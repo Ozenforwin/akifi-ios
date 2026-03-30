@@ -381,7 +381,7 @@ struct OnboardingButton: View {
         .foregroundStyle(.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 24)
-        .padding(.bottom, 40)
+        .padding(.bottom, 56)
         .disabled(isLoading)
     }
 }

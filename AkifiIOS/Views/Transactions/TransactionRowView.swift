@@ -127,55 +127,8 @@ struct TransactionRowView: View {
         return "\(sign)\(appViewModel.currencyManager.formatAmount(transaction.amount.displayAmount))"
     }
 
-    private static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "ru_RU")
-        return df
-    }()
-
-    private static let isoDateTimeFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        df.locale = Locale(identifier: "ru_RU")
-        return df
-    }()
-
-    private static let isoDateTimeWithTZFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd HH:mm:ssxxx"
-        df.locale = Locale(identifier: "ru_RU")
-        return df
-    }()
-
-    private static let outputDateTimeFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
-        df.dateFormat = "d MMM yyyy, HH:mm"
-        return df
-    }()
-
-    private static let outputDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
-        df.dateFormat = "d MMM yyyy"
-        return df
-    }()
-
     private var formattedDate: String {
-        let raw = transaction.rawDateTime
-        // Try parsing full timestamp formats
-        if let date = Self.isoDateTimeFormatter.date(from: raw) {
-            return Self.outputDateTimeFormatter.string(from: date)
-        }
-        if let date = Self.isoDateTimeWithTZFormatter.date(from: raw) {
-            return Self.outputDateTimeFormatter.string(from: date)
-        }
-        // Fallback: date-only
-        if let date = Self.isoDateFormatter.date(from: transaction.date) {
-            return Self.outputDateFormatter.string(from: date)
-        }
-        return transaction.date
+        transaction.formattedDateTime
     }
 
     // MARK: - Subviews

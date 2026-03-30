@@ -25,19 +25,68 @@ final class ReportsViewModel {
         }
     }
 
-    func nextMonth() {
+    // MARK: - Period Navigation
+
+    func nextPeriod() {
         let cal = Calendar.current
-        if let next = cal.date(byAdding: .month, value: 1, to: selectedMonth),
+        let step = periodStep
+        if let next = cal.date(byAdding: step.component, value: step.value, to: selectedMonth),
            next <= Date() {
             selectedMonth = next
         }
     }
 
-    func previousMonth() {
+    func previousPeriod() {
         let cal = Calendar.current
-        if let prev = cal.date(byAdding: .month, value: -1, to: selectedMonth) {
+        let step = periodStep
+        if let prev = cal.date(byAdding: step.component, value: -step.value, to: selectedMonth) {
             selectedMonth = prev
         }
+    }
+
+    private var periodStep: (component: Calendar.Component, value: Int) {
+        switch periodMode {
+        case .month: (.month, 1)
+        case .quarter: (.month, 3)
+        case .year: (.year, 1)
+        }
+    }
+
+    // Keep old names for backward compat
+    func nextMonth() { nextPeriod() }
+    func previousMonth() { previousPeriod() }
+
+    // MARK: - Period Labels
+
+    func periodLabel(_ date: Date) -> String {
+        switch periodMode {
+        case .month:
+            return Self.monthLabelFormatter.string(from: date).capitalizedFirstLetter
+        case .quarter:
+            let cal = Calendar.current
+            let month = cal.component(.month, from: date)
+            let quarter = (month - 1) / 3 + 1
+            let year = cal.component(.year, from: date)
+            return "Q\(quarter) \(year)"
+        case .year:
+            let cal = Calendar.current
+            let year = cal.component(.year, from: date)
+            return "\(year)"
+        }
+    }
+
+    func prevPeriodDate() -> Date {
+        let cal = Calendar.current
+        let step = periodStep
+        return cal.date(byAdding: step.component, value: -step.value, to: selectedMonth)!
+    }
+
+    func nextPeriodDate() -> Date? {
+        let cal = Calendar.current
+        let step = periodStep
+        let next = cal.date(byAdding: step.component, value: step.value, to: selectedMonth)
+        guard let next, next <= Date() else { return nil }
+        return next
     }
 
     // MARK: - Private formatters
@@ -62,17 +111,35 @@ final class ReportsViewModel {
         return df
     }()
 
-    // MARK: - Computed: filtered transactions
+    // MARK: - Filtered transactions (respects periodMode)
 
     func monthTransactions(from all: [Transaction]) -> [Transaction] {
         let calendar = Calendar.current
-        let monthStart = calendar.dateComponents([.year, .month], from: selectedMonth)
 
         return all.filter { tx in
             if let accountId = selectedAccountId, tx.accountId != accountId { return false }
             guard let txDate = Self.txDateFormatter.date(from: tx.date) else { return false }
-            let txComponents = calendar.dateComponents([.year, .month], from: txDate)
-            return txComponents.year == monthStart.year && txComponents.month == monthStart.month
+
+            switch periodMode {
+            case .month:
+                let sel = calendar.dateComponents([.year, .month], from: selectedMonth)
+                let txC = calendar.dateComponents([.year, .month], from: txDate)
+                return txC.year == sel.year && txC.month == sel.month
+
+            case .quarter:
+                let selYear = calendar.component(.year, from: selectedMonth)
+                let selMonth = calendar.component(.month, from: selectedMonth)
+                let selQuarter = (selMonth - 1) / 3
+                let txYear = calendar.component(.year, from: txDate)
+                let txMonth = calendar.component(.month, from: txDate)
+                let txQuarter = (txMonth - 1) / 3
+                return txYear == selYear && txQuarter == selQuarter
+
+            case .year:
+                let selYear = calendar.component(.year, from: selectedMonth)
+                let txYear = calendar.component(.year, from: txDate)
+                return txYear == selYear
+            }
         }
     }
 
@@ -119,7 +186,6 @@ final class ReportsViewModel {
         let total = filtered.reduce(Int64(0)) { $0 + $1.amount }
         guard total > 0 else { return [] }
 
-        // Group by categoryId
         var byCategoryAmount: [String: Int64] = [:]
         var byCategoryCount: [String: Int] = [:]
 
@@ -172,7 +238,6 @@ final class ReportsViewModel {
             return []
         }
 
-        // Build a dict: day-of-month -> net amount (income minus expense) in kopecks
         var dailyNet: [Int: Int64] = [:]
 
         for tx in transactions {
@@ -184,7 +249,6 @@ final class ReportsViewModel {
             dailyNet[day, default: 0] += signed
         }
 
-        // Accumulate into cumulative balance
         var cumulative: Double = 0
         var result: [DailyBalancePoint] = []
 
@@ -206,7 +270,6 @@ final class ReportsViewModel {
         let currentComps = calendar.dateComponents([.year, .month], from: now)
         guard let currentMonthStart = calendar.date(from: currentComps) else { return [] }
 
-        // Chronological: oldest first, newest last (left to right)
         return (0..<12).reversed().compactMap { offset in
             calendar.date(byAdding: .month, value: -offset, to: currentMonthStart)
         }
@@ -220,14 +283,6 @@ final class ReportsViewModel {
 
     func shortMonthLabel(_ date: Date) -> String {
         Self.shortMonthLabelFormatter.string(from: date).capitalizedFirstLetter
-    }
-
-    // MARK: - Helpers
-
-    private static func startOfCurrentMonth() -> Date {
-        let calendar = Calendar.current
-        let comps = calendar.dateComponents([.year, .month], from: Date())
-        return calendar.date(from: comps) ?? Date()
     }
 }
 
