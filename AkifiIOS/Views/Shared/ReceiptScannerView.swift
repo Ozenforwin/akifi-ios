@@ -363,15 +363,20 @@ struct ReceiptScannerView: View {
             df.dateFormat = "yyyy-MM-dd"
 
             let txRepo = TransactionRepository()
+            // Amount in kopecks (Int) for DB, matching how TransactionFormView works
+            let amountDecimal = Decimal(amount)
+            let accountCurrency = dataStore.accounts.first(where: { $0.id == selectedAccountId })?.currencyCode
+                ?? appViewModel.currencyManager.selectedCurrency
+
             _ = try await txRepo.create(CreateTransactionInput(
                 account_id: selectedAccountId,
-                amount: Decimal(amount),
+                amount: amountDecimal,
                 type: "expense",
                 date: df.string(from: transactionDate),
                 description: editDescription.isEmpty ? nil : editDescription,
                 category_id: selectedCategoryId,
                 merchant_name: editMerchant.isEmpty ? nil : editMerchant,
-                currency: nil
+                currency: accountCurrency.rawValue
             ))
 
             await onComplete()
