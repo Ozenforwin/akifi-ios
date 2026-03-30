@@ -351,36 +351,10 @@ struct ReceiptScannerView: View {
     }
 
     private func finalizeReceipt(_ result: ReceiptAnalysis) async {
-        guard let amount = Double(editAmount.replacingOccurrences(of: ",", with: ".")), amount > 0 else {
-            error = "Введите сумму"
-            return
-        }
-
-        isFinalizing = true
-        error = nil
-
-        do {
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-
-            let txRepo = TransactionRepository()
-            _ = try await txRepo.create(CreateTransactionInput(
-                account_id: selectedAccountId,
-                amount: Decimal(amount),
-                type: "expense",
-                date: df.string(from: transactionDate),
-                description: editDescription.isEmpty ? nil : editDescription,
-                category_id: selectedCategoryId,
-                merchant_name: editMerchant.isEmpty ? nil : editMerchant
-            ))
-
-            await onComplete()
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
-        }
-
-        isFinalizing = false
+        // The edge function analyze-receipt already creates the transaction.
+        // Just reload data and close.
+        await onComplete()
+        dismiss()
     }
 
     private func resizeImage(_ image: UIImage, maxSize: CGFloat) -> UIImage {
