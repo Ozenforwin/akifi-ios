@@ -132,7 +132,6 @@ struct TransferFormView: View {
                 description: desc,
                 category_id: nil,
                 merchant_name: nil,
-                currency: nil
             ))
             // Income to destination
             _ = try await transactionRepo.create(CreateTransactionInput(
@@ -143,7 +142,6 @@ struct TransferFormView: View {
                 description: desc,
                 category_id: nil,
                 merchant_name: nil,
-                currency: nil
             ))
             await onSave()
             dismiss()

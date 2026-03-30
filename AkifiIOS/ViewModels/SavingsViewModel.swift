@@ -108,8 +108,7 @@ final class SavingsViewModel {
                 date: isoDateFormatter.string(from: Date()),
                 description: desc,
                 category_id: nil,
-                merchant_name: nil,
-                currency: nil
+                merchant_name: nil
             )
             _ = try? await TransactionRepository().create(txInput)
 

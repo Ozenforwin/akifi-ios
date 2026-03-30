@@ -373,8 +373,7 @@ struct BankImportView: View {
                     date: tx.date,
                     description: tx.description,
                     category_id: tx.categoryId,
-                    merchant_name: tx.merchantName,
-                    currency: nil
+                    merchant_name: tx.merchantName
                 )
                 _ = try await TransactionRepository().create(input)
                 imported += 1
