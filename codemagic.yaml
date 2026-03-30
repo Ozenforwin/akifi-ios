@@ -57,6 +57,13 @@ workflows:
           openssl genrsa 2048 2>/dev/null > /tmp/cert_key.pem
           # Fetch/create distribution certificate and profile
           keychain initialize
+          # Revoke orphaned distribution certs (no matching private key)
+          # to make room for a new one
+          app-store-connect list-certificates \
+            --type DISTRIBUTION \
+            --type IOS_DISTRIBUTION 2>/dev/null \
+            | grep -oE '[0-9A-Za-z]{10,}' | head -1 \
+            | xargs -I{} app-store-connect revoke-certificate {} 2>/dev/null || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
