@@ -51,7 +51,13 @@ struct MessageBubbleView: View {
     private var assistantBubble: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Main text — full width, readable size
-            Text(message.content)
+            Group {
+                if let md = try? AttributedString(markdown: message.content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+                    Text(md)
+                } else {
+                    Text(message.content)
+                }
+            }
                 .font(.body)
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
