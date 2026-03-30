@@ -11,6 +11,34 @@ final class ReportsViewModel {
     }()
     var selectedType: CategoryType = .expense
     var selectedAccountId: String?
+    var periodMode: PeriodMode = .month
+
+    enum PeriodMode: CaseIterable {
+        case month, quarter, year
+
+        var label: String {
+            switch self {
+            case .month: String(localized: "filter.month")
+            case .quarter: String(localized: "report.quarter")
+            case .year: String(localized: "report.year")
+            }
+        }
+    }
+
+    func nextMonth() {
+        let cal = Calendar.current
+        if let next = cal.date(byAdding: .month, value: 1, to: selectedMonth),
+           next <= Date() {
+            selectedMonth = next
+        }
+    }
+
+    func previousMonth() {
+        let cal = Calendar.current
+        if let prev = cal.date(byAdding: .month, value: -1, to: selectedMonth) {
+            selectedMonth = prev
+        }
+    }
 
     // MARK: - Private formatters
 
@@ -80,7 +108,8 @@ final class ReportsViewModel {
         from transactions: [Transaction],
         categories: [Category]
     ) -> [CategoryBreakdownItem] {
-        let filtered = transactions.filter { tx in
+        let monthTxs = monthTransactions(from: transactions)
+        let filtered = monthTxs.filter { tx in
             !tx.isTransfer && (
                 (selectedType == .expense && tx.type == .expense) ||
                 (selectedType == .income && tx.type == .income)
@@ -177,7 +206,8 @@ final class ReportsViewModel {
         let currentComps = calendar.dateComponents([.year, .month], from: now)
         guard let currentMonthStart = calendar.date(from: currentComps) else { return [] }
 
-        return (0..<12).compactMap { offset in
+        // Chronological: oldest first, newest last (left to right)
+        return (0..<12).reversed().compactMap { offset in
             calendar.date(byAdding: .month, value: -offset, to: currentMonthStart)
         }
     }

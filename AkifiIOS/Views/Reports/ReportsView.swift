@@ -4,270 +4,305 @@ import Charts
 struct ReportsView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var vm = ReportsViewModel()
+    @State private var selectedCategoryItem: ReportsViewModel.CategoryBreakdownItem?
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
 
+    private var breakdown: [ReportsViewModel.CategoryBreakdownItem] {
+        vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories)
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Month swiper
-                monthSwiper
+        VStack(spacing: 0) {
+            // Filters bar
+            filtersBar
 
-                // Expense / Income segment
-                Picker("", selection: $vm.selectedType) {
-                    Text(String(localized: "common.expenses")).tag(CategoryType.expense)
-                    Text(String(localized: "common.incomes")).tag(CategoryType.income)
+            // Month swiper (swipeable pages)
+            monthPager
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Expense / Income segment
+                    Picker("", selection: $vm.selectedType) {
+                        Text(String(localized: "common.expenses")).tag(CategoryType.expense)
+                        Text(String(localized: "common.incomes")).tag(CategoryType.income)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+
+                    // Donut chart with icons
+                    donutSection
+
+                    // Category list
+                    categoryList
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-
-                // Summary cards
-                summaryCards
-
-                // Daily trend chart
-                trendChart
-
-                // Category donut + list
-                categorySection
-
-                // Transactions for the month
-                transactionsList
+                .padding(.bottom, 40)
             }
-            .padding(.bottom, 40)
         }
         .navigationTitle(String(localized: "report.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $selectedCategoryItem) { item in
+            ReportCategoryDetailSheet(item: item, vm: vm, dataStore: dataStore)
+        }
     }
 
-    // MARK: - Month Swiper
+    // MARK: - Filters Bar
 
-    private var monthSwiper: some View {
+    private var filtersBar: some View {
+        HStack(spacing: 8) {
+            // Account picker
+            Menu {
+                Button(String(localized: "budget.allAccounts")) {
+                    vm.selectedAccountId = nil
+                }
+                ForEach(dataStore.accounts) { acc in
+                    Button("\(acc.icon) \(acc.name)") {
+                        vm.selectedAccountId = acc.id
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(accountLabel)
+                        .font(.caption.weight(.medium))
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(.systemGray6))
+                .clipShape(Capsule())
+            }
+            .foregroundStyle(.primary)
+
+            // Period picker
+            Menu {
+                ForEach(ReportsViewModel.PeriodMode.allCases, id: \.self) { mode in
+                    Button(mode.label) {
+                        vm.periodMode = mode
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(vm.periodMode.label)
+                        .font(.caption.weight(.medium))
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(.systemGray6))
+                .clipShape(Capsule())
+            }
+            .foregroundStyle(.primary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var accountLabel: String {
+        if let id = vm.selectedAccountId,
+           let acc = dataStore.accounts.first(where: { $0.id == id }) {
+            return "\(acc.icon) \(acc.name)"
+        }
+        return String(localized: "budget.allAccounts")
+    }
+
+    // MARK: - Month Pager
+
+    private var monthPager: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 20) {
+                HStack(spacing: 24) {
                     ForEach(vm.months, id: \.self) { month in
                         let isSelected = Calendar.current.isDate(month, equalTo: vm.selectedMonth, toGranularity: .month)
                         Button {
-                            withAnimation { vm.selectedMonth = month }
+                            withAnimation(.easeInOut(duration: 0.2)) { vm.selectedMonth = month }
                         } label: {
                             Text(vm.shortMonthLabel(month))
                                 .font(isSelected ? .subheadline.bold() : .subheadline)
-                                .foregroundStyle(isSelected ? .primary : .secondary)
+                                .foregroundStyle(isSelected ? .primary : .tertiary)
+                                .padding(.vertical, 4)
+                                .overlay(alignment: .bottom) {
+                                    if isSelected {
+                                        Rectangle()
+                                            .fill(Color.accent)
+                                            .frame(height: 2)
+                                            .offset(y: 4)
+                                    }
+                                }
                         }
                         .id(month)
                     }
                 }
                 .padding(.horizontal)
             }
-            .onAppear {
-                proxy.scrollTo(vm.selectedMonth, anchor: .center)
-            }
+            .onAppear { proxy.scrollTo(vm.selectedMonth, anchor: .center) }
             .onChange(of: vm.selectedMonth) {
                 withAnimation { proxy.scrollTo(vm.selectedMonth, anchor: .center) }
             }
         }
+        .padding(.bottom, 8)
+        .gesture(
+            DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.width < -50 { vm.nextMonth() }
+                    else if value.translation.width > 50 { vm.previousMonth() }
+                }
+        )
     }
 
-    // MARK: - Summary Cards
+    // MARK: - Donut Section
 
-    private var summaryCards: some View {
-        let txs = vm.monthTransactions(from: dataStore.transactions)
-        let income = vm.monthIncome(from: txs)
-        let expense = vm.monthExpense(from: txs)
-
-        return HStack(spacing: 8) {
-            summaryCard(
-                title: String(localized: "report.totalBalance"),
-                amount: income - expense,
-                color: income >= expense ? .income : .expense
-            )
-            summaryCard(
-                title: String(localized: "report.monthlyFlow"),
-                amount: -expense,
-                color: .expense
-            )
-        }
-        .padding(.horizontal)
-    }
-
-    private func summaryCard(title: String, amount: Int64, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(cm.formatAmount(amount.displayAmount))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(color)
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    // MARK: - Trend Chart
-
-    private var trendChart: some View {
-        let points = vm.dailyBalanceTrend(from: dataStore.transactions)
+    private var donutSection: some View {
+        let items = breakdown
 
         return Group {
-            if points.count > 1 {
-                Chart(points, id: \.date) { point in
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("Balance", point.balance)
-                    )
-                    .foregroundStyle(Color.income)
-                    .interpolationMethod(.catmullRom)
-
-                    AreaMark(
-                        x: .value("Date", point.date),
-                        y: .value("Balance", point.balance)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.income.opacity(0.2), Color.income.opacity(0.02)],
-                            startPoint: .top,
-                            endPoint: .bottom
+            if !items.isEmpty {
+                ZStack {
+                    // Donut chart
+                    Chart(items, id: \.category.id) { item in
+                        SectorMark(
+                            angle: .value("Amount", item.amount),
+                            innerRadius: .ratio(0.55),
+                            angularInset: 1.5
                         )
-                    )
-                    .interpolationMethod(.catmullRom)
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            if let v = value.as(Double.self) {
-                                Text(abbreviate(v))
-                                    .font(.caption2)
-                            }
+                        .foregroundStyle(Color(hex: item.category.color))
+                    }
+                    .frame(height: 220)
+                    .padding(.horizontal, 50)
+                    .chartBackground { _ in
+                        // Center text
+                        VStack(spacing: 2) {
+                            let total = items.reduce(Int64(0)) { $0 + $1.amount }
+                            Text(cm.formatAmount(total.displayAmount))
+                                .font(.system(size: 14, weight: .bold))
+                            Text(vm.selectedType == .expense
+                                 ? String(localized: "common.expenses")
+                                 : String(localized: "common.incomes"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
                     }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 7)) { value in
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+
+                    // Icons around donut
+                    GeometryReader { geo in
+                        let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+                        let radius = min(geo.size.width, geo.size.height) / 2 + 5
+                        ForEach(Array(items.prefix(8).enumerated()), id: \.element.category.id) { index, item in
+                            let angle = angleFor(index: index, total: min(items.count, 8))
+                            let x = center.x + radius * cos(angle)
+                            let y = center.y + radius * sin(angle)
+
+                            VStack(spacing: 1) {
+                                Text(item.category.icon)
+                                    .font(.caption)
+                                    .frame(width: 24, height: 24)
+                                    .background(Color(hex: item.category.color).opacity(0.2))
+                                    .clipShape(Circle())
+                                Text(String(format: "%.0f%%", item.percentage))
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(Color(hex: item.category.color))
+                            }
+                            .position(x: x, y: y)
+                        }
                     }
+                    .frame(height: 220)
                 }
-                .frame(height: 180)
                 .padding(.horizontal)
+                .onTapGesture {
+                    // Tap donut = show first category
+                    if let first = items.first { selectedCategoryItem = first }
+                }
             }
         }
     }
 
-    // MARK: - Category Section
+    private func angleFor(index: Int, total: Int) -> Double {
+        let start = -Double.pi / 2
+        let step = (2 * Double.pi) / Double(total)
+        return start + step * Double(index)
+    }
 
-    private var categorySection: some View {
-        let breakdown = vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories)
+    // MARK: - Category List
 
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "report.categories"))
-                .font(.title3.bold())
-                .padding(.horizontal)
-
-            // Donut chart
-            if !breakdown.isEmpty {
-                Chart(breakdown, id: \.category.id) { item in
-                    SectorMark(
-                        angle: .value("Amount", item.amount),
-                        innerRadius: .ratio(0.55),
-                        angularInset: 1
-                    )
-                    .foregroundStyle(Color(hex: item.category.color))
-                }
-                .frame(height: 200)
-                .padding(.horizontal, 40)
-            }
-
-            // Category list
-            VStack(spacing: 0) {
-                ForEach(breakdown, id: \.category.id) { item in
+    private var categoryList: some View {
+        VStack(spacing: 0) {
+            ForEach(breakdown, id: \.category.id) { item in
+                Button {
+                    selectedCategoryItem = item
+                } label: {
                     HStack(spacing: 12) {
-                        Text(item.category.icon)
-                            .font(.title3)
-                            .frame(width: 36, height: 36)
-                            .background(Color(hex: item.category.color).opacity(0.15))
-                            .clipShape(Circle())
+                        Circle()
+                            .fill(Color(hex: item.category.color))
+                            .frame(width: 10, height: 10)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.category.name)
-                                .font(.subheadline.weight(.medium))
-                            Text("\(item.txCount) \(String(localized: "categories.transactions"))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(item.category.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
 
                         Spacer()
 
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(cm.formatAmount(item.amount.displayAmount))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(vm.selectedType == .expense ? Color.expense : Color.income)
-                            Text(String(format: "%.1f%%", item.percentage))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text("\(String(format: "%.0f%%", item.percentage)) (\(cm.formatAmount(item.amount.displayAmount)))")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)
+                }
 
-                    if item.category.id != breakdown.last?.category.id {
-                        Divider().padding(.leading, 60)
-                    }
+                if item.category.id != breakdown.last?.category.id {
+                    Divider().padding(.leading, 36)
                 }
             }
         }
     }
+}
 
-    // MARK: - Transactions List
+// MARK: - Category Transactions Sheet
 
-    private var transactionsList: some View {
-        let txs = vm.monthTransactions(from: dataStore.transactions)
-            .filter { tx in
-                if vm.selectedType == .expense { return tx.type == .expense && !tx.isTransfer }
-                return tx.type == .income && !tx.isTransfer
+private struct ReportCategoryDetailSheet: View {
+    let item: ReportsViewModel.CategoryBreakdownItem
+    let vm: ReportsViewModel
+    let dataStore: DataStore
+    @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                // Header with donut highlighting this category
+                VStack(spacing: 4) {
+                    Text(item.category.icon)
+                        .font(.largeTitle)
+                    Text(item.category.name)
+                        .font(.headline)
+                    Text(String(format: "%.0f%%", item.percentage))
+                        .font(.title.bold())
+                    Text(appViewModel.currencyManager.formatAmount(item.amount.displayAmount))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top)
+
+                // Transactions
+                let txs = vm.monthTransactions(from: dataStore.transactions)
+                    .filter { $0.categoryId == item.category.id }
+
+                List(txs) { tx in
+                    TransactionRowView(
+                        transaction: tx,
+                        category: dataStore.category(for: tx)
+                    )
+                }
+                .listStyle(.plain)
             }
-
-        let grouped = Dictionary(grouping: txs) { $0.date }
-        let sortedDays = grouped.keys.sorted(by: >)
-
-        return VStack(alignment: .leading, spacing: 8) {
-            if !sortedDays.isEmpty {
-                Text(String(localized: "report.transactions"))
-                    .font(.title3.bold())
-                    .padding(.horizontal)
-            }
-
-            ForEach(sortedDays, id: \.self) { day in
-                if let dayTxs = grouped[day] {
-                    Section {
-                        ForEach(dayTxs) { tx in
-                            TransactionRowView(
-                                transaction: tx,
-                                category: dataStore.category(for: tx)
-                            )
-                            .padding(.horizontal)
-                        }
-                    } header: {
-                        Text(day)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                    }
+            .navigationTitle(item.category.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func abbreviate(_ value: Double) -> String {
-        let abs = abs(value)
-        let sign = value < 0 ? "-" : ""
-        if abs >= 1_000_000 { return "\(sign)\(String(format: "%.0f", abs / 1_000_000))M" }
-        if abs >= 1_000 { return "\(sign)\(String(format: "%.0f", abs / 1_000))k" }
-        return "\(sign)\(String(format: "%.0f", abs))"
     }
 }

@@ -3185,6 +3185,29 @@
         }
       }
     },
+    "categories.transactions": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "transactions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "transacciones"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "транзакций"
+          }
+        }
+      }
+    },
     "common.account": {
       "extractionState": "stale",
       "localizations": {
@@ -4446,6 +4469,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Год"
+          }
+        }
+      }
+    },
+    "dashboard.overview": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expense Overview"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumen de Gastos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обзор расходов"
           }
         }
       }
@@ -7054,6 +7100,121 @@
         }
       }
     },
+    "report.categories": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categories"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categorías"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Категории"
+          }
+        }
+      }
+    },
+    "report.monthlyFlow": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly Flow"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flujo Mensual"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ежемесячный поток"
+          }
+        }
+      }
+    },
+    "report.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informe"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отчёт"
+          }
+        }
+      }
+    },
+    "report.totalBalance": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Net Balance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balance Neto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общее состояние"
+          }
+        }
+      }
+    },
+    "report.transactions": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transactions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transacciones"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Транзакции"
+          }
+        }
+      }
+    },
     "savings.active": {
       "extractionState": "stale",
       "localizations": {
@@ -7855,6 +8016,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "Снять"
+          }
+        }
+      }
+    },
+    "search.clearHistory": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear History"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Borrar Historial"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить историю"
+          }
+        }
+      }
+    },
+    "search.history": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search History"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Historial de búsqueda"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История поиска"
+          }
+        }
+      }
+    },
+    "search.placeholder": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search transactions..."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar transacciones..."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск транзакций..."
+          }
+        }
+      }
+    },
+    "search.suggestions": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggestions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sugerencias"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предложения"
           }
         }
       }
@@ -9814,6 +10067,29 @@
         }
       }
     },
+    "transactions.filterCategory": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Category"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Categoría"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Категория"
+          }
+        }
+      }
+    },
     "transactions.filterPeriod": {
       "extractionState": "stale",
       "localizations": {
@@ -10696,6 +10972,7 @@
     "Миграция из Telegram": {},
     "Наблюдатель": {},
     "Начните управлять своими финансами прямо сейчас": {},
+    "Обзор расходов >": {},
     "Общая": {},
     "Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код": {},
     "План": {},
@@ -10735,266 +11012,68 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "transactions.filterCategory": {
+    "report.quarter": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Категория"
+            "value": "По кварталам"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Category"
+            "value": "By Quarter"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Categoría"
+            "value": "Por Trimestre"
           }
         }
       }
     },
-    "categories.transactions": {
+    "report.year": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "транзакций"
+            "value": "По годам"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "transactions"
+            "value": "By Year"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "transacciones"
+            "value": "Por Año"
           }
         }
       }
     },
-    "report.title": {
+    "receipt.enterAmount": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отчёт"
+            "value": "Введите сумму"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Report"
+            "value": "Enter amount"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Informe"
-          }
-        }
-      }
-    },
-    "report.totalBalance": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Общее состояние"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Net Balance"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Balance Neto"
-          }
-        }
-      }
-    },
-    "report.monthlyFlow": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ежемесячный поток"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monthly Flow"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Flujo Mensual"
-          }
-        }
-      }
-    },
-    "report.categories": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Категории"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Categories"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Categorías"
-          }
-        }
-      }
-    },
-    "report.transactions": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Транзакции"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transactions"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transacciones"
-          }
-        }
-      }
-    },
-    "search.placeholder": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Поиск транзакций..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search transactions..."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscar transacciones..."
-          }
-        }
-      }
-    },
-    "search.history": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "История поиска"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search History"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Historial de búsqueda"
-          }
-        }
-      }
-    },
-    "search.suggestions": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Предложения"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggestions"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sugerencias"
-          }
-        }
-      }
-    },
-    "search.clearHistory": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Очистить историю"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear History"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Borrar Historial"
-          }
-        }
-      }
-    },
-    "dashboard.overview": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Обзор расходов"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Expense Overview"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resumen de Gastos"
+            "value": "Ingrese el monto"
           }
         }
       }
