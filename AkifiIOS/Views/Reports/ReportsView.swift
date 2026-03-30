@@ -258,7 +258,7 @@ struct ReportsView: View {
     }
 }
 
-// MARK: - Category Transactions Sheet
+// MARK: - Category Detail Sheet (same design as CategoryBreakdownView)
 
 private struct ReportCategoryDetailSheet: View {
     let item: ReportsViewModel.CategoryBreakdownItem
@@ -267,34 +267,59 @@ private struct ReportCategoryDetailSheet: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
 
+    private var transactions: [Transaction] {
+        vm.monthTransactions(from: dataStore.transactions)
+            .filter { $0.categoryId == item.category.id }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                // Header with donut highlighting this category
-                VStack(spacing: 4) {
-                    Text(item.category.icon)
-                        .font(.largeTitle)
-                    Text(item.category.name)
-                        .font(.headline)
-                    Text(String(format: "%.0f%%", item.percentage))
-                        .font(.title.bold())
-                    Text(appViewModel.currencyManager.formatAmount(item.amount.displayAmount))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.top)
+            Group {
+                if transactions.isEmpty {
+                    ContentUnavailableView(String(localized: "home.noTransactions"), systemImage: "tray")
+                } else {
+                    List {
+                        // Summary card
+                        Section {
+                            HStack {
+                                Text(item.category.icon)
+                                    .font(.title2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.category.name)
+                                        .font(.headline)
+                                    Text("\(item.txCount) \(String(localized: "categories.transactions"))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(appViewModel.currencyManager.formatAmount(item.amount.displayAmount))
+                                    .font(.title3.weight(.bold))
+                                    .foregroundStyle(vm.selectedType == .expense ? Color.expense : Color.income)
+                            }
+                        }
 
-                // Transactions
-                let txs = vm.monthTransactions(from: dataStore.transactions)
-                    .filter { $0.categoryId == item.category.id }
-
-                List(txs) { tx in
-                    TransactionRowView(
-                        transaction: tx,
-                        category: dataStore.category(for: tx)
-                    )
+                        // Transaction rows
+                        Section {
+                            ForEach(transactions) { tx in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(tx.description ?? item.category.name)
+                                            .font(.subheadline)
+                                        Text(tx.date)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    let sign = vm.selectedType == .expense ? "-" : "+"
+                                    Text("\(sign)\(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(vm.selectedType == .expense ? Color.expense : Color.income)
+                                        .monospacedDigit()
+                                }
+                            }
+                        }
+                    }
                 }
-                .listStyle(.plain)
             }
             .navigationTitle(item.category.name)
             .navigationBarTitleDisplayMode(.inline)
