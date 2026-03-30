@@ -80,9 +80,12 @@ workflows:
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
           BUILD_NUMBER=$(($LATEST + 1))
-          echo "Build number: $BUILD_NUMBER"
+          echo "New build number: $BUILD_NUMBER (previous: $LATEST)"
+          # Set in Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" AkifiIOS/Info.plist
-          echo "export BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
+          # Override in project.pbxproj (XcodeGen sets CURRENT_PROJECT_VERSION = 1)
+          sed -i '' "s/CURRENT_PROJECT_VERSION = 1;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" AkifiIOS.xcodeproj/project.pbxproj
+          echo "Verify: $(grep 'CURRENT_PROJECT_VERSION' AkifiIOS.xcodeproj/project.pbxproj | head -1)"
 
       - name: Apply profiles to project
         script: |
