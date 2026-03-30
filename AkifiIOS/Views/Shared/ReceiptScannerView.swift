@@ -19,6 +19,7 @@ struct ReceiptScannerView: View {
     @State private var editMerchant = ""
     @State private var editAmount = ""
     @State private var editDescription = ""
+    @State private var editCurrency: CurrencyCode = .rub
     @State private var selectedAccountId: String?
     @State private var selectedCategoryId: String?
     @State private var transactionDate = Date()
@@ -161,9 +162,13 @@ struct ReceiptScannerView: View {
                     TextField("0", text: $editAmount)
                         .keyboardType(.decimalPad)
                         .font(.title2.weight(.bold))
-                    Text(appViewModel.currencyManager.selectedCurrency.symbol)
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                    Picker("", selection: $editCurrency) {
+                        ForEach(CurrencyCode.allCases, id: \.self) { c in
+                            Text(c.symbol).tag(c)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
                     if let conf = result.confidence {
                         Text("\(Int(conf * 100))%")
                             .font(.caption)
@@ -284,6 +289,11 @@ struct ReceiptScannerView: View {
             editMerchant = result.merchantName ?? ""
             editAmount = result.totalAmount > 0 ? String(format: "%.2f", result.totalAmount) : ""
             editDescription = result.summary ?? ""
+            if let cur = result.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+                editCurrency = code
+            } else {
+                editCurrency = appViewModel.currencyManager.selectedCurrency
+            }
             selectedAccountId = result.suggestedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id
             selectedCategoryId = result.suggestedCategoryId ?? result.categoryId
 
