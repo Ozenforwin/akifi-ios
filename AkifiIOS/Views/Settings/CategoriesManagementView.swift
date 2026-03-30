@@ -9,6 +9,7 @@ struct CategoriesManagementView: View {
     @State private var error: String?
     @State private var deletingCategory: Category?
     @State private var deletingTxCount = 0
+    @State private var selectedTab: CategoryType = .expense
 
     private let categoryRepo = CategoryRepository()
     private let maxActive = 40
@@ -40,7 +41,22 @@ struct CategoriesManagementView: View {
     }
 
     private var hiddenCategories: [Category] {
-        uniqueCategories.filter { !$0.isActive }
+        uniqueCategories.filter { !$0.isActive && $0.type == selectedTab }
+    }
+
+    private var visibleCategories: [Category] {
+        selectedTab == .expense ? activeExpense : activeIncome
+    }
+
+    /// Count transactions per category for subtitle
+    private var txCountByCategory: [String: Int] {
+        var counts: [String: Int] = [:]
+        for tx in dataStore.transactions {
+            if let catId = tx.categoryId {
+                counts[catId, default: 0] += 1
+            }
+        }
+        return counts
     }
 
     private var activeCount: Int {
@@ -48,34 +64,33 @@ struct CategoriesManagementView: View {
     }
 
     var body: some View {
-        List {
-            if !activeExpense.isEmpty {
-                Section(String(localized: "common.expenses")) {
-                    ForEach(activeExpense) { cat in
-                        categoryRow(cat)
+        VStack(spacing: 0) {
+            // Segment control
+            Picker("", selection: $selectedTab) {
+                Text(String(localized: "common.expenses")).tag(CategoryType.expense)
+                Text(String(localized: "common.incomes")).tag(CategoryType.income)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
+            List {
+                ForEach(visibleCategories) { cat in
+                    categoryRow(cat)
+                }
+
+                if !hiddenCategories.isEmpty {
+                    Section(String(localized: "categories.hidden")) {
+                        ForEach(hiddenCategories) { cat in
+                            categoryRow(cat)
+                        }
                     }
                 }
-            }
 
-            if !activeIncome.isEmpty {
-                Section(String(localized: "common.incomes")) {
-                    ForEach(activeIncome) { cat in
-                        categoryRow(cat)
-                    }
-                }
+                Color.clear.frame(height: 100)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
-
-            if !hiddenCategories.isEmpty {
-                Section(String(localized: "categories.hidden")) {
-                    ForEach(hiddenCategories) { cat in
-                        categoryRow(cat)
-                    }
-                }
-            }
-
-            Color.clear.frame(height: 100)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
         }
         .navigationTitle("Категории")
         .toolbar {
@@ -145,7 +160,23 @@ struct CategoriesManagementView: View {
     @ViewBuilder
     private func categoryRow(_ cat: Category) -> some View {
         HStack(spacing: 12) {
-            CategoryManagementRow(category: cat)
+            Text(cat.icon)
+                .font(.title2)
+                .frame(width: 40, height: 40)
+                .background(Color(hex: cat.color).opacity(0.15))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(cat.name)
+                    .font(.subheadline.weight(.medium))
+                let count = txCountByCategory[cat.id] ?? 0
+                Text("\(count) \(String(localized: "categories.transactions"))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
             Toggle("", isOn: Binding(
                 get: { cat.isActive },
                 set: { newVal in

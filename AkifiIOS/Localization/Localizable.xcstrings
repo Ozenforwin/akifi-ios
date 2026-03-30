@@ -10756,6 +10756,28 @@
           }
         }
       }
+    },
+    "categories.transactions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "транзакций"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "transactions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "transacciones"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
