@@ -314,15 +314,30 @@ struct ReceiptScannerView: View {
         request.httpBody = body
         request.timeoutInterval = 30
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let result = try JSONDecoder().decode(AnalyzeReceiptResponse.self, from: data)
+        let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard result.ok else {
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            throw NSError(domain: "receipt", code: httpResponse.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "Server error \(httpResponse.statusCode): \(body.prefix(200))"])
+        }
+
+        let decoder = JSONDecoder()
+        let result: AnalyzeReceiptResponse
+        do {
+            result = try decoder.decode(AnalyzeReceiptResponse.self, from: data)
+        } catch {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            throw NSError(domain: "receipt", code: -2,
+                          userInfo: [NSLocalizedDescriptionKey: "Decode error: \(error.localizedDescription). Response: \(body.prefix(300))"])
+        }
+
+        guard result.ok, let analysis = result.analysis else {
             throw NSError(domain: "receipt", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: result.error ?? "Analysis failed"])
         }
 
-        return result.analysis!
+        return analysis
     }
 
     private func finalizeReceipt(_ result: ReceiptAnalysis) async {
