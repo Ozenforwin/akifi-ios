@@ -289,7 +289,11 @@ struct ReceiptScannerView: View {
             if let dateStr = result.purchaseDate {
                 let df = DateFormatter()
                 df.dateFormat = "yyyy-MM-dd"
-                if let d = df.date(from: dateStr) { transactionDate = d }
+                if let d = df.date(from: dateStr),
+                   d.timeIntervalSinceNow > -365 * 24 * 3600 { // Not older than 1 year
+                    transactionDate = d
+                }
+                // else keep today's date (default)
             }
         } catch {
             self.error = error.localizedDescription
@@ -346,8 +350,8 @@ struct ReceiptScannerView: View {
     }
 
     private func finalizeReceipt(_ result: ReceiptAnalysis) async {
-        guard let scanId = result.receiptScanId else {
-            error = "Missing receipt scan ID"
+        guard let amount = Double(editAmount.replacingOccurrences(of: ",", with: ".")), amount > 0 else {
+            error = "Введите сумму"
             return
         }
 
@@ -355,26 +359,20 @@ struct ReceiptScannerView: View {
         error = nil
 
         do {
-            let supabase = SupabaseManager.shared.client
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
 
-            struct FinalizeInput: Encodable {
-                let receipt_scan_id: String
-                let accountId: String?
-                let categoryId: String?
-                let transactionDate: String?
-            }
-
-            let _: FinalizeReceiptResponse = try await supabase.functions.invoke(
-                "finalize-receipt",
-                options: .init(body: FinalizeInput(
-                    receipt_scan_id: scanId,
-                    accountId: selectedAccountId,
-                    categoryId: selectedCategoryId,
-                    transactionDate: df.string(from: transactionDate)
-                ))
-            )
+            let txRepo = TransactionRepository()
+            _ = try await txRepo.create(CreateTransactionInput(
+                account_id: selectedAccountId,
+                amount: Decimal(amount),
+                type: "expense",
+                date: df.string(from: transactionDate),
+                description: editDescription.isEmpty ? nil : editDescription,
+                category_id: selectedCategoryId,
+                merchant_name: editMerchant.isEmpty ? nil : editMerchant,
+                currency: nil
+            ))
 
             await onComplete()
             dismiss()
