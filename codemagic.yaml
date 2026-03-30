@@ -66,25 +66,22 @@ workflows:
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME"
 
-      - name: Increment build number
-        script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
-          BUILD_NUMBER=$(($LATEST + 1))
-          echo "New build number: $BUILD_NUMBER (previous: $LATEST)"
-          # Set in Info.plist directly
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" AkifiIOS/Info.plist
-          # Also override ALL occurrences in pbxproj
-          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" AkifiIOS.xcodeproj/project.pbxproj
-          # Verify
-          echo "Info.plist version: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" AkifiIOS/Info.plist)"
-          echo "pbxproj versions: $(grep -c "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" AkifiIOS.xcodeproj/project.pbxproj) occurrences"
-
       - name: Apply profiles to project
         script: |
           xcode-project use-profiles
 
-      - name: Build IPA
+      - name: Increment build number and build IPA
         script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || echo "0")
+          BUILD_NUMBER=$(($LATEST + 1))
+          echo "Build number: $BUILD_NUMBER"
+          # Set in Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" AkifiIOS/Info.plist
+          # Override in pbxproj (after use-profiles)
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" AkifiIOS.xcodeproj/project.pbxproj
+          echo "Verify plist: $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" AkifiIOS/Info.plist)"
+          echo "Verify pbxproj: $(grep 'CURRENT_PROJECT_VERSION' AkifiIOS.xcodeproj/project.pbxproj | head -1)"
+          # Build with explicit version override
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
