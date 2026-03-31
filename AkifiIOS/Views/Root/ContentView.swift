@@ -51,6 +51,7 @@ struct MainTabView: View {
     @State private var showAddTransfer = false
     @State private var showAddIncome = false
     @State private var showReceiptScanner = false
+    @State private var fabSelectedCategoryId: String?
     @State private var unlockedAchievement: Achievement?
 
     var body: some View {
@@ -73,9 +74,11 @@ struct MainTabView: View {
             // FAB
             FABView { action in
                 switch action {
-                case .income:
+                case .income(let categoryId):
+                    fabSelectedCategoryId = categoryId
                     showAddIncome = true
-                case .expense:
+                case .expense(let categoryId):
+                    fabSelectedCategoryId = categoryId
                     showAddTransaction = true
                 case .transfer:
                     showAddTransfer = true
@@ -106,18 +109,22 @@ struct MainTabView: View {
         .sheet(isPresented: $showAddTransaction) {
             TransactionFormView(
                 categories: appViewModel.dataStore.categories,
-                accounts: appViewModel.dataStore.accounts
+                accounts: appViewModel.dataStore.accounts,
+                defaultCategoryId: fabSelectedCategoryId
             ) {
                 await appViewModel.dataStore.loadAll()
+                fabSelectedCategoryId = nil
             }
         }
         .sheet(isPresented: $showAddIncome) {
             TransactionFormView(
                 categories: appViewModel.dataStore.categories,
                 accounts: appViewModel.dataStore.accounts,
-                defaultType: .income
+                defaultType: .income,
+                defaultCategoryId: fabSelectedCategoryId
             ) {
                 await appViewModel.dataStore.loadAll()
+                fabSelectedCategoryId = nil
             }
         }
         .sheet(isPresented: $showAddTransfer) {

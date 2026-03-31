@@ -1,7 +1,10 @@
 import SwiftUI
 
 enum FABAction {
-    case income, expense, transfer, receipt
+    case income(categoryId: String? = nil)
+    case expense(categoryId: String? = nil)
+    case transfer
+    case receipt
 }
 
 struct FABView: View {
@@ -21,8 +24,8 @@ struct FABView: View {
     // Angles match Telegram: arc from bottom-right going up-left
     private var menuItems: [(action: FABAction, label: String, icon: String, color: Color, angle: Double)] {
         [
-            (.income, String(localized: "common.income"), "arrow.up.right", Color.income.opacity(0.85), -100),
-            (.expense, String(localized: "common.expense"), "arrow.down.left", Color.expense.opacity(0.85), -125),
+            (.income(), String(localized: "common.income"), "arrow.up.right", Color.income.opacity(0.85), -100),
+            (.expense(), String(localized: "common.expense"), "arrow.down.left", Color.expense.opacity(0.85), -125),
             (.transfer, String(localized: "common.transfer"), "arrow.left.arrow.right", Color.transfer.opacity(0.85), -150),
             (.receipt, String(localized: "fab.receipt"), "doc.text.viewfinder", Color.budget.opacity(0.85), -175),
         ]
@@ -149,7 +152,7 @@ struct FABView: View {
                 layout: categoryLayout,
                 onSelect: { cat in
                     showCategorySheet = false
-                    onAction(selectedType == .income ? .income : .expense)
+                    onAction(selectedType == .income ? .income(categoryId: cat.id) : .expense(categoryId: cat.id))
                 },
                 onTransfer: {
                     showCategorySheet = false
@@ -303,7 +306,7 @@ struct FABView: View {
                     Button {
                         HapticManager.light()
                         withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-                        onAction(selectedType == .income ? .income : .expense)
+                        onAction(selectedType == .income ? .income(categoryId: cat.id) : .expense(categoryId: cat.id))
                     } label: {
                         VStack(spacing: 6) {
                             Circle()
@@ -338,7 +341,7 @@ struct FABView: View {
                     Button {
                         HapticManager.light()
                         withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-                        onAction(selectedType == .income ? .income : .expense)
+                        onAction(selectedType == .income ? .income(categoryId: cat.id) : .expense(categoryId: cat.id))
                     } label: {
                         HStack(spacing: 14) {
                             Circle()
@@ -399,7 +402,7 @@ struct FABView: View {
                 let pos = index < positions.count ? positions[index] : .zero
                 Button {
                     withAnimation(.spring(duration: 0.3)) { showCategoryWheel = false }
-                    onAction(selectedType == .income ? .income : .expense)
+                    onAction(selectedType == .income ? .income(categoryId: cat.id) : .expense(categoryId: cat.id))
                 } label: {
                     VStack(spacing: 2) {
                         ZStack {

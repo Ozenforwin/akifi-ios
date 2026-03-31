@@ -28,7 +28,7 @@ struct ShareAccountView: View {
                             HStack {
                                 Image(systemName: "person.circle.fill")
                                     .foregroundStyle(Color.accent)
-                                Text(member.userId.prefix(8) + "...")
+                                Text(memberName(member.userId))
                                     .font(.subheadline)
                                 Spacer()
                                 Text(member.role.rawValue.capitalized)
@@ -122,23 +122,36 @@ struct ShareAccountView: View {
         }
     }
 
+    private func memberName(_ userId: String) -> String {
+        if let profile = appViewModel.dataStore.profilesMap[userId] {
+            return profile.fullName ?? profile.email ?? String(userId.prefix(8)) + "..."
+        }
+        return String(userId.prefix(8)) + "..."
+    }
+
+    private struct InviteParams: Encodable {
+        let p_account_id: String
+        let p_role: String
+        let p_expires_hours: Int
+    }
+
     private func generateInvite() async {
         isGenerating = true
         error = nil
 
         do {
-            let token = UUID().uuidString
-            let input: [String: String] = [
-                "account_id": account.id,
-                "role": inviteRole.rawValue,
-                "token": token
-            ]
-
-            try await supabase
-                .from("account_invites")
-                .insert(input)
+            // Use RPC function (same as Mini App) — handles token hashing, expiry, created_by
+            let response: String = try await supabase
+                .rpc("create_account_invite", params: InviteParams(
+                    p_account_id: account.id,
+                    p_role: inviteRole.rawValue,
+                    p_expires_hours: 72
+                ))
                 .execute()
+                .value
 
+            // RPC returns the plain token (before hashing)
+            let token = response.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
             inviteLink = "akifi://invite/\(token)"
         } catch {
             self.error = error.localizedDescription

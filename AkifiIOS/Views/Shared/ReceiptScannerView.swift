@@ -396,9 +396,10 @@ struct ReceiptScannerView: View {
             let txRepo = TransactionRepository()
             let userId = try await txRepo.currentUserId()
             _ = try await txRepo.create(CreateTransactionInput(
-                    user_id: userId,
+                user_id: userId,
                 account_id: selectedAccountId,
                 amount: Decimal(amountRounded),
+                currency: nil,
                 type: "expense",
                 date: df.string(from: transactionDate),
                 description: description.isEmpty ? nil : description,

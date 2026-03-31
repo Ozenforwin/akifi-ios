@@ -372,6 +372,7 @@ struct BankImportView: View {
                     user_id: userId,
                     account_id: selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id,
                     amount: Decimal(tx.amount),
+                    currency: nil,
                     type: tx.type == "income" ? "income" : "expense",
                     date: tx.date,
                     description: tx.description,

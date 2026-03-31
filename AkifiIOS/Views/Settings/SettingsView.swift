@@ -26,12 +26,7 @@ struct SettingsView: View {
                     VStack(spacing: 8) {
                         ZStack {
                             Circle()
-                                .stroke(
-                                    appViewModel.paymentManager.isPremium
-                                        ? Color.tierGold
-                                        : Color.gray.opacity(0.3),
-                                    lineWidth: 3
-                                )
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 3)
                                 .frame(width: 80, height: 80)
 
                             if let avatarUrl = appViewModel.dataStore.profile?.avatarUrl,
@@ -53,11 +48,6 @@ struct SettingsView: View {
                         Text(appViewModel.dataStore.profile?.fullName ?? appViewModel.authManager.currentUser?.email ?? "User")
                             .font(.headline)
 
-                        if appViewModel.paymentManager.isPremium {
-                            Text("Premium")
-                                .font(.caption)
-                                .foregroundStyle(Color.tierGold)
-                        }
                     }
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
@@ -145,21 +135,6 @@ struct SettingsView: View {
                         AchievementsView()
                     } label: {
                         SettingsRow(icon: "trophy.fill", color: .yellow, title: String(localized: "achievements.title"))
-                    }
-                }
-
-                Section(header: Text("Premium")) {
-                    NavigationLink {
-                        PremiumPaywallView()
-                    } label: {
-                        HStack {
-                            SettingsRow(icon: "star.fill", color: .yellow, title: String(localized: "premium.title"))
-                            if appViewModel.paymentManager.isPremium {
-                                Text(String(localized: "premium.active"))
-                                    .font(.caption)
-                                    .foregroundStyle(Color.accent)
-                            }
-                        }
                     }
                 }
 

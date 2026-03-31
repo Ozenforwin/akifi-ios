@@ -104,9 +104,10 @@ final class SavingsViewModel {
             let txRepo = TransactionRepository()
             let userId = try await txRepo.currentUserId()
             let txInput = CreateTransactionInput(
-                    user_id: userId,
+                user_id: userId,
                 account_id: goal?.accountId,
                 amount: Decimal(amount) / 100,
+                currency: nil,
                 type: "transfer",
                 date: isoDateFormatter.string(from: Date()),
                 description: desc,

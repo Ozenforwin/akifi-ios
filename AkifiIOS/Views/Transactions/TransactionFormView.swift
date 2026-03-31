@@ -35,13 +35,16 @@ struct TransactionFormView: View {
 
     private var isEditing: Bool { editingTransaction != nil }
 
-    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, onSave: @escaping () async -> Void) {
+    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
         self.accounts = accounts
         self.editingTransaction = editingTransaction
         self.onSave = onSave
         if let defaultType, editingTransaction == nil {
             _selectedType = State(initialValue: defaultType)
+        }
+        if let defaultCategoryId, editingTransaction == nil {
+            _selectedCategoryId = State(initialValue: defaultCategoryId)
         }
     }
 
@@ -154,20 +157,27 @@ struct TransactionFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
-            // New transaction: default to the user's selected display currency
             selectedCurrency = appViewModel.currencyManager.selectedCurrency
             return
         }
-        calculatorState.setValue(tx.amount.displayAmount)
+
+        // Amount is stored in base currency (RUB) — convert to the tx currency for display
+        let cm = appViewModel.currencyManager
+        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+            selectedCurrency = code
+            // Convert from base (RUB) to the transaction's currency for editing
+            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: code)
+            calculatorState.setValue(displayAmount)
+        } else {
+            selectedCurrency = cm.selectedCurrency
+            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: cm.selectedCurrency)
+            calculatorState.setValue(displayAmount)
+        }
+
         description = tx.description ?? ""
         selectedType = tx.type
         selectedCategoryId = tx.categoryId
         selectedAccountId = tx.accountId
-        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
-            selectedCurrency = code
-        } else {
-            selectedCurrency = appViewModel.currencyManager.selectedCurrency
-        }
         if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
             date = txDate
         }
@@ -182,11 +192,21 @@ struct TransactionFormView: View {
         isLoading = true
         let dateStr = Self.isoDateTimeFormatter.string(from: date)
 
+        // Convert entered amount from selected currency to base currency (RUB)
+        let cm = appViewModel.currencyManager
+        let amountInBase: Decimal
+        if selectedCurrency == cm.dataCurrency {
+            amountInBase = amountValue
+        } else {
+            amountInBase = cm.convertFromAccountCurrency(amountValue, accountCurrency: selectedCurrency)
+        }
+
         do {
             let userId = try await transactionRepo.currentUserId()
             if let tx = editingTransaction {
                 let input = UpdateTransactionInput(
-                    amount: amountValue,
+                    amount: amountInBase,
+                    currency: selectedCurrency.rawValue,
                     type: selectedType.rawValue,
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
@@ -198,7 +218,8 @@ struct TransactionFormView: View {
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: selectedAccountId,
-                    amount: amountValue,
+                    amount: amountInBase,
+                    currency: selectedCurrency.rawValue,
                     type: selectedType.rawValue,
                     date: dateStr,
                     description: description.isEmpty ? nil : description,

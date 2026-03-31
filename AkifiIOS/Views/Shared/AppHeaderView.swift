@@ -12,12 +12,7 @@ struct AppHeaderView: View {
                 HStack(spacing: 8) {
                     ZStack {
                         Circle()
-                            .stroke(
-                                appViewModel.paymentManager.isPremium
-                                    ? Color.tierGold
-                                    : Color.gray.opacity(0.3),
-                                lineWidth: 2
-                            )
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 2)
                             .frame(width: 36, height: 36)
 
                         if let avatarUrl = appViewModel.dataStore.profile?.avatarUrl,
@@ -43,11 +38,6 @@ struct AppHeaderView: View {
                             .lineLimit(1)
                     }
 
-                    if appViewModel.paymentManager.isPremium {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.tierGold)
-                    }
                 }
             }
             .buttonStyle(.plain)

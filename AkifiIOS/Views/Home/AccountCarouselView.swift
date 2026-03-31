@@ -271,7 +271,9 @@ struct AccountCardView: View {
             .padding(.bottom, 2)
 
             // Balance
-            Text(appViewModel.currencyManager.formatAmount(balance.displayAmount))
+            Text(balance < 0
+                 ? "-\(appViewModel.currencyManager.formatAmount(balance.displayAmount))"
+                 : appViewModel.currencyManager.formatAmount(balance.displayAmount))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundStyle(balance < 0 ? Color.expense : .primary)
                 .blur(radius: isBalanceHidden ? 10 : 0)

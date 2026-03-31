@@ -61,6 +61,7 @@ struct CreateTransactionInput: Encodable, Sendable {
     let user_id: String
     let account_id: String?
     let amount: Decimal
+    let currency: String?
     let type: String
     let date: String
     let description: String?
@@ -70,6 +71,7 @@ struct CreateTransactionInput: Encodable, Sendable {
 
 struct UpdateTransactionInput: Encodable, Sendable {
     let amount: Decimal?
+    let currency: String?
     let type: String?
     let date: String?
     let description: String?
