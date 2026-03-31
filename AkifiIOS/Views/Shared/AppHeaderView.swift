@@ -41,6 +41,7 @@ struct AppHeaderView: View {
                 }
             }
             .buttonStyle(.plain)
+            .spotlight(.profileAvatar)
 
             Spacer()
 

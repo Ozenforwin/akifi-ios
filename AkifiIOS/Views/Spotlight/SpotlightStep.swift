@@ -3,6 +3,7 @@ import Foundation
 // MARK: - Spotlight Targets
 
 enum SpotlightTarget: String, CaseIterable {
+    case profileAvatar
     case accountCard
     case summaryCards
     case insightCards
@@ -11,6 +12,7 @@ enum SpotlightTarget: String, CaseIterable {
     case transactionsList
     case analyticsChart
     case budgetCard
+    case subscriptions
 }
 
 // MARK: - Tooltip Position
@@ -31,6 +33,12 @@ struct SpotlightStep {
     let padding: CGFloat
 
     static let allSteps: [SpotlightStep] = [
+        SpotlightStep(
+            target: .profileAvatar, tab: 0,
+            titleKey: "spotlight.profile.title",
+            descriptionKey: "spotlight.profile.description",
+            tooltipPosition: .below, cornerRadius: 20, padding: 6
+        ),
         SpotlightStep(
             target: .accountCard, tab: 0,
             titleKey: "spotlight.accountCard.title",
@@ -78,6 +86,12 @@ struct SpotlightStep {
             titleKey: "spotlight.budgets.title",
             descriptionKey: "spotlight.budgets.description",
             tooltipPosition: .below, cornerRadius: 16, padding: 6
+        ),
+        SpotlightStep(
+            target: .subscriptions, tab: 3,
+            titleKey: "spotlight.subscriptions.title",
+            descriptionKey: "spotlight.subscriptions.description",
+            tooltipPosition: .above, cornerRadius: 16, padding: 6
         ),
     ]
 }

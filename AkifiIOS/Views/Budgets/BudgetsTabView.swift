@@ -71,6 +71,7 @@ struct BudgetsTabView: View {
                                 .foregroundStyle(Color.accent)
                         }
                     }
+                    .spotlight(.subscriptions)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 

@@ -9055,6 +9055,29 @@
         }
       }
     },
+    "settings.resetTutorial": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset Tutorial"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiniciar tutorial"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить обучение"
+          }
+        }
+      }
+    },
     "settings.scanReceipt": {
       "extractionState": "stale",
       "localizations": {
@@ -9626,6 +9649,443 @@
           "stringUnit": {
             "state": "translated",
             "value": "Умные финансы"
+          }
+        }
+      }
+    },
+    "spotlight.accountCard.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe to switch accounts. Balance, income and expenses here"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desliza para cambiar de cuenta. Saldo, ingresos y gastos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свайпайте для переключения между счетами. Здесь баланс, доходы и расходы"
+          }
+        }
+      }
+    },
+    "spotlight.accountCard.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Accounts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus cuentas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваши счета"
+          }
+        }
+      }
+    },
+    "spotlight.ai.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask any question about your finances"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz cualquier pregunta sobre tus finanzas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задайте любой вопрос о своих финансах"
+          }
+        }
+      }
+    },
+    "spotlight.ai.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Assistant"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asistente IA"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-ассистент"
+          }
+        }
+      }
+    },
+    "spotlight.analytics.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Charts, trends and spending analysis by category"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gráficos, tendencias y análisis por categoría"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Графики, тренды и анализ расходов по категориям"
+          }
+        }
+      }
+    },
+    "spotlight.analytics.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analytics"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analítica"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аналитика"
+          }
+        }
+      }
+    },
+    "spotlight.budgets.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control spending with category budgets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controla gastos con presupuestos por categoría"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контролируйте расходы с помощью бюджетов по категориям"
+          }
+        }
+      }
+    },
+    "spotlight.budgets.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Budgets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuestos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бюджеты"
+          }
+        }
+      }
+    },
+    "spotlight.done": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
+      }
+    },
+    "spotlight.fab.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap for quick add. Long press for type selection"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca para agregar. Mantén para elegir tipo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите для быстрого добавления. Зажмите для выбора типа"
+          }
+        }
+      }
+    },
+    "spotlight.fab.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Transaction"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar operación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить операцию"
+          }
+        }
+      }
+    },
+    "spotlight.insights.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personal AI observations about your finances"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observaciones de IA sobre tus finanzas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Персональные наблюдения о ваших финансах от ИИ"
+          }
+        }
+      }
+    },
+    "spotlight.insights.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI Insights"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perspectivas IA"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI-инсайты"
+          }
+        }
+      }
+    },
+    "spotlight.next": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Далее"
+          }
+        }
+      }
+    },
+    "spotlight.skip": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить"
+          }
+        }
+      }
+    },
+    "spotlight.summary.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Income and expenses for the current month"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ingresos y gastos del mes actual"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доходы и расходы за текущий месяц на одном экране"
+          }
+        }
+      }
+    },
+    "spotlight.summary.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly Summary"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumen mensual"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Итоги месяца"
+          }
+        }
+      }
+    },
+    "spotlight.transactions.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All transactions in one place. Use filters and search in the toolbar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las transacciones. Usa filtros y búsqueda arriba"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все операции в одном месте. Используйте фильтры и поиск в верхней панели"
+          }
+        }
+      }
+    },
+    "spotlight.transactions.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transactions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transacciones"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Операции"
           }
         }
       }
@@ -11768,442 +12228,90 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "spotlight.accountCard.title": {
+    "spotlight.profile.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ваши счета"
+            "value": "Профиль и настройки"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Accounts"
+            "value": "Profile & Settings"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus cuentas"
+            "value": "Perfil y ajustes"
           }
         }
       }
     },
-    "spotlight.accountCard.description": {
+    "spotlight.profile.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Свайпайте для переключения между счетами. Здесь баланс, доходы и расходы"
+            "value": "Нажмите на аватарку для доступа к настройкам, валюте, категориям и другим параметрам"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Swipe to switch accounts. Balance, income and expenses here"
+            "value": "Tap your avatar to access settings, currency, categories and more"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desliza para cambiar de cuenta. Saldo, ingresos y gastos"
+            "value": "Toca tu avatar para acceder a ajustes, moneda, categorías y más"
           }
         }
       }
     },
-    "spotlight.summary.title": {
+    "spotlight.subscriptions.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Итоги месяца"
+            "value": "Подписки"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Monthly Summary"
+            "value": "Subscriptions"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Resumen mensual"
+            "value": "Suscripciones"
           }
         }
       }
     },
-    "spotlight.summary.description": {
+    "spotlight.subscriptions.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Доходы и расходы за текущий месяц на одном экране"
+            "value": "Отслеживайте регулярные платежи: Netflix, Spotify и другие подписки"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Income and expenses for the current month"
+            "value": "Track recurring payments: Netflix, Spotify and other subscriptions"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ingresos y gastos del mes actual"
-          }
-        }
-      }
-    },
-    "spotlight.insights.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AI-инсайты"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AI Insights"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Perspectivas IA"
-          }
-        }
-      }
-    },
-    "spotlight.insights.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Персональные наблюдения о ваших финансах от ИИ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Personal AI observations about your finances"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Observaciones de IA sobre tus finanzas"
-          }
-        }
-      }
-    },
-    "spotlight.fab.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавить операцию"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add Transaction"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Agregar operación"
-          }
-        }
-      }
-    },
-    "spotlight.fab.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Нажмите для быстрого добавления. Зажмите для выбора типа"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap for quick add. Long press for type selection"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca para agregar. Mantén para elegir tipo"
-          }
-        }
-      }
-    },
-    "spotlight.ai.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AI-ассистент"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "AI Assistant"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Asistente IA"
-          }
-        }
-      }
-    },
-    "spotlight.ai.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Задайте любой вопрос о своих финансах"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask any question about your finances"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Haz cualquier pregunta sobre tus finanzas"
-          }
-        }
-      }
-    },
-    "spotlight.transactions.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Операции"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transactions"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transacciones"
-          }
-        }
-      }
-    },
-    "spotlight.transactions.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Все операции в одном месте. Используйте фильтры и поиск в верхней панели"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All transactions in one place. Use filters and search in the toolbar"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todas las transacciones. Usa filtros y búsqueda arriba"
-          }
-        }
-      }
-    },
-    "spotlight.analytics.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Аналитика"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analytics"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analítica"
-          }
-        }
-      }
-    },
-    "spotlight.analytics.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Графики, тренды и анализ расходов по категориям"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Charts, trends and spending analysis by category"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gráficos, tendencias y análisis por categoría"
-          }
-        }
-      }
-    },
-    "spotlight.budgets.title": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Бюджеты"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Budgets"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Presupuestos"
-          }
-        }
-      }
-    },
-    "spotlight.budgets.description": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Контролируйте расходы с помощью бюджетов по категориям"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Control spending with category budgets"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Controla gastos con presupuestos por categoría"
-          }
-        }
-      }
-    },
-    "spotlight.next": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Далее"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Siguiente"
-          }
-        }
-      }
-    },
-    "spotlight.skip": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пропустить"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Omitir"
-          }
-        }
-      }
-    },
-    "spotlight.done": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Готово"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Done"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listo"
-          }
-        }
-      }
-    },
-    "settings.resetTutorial": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сбросить обучение"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset Tutorial"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reiniciar tutorial"
+            "value": "Rastrea pagos recurrentes: Netflix, Spotify y otras suscripciones"
           }
         }
       }
