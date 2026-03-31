@@ -118,6 +118,14 @@ struct SettingsView: View {
                     HapticToggleRow()
                 }
 
+                Section(header: Text(String(localized: "settings.section.accounts"))) {
+                    NavigationLink {
+                        AcceptInviteView()
+                    } label: {
+                        SettingsRow(icon: "person.badge.plus", color: .blue, title: String(localized: "invite.title"))
+                    }
+                }
+
                 Section(header: Text(String(localized: "settings.section.finance"))) {
                     NavigationLink {
                         SavingsGoalListView()
