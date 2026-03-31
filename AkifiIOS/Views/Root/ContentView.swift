@@ -104,7 +104,9 @@ struct MainTabView: View {
             // Spotlight onboarding overlay (must be LAST — above everything)
             SpotlightOverlayView(manager: spotlightManager)
         }
-        .onPreferenceChange(SpotlightFramePreferenceKey.self) { spotlightManager.frames = $0 }
+        .onPreferenceChange(SpotlightFramePreferenceKey.self) { newFrames in
+            Task { @MainActor in spotlightManager.frames = newFrames }
+        }
         .onChange(of: spotlightManager.currentStepIndex) { _, _ in
             if let tab = spotlightManager.requiredTab, tab != selectedTab {
                 withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
