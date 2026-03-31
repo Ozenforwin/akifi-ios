@@ -152,7 +152,7 @@ struct ShareAccountView: View {
 
             // RPC returns the plain token (before hashing)
             let token = response.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-            inviteLink = "akifi://invite/\(token)"
+            inviteLink = "https://t.me/akifiapp_bot/app?startapp=invite_\(token)"
         } catch {
             self.error = error.localizedDescription
         }
