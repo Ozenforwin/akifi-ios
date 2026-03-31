@@ -51,6 +51,7 @@ struct AnalyticsTabView: View {
                     VStack(spacing: 12) {
                         // 1. Monthly Summary with % change
                         MonthlySummaryView(transactions: allTransactions)
+                            .spotlight(.analyticsChart)
 
                     // 2. Daily Limit Widget
                     if !dataStore.budgets.isEmpty {

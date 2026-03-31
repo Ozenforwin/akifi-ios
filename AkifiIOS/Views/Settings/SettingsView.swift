@@ -116,6 +116,12 @@ struct SettingsView: View {
                     }
 
                     HapticToggleRow()
+
+                    Button {
+                        UserDefaults.standard.set(false, forKey: "spotlight_completed")
+                    } label: {
+                        SettingsRow(icon: "lightbulb.fill", color: .yellow, title: String(localized: "settings.resetTutorial"))
+                    }
                 }
 
                 Section(header: Text(String(localized: "settings.section.accounts"))) {

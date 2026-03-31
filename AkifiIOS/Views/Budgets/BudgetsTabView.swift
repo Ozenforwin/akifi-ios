@@ -18,9 +18,10 @@ struct BudgetsTabView: View {
                         .listRowSeparator(.hidden)
                 } else if !dataStore.budgets.isEmpty {
                     Section {
-                        ForEach(dataStore.budgets) { budget in
+                        ForEach(Array(dataStore.budgets.enumerated()), id: \.element.id) { index, budget in
                             let metrics = BudgetMath.compute(budget: budget, transactions: dataStore.transactions)
                             BudgetCardView(budget: budget, metrics: metrics, categories: dataStore.categories)
+                                .spotlight(index == 0 ? .budgetCard : nil)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 .listRowBackground(Color.clear)

@@ -88,6 +88,7 @@ struct TransactionsTabView: View {
                     ) {
                         showReports = true
                     }
+                    .spotlight(.transactionsList)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
                 }

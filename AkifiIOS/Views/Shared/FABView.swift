@@ -114,6 +114,7 @@ struct FABView: View {
                     HStack {
                         Spacer()
                         fabCircle(icon: "plus")
+                            .spotlight(.fabButton)
                             .accessibilityLabel(String(localized: "fab.addTransaction"))
                             .accessibilityHint(String(localized: "fab.addHint"))
                             .onLongPressGesture(minimumDuration: 0.4, perform: {

@@ -54,6 +54,7 @@ struct HomeTabView: View {
                                 }
                             }
                         )
+                        .spotlight(.accountCard)
                     }
 
                     // 2. Streak
@@ -61,6 +62,7 @@ struct HomeTabView: View {
 
                     // 3. AI Insights
                     InsightCardsView()
+                        .spotlight(.insightCards)
 
                     // 4. Savings
                     HomeSavingsSnapshotView()
@@ -70,6 +72,7 @@ struct HomeTabView: View {
                         transactions: dataStore.transactions,
                         selectedAccount: viewModel.selectedAccount(from: dataStore.accounts)
                     )
+                    .spotlight(.summaryCards)
 
                     // 6. Recent Transactions
                     RecentTransactionsView(

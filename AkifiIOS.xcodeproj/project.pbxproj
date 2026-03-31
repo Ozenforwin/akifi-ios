@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0345570121348BC01B535E8F /* SavingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F136560E724B698AAFBBF9A /* SavingsViewModel.swift */; };
+		04448EFF553906143F2AD5B5 /* SpotlightModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E463F3FAEDCA00440D5C99 /* SpotlightModifier.swift */; };
 		047E52ED7B05D07131A59598 /* CategoriesManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */; };
 		04A6BDF7961FC89DAC1B65AB /* SavingsGoalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */; };
 		04DF61DAB1C3076A88989578 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */; };
@@ -49,8 +50,10 @@
 		4B8053643D54199D333D083A /* ActionPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806E97C784D40A84056083B6 /* ActionPreviewSheet.swift */; };
 		4C7B88FA388B736C22FFC444 /* PaymentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8473385CFEE3FE00448561C8 /* PaymentManager.swift */; };
 		4DFA98A29CD11692D0D8EA90 /* BudgetRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9CEC09B09C3CEE4AA15174 /* BudgetRepository.swift */; };
+		4F962E24B5EE1563A140A353 /* SpotlightManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CDC7206DD23DFB58751BD48 /* SpotlightManager.swift */; };
 		53C1915048C8687517E78A47 /* AchievementRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46150F6E1E8857A9291AA5C9 /* AchievementRepository.swift */; };
 		5A843CB504E6A189C1618FEE /* HomeSavingsSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149E11AA96194A21601EE73F /* HomeSavingsSnapshotView.swift */; };
+		5AD6490E05B861C649831BB8 /* SpotlightOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7215620F05BB349362DA2B9 /* SpotlightOverlayView.swift */; };
 		5C8BC6CB019FA31D9ED58699 /* TransactionsMiniDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 078DB91A5775EA921538DB48 /* TransactionsMiniDashboardView.swift */; };
 		5D06A7492FB09370A52F5C3C /* PortfolioChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19329F8617609B485DA08998 /* PortfolioChartView.swift */; };
 		600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */; };
@@ -108,6 +111,7 @@
 		C2C0D64A725EBA3C08CBACB4 /* PremiumPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7755B9D1937707AF8E6E1F /* PremiumPaywallView.swift */; };
 		C3686727ACD0FF16D46F6DC1 /* FABView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C98CA2133AC932C9121D5C /* FABView.swift */; };
 		C52AC774F4405C0A1A0752A1 /* AkifiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */; };
+		C618F65F38AC951409C0C37E /* SpotlightStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB6D2EFDD49877E69E0338D /* SpotlightStep.swift */; };
 		C882899C457897D6F70CFA41 /* SubscriptionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA724320D711DD058E2B4D82 /* SubscriptionsViewModel.swift */; };
 		CAA9B0E2E6D674DBF6C9F6E6 /* ContributionSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */; };
 		CE13051C181A1D26E2789254 /* AccountFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676F23AAA29C1D39C746C9AE /* AccountFormView.swift */; };
@@ -190,8 +194,11 @@
 		53FDEFCC827F6CD5FCB66A64 /* SavingsGoalFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalFormView.swift; sourceTree = "<group>"; };
 		547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBadgeView.swift; sourceTree = "<group>"; };
 		5656863DA0BB761890744ECF /* akifi_logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = akifi_logo.png; sourceTree = "<group>"; };
+		58E463F3FAEDCA00440D5C99 /* SpotlightModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpotlightModifier.swift; sourceTree = "<group>"; };
 		596E30134A0FA5750FF736B6 /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
 		59E5F93F8BC1E265B6438CCB /* SavingsGoalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalCardView.swift; sourceTree = "<group>"; };
+		5CB6D2EFDD49877E69E0338D /* SpotlightStep.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpotlightStep.swift; sourceTree = "<group>"; };
+		5CDC7206DD23DFB58751BD48 /* SpotlightManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpotlightManager.swift; sourceTree = "<group>"; };
 		60E9E3612446CC1E7CCC72C7 /* FilterHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterHeaderView.swift; sourceTree = "<group>"; };
 		616C0D248E5CD52D019DE875 /* HomeTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTabView.swift; sourceTree = "<group>"; };
 		6280C5856C5C60280581779C /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
@@ -281,6 +288,7 @@
 		F3E319DCDCF80CFB17EC0B0A /* MigrationCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationCodeView.swift; sourceTree = "<group>"; };
 		F4C98CA2133AC932C9121D5C /* FABView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABView.swift; sourceTree = "<group>"; };
 		F548FDEE64F06C210D42CBDA /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
+		F7215620F05BB349362DA2B9 /* SpotlightOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpotlightOverlayView.swift; sourceTree = "<group>"; };
 		FEF54246AA8846CFBFDE7C2B /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
 		FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -407,6 +415,18 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		5DF438FDC5A24CBAEAF9572D /* Spotlight */ = {
+			isa = PBXGroup;
+			children = (
+				5CB6D2EFDD49877E69E0338D /* SpotlightStep.swift */,
+				58E463F3FAEDCA00440D5C99 /* SpotlightModifier.swift */,
+				5CDC7206DD23DFB58751BD48 /* SpotlightManager.swift */,
+				F7215620F05BB349362DA2B9 /* SpotlightOverlayView.swift */,
+			);
+			name = Spotlight;
+			path = Spotlight;
+			sourceTree = "<group>";
+		};
 		5E8FAFE209AAF135E3A5AF01 /* Achievements */ = {
 			isa = PBXGroup;
 			children = (
@@ -433,6 +453,7 @@
 				46CB101CBF2747D6CD7F6738 /* Shared */,
 				E955F9EE96445ACE45C9C366 /* Subscriptions */,
 				962F4C3A60082B3DBCE5D576 /* Transactions */,
+				5DF438FDC5A24CBAEAF9572D /* Spotlight */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -845,6 +866,10 @@
 				A7A02FD46221C19DBDFD8FFD /* TransferFormView.swift in Sources */,
 				E8F3EE26B63DC6074D347C6F /* UserSubscription.swift in Sources */,
 				881DA615E1193E7ECBE034AE /* WidgetFilterView.swift in Sources */,
+				C618F65F38AC951409C0C37E /* SpotlightStep.swift in Sources */,
+				04448EFF553906143F2AD5B5 /* SpotlightModifier.swift in Sources */,
+				4F962E24B5EE1563A140A353 /* SpotlightManager.swift in Sources */,
+				5AD6490E05B861C649831BB8 /* SpotlightOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

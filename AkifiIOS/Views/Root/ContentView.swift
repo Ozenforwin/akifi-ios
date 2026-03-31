@@ -53,6 +53,7 @@ struct MainTabView: View {
     @State private var showReceiptScanner = false
     @State private var fabSelectedCategoryId: String?
     @State private var unlockedAchievement: Achievement?
+    @State private var spotlightManager = SpotlightManager()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -98,6 +99,20 @@ struct MainTabView: View {
                     unlockedAchievement = nil
                 }
                 .transition(.opacity)
+            }
+
+            // Spotlight onboarding overlay (must be LAST — above everything)
+            SpotlightOverlayView(manager: spotlightManager)
+        }
+        .onPreferenceChange(SpotlightFramePreferenceKey.self) { spotlightManager.frames = $0 }
+        .onChange(of: spotlightManager.currentStepIndex) { _, _ in
+            if let tab = spotlightManager.requiredTab, tab != selectedTab {
+                withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                spotlightManager.start()
             }
         }
         .ignoresSafeArea(edges: .bottom)
@@ -209,6 +224,7 @@ private struct CustomTabBar: View {
                             .foregroundStyle(.white)
                     }
                     .offset(y: -22)
+                    .spotlight(.aiButton)
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)

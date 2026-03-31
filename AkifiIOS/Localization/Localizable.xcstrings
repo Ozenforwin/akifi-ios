@@ -5625,6 +5625,213 @@
         }
       }
     },
+    "invite.accept": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принять"
+          }
+        }
+      }
+    },
+    "invite.codePlaceholder": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite code"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de invitación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код приглашения"
+          }
+        }
+      }
+    },
+    "invite.errorAlreadyMember": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You are already a member"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya eres miembro"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы уже участник этого счёта"
+          }
+        }
+      }
+    },
+    "invite.errorExpired": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite has expired"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La invitación ha expirado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок приглашения истёк"
+          }
+        }
+      }
+    },
+    "invite.errorNotFound": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite not found or already used"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitación no encontrada o ya utilizada"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приглашение не найдено или уже использовано"
+          }
+        }
+      }
+    },
+    "invite.errorUnknown": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to accept invite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al aceptar la invitación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось принять приглашение"
+          }
+        }
+      }
+    },
+    "invite.pasteHint": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste the invite code you received"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega el código de invitación que recibiste"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставьте код приглашения, который вам отправили"
+          }
+        }
+      }
+    },
+    "invite.success": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You joined the account!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Te uniste a la cuenta!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы присоединились к счёту!"
+          }
+        }
+      }
+    },
+    "invite.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept invite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar invitación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Принять приглашение"
+          }
+        }
+      }
+    },
     "layout.grid": {
       "extractionState": "stale",
       "localizations": {
@@ -6638,7 +6845,6 @@
         }
       }
     },
-    "Premium": {},
     "premium.active": {
       "extractionState": "stale",
       "localizations": {
@@ -8872,6 +9078,29 @@
         }
       }
     },
+    "settings.section.accounts": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuentas"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Счета"
+          }
+        }
+      }
+    },
     "settings.section.data": {
       "extractionState": "stale",
       "localizations": {
@@ -9052,6 +9281,328 @@
           "stringUnit": {
             "state": "translated",
             "value": "Тема"
+          }
+        }
+      }
+    },
+    "share.codeHint": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send this code to another Akifi user. Code expires in 72 hours."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envía este código a otro usuario de Akifi. El código expira en 72 horas."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправьте этот код другому пользователю Akifi. Код действует 72 часа."
+          }
+        }
+      }
+    },
+    "share.copied": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Copiado!"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скопировано!"
+          }
+        }
+      }
+    },
+    "share.copy": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать"
+          }
+        }
+      }
+    },
+    "share.createCode": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create invite code"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crear código de invitación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать код приглашения"
+          }
+        }
+      }
+    },
+    "share.editor": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Редактор"
+          }
+        }
+      }
+    },
+    "share.invite": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пригласить"
+          }
+        }
+      }
+    },
+    "share.inviteCode": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite code"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de invitación"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Код приглашения"
+          }
+        }
+      }
+    },
+    "share.members": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Members"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miembros"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Участники"
+          }
+        }
+      }
+    },
+    "share.messageTemplate.%@.%@": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join my account \"%1$@\" in Akifi! Invite code: %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¡Únete a mi cuenta \"%1$@\" en Akifi! Código de invitación: %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Присоединяйся к моему счёту \"%1$@\" в Akifi! Код приглашения: %2$@"
+          }
+        }
+      }
+    },
+    "share.onlyYou": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo tú"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только вы"
+          }
+        }
+      }
+    },
+    "share.role": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rol"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Роль"
+          }
+        }
+      }
+    },
+    "share.send": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить"
+          }
+        }
+      }
+    },
+    "share.title": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared access"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso compartido"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Совместный доступ"
+          }
+        }
+      }
+    },
+    "share.viewer": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viewer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Observador"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наблюдатель"
           }
         }
       }
@@ -11178,7 +11729,6 @@
     "Квартал": {},
     "Месяц": {},
     "Миграция из Telegram": {},
-    "Наблюдатель": {},
     "Начните управлять своими финансами прямо сейчас": {},
     "Обзор расходов >": {},
     "Общая": {},
@@ -11194,7 +11744,6 @@
     "Привязать аккаунт": {},
     "Разблокируйте все возможности": {},
     "Расход": {},
-    "Редактор": {},
     "Риск: %@": {},
     "Скоро": {},
     "Снятие": {},
@@ -11212,7 +11761,6 @@
     "Сохранено": {},
     "Текущий прогресс": {},
     "Тихие часы": {},
-    "Только вы": {},
     "Тон ответов": {},
     "Транзакций к экспорту": {},
     "Уведомления": {},
@@ -11220,530 +11768,442 @@
     "Умный финансовый помощник для управления вашими деньгами": {},
     "Частота по дням": {},
     "Что умеет Akifi": {},
-    "share.members": {
+    "spotlight.accountCard.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Участники"
+            "value": "Ваши счета"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Members"
+            "value": "Your Accounts"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Miembros"
+            "value": "Tus cuentas"
           }
         }
       }
     },
-    "share.onlyYou": {
+    "spotlight.accountCard.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Только вы"
+            "value": "Свайпайте для переключения между счетами. Здесь баланс, доходы и расходы"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Only you"
+            "value": "Swipe to switch accounts. Balance, income and expenses here"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo tú"
+            "value": "Desliza para cambiar de cuenta. Saldo, ingresos y gastos"
           }
         }
       }
     },
-    "share.invite": {
+    "spotlight.summary.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пригласить"
+            "value": "Итоги месяца"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite"
+            "value": "Monthly Summary"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invitar"
+            "value": "Resumen mensual"
           }
         }
       }
     },
-    "share.role": {
+    "spotlight.summary.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Роль"
+            "value": "Доходы и расходы за текущий месяц на одном экране"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Role"
+            "value": "Income and expenses for the current month"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rol"
+            "value": "Ingresos y gastos del mes actual"
           }
         }
       }
     },
-    "share.editor": {
+    "spotlight.insights.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Редактор"
+            "value": "AI-инсайты"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Editor"
+            "value": "AI Insights"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Editor"
+            "value": "Perspectivas IA"
           }
         }
       }
     },
-    "share.viewer": {
+    "spotlight.insights.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Наблюдатель"
+            "value": "Персональные наблюдения о ваших финансах от ИИ"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Viewer"
+            "value": "Personal AI observations about your finances"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Observador"
+            "value": "Observaciones de IA sobre tus finanzas"
           }
         }
       }
     },
-    "share.createCode": {
+    "spotlight.fab.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Создать код приглашения"
+            "value": "Добавить операцию"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create invite code"
+            "value": "Add Transaction"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Crear código de invitación"
+            "value": "Agregar operación"
           }
         }
       }
     },
-    "share.inviteCode": {
+    "spotlight.fab.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код приглашения"
+            "value": "Нажмите для быстрого добавления. Зажмите для выбора типа"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite code"
+            "value": "Tap for quick add. Long press for type selection"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Código de invitación"
+            "value": "Toca para agregar. Mantén para elegir tipo"
           }
         }
       }
     },
-    "share.codeHint": {
+    "spotlight.ai.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отправьте этот код другому пользователю Akifi. Код действует 72 часа."
+            "value": "AI-ассистент"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send this code to another Akifi user. Code expires in 72 hours."
+            "value": "AI Assistant"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Envía este código a otro usuario de Akifi. El código expira en 72 horas."
+            "value": "Asistente IA"
           }
         }
       }
     },
-    "share.copied": {
+    "spotlight.ai.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Скопировано!"
+            "value": "Задайте любой вопрос о своих финансах"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copied!"
+            "value": "Ask any question about your finances"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¡Copiado!"
+            "value": "Haz cualquier pregunta sobre tus finanzas"
           }
         }
       }
     },
-    "share.copy": {
+    "spotlight.transactions.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Копировать"
+            "value": "Операции"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy"
+            "value": "Transactions"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiar"
+            "value": "Transacciones"
           }
         }
       }
     },
-    "share.send": {
+    "spotlight.transactions.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отправить"
+            "value": "Все операции в одном месте. Используйте фильтры и поиск в верхней панели"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send"
+            "value": "All transactions in one place. Use filters and search in the toolbar"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enviar"
+            "value": "Todas las transacciones. Usa filtros y búsqueda arriba"
           }
         }
       }
     },
-    "share.title": {
+    "spotlight.analytics.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Совместный доступ"
+            "value": "Аналитика"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shared access"
+            "value": "Analytics"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Acceso compartido"
+            "value": "Analítica"
           }
         }
       }
     },
-    "invite.title": {
+    "spotlight.analytics.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Принять приглашение"
+            "value": "Графики, тренды и анализ расходов по категориям"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accept invite"
+            "value": "Charts, trends and spending analysis by category"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aceptar invitación"
+            "value": "Gráficos, tendencias y análisis por categoría"
           }
         }
       }
     },
-    "invite.pasteHint": {
+    "spotlight.budgets.title": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставьте код приглашения, который вам отправили"
+            "value": "Бюджеты"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste the invite code you received"
+            "value": "Budgets"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pega el código de invitación que recibiste"
+            "value": "Presupuestos"
           }
         }
       }
     },
-    "invite.codePlaceholder": {
+    "spotlight.budgets.description": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Код приглашения"
+            "value": "Контролируйте расходы с помощью бюджетов по категориям"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite code"
+            "value": "Control spending with category budgets"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Código de invitación"
+            "value": "Controla gastos con presupuestos por categoría"
           }
         }
       }
     },
-    "invite.accept": {
+    "spotlight.next": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Принять"
+            "value": "Далее"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Accept"
+            "value": "Next"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aceptar"
+            "value": "Siguiente"
           }
         }
       }
     },
-    "invite.success": {
+    "spotlight.skip": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вы присоединились к счёту!"
+            "value": "Пропустить"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "You joined the account!"
+            "value": "Skip"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¡Te uniste a la cuenta!"
+            "value": "Omitir"
           }
         }
       }
     },
-    "invite.errorNotFound": {
+    "spotlight.done": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Приглашение не найдено или уже использовано"
+            "value": "Готово"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite not found or already used"
+            "value": "Done"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invitación no encontrada o ya utilizada"
+            "value": "Listo"
           }
         }
       }
     },
-    "invite.errorExpired": {
+    "settings.resetTutorial": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Срок приглашения истёк"
+            "value": "Сбросить обучение"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invite has expired"
+            "value": "Reset Tutorial"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La invitación ha expirado"
-          }
-        }
-      }
-    },
-    "invite.errorAlreadyMember": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Вы уже участник этого счёта"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You are already a member"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ya eres miembro"
-          }
-        }
-      }
-    },
-    "invite.errorUnknown": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Не удалось принять приглашение"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Failed to accept invite"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Error al aceptar la invitación"
-          }
-        }
-      }
-    },
-    "settings.section.accounts": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Счета"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accounts"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cuentas"
-          }
-        }
-      }
-    },
-    "share.messageTemplate.%@.%@": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Присоединяйся к моему счёту \"%1$@\" в Akifi! Код приглашения: %2$@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Join my account \"%1$@\" in Akifi! Invite code: %2$@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¡Únete a mi cuenta \"%1$@\" en Akifi! Código de invitación: %2$@"
+            "value": "Reiniciar tutorial"
           }
         }
       }
