@@ -11,7 +11,7 @@ struct SettingsView: View {
 
     private var currentLanguageName: String {
         switch appLanguage {
-        case "ru": return "Русский"
+        case "ru": return String(localized: "language.russian")
         case "en": return "English"
         case "es": return "Español"
         default: return String(localized: "settings.language.system")
@@ -56,9 +56,9 @@ struct SettingsView: View {
                 // Stats
                 Section {
                     HStack(spacing: 16) {
-                        StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: "Счетов")
-                        StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: "Операций")
-                        StatBadge(value: "\(appViewModel.dataStore.categories.count)", label: "Категорий")
+                        StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: String(localized: "stats.accounts"))
+                        StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: String(localized: "stats.transactions"))
+                        StatBadge(value: "\(appViewModel.dataStore.categories.count)", label: String(localized: "stats.categories"))
                     }
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
@@ -315,7 +315,7 @@ struct ThemePickerView: View {
                 appViewModel.themeManager.setTheme(nil)
             } label: {
                 HStack {
-                    Label("Системная", systemImage: "gear")
+                    Label(String(localized: "theme.system"), systemImage: "gear")
                         .foregroundStyle(.primary)
                     Spacer()
                     if appViewModel.themeManager.selectedScheme == nil {
@@ -328,7 +328,7 @@ struct ThemePickerView: View {
                 appViewModel.themeManager.setTheme(.light)
             } label: {
                 HStack {
-                    Label("Светлая", systemImage: "sun.max.fill")
+                    Label(String(localized: "theme.light"), systemImage: "sun.max.fill")
                         .foregroundStyle(.primary)
                     Spacer()
                     if appViewModel.themeManager.selectedScheme == .light {
@@ -341,7 +341,7 @@ struct ThemePickerView: View {
                 appViewModel.themeManager.setTheme(.dark)
             } label: {
                 HStack {
-                    Label("Тёмная", systemImage: "moon.fill")
+                    Label(String(localized: "theme.dark"), systemImage: "moon.fill")
                         .foregroundStyle(.primary)
                     Spacer()
                     if appViewModel.themeManager.selectedScheme == .dark {
@@ -350,7 +350,7 @@ struct ThemePickerView: View {
                 }
             }
         }
-        .navigationTitle("Тема")
+        .navigationTitle(String(localized: "settings.theme"))
     }
 }
 
@@ -382,23 +382,23 @@ struct CategoryLayoutPickerView: View {
                 }
             }
         }
-        .navigationTitle("Вид категорий")
+        .navigationTitle(String(localized: "settings.categoryLayout"))
     }
 
     private func displayName(_ option: String) -> String {
         switch option {
-        case "wheel": return "Кольцо"
-        case "grid": return "Сетка"
-        case "list": return "Список"
+        case "wheel": return String(localized: "categoryLayout.wheel")
+        case "grid": return String(localized: "categoryLayout.grid")
+        case "list": return String(localized: "categoryLayout.list")
         default: return option
         }
     }
 
     private func descriptionText(_ option: String) -> String {
         switch option {
-        case "wheel": return "Категории по кругу"
-        case "grid": return "Компактная сетка иконок"
-        case "list": return "Полный список с названиями"
+        case "wheel": return String(localized: "categoryLayout.wheel.description")
+        case "grid": return String(localized: "categoryLayout.grid.description")
+        case "list": return String(localized: "categoryLayout.list.description")
         default: return ""
         }
     }
@@ -443,7 +443,7 @@ struct CurrencyPickerView: View {
                 .foregroundStyle(.primary)
             }
         }
-        .navigationTitle("Валюта")
+        .navigationTitle(String(localized: "settings.currency"))
     }
 }
 

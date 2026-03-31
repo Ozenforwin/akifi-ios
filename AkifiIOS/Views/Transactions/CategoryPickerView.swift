@@ -42,19 +42,19 @@ struct CategoryPickerView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(category.name), \(selectedCategoryId == category.id ? "выбрано" : "")")
+                        .accessibilityLabel("\(category.name), \(selectedCategoryId == category.id ? String(localized: "common.selected") : "")")
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Категория")
+            .navigationTitle(String(localized: "category.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Без категории") {
+                    Button(String(localized: "transaction.noCategory")) {
                         selectedCategoryId = nil
                         dismiss()
                     }

@@ -22,8 +22,8 @@ final class NotificationManager {
 
     func scheduleBudgetWarning(budgetName: String, percentage: Int) {
         let content = UNMutableNotificationContent()
-        content.title = "Бюджет: \(budgetName)"
-        content.body = "Использовано \(percentage)% бюджета. Следите за расходами!"
+        content.title = String(localized: "notification.budget.title \(budgetName)")
+        content.body = String(localized: "notification.budget.body \(percentage)")
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
@@ -38,8 +38,8 @@ final class NotificationManager {
 
     func scheduleLargeExpenseAlert(amount: String) {
         let content = UNMutableNotificationContent()
-        content.title = "Крупный расход"
-        content.body = "Зафиксирован расход на \(amount). Проверьте операцию."
+        content.title = String(localized: "notification.largeExpense.title")
+        content.body = String(localized: "notification.largeExpense.body \(amount)")
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
@@ -54,8 +54,8 @@ final class NotificationManager {
 
     func scheduleInactivityReminder(days: Int = 3) {
         let content = UNMutableNotificationContent()
-        content.title = "Давно не заходили"
-        content.body = "Не забывайте записывать расходы. Так легче контролировать бюджет!"
+        content.title = String(localized: "notification.inactivity.title")
+        content.body = String(localized: "notification.inactivity.body")
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(
@@ -73,8 +73,8 @@ final class NotificationManager {
 
     func scheduleSavingsMilestone(goalName: String, milestone: Int) {
         let content = UNMutableNotificationContent()
-        content.title = "Цель: \(goalName)"
-        content.body = "Поздравляем! Вы достигли \(milestone)% цели!"
+        content.title = String(localized: "notification.savings.title \(goalName)")
+        content.body = String(localized: "notification.savings.body \(milestone)")
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)

@@ -100,7 +100,7 @@ final class SavingsViewModel {
 
             // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }
-            let desc = "\(goal?.name ?? "Накопления"): \(type == .withdrawal ? "снятие" : "пополнение")\(note != nil ? " — \(note!)" : "")"
+            let desc = "\(goal?.name ?? String(localized: "home.savings")): \(type == .withdrawal ? String(localized: "contribution.withdrawal") : String(localized: "contribution.deposit"))\(note != nil ? " — \(note!)" : "")"
             let txRepo = TransactionRepository()
             let userId = try await txRepo.currentUserId()
             let txInput = CreateTransactionInput(

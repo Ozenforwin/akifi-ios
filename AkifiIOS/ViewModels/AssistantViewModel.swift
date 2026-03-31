@@ -77,7 +77,7 @@ final class AssistantViewModel {
                 }
             }
         } catch {
-            self.error = "Ошибка записи"
+            self.error = String(localized: "assistant.recordingError")
         }
     }
 
@@ -104,7 +104,7 @@ final class AssistantViewModel {
               data.count > 1000 else {
             recordingDuration = 0
             recordingURL = nil
-            self.error = "Запись слишком короткая"
+            self.error = String(localized: "assistant.recordingTooShort")
             return
         }
 
@@ -191,11 +191,11 @@ final class AssistantViewModel {
 
         // Validate length
         guard text.count >= 2 else {
-            self.error = "Минимум 2 символа"
+            self.error = String(localized: "assistant.minChars")
             return
         }
         guard text.count <= 500 else {
-            self.error = "Максимум 500 символов"
+            self.error = String(localized: "assistant.maxChars")
             return
         }
 
@@ -263,12 +263,12 @@ final class AssistantViewModel {
 
     func requestActionPreview(_ action: AssistantAction, messageId: String?) async {
         guard let conversationId = currentConversation?.id else {
-            self.error = "Нет активного разговора"
+            self.error = String(localized: "assistant.noActiveConversation")
             return
         }
         let msgId = messageId ?? chatMessages.last(where: { $0.role == .assistant })?.messageId ?? ""
         guard !msgId.isEmpty else {
-            self.error = "Не удалось определить сообщение"
+            self.error = String(localized: "assistant.cannotIdentifyMessage")
             return
         }
 
@@ -318,7 +318,7 @@ final class AssistantViewModel {
             if let index = chatMessages.lastIndex(where: { $0.messageId == msgId }) {
                 chatMessages[index].actionResult = ChatMessage.ActionResultState(
                     success: response.ok,
-                    message: response.ok ? "Действие выполнено" : (response.error ?? "Ошибка выполнения")
+                    message: response.ok ? String(localized: "assistant.actionCompleted") : (response.error ?? String(localized: "assistant.actionFailed"))
                 )
             }
 

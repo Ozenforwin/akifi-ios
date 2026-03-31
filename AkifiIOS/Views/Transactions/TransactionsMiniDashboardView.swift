@@ -20,9 +20,9 @@ struct TransactionsMiniDashboardView: View {
         }
 
         let shortLabels: [Int: String] = [
-            1: "Янв.", 2: "Февр.", 3: "Март", 4: "Апр.",
-            5: "Май", 6: "Июнь", 7: "Июль", 8: "Авг.",
-            9: "Сент.", 10: "Окт.", 11: "Нояб.", 12: "Дек."
+            1: String(localized: "month.jan"), 2: String(localized: "month.feb"), 3: String(localized: "month.mar"), 4: String(localized: "month.apr"),
+            5: String(localized: "month.may"), 6: String(localized: "month.jun"), 7: String(localized: "month.jul"), 8: String(localized: "month.aug"),
+            9: String(localized: "month.sep"), 10: String(localized: "month.oct"), 11: String(localized: "month.nov"), 12: String(localized: "month.dec")
         ]
 
         let currentKey: String = {
@@ -55,18 +55,18 @@ struct TransactionsMiniDashboardView: View {
         VStack(alignment: .leading, spacing: 8) {
             Chart(monthlyData) { entry in
                 BarMark(
-                    x: .value("Месяц", entry.label),
-                    y: .value("Сумма", entry.income)
+                    x: .value(String(localized: "chart.month"), entry.label),
+                    y: .value(String(localized: "chart.amount"), entry.income)
                 )
                 .foregroundStyle(Color.income)
-                .position(by: .value("Тип", "income"))
+                .position(by: .value(String(localized: "chart.type"), "income"))
 
                 BarMark(
-                    x: .value("Месяц", entry.label),
-                    y: .value("Сумма", entry.expense)
+                    x: .value(String(localized: "chart.month"), entry.label),
+                    y: .value(String(localized: "chart.amount"), entry.expense)
                 )
                 .foregroundStyle(Color.expense)
-                .position(by: .value("Тип", "expense"))
+                .position(by: .value(String(localized: "chart.type"), "expense"))
             }
             .chartYAxis {
                 AxisMarks(position: .leading) { value in
@@ -96,7 +96,7 @@ struct TransactionsMiniDashboardView: View {
             .frame(height: 120)
 
             Button(action: onOpenReports) {
-                Text("Обзор расходов >")
+                Text(String(localized: "dashboard.expenseOverview"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.accent)
             }

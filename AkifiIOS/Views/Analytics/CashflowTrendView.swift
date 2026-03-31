@@ -17,7 +17,7 @@ struct CashflowTrendView: View {
     private static let monthLabelFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "LLL"
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale.current
         return df
     }()
 
@@ -104,7 +104,7 @@ struct CashflowTrendView: View {
             }
 
             if let selected = selectedPoint {
-                RuleMark(x: .value("Месяц", selected.label))
+                RuleMark(x: .value(String(localized: "chart.month"), selected.label))
                     .foregroundStyle(Color.gray.opacity(0.3))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
@@ -133,8 +133,8 @@ struct CashflowTrendView: View {
 
     private func incomeMarks(point: TrendPoint) -> some ChartContent {
         LineMark(
-            x: .value("Месяц", point.label),
-            y: .value("Сумма", point.income),
+            x: .value(String(localized: "chart.month"), point.label),
+            y: .value(String(localized: "chart.amount"), point.income),
             series: .value("type", String(localized: "common.incomes"))
         )
         .foregroundStyle(Color.income)
@@ -145,8 +145,8 @@ struct CashflowTrendView: View {
 
     private func expenseMarks(point: TrendPoint) -> some ChartContent {
         LineMark(
-            x: .value("Месяц", point.label),
-            y: .value("Сумма", point.expense),
+            x: .value(String(localized: "chart.month"), point.label),
+            y: .value(String(localized: "chart.amount"), point.expense),
             series: .value("type", String(localized: "common.expenses"))
         )
         .foregroundStyle(Color.expense)

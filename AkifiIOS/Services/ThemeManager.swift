@@ -27,10 +27,10 @@ final class ThemeManager {
 
     var themeName: String {
         switch selectedScheme {
-        case .light: return "Светлая"
-        case .dark: return "Тёмная"
-        case nil: return "Системная"
-        @unknown default: return "Системная"
+        case .light: return String(localized: "theme.light")
+        case .dark: return String(localized: "theme.dark")
+        case nil: return String(localized: "theme.system")
+        @unknown default: return String(localized: "theme.system")
         }
     }
 }

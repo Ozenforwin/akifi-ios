@@ -3,27 +3,27 @@ import SwiftUI
 struct QuickPromptsView: View {
     let onSelect: (String) -> Void
 
-    private let prompts = [
-        ("chart.bar", "Сколько я потратил в этом месяце?"),
-        ("list.bullet", "Покажи расходы по категориям"),
-        ("arrow.up.arrow.down", "Сравни расходы с прошлым месяцем"),
-        ("lightbulb", "Как мне сэкономить?"),
-        ("exclamationmark.triangle", "Есть ли аномалии в расходах?"),
-        ("wallet.bifold", "Какой бюджет я превысил?")
+    private let prompts: [(String, LocalizedStringKey, String)] = [
+        ("chart.bar", "assistant.prompt.spending", "assistant.prompt.spending.query"),
+        ("list.bullet", "assistant.prompt.categories", "assistant.prompt.categories.query"),
+        ("arrow.up.arrow.down", "assistant.prompt.compare", "assistant.prompt.compare.query"),
+        ("lightbulb", "assistant.prompt.save", "assistant.prompt.save.query"),
+        ("exclamationmark.triangle", "assistant.prompt.anomalies", "assistant.prompt.anomalies.query"),
+        ("wallet.bifold", "assistant.prompt.budget", "assistant.prompt.budget.query"),
     ]
 
     var body: some View {
         VStack(spacing: 8) {
-            ForEach(prompts, id: \.1) { icon, text in
+            ForEach(prompts, id: \.2) { icon, displayKey, queryKey in
                 Button {
-                    onSelect(text)
+                    onSelect(String(localized: String.LocalizationValue(queryKey)))
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: icon)
                             .font(.subheadline)
                             .foregroundStyle(Color.accent)
                             .frame(width: 24)
-                        Text(text)
+                        Text(displayKey)
                             .font(.subheadline)
                             .foregroundStyle(.primary)
                         Spacer()

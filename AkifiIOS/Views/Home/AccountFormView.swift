@@ -30,8 +30,8 @@ struct AccountFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Название") {
-                    TextField("Мой счёт", text: $name)
+                Section(String(localized: "common.name")) {
+                    TextField(String(localized: "account.namePlaceholder"), text: $name)
                 }
 
                 Section(String(localized: "account.balance")) {
@@ -43,7 +43,7 @@ struct AccountFormView: View {
                     }
                 }
 
-                Section("Валюта") {
+                Section(String(localized: "settings.currency")) {
                     ForEach(CurrencyCode.allCases, id: \.self) { currency in
                         Button {
                             selectedCurrency = currency
@@ -64,7 +64,7 @@ struct AccountFormView: View {
                     }
                 }
 
-                Section("Иконка") {
+                Section(String(localized: "categories.icon")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
                         ForEach(icons, id: \.self) { icon in
                             Text(icon)
@@ -78,7 +78,7 @@ struct AccountFormView: View {
                     }
                 }
 
-                Section("Цвет") {
+                Section(String(localized: "categories.color")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                         ForEach(colors, id: \.self) { color in
                             Circle()
@@ -104,14 +104,14 @@ struct AccountFormView: View {
                     }
                 }
             }
-            .navigationTitle(isEditing ? "Редактировать счёт" : "Новый счёт")
+            .navigationTitle(isEditing ? String(localized: "account.edit") : String(localized: "account.new"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isEditing ? "Сохранить" : "Создать") {
+                    Button(isEditing ? String(localized: "common.save") : String(localized: "common.create")) {
                         Task { await save() }
                     }
                     .disabled(name.isEmpty || isSaving)

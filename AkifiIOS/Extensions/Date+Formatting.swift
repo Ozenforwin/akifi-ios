@@ -23,13 +23,13 @@ extension Transaction {
     private static let isoDF: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale(identifier: "en_US_POSIX")
         return df
     }()
 
     private static let outDateDF: DateFormatter = {
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale.current
         df.dateFormat = "d MMM yyyy"
         return df
     }()
@@ -44,7 +44,7 @@ extension Transaction {
 
     private static let outTimeDF: DateFormatter = {
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale.current
         df.dateFormat = "HH:mm"
         return df
     }()

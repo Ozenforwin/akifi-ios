@@ -285,11 +285,11 @@ enum FeedbackReason: String, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .wrongData: return "Неточные данные"
-        case .notHelpful: return "Не помогло"
-        case .misunderstood: return "Не понял вопрос"
-        case .tooVague: return "Слишком размыто"
-        case .other: return "Другое"
+        case .wrongData: return String(localized: "feedback.wrongData")
+        case .notHelpful: return String(localized: "feedback.notHelpful")
+        case .misunderstood: return String(localized: "feedback.misunderstood")
+        case .tooVague: return String(localized: "feedback.tooVague")
+        case .other: return String(localized: "feedback.other")
         }
     }
 }
@@ -327,17 +327,17 @@ enum AITone: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .balanced: return "Сбалансированный"
-        case .strict: return "Сдержанный"
-        case .friendly: return "Дружелюбный"
+        case .balanced: return String(localized: "tone.balanced")
+        case .strict: return String(localized: "tone.strict")
+        case .friendly: return String(localized: "tone.friendly")
         }
     }
 
     var description: String {
         switch self {
-        case .balanced: return "Помогающий, нейтральный тон"
-        case .strict: return "Факты, кратко, фокус на рисках"
-        case .friendly: return "Тёплый, поддерживающий стиль"
+        case .balanced: return String(localized: "tone.balanced.description")
+        case .strict: return String(localized: "tone.strict.description")
+        case .friendly: return String(localized: "tone.friendly.description")
         }
     }
 }
@@ -356,19 +356,19 @@ enum AssistantErrorType: Sendable {
     var userMessage: String {
         switch self {
         case .auth:
-            return "Сессия истекла. Перезайдите в приложение."
+            return String(localized: "error.auth.sessionExpired")
         case .rateLimit:
-            return "Достигнут лимит запросов (40/день). Попробуйте завтра."
+            return String(localized: "error.rateLimit")
         case .timeout:
-            return "Время ожидания истекло. Попробуйте позже."
+            return String(localized: "error.timeout")
         case .network:
-            return "Нет подключения к интернету."
+            return String(localized: "error.noInternet")
         case .notDeployed:
-            return "AI-помощник временно недоступен."
+            return String(localized: "error.aiUnavailable")
         case .validation(let msg):
             return msg
         case .unknown(let msg):
-            return "Ошибка: \(msg)"
+            return "\(String(localized: "error.prefix")): \(msg)"
         }
     }
 

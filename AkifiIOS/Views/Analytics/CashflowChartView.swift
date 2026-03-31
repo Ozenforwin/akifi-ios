@@ -15,15 +15,15 @@ struct CashflowChartView: View {
             } else {
                 Chart(data) { point in
                     BarMark(
-                        x: .value("Период", point.label),
-                        y: .value("Сумма", point.income)
+                        x: .value(String(localized: "chart.period"), point.label),
+                        y: .value(String(localized: "chart.amount"), point.income)
                     )
                     .foregroundStyle(.green.gradient)
                     .position(by: .value("type", String(localized: "common.incomes")))
 
                     BarMark(
-                        x: .value("Период", point.label),
-                        y: .value("Сумма", point.expense)
+                        x: .value(String(localized: "chart.period"), point.label),
+                        y: .value(String(localized: "chart.amount"), point.expense)
                     )
                     .foregroundStyle(.red.gradient)
                     .position(by: .value("type", String(localized: "common.expenses")))

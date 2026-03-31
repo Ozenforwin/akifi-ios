@@ -28,14 +28,14 @@ struct ExportView: View {
 
     var body: some View {
         Form {
-            Section("Период") {
-                DatePicker("С", selection: $startDate, displayedComponents: .date)
-                DatePicker("По", selection: $endDate, displayedComponents: .date)
+            Section(String(localized: "export.period")) {
+                DatePicker(String(localized: "export.from"), selection: $startDate, displayedComponents: .date)
+                DatePicker(String(localized: "export.to"), selection: $endDate, displayedComponents: .date)
             }
 
-            Section("Счёт") {
-                Picker("Счёт", selection: $selectedAccountId) {
-                    Text("Все счета").tag(nil as String?)
+            Section(String(localized: "export.account")) {
+                Picker(String(localized: "export.account"), selection: $selectedAccountId) {
+                    Text(String(localized: "export.allAccounts")).tag(nil as String?)
                     ForEach(dataStore.accounts) { account in
                         Text("\(account.icon) \(account.name)").tag(account.id as String?)
                     }
@@ -44,7 +44,7 @@ struct ExportView: View {
 
             Section {
                 HStack {
-                    Text("Транзакций к экспорту")
+                    Text(String(localized: "export.transactionsToExport"))
                     Spacer()
                     Text("\(filteredTransactions.count)")
                         .foregroundStyle(.secondary)
@@ -60,7 +60,7 @@ struct ExportView: View {
                         if isExporting {
                             ProgressView()
                         } else {
-                            Label("Экспортировать CSV", systemImage: "square.and.arrow.up")
+                            Label(String(localized: "export.exportCSV"), systemImage: "square.and.arrow.up")
                         }
                         Spacer()
                     }
@@ -68,7 +68,7 @@ struct ExportView: View {
                 .disabled(filteredTransactions.isEmpty || isExporting)
             }
         }
-        .navigationTitle("Экспорт")
+        .navigationTitle(String(localized: "settings.export"))
         .sheet(isPresented: $showShareSheet) {
             if let url = exportURL {
                 ShareSheet(activityItems: [url])

@@ -12,8 +12,16 @@ struct LevelInfo {
     static let thresholds = [0, 50, 150, 350, 600, 1000, 1500, 2500, 4000, 6000]
 
     static let names: [String] = [
-        "Новичок", "Ученик", "Финансист", "Эксперт", "Мастер",
-        "Гуру", "Легенда", "Титан", "Чемпион", "Магнат"
+        String(localized: "level.novice"),
+        String(localized: "level.apprentice"),
+        String(localized: "level.financier"),
+        String(localized: "level.expert"),
+        String(localized: "level.master"),
+        String(localized: "level.guru"),
+        String(localized: "level.legend"),
+        String(localized: "level.titan"),
+        String(localized: "level.champion"),
+        String(localized: "level.tycoon"),
     ]
 
     static func from(totalPoints: Int) -> LevelInfo {

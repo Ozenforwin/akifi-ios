@@ -99,14 +99,14 @@ final class ReportsViewModel {
 
     private static let monthLabelFormatter: DateFormatter = {
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
-        df.dateFormat = "LLLL yyyy 'г.'"
+        df.locale = Locale.current
+        df.dateFormat = "LLLL yyyy"
         return df
     }()
 
     private static let shortMonthLabelFormatter: DateFormatter = {
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale.current
         df.dateFormat = "LLL yyyy"
         return df
     }()
@@ -199,7 +199,7 @@ final class ReportsViewModel {
             id: "uncategorized",
             userId: "",
             accountId: nil,
-            name: "Без категории",
+            name: String(localized: "transaction.noCategory"),
             icon: "💰",
             color: "#94A3B8",
             type: selectedType,

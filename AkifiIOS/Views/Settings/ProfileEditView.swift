@@ -45,7 +45,7 @@ struct ProfileEditView: View {
                     }
 
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                        Text("Изменить фото")
+                        Text(String(localized: "profile.changePhoto"))
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(Color.accent)
                     }
@@ -54,7 +54,7 @@ struct ProfileEditView: View {
                         Button(role: .destructive) {
                             avatarUrl = nil
                         } label: {
-                            Text("Удалить фото")
+                            Text(String(localized: "profile.deletePhoto"))
                                 .font(.caption)
                         }
                     }
@@ -63,8 +63,8 @@ struct ProfileEditView: View {
                 .listRowBackground(Color.clear)
             }
 
-            Section("Личные данные") {
-                TextField("Имя", text: $fullName)
+            Section(String(localized: "profile.personalData")) {
+                TextField(String(localized: "profile.name"), text: $fullName)
                     .textContentType(.name)
 
                 TextField("Email", text: $email)
@@ -75,7 +75,7 @@ struct ProfileEditView: View {
 
             if appViewModel.dataStore.profile?.telegramLinkedAt != nil {
                 Section("Telegram") {
-                    Label("Аккаунт привязан", systemImage: "checkmark.circle.fill")
+                    Label(String(localized: "profile.telegramLinked"), systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                 }
             }
@@ -88,10 +88,10 @@ struct ProfileEditView: View {
                 }
             }
         }
-        .navigationTitle("Профиль")
+        .navigationTitle(String(localized: "settings.profile"))
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Сохранить") {
+                Button(String(localized: "common.save")) {
                     Task { await save() }
                 }
                 .disabled(isSaving || isUploadingAvatar)
@@ -135,21 +135,21 @@ struct ProfileEditView: View {
 
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else {
-                error = "Не удалось загрузить изображение"
+                error = String(localized: "profile.error.loadImage")
                 isUploadingAvatar = false
                 return
             }
 
             // Resize to max 400x400 for avatar
             guard let uiImage = UIImage(data: data) else {
-                error = "Неверный формат изображения"
+                error = String(localized: "profile.error.invalidFormat")
                 isUploadingAvatar = false
                 return
             }
 
             let resized = resizeImage(uiImage, maxSize: 400)
             guard let jpegData = resized.jpegData(compressionQuality: 0.8) else {
-                error = "Ошибка сжатия изображения"
+                error = String(localized: "profile.error.compression")
                 isUploadingAvatar = false
                 return
             }
@@ -174,7 +174,7 @@ struct ProfileEditView: View {
             // Add cache-busting parameter
             avatarUrl = publicURL.absoluteString + "?t=\(Int(Date().timeIntervalSince1970))"
         } catch {
-            self.error = "Ошибка загрузки: \(error.localizedDescription)"
+            self.error = "\(String(localized: "profile.error.upload")): \(error.localizedDescription)"
         }
 
         isUploadingAvatar = false

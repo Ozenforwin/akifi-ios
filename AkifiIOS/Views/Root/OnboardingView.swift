@@ -57,11 +57,11 @@ struct WelcomeStepView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(Color.accent.gradient)
 
-            Text("Добро пожаловать\nв Akifi")
+            Text(String(localized: "onboarding.welcome.title"))
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
 
-            Text("Умный финансовый помощник для управления вашими деньгами")
+            Text(String(localized: "onboarding.welcome.subtitle"))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -69,7 +69,7 @@ struct WelcomeStepView: View {
 
             Spacer()
 
-            OnboardingButton(title: "Начать", action: onNext)
+            OnboardingButton(title: String(localized: "onboarding.welcome.start"), action: onNext)
         }
     }
 }
@@ -88,10 +88,10 @@ struct CurrencyStepView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(Color.accent.gradient)
 
-            Text("Выберите валюту")
+            Text(String(localized: "onboarding.currency.title"))
                 .font(.title2.bold())
 
-            Text("Все суммы будут отображаться в выбранной валюте")
+            Text(String(localized: "onboarding.currency.subtitle"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -126,7 +126,7 @@ struct CurrencyStepView: View {
 
             Spacer()
 
-            OnboardingButton(title: "Далее", action: onNext)
+            OnboardingButton(title: String(localized: "common.next"), action: onNext)
         }
     }
 }
@@ -151,11 +151,11 @@ struct AccountStepView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(Color.accent.gradient)
 
-            Text("Создайте первый счёт")
+            Text(String(localized: "onboarding.account.title"))
                 .font(.title2.bold())
 
             VStack(spacing: 16) {
-                TextField("Название счёта", text: $accountName)
+                TextField(String(localized: "onboarding.account.namePlaceholder"), text: $accountName)
                     .padding()
                     .background(Color(.systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -177,7 +177,7 @@ struct AccountStepView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                OnboardingButton(title: accountName.isEmpty ? "Пропустить" : "Создать и продолжить") {
+                OnboardingButton(title: accountName.isEmpty ? String(localized: "common.skip") : String(localized: "onboarding.account.createAndContinue")) {
                     if !accountName.isEmpty {
                         isCreating = true
                         let repo = AccountRepository()
@@ -188,7 +188,7 @@ struct AccountStepView: View {
                 }
 
                 if !accountName.isEmpty {
-                    Button("Пропустить") { onNext() }
+                    Button(String(localized: "common.skip")) { onNext() }
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -206,21 +206,21 @@ struct FeaturesStepView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Text("Что умеет Akifi")
+            Text(String(localized: "onboarding.features.title"))
                 .font(.title2.bold())
 
             VStack(alignment: .leading, spacing: 16) {
-                FeatureRow(icon: "arrow.left.arrow.right", color: .blue, title: "Операции", subtitle: "Доходы, расходы и переводы")
-                FeatureRow(icon: "chart.bar.fill", color: .purple, title: "Аналитика", subtitle: "Графики и отчёты по категориям")
-                FeatureRow(icon: "wallet.bifold.fill", color: .orange, title: "Бюджеты", subtitle: "Контролируйте расходы")
-                FeatureRow(icon: "target", color: Color.accent, title: "Накопления", subtitle: "Копите на мечту с процентами")
-                FeatureRow(icon: "sparkles", color: .yellow, title: "AI-ассистент", subtitle: "Персональные финансовые советы")
+                FeatureRow(icon: "arrow.left.arrow.right", color: .blue, title: String(localized: "onboarding.features.transactions"), subtitle: String(localized: "onboarding.features.transactions.subtitle"))
+                FeatureRow(icon: "chart.bar.fill", color: .purple, title: String(localized: "onboarding.features.analytics"), subtitle: String(localized: "onboarding.features.analytics.subtitle"))
+                FeatureRow(icon: "wallet.bifold.fill", color: .orange, title: String(localized: "onboarding.features.budgets"), subtitle: String(localized: "onboarding.features.budgets.subtitle"))
+                FeatureRow(icon: "target", color: Color.accent, title: String(localized: "onboarding.features.savings"), subtitle: String(localized: "onboarding.features.savings.subtitle"))
+                FeatureRow(icon: "sparkles", color: .yellow, title: String(localized: "onboarding.features.aiAssistant"), subtitle: String(localized: "onboarding.features.aiAssistant.subtitle"))
             }
             .padding(.horizontal, 24)
 
             Spacer()
 
-            OnboardingButton(title: "Далее", action: onNext)
+            OnboardingButton(title: String(localized: "common.next"), action: onNext)
         }
     }
 }
@@ -263,32 +263,32 @@ struct NotificationsStepView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(Color.accent.gradient)
 
-            Text("Уведомления")
+            Text(String(localized: "onboarding.notifications.title"))
                 .font(.title2.bold())
 
-            Text("Получайте оповещения о бюджетах, крупных расходах и достижении целей накоплений")
+            Text(String(localized: "onboarding.notifications.subtitle"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
             VStack(alignment: .leading, spacing: 12) {
-                NotificationFeatureRow(icon: "wallet.bifold", text: "Предупреждения о бюджете")
-                NotificationFeatureRow(icon: "exclamationmark.triangle", text: "Крупные расходы")
-                NotificationFeatureRow(icon: "target", text: "Достижение целей")
-                NotificationFeatureRow(icon: "flame", text: "Поддержка стрика")
+                NotificationFeatureRow(icon: "wallet.bifold", text: String(localized: "onboarding.notifications.budgetWarnings"))
+                NotificationFeatureRow(icon: "exclamationmark.triangle", text: String(localized: "onboarding.notifications.largeExpenses"))
+                NotificationFeatureRow(icon: "target", text: String(localized: "onboarding.notifications.goalReached"))
+                NotificationFeatureRow(icon: "flame", text: String(localized: "onboarding.notifications.streakSupport"))
             }
             .padding(.horizontal, 32)
 
             Spacer()
 
             VStack(spacing: 12) {
-                OnboardingButton(title: "Включить уведомления") {
+                OnboardingButton(title: String(localized: "onboarding.notifications.enable")) {
                     await notificationManager.requestAuthorization()
                     onNext()
                 }
 
-                Button("Пропустить") { onNext() }
+                Button(String(localized: "common.skip")) { onNext() }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -324,10 +324,10 @@ struct CompletionStepView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(Color.accent.gradient)
 
-            Text("Всё готово!")
+            Text(String(localized: "onboarding.completion.title"))
                 .font(.title.bold())
 
-            Text("Начните управлять своими финансами прямо сейчас")
+            Text(String(localized: "onboarding.completion.subtitle"))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -335,7 +335,7 @@ struct CompletionStepView: View {
 
             Spacer()
 
-            OnboardingButton(title: "Перейти в приложение", action: onFinish)
+            OnboardingButton(title: String(localized: "onboarding.completion.goToApp"), action: onFinish)
         }
     }
 }

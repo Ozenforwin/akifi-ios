@@ -92,7 +92,7 @@ struct CategoriesManagementView: View {
                     .listRowSeparator(.hidden)
             }
         }
-        .navigationTitle("Категории")
+        .navigationTitle(String(localized: "budgets.categories"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 8) {
@@ -140,19 +140,19 @@ struct CategoriesManagementView: View {
                 }
             }
         }
-        .alert("Удалить категорию?", isPresented: .init(
+        .alert(String(localized: "categories.deleteConfirm"), isPresented: .init(
             get: { deletingCategory != nil },
             set: { if !$0 { deletingCategory = nil } }
         )) {
-            Button("Отмена", role: .cancel) { deletingCategory = nil }
-            Button("Удалить", role: .destructive) {
+            Button(String(localized: "common.cancel"), role: .cancel) { deletingCategory = nil }
+            Button(String(localized: "common.delete"), role: .destructive) {
                 if let cat = deletingCategory {
                     Task { await performDelete(cat) }
                 }
             }
         } message: {
             if let cat = deletingCategory {
-                Text("Категория «\(cat.name)» используется в \(deletingTxCount) транзакциях. Она будет скрыта, но транзакции сохранятся.")
+                Text(String(localized: "categories.deleteWarning \(cat.name) \(deletingTxCount)"))
             }
         }
     }
@@ -239,7 +239,7 @@ struct CategoryManagementRow: View {
                 Text(category.name)
                     .font(.subheadline)
                 if category.accountId != nil {
-                    Text("Общая")
+                    Text(String(localized: "categories.shared"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
@@ -287,10 +287,10 @@ struct EditCategoryView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Название", text: $name)
+                    TextField(String(localized: "common.name"), text: $name)
                 }
 
-                Section("Иконка") {
+                Section(String(localized: "categories.icon")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
                         ForEach(icons, id: \.self) { icon in
                             Text(icon)
@@ -303,7 +303,7 @@ struct EditCategoryView: View {
                     }
                 }
 
-                Section("Цвет") {
+                Section(String(localized: "categories.color")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                         ForEach(colors, id: \.self) { color in
                             Circle()
@@ -321,14 +321,14 @@ struct EditCategoryView: View {
                     }
                 }
             }
-            .navigationTitle("Редактирование")
+            .navigationTitle(String(localized: "categories.edit"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") {
+                    Button(String(localized: "common.save")) {
                         Task {
                             isSaving = true
                             try? await onSave(name, selectedIcon, selectedColor)
@@ -363,16 +363,16 @@ struct AddCategoryView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Название", text: $name)
+                    TextField(String(localized: "common.name"), text: $name)
 
-                    Picker("Тип", selection: $type) {
-                        Text("Расход").tag(CategoryType.expense)
-                        Text("Доход").tag(CategoryType.income)
+                    Picker(String(localized: "common.type"), selection: $type) {
+                        Text(String(localized: "common.expense")).tag(CategoryType.expense)
+                        Text(String(localized: "common.income")).tag(CategoryType.income)
                     }
                     .pickerStyle(.segmented)
                 }
 
-                Section("Иконка") {
+                Section(String(localized: "categories.icon")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
                         ForEach(icons, id: \.self) { icon in
                             Text(icon)
@@ -385,7 +385,7 @@ struct AddCategoryView: View {
                     }
                 }
 
-                Section("Цвет") {
+                Section(String(localized: "categories.color")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                         ForEach(colors, id: \.self) { color in
                             Circle()
@@ -403,14 +403,14 @@ struct AddCategoryView: View {
                     }
                 }
             }
-            .navigationTitle("Новая категория")
+            .navigationTitle(String(localized: "categories.new"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Создать") {
+                    Button(String(localized: "common.create")) {
                         Task {
                             isSaving = true
                             try? await onSave(name, selectedIcon, selectedColor, type)

@@ -26,7 +26,7 @@ struct HomeTabView: View {
                         Button {
                             showAddAccount = true
                         } label: {
-                            Label("Добавить счёт", systemImage: "plus.circle.fill")
+                            Label(String(localized: "home.addAccount"), systemImage: "plus.circle.fill")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                                 .padding()

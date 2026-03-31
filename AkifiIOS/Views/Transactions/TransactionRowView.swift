@@ -60,7 +60,7 @@ struct TransactionRowView: View {
 
                 // Row 3: Description or transfer label
                 if isTransfer {
-                    Text(transaction.description?.isEmpty == false ? transaction.description! : "Перевод между счетами")
+                    Text(transaction.description?.isEmpty == false ? transaction.description! : String(localized: "transaction.transferBetweenAccounts"))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
@@ -93,7 +93,7 @@ struct TransactionRowView: View {
     }
 
     private var titleText: String {
-        isTransfer ? "Перевод" : (category?.name ?? "Без категории")
+        isTransfer ? String(localized: "transaction.transfer") : (category?.name ?? String(localized: "transaction.noCategory"))
     }
 
     private var resolvedAccount: Account? {

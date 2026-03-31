@@ -17,8 +17,8 @@ struct EvidenceCardView: View {
 
             // Values comparison
             HStack(spacing: 16) {
-                valueColumn(label: "Текущее", value: evidence.currentValue)
-                valueColumn(label: "Обычно", value: evidence.baselineValue)
+                valueColumn(label: String(localized: "evidence.current"), value: evidence.currentValue)
+                valueColumn(label: String(localized: "evidence.usual"), value: evidence.baselineValue)
             }
 
             // Delta bar
@@ -85,11 +85,11 @@ struct EvidenceCardView: View {
     }
 
     private func heatmapView(_ heatmap: [HeatmapEntry]) -> some View {
-        let days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        let days = [String(localized: "day.mon"), String(localized: "day.tue"), String(localized: "day.wed"), String(localized: "day.thu"), String(localized: "day.fri"), String(localized: "day.sat"), String(localized: "day.sun")]
         let maxCount = heatmap.map(\.count).max() ?? 1
 
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Частота по дням")
+            Text(String(localized: "evidence.frequencyByDay"))
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
 
@@ -143,13 +143,13 @@ struct EvidenceListView: View {
         let label: String
         let color: Color
         if value >= 0.8 {
-            label = "Высокая уверенность"
+            label = String(localized: "evidence.highConfidence")
             color = .green
         } else if value >= 0.5 {
-            label = "Средняя уверенность"
+            label = String(localized: "evidence.mediumConfidence")
             color = .orange
         } else {
-            label = "Низкая уверенность"
+            label = String(localized: "evidence.lowConfidence")
             color = .red
         }
 

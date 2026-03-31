@@ -20,33 +20,33 @@ struct ContributionSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Тип", selection: $type) {
-                        Text("Пополнение").tag(ContributionType.contribution)
-                        Text("Снятие").tag(ContributionType.withdrawal)
+                    Picker(String(localized: "common.type"), selection: $type) {
+                        Text(String(localized: "contribution.deposit")).tag(ContributionType.contribution)
+                        Text(String(localized: "contribution.withdraw")).tag(ContributionType.withdrawal)
                     }
                     .pickerStyle(.segmented)
                 }
 
-                Section("Сумма") {
-                    TextField("Сумма", text: $amountText)
+                Section(String(localized: "transfer.amount")) {
+                    TextField(String(localized: "transfer.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
 
                     if type == .contribution {
                         HStack(spacing: 8) {
-                            QuickAmountChip(label: "Остаток", amount: remaining) { amountText = formatForInput(remaining) }
+                            QuickAmountChip(label: String(localized: "contribution.remaining"), amount: remaining) { amountText = formatForInput(remaining) }
                             QuickAmountChip(label: "50%", amount: remaining / 2) { amountText = formatForInput(remaining / 2) }
                             QuickAmountChip(label: "25%", amount: remaining / 4) { amountText = formatForInput(remaining / 4) }
                         }
                     }
                 }
 
-                Section("Заметка") {
-                    TextField("Необязательно", text: $note)
+                Section(String(localized: "contribution.note")) {
+                    TextField(String(localized: "contribution.optional"), text: $note)
                 }
 
                 Section {
                     HStack {
-                        Text("Текущий прогресс")
+                        Text(String(localized: "contribution.currentProgress"))
                         Spacer()
                         Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
                             .foregroundStyle(.secondary)
@@ -55,14 +55,14 @@ struct ContributionSheetView: View {
                     }
                 }
             }
-            .navigationTitle(type == .contribution ? "Пополнить" : "Снять")
+            .navigationTitle(type == .contribution ? String(localized: "contribution.deposit") : String(localized: "contribution.withdraw"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Готово") {
+                    Button(String(localized: "common.done")) {
                         Task { await save() }
                     }
                     .disabled(amountText.isEmpty || isSaving)

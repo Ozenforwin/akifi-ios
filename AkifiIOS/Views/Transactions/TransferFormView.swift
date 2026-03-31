@@ -27,11 +27,11 @@ struct TransferFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Сумма") {
+                Section(String(localized: "transfer.amount")) {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
-                Section("Откуда") {
+                Section(String(localized: "transfer.from")) {
                     ForEach(accounts) { account in
                         Button {
                             fromAccountId = account.id
@@ -57,7 +57,7 @@ struct TransferFormView: View {
                     }
                 }
 
-                Section("Куда") {
+                Section(String(localized: "transfer.to")) {
                     ForEach(accounts) { account in
                         Button {
                             toAccountId = account.id
@@ -78,9 +78,9 @@ struct TransferFormView: View {
                     }
                 }
 
-                Section("Детали") {
-                    TextField("Комментарий", text: $description)
-                    DatePicker("Дата", selection: $date, displayedComponents: .date)
+                Section(String(localized: "transfer.details")) {
+                    TextField(String(localized: "transfer.comment"), text: $description)
+                    DatePicker(String(localized: "common.date"), selection: $date, displayedComponents: .date)
                 }
 
                 if let errorMessage {
@@ -91,14 +91,14 @@ struct TransferFormView: View {
                     }
                 }
             }
-            .navigationTitle("Перевод")
+            .navigationTitle(String(localized: "transaction.transfer"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Перевести") {
+                    Button(String(localized: "transfer.submit")) {
                         Task { await save() }
                     }
                     .disabled(!isValid || isLoading)
@@ -112,7 +112,7 @@ struct TransferFormView: View {
               amountValue > 0,
               let fromId = fromAccountId,
               let toId = toAccountId else {
-            errorMessage = "Заполните все поля"
+            errorMessage = String(localized: "transfer.fillAllFields")
             return
         }
 
@@ -120,7 +120,7 @@ struct TransferFormView: View {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let dateStr = df.string(from: date)
-        let desc = description.isEmpty ? "Перевод" : description
+        let desc = description.isEmpty ? String(localized: "transaction.transfer") : description
 
         do {
             let userId = try await transactionRepo.currentUserId()

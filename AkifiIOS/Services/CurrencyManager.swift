@@ -120,12 +120,12 @@ enum CurrencyCode: String, CaseIterable, Codable, Sendable {
 
     var name: String {
         switch self {
-        case .rub: return "Рубль ₽"
-        case .usd: return "Доллар $"
-        case .eur: return "Евро €"
-        case .vnd: return "Донг ₫"
-        case .thb: return "Бат ฿"
-        case .idr: return "Рупия Rp"
+        case .rub: return String(localized: "currency.rub")
+        case .usd: return String(localized: "currency.usd")
+        case .eur: return String(localized: "currency.eur")
+        case .vnd: return String(localized: "currency.vnd")
+        case .thb: return String(localized: "currency.thb")
+        case .idr: return String(localized: "currency.idr")
         }
     }
 

@@ -77,11 +77,11 @@ struct Budget: Decodable, Identifiable, Sendable {
     var name: String {
         if let n = budgetName, !n.isEmpty { return n }
         switch billingPeriod {
-        case .monthly: return "Месячный бюджет"
-        case .quarterly: return "Квартальный бюджет"
-        case .yearly: return "Годовой бюджет"
-        case .weekly: return "Недельный бюджет"
-        case .custom: return "Произвольный бюджет"
+        case .monthly: return String(localized: "budget.periodName.monthly")
+        case .quarterly: return String(localized: "budget.periodName.quarterly")
+        case .yearly: return String(localized: "budget.periodName.yearly")
+        case .weekly: return String(localized: "budget.periodName.weekly")
+        case .custom: return String(localized: "budget.periodName.custom")
         }
     }
     var categories: [String]? { categoryIds }
@@ -105,11 +105,11 @@ enum BillingPeriod: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .weekly: return "Неделя"
-        case .monthly: return "Месяц"
-        case .quarterly: return "Квартал"
-        case .yearly: return "Год"
-        case .custom: return "Свой период"
+        case .weekly: return String(localized: "billingPeriod.weekly")
+        case .monthly: return String(localized: "billingPeriod.monthly")
+        case .quarterly: return String(localized: "billingPeriod.quarterly")
+        case .yearly: return String(localized: "billingPeriod.yearly")
+        case .custom: return String(localized: "billingPeriod.custom")
         }
     }
 }
@@ -121,17 +121,17 @@ enum BudgetType: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .hard: return "Жёсткий"
-        case .soft: return "Мягкий"
-        case .goal: return "Цель"
+        case .hard: return String(localized: "budgetType.hard")
+        case .soft: return String(localized: "budgetType.soft")
+        case .goal: return String(localized: "budgetType.goal")
         }
     }
 
     var description: String {
         switch self {
-        case .hard: return "Строгий лимит расходов"
-        case .soft: return "Предупреждение при превышении"
-        case .goal: return "Цель накопления"
+        case .hard: return String(localized: "budgetType.hard.description")
+        case .soft: return String(localized: "budgetType.soft.description")
+        case .goal: return String(localized: "budgetType.goal.description")
         }
     }
 }

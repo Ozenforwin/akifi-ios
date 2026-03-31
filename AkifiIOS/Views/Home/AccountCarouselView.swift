@@ -146,7 +146,7 @@ struct AccountCarouselView: View {
                                 .foregroundStyle(.secondary)
                         }
                 }
-                .accessibilityLabel("Добавить счёт")
+                .accessibilityLabel(String(localized: "home.addAccount"))
             }
         }
     }
@@ -217,7 +217,7 @@ struct AccountCardView: View {
                 HStack(spacing: 4) {
                     actionButton(
                         icon: isBalanceHidden ? "eye.slash" : "eye",
-                        label: isBalanceHidden ? "Показать баланс" : "Скрыть баланс",
+                        label: isBalanceHidden ? String(localized: "account.showBalance") : String(localized: "account.hideBalance"),
                         action: { onToggleHidden?() }
                     )
 
@@ -231,17 +231,17 @@ struct AccountCardView: View {
                             .background(.primary.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
-                    .accessibilityLabel(account.isPrimary ? "Основной счёт" : "Сделать основным")
+                    .accessibilityLabel(account.isPrimary ? String(localized: "account.primary") : String(localized: "account.setPrimary"))
 
                     actionButton(
                         icon: "square.and.arrow.up",
-                        label: "Поделиться",
+                        label: String(localized: "common.share"),
                         action: { onShare?() }
                     )
 
                     actionButton(
                         icon: "gearshape",
-                        label: "Настройки счёта",
+                        label: String(localized: "account.settings"),
                         action: { onEdit?() }
                     )
                 }
@@ -258,7 +258,7 @@ struct AccountCardView: View {
                     HStack(spacing: 3) {
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 9))
-                        Text("Общая")
+                        Text(String(localized: "categories.shared"))
                             .font(.system(size: 10, weight: .medium))
                     }
                     .foregroundStyle(.secondary)

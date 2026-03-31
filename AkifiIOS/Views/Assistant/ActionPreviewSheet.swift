@@ -15,13 +15,13 @@ struct ActionPreviewSheet: View {
 
                 // Plan description
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Действие")
+                    Text(String(localized: "action.action"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(action.label)
                         .font(.headline)
 
-                    Text("План")
+                    Text(String(localized: "action.plan"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
@@ -36,7 +36,7 @@ struct ActionPreviewSheet: View {
                 // Changes list
                 if !preview.changes.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Изменения")
+                        Text(String(localized: "action.changes"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -60,7 +60,7 @@ struct ActionPreviewSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: preview.reversible ? "arrow.uturn.backward.circle" : "exclamationmark.triangle")
                         .foregroundStyle(preview.reversible ? .green : .orange)
-                    Text(preview.reversible ? "Можно отменить" : "Нельзя отменить")
+                    Text(preview.reversible ? String(localized: "action.reversible") : String(localized: "action.irreversible"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -78,7 +78,7 @@ struct ActionPreviewSheet: View {
                                 ProgressView()
                                     .tint(.white)
                             }
-                            Text("Подтвердить")
+                            Text(String(localized: "action.confirm"))
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
@@ -89,14 +89,14 @@ struct ActionPreviewSheet: View {
                     }
                     .disabled(isProcessing)
 
-                    Button("Отмена", role: .cancel) {
+                    Button(String(localized: "common.cancel"), role: .cancel) {
                         onCancel()
                     }
                     .foregroundStyle(.secondary)
                 }
             }
             .padding()
-            .navigationTitle("Подтверждение")
+            .navigationTitle(String(localized: "action.confirmation"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -117,7 +117,7 @@ struct ActionPreviewSheet: View {
             Circle()
                 .fill(riskColor)
                 .frame(width: 8, height: 8)
-            Text("Риск: \(riskLabel)")
+            Text("\(String(localized: "action.risk")): \(riskLabel)")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(riskColor)
         }
@@ -138,9 +138,9 @@ struct ActionPreviewSheet: View {
 
     private var riskLabel: String {
         switch preview.risk {
-        case .low: return "Низкий"
-        case .medium: return "Средний"
-        case .high: return "Высокий"
+        case .low: return String(localized: "risk.low")
+        case .medium: return String(localized: "risk.medium")
+        case .high: return String(localized: "risk.high")
         }
     }
 

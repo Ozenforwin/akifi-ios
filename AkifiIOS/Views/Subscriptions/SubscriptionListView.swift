@@ -10,10 +10,10 @@ struct SubscriptionListView: View {
                 LoadingView()
             } else if viewModel.subscriptions.isEmpty {
                 EmptyStateView(
-                    title: "Нет подписок",
+                    title: String(localized: "subscriptions.empty"),
                     systemImage: "repeat.circle",
-                    description: "Добавьте подписки для отслеживания",
-                    actionTitle: "Добавить"
+                    description: String(localized: "subscriptions.emptyDescription"),
+                    actionTitle: String(localized: "common.add")
                 ) {
                     viewModel.showForm = true
                 }
@@ -21,7 +21,7 @@ struct SubscriptionListView: View {
                 List {
                     Section {
                         HStack {
-                            Text("В месяц")
+                            Text(String(localized: "subscriptions.perMonth"))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(appViewModel.currencyManager.formatAmount(viewModel.monthlyTotal.displayAmount))
@@ -29,7 +29,7 @@ struct SubscriptionListView: View {
                         }
                     }
 
-                    Section("Активные") {
+                    Section(String(localized: "subscriptions.active")) {
                         ForEach(viewModel.subscriptions) { sub in
                             SubscriptionRowView(subscription: sub)
                         }
@@ -51,7 +51,7 @@ struct SubscriptionListView: View {
         .refreshable {
             await viewModel.load()
         }
-        .navigationTitle("Подписки")
+        .navigationTitle(String(localized: "subscriptions.title"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -104,11 +104,11 @@ struct SubscriptionRowView: View {
 
     private var periodLabel: String {
         switch subscription.billingPeriod {
-        case .weekly: "Еженедельно"
-        case .monthly: "Ежемесячно"
-        case .quarterly: "Ежеквартально"
-        case .yearly: "Ежегодно"
-        case .custom: "Произвольный"
+        case .weekly: String(localized: "subscription.period.weekly")
+        case .monthly: String(localized: "subscription.period.monthly")
+        case .quarterly: String(localized: "subscription.period.quarterly")
+        case .yearly: String(localized: "subscription.period.yearly")
+        case .custom: String(localized: "subscription.period.custom")
         }
     }
 }
@@ -128,19 +128,19 @@ struct SubscriptionFormView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Подписка") {
-                    TextField("Название сервиса", text: $name)
-                    TextField("Сумма", text: $amountText)
+                Section(String(localized: "subscriptions.subscription")) {
+                    TextField(String(localized: "subscriptions.serviceName"), text: $name)
+                    TextField(String(localized: "transfer.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
 
-                    Picker("Период", selection: $period) {
-                        Text("Месяц").tag(BillingPeriod.monthly)
-                        Text("Квартал").tag(BillingPeriod.quarterly)
-                        Text("Год").tag(BillingPeriod.yearly)
+                    Picker(String(localized: "subscriptions.period"), selection: $period) {
+                        Text(String(localized: "billingPeriod.monthly")).tag(BillingPeriod.monthly)
+                        Text(String(localized: "billingPeriod.quarterly")).tag(BillingPeriod.quarterly)
+                        Text(String(localized: "billingPeriod.yearly")).tag(BillingPeriod.yearly)
                     }
                 }
 
-                Section("Цвет") {
+                Section(String(localized: "categories.color")) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                         ForEach(colors, id: \.self) { color in
                             Circle()
@@ -158,14 +158,14 @@ struct SubscriptionFormView: View {
                     }
                 }
             }
-            .navigationTitle("Новая подписка")
+            .navigationTitle(String(localized: "subscriptions.new"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
+                    Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Добавить") {
+                    Button(String(localized: "common.add")) {
                         Task { await save() }
                     }
                     .disabled(name.isEmpty || amountText.isEmpty || isSaving)

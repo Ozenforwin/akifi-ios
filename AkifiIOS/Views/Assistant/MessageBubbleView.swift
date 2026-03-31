@@ -174,7 +174,7 @@ struct MessageBubbleView: View {
                             .font(.subheadline)
                         if action.type == .smartBudgetCreate {
                             let count = selectedBudgetIndices.count
-                            Text("Создать \(count) бюджет\(budgetSuffix(count))")
+                            Text(String(localized: "assistant.createBudgets \(count)"))
                                 .font(.subheadline.weight(.semibold))
                         } else {
                             Text(action.label)
@@ -266,14 +266,4 @@ struct MessageBubbleView: View {
         }
     }
 
-    // MARK: - Helpers
-
-    private func budgetSuffix(_ count: Int) -> String {
-        let mod10 = count % 10
-        let mod100 = count % 100
-        if mod100 >= 11 && mod100 <= 19 { return "ов" }
-        if mod10 == 1 { return "" }
-        if mod10 >= 2 && mod10 <= 4 { return "а" }
-        return "ов"
-    }
 }

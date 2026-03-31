@@ -25,7 +25,7 @@ struct SearchView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 48))
                             .foregroundStyle(.secondary)
-                        Text("Поиск по описанию, продавцу или категории")
+                        Text(String(localized: "search.hint"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -43,12 +43,12 @@ struct SearchView: View {
                     .listStyle(.plain)
                 }
             }
-            .searchable(text: $searchText, isPresented: .constant(true), prompt: "Поиск операций")
-            .navigationTitle("Поиск")
+            .searchable(text: $searchText, isPresented: .constant(true), prompt: String(localized: "search.prompt"))
+            .navigationTitle(String(localized: "search.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
