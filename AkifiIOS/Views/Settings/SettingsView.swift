@@ -188,11 +188,11 @@ struct SettingsView: View {
                         SettingsRow(icon: "square.and.arrow.up.fill", color: .purple, title: String(localized: "settings.share"))
                     }
 
-                    Link(destination: URL(string: "https://akifi.ru/privacy")!) {
+                    Link(destination: URL(string: "https://akifi.pro/privacy")!) {
                         SettingsRow(icon: "hand.raised.fill", color: .blue, title: String(localized: "settings.privacy"))
                     }
 
-                    Link(destination: URL(string: "https://akifi.ru/terms")!) {
+                    Link(destination: URL(string: "https://akifi.pro/terms")!) {
                         SettingsRow(icon: "doc.text.fill", color: .gray, title: String(localized: "settings.terms"))
                     }
                 }

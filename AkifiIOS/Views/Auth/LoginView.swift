@@ -118,9 +118,9 @@ struct LoginView: View {
 
                 // MARK: - Legal links
                 HStack(spacing: 4) {
-                    Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.ru/privacy")!)
+                    Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.pro/privacy")!)
                     Text("&")
-                    Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.ru/terms")!)
+                    Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.pro/terms")!)
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
