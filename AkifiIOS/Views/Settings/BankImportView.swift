@@ -334,18 +334,34 @@ struct BankImportView: View {
             request.timeoutInterval = 60
 
             let (responseData, _) = try await URLSession.shared.data(for: request)
-            let result = try JSONDecoder().decode(ParseStatementResponse.self, from: responseData)
+            let response = try JSONDecoder().decode(ParseStatementResponse.self, from: responseData)
 
-            guard result.ok else {
-                self.error = result.error ?? "Parse failed"
+            guard response.ok else {
+                self.error = response.error ?? "Parse failed"
                 isParsing = false
                 return
             }
 
-            parseResult = result.result
-            selectedIndices = Set((0..<(result.result?.transactions.count ?? 0)).filter {
-                !(result.result?.transactions[$0].isDuplicate ?? false)
-            })
+            guard let txs = response.transactions, !txs.isEmpty else {
+                self.error = String(localized: "import.noTransactions")
+                isParsing = false
+                return
+            }
+
+            let info = response.statementInfo
+            let periodStr: String? = {
+                guard let start = info?.periodStart, let end = info?.periodEnd else { return nil }
+                return "\(start) – \(end)"
+            }()
+
+            parseResult = ParseResult(
+                bankName: info?.bankName,
+                period: periodStr,
+                totalIncome: Decimal(info?.totalIncome ?? 0),
+                totalExpense: Decimal(info?.totalExpense ?? 0),
+                transactions: txs
+            )
+            selectedIndices = Set((0..<txs.count).filter { !txs[$0].isDuplicate })
         } catch {
             self.error = error.localizedDescription
         }
@@ -400,26 +416,43 @@ struct BankImportView: View {
 
 // MARK: - Models
 
+// Matches backend response: { ok, transactions[], statement_info {} }
 struct ParseStatementResponse: Decodable {
     let ok: Bool
     let error: String?
-    let result: ParseResult?
+    let transactions: [ParsedTransaction]?
+    let statementInfo: StatementInfo?
+
+    enum CodingKeys: String, CodingKey {
+        case ok, error, transactions
+        case statementInfo = "statement_info"
+    }
 }
 
-struct ParseResult: Decodable {
+struct StatementInfo: Decodable {
+    let bankName: String?
+    let periodStart: String?
+    let periodEnd: String?
+    let totalTransactions: Int?
+    let totalIncome: Double?
+    let totalExpense: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case bankName = "bank_name"
+        case periodStart = "period_start"
+        case periodEnd = "period_end"
+        case totalTransactions = "total_transactions"
+        case totalIncome = "total_income"
+        case totalExpense = "total_expense"
+    }
+}
+
+struct ParseResult {
     let bankName: String?
     let period: String?
     let totalIncome: Decimal
     let totalExpense: Decimal
     let transactions: [ParsedTransaction]
-
-    enum CodingKeys: String, CodingKey {
-        case bankName = "bank_name"
-        case period
-        case totalIncome = "total_income"
-        case totalExpense = "total_expense"
-        case transactions
-    }
 }
 
 struct ParsedTransaction: Decodable {

@@ -17463,6 +17463,28 @@
           }
         }
       }
+    },
+    "import.noTransactions": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Транзакции не найдены в выписке"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No transactions found in statement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron transacciones"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
