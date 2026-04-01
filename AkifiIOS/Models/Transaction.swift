@@ -48,7 +48,7 @@ struct Transaction: Decodable, Identifiable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         userId = try container.decode(String.self, forKey: .userId)
         accountId = try container.decodeIfPresent(String.self, forKey: .accountId)
-        amount = Self.decodeAmount(from: container)
+        amount = container.decodeKopecks(forKey: .amount)
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
@@ -64,19 +64,6 @@ struct Transaction: Decodable, Identifiable, Sendable {
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 
-    /// Decode numeric amount from DB (rubles, e.g. 40502.23 or "40502.23") → Int64 kopecks (4050223)
-    static func decodeAmount(from container: KeyedDecodingContainer<CodingKeys>) -> Int64 {
-        // Try String first — PostgREST sends numeric as string to preserve precision
-        if let str = try? container.decode(String.self, forKey: .amount),
-           let decimal = Decimal(string: str) {
-            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        }
-        // Fallback: JSON number
-        if let dbl = try? container.decode(Double.self, forKey: .amount) {
-            return Int64((dbl * 100).rounded())
-        }
-        return 0
-    }
 }
 
 enum TransactionType: String, Codable, Sendable {

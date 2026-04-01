@@ -1,10 +1,19 @@
 import Foundation
 
 enum AnalyticsPeriod: String, CaseIterable, Sendable {
-    case week = "Неделя"
-    case month = "Месяц"
-    case quarter = "Квартал"
-    case year = "Год"
+    case week = "week"
+    case month = "month"
+    case quarter = "quarter"
+    case year = "year"
+
+    var displayName: String {
+        switch self {
+        case .week: String(localized: "analyticsPeriod.week")
+        case .month: String(localized: "analyticsPeriod.month")
+        case .quarter: String(localized: "analyticsPeriod.quarter")
+        case .year: String(localized: "analyticsPeriod.year")
+        }
+    }
 }
 
 struct CashflowPoint: Identifiable, Sendable {
@@ -28,11 +37,7 @@ final class AnalyticsViewModel {
     var selectedPeriod: AnalyticsPeriod = .month
     var selectedAccountId: String?
 
-    private let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private let dateFormatter = AppDateFormatters.isoDate
 
     func filteredTransactions(from all: [Transaction]) -> [Transaction] {
         let calendar = Calendar.current
@@ -74,7 +79,7 @@ final class AnalyticsViewModel {
         var grouped: [String: (income: Decimal, expense: Decimal)] = [:]
 
         let labelFormatter = DateFormatter()
-        labelFormatter.locale = Locale(identifier: "ru_RU")
+        labelFormatter.locale = Locale.current
 
         let groupFormatter: DateFormatter
         switch selectedPeriod {
@@ -135,7 +140,7 @@ final class AnalyticsViewModel {
             let percentage = Double(truncating: (amount / totalExpense * 100) as NSDecimalNumber)
             return CategorySpending(
                 id: catId,
-                name: cat?.name ?? "Без категории",
+                name: cat?.name ?? String(localized: "category.uncategorized"),
                 icon: cat?.icon ?? "💰",
                 color: cat?.color ?? "#94A3B8",
                 amount: amount,

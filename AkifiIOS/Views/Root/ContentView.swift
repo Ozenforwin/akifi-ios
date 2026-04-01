@@ -1,5 +1,39 @@
 import SwiftUI
 
+// MARK: - App Tab
+
+enum AppTab: Int, CaseIterable {
+    case home = 0
+    case transactions = 1
+    case analytics = 2
+    case budgets = 3
+
+    var screenName: String {
+        switch self {
+        case .home: "Home"
+        case .transactions: "Transactions"
+        case .analytics: "Analytics"
+        case .budgets: "Budgets"
+        }
+    }
+}
+
+enum SheetDestination: Identifiable {
+    case expense(categoryId: String?)
+    case income(categoryId: String?)
+    case transfer
+    case receipt
+
+    var id: String {
+        switch self {
+        case .expense: "expense"
+        case .income: "income"
+        case .transfer: "transfer"
+        case .receipt: "receipt"
+        }
+    }
+}
+
 struct ContentView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showSplash = true
@@ -44,13 +78,10 @@ struct ContentView: View {
 
 struct MainTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @State private var selectedTab = 0
+    @State private var selectedTab: AppTab = .home
     @State private var showAssistant = false
     @State private var assistantVM = AssistantViewModel()
-    @State private var showAddTransaction = false
-    @State private var showAddTransfer = false
-    @State private var showAddIncome = false
-    @State private var showReceiptScanner = false
+    @State private var activeSheet: SheetDestination?
     @State private var fabSelectedCategoryId: String?
     @State private var unlockedAchievement: Achievement?
     @State private var spotlightManager = SpotlightManager()
@@ -60,11 +91,10 @@ struct MainTabView: View {
             // Content area
             Group {
                 switch selectedTab {
-                case 0: HomeTabView()
-                case 1: TransactionsTabView()
-                case 2: AnalyticsTabView()
-                case 3: BudgetsTabView()
-                default: HomeTabView()
+                case .home: HomeTabView()
+                case .transactions: TransactionsTabView()
+                case .analytics: AnalyticsTabView()
+                case .budgets: BudgetsTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,14 +107,14 @@ struct MainTabView: View {
                 switch action {
                 case .income(let categoryId):
                     fabSelectedCategoryId = categoryId
-                    showAddIncome = true
+                    activeSheet = .income(categoryId: categoryId)
                 case .expense(let categoryId):
                     fabSelectedCategoryId = categoryId
-                    showAddTransaction = true
+                    activeSheet = .expense(categoryId: categoryId)
                 case .transfer:
-                    showAddTransfer = true
+                    activeSheet = .transfer
                 case .receipt:
-                    showReceiptScanner = true
+                    activeSheet = .receipt
                 }
             }
 
@@ -112,9 +142,19 @@ struct MainTabView: View {
                 withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
             }
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        .task {
+            // Defer spotlight for new users — show it after first transaction
+            if !appViewModel.dataStore.transactions.isEmpty {
+                try? await Task.sleep(for: .seconds(1.0))
                 spotlightManager.start()
+            }
+        }
+        .onChange(of: appViewModel.dataStore.transactions.count) { _, newCount in
+            if newCount > 0 {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.0))
+                    spotlightManager.start()
+                }
             }
         }
         .ignoresSafeArea(edges: .bottom)
@@ -123,35 +163,35 @@ struct MainTabView: View {
                 handleNavigationTarget(target)
             }
         }
-        .sheet(isPresented: $showAddTransaction) {
-            TransactionFormView(
-                categories: appViewModel.dataStore.categories,
-                accounts: appViewModel.dataStore.accounts,
-                defaultCategoryId: fabSelectedCategoryId
-            ) {
-                await appViewModel.dataStore.loadAll()
-                fabSelectedCategoryId = nil
-            }
-        }
-        .sheet(isPresented: $showAddIncome) {
-            TransactionFormView(
-                categories: appViewModel.dataStore.categories,
-                accounts: appViewModel.dataStore.accounts,
-                defaultType: .income,
-                defaultCategoryId: fabSelectedCategoryId
-            ) {
-                await appViewModel.dataStore.loadAll()
-                fabSelectedCategoryId = nil
-            }
-        }
-        .sheet(isPresented: $showAddTransfer) {
-            TransferFormView(accounts: appViewModel.dataStore.accounts) {
-                await appViewModel.dataStore.loadAll()
-            }
-        }
-        .sheet(isPresented: $showReceiptScanner) {
-            ReceiptScannerView {
-                await appViewModel.dataStore.loadAll()
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .expense(let categoryId):
+                TransactionFormView(
+                    categories: appViewModel.dataStore.categories,
+                    accounts: appViewModel.dataStore.accounts,
+                    defaultCategoryId: categoryId
+                ) {
+                    await appViewModel.dataStore.loadAll()
+                    fabSelectedCategoryId = nil
+                }
+            case .income(let categoryId):
+                TransactionFormView(
+                    categories: appViewModel.dataStore.categories,
+                    accounts: appViewModel.dataStore.accounts,
+                    defaultType: .income,
+                    defaultCategoryId: categoryId
+                ) {
+                    await appViewModel.dataStore.loadAll()
+                    fabSelectedCategoryId = nil
+                }
+            case .transfer:
+                TransferFormView(accounts: appViewModel.dataStore.accounts) {
+                    await appViewModel.dataStore.loadAll()
+                }
+            case .receipt:
+                ReceiptScannerView {
+                    await appViewModel.dataStore.loadAll()
+                }
             }
         }
         .task { await checkNewAchievements() }
@@ -160,15 +200,15 @@ struct MainTabView: View {
     private func handleNavigationTarget(_ target: NavigationTarget) {
         switch target {
         case .transactions:
-            selectedTab = 1
+            selectedTab = .transactions
         case .budgets:
-            selectedTab = 3
+            selectedTab = .budgets
         case .savings:
-            selectedTab = 3
+            selectedTab = .budgets
         case .addExpense:
-            showAddTransaction = true
+            activeSheet = .expense(categoryId: nil)
         case .addIncome:
-            showAddIncome = true
+            activeSheet = .income(categoryId: nil)
         }
     }
 
@@ -194,15 +234,15 @@ struct MainTabView: View {
 // MARK: - Custom Tab Bar (opaque, no liquid glass)
 
 private struct CustomTabBar: View {
-    @Binding var selectedTab: Int
+    @Binding var selectedTab: AppTab
     @AppStorage("hapticEnabled") private var hapticEnabled = true
     var onAITap: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                tabButton("house.fill", String(localized: "tab.home"), 0)
-                tabButton("arrow.left.arrow.right", String(localized: "tab.transactions"), 1)
+                tabButton("house.fill", String(localized: "tab.home"), .home)
+                tabButton("arrow.left.arrow.right", String(localized: "tab.transactions"), .transactions)
 
                 // Center AI button
                 Button {
@@ -230,9 +270,10 @@ private struct CustomTabBar: View {
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
+                .accessibilityLabel(String(localized: "tab.assistant"))
 
-                tabButton("chart.bar.fill", String(localized: "tab.analytics"), 2)
-                tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), 3)
+                tabButton("chart.bar.fill", String(localized: "tab.analytics"), .analytics)
+                tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), .budgets)
             }
             .padding(.horizontal, 12)
             .padding(.top, 14)
@@ -246,11 +287,11 @@ private struct CustomTabBar: View {
         )
     }
 
-    private func tabButton(_ icon: String, _ label: String, _ tag: Int) -> some View {
+    private func tabButton(_ icon: String, _ label: String, _ tab: AppTab) -> some View {
         Button {
             if hapticEnabled { HapticManager.light() }
-            selectedTab = tag
-            AnalyticsService.logScreen(["Home", "Transactions", "Analytics", "Budgets"][tag])
+            selectedTab = tab
+            AnalyticsService.logScreen(tab.screenName)
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: icon)
@@ -258,7 +299,7 @@ private struct CustomTabBar: View {
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
             }
-            .foregroundStyle(selectedTab == tag ? Color.accent : Color(.secondaryLabel))
+            .foregroundStyle(selectedTab == tab ? Color.accent : Color(.secondaryLabel))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
         }

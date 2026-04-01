@@ -30,21 +30,23 @@ struct SubscriptionTracker: Decodable, Identifiable, Sendable {
         case updatedAt = "updated_at"
     }
 
+    init(id: String, userId: String, serviceName: String, amount: Int64, currency: String? = nil,
+         billingPeriod: BillingPeriod, startDate: String, nextPaymentDate: String? = nil,
+         reminderDays: Int = 1, iconColor: String? = nil, isActive: Bool = true,
+         createdAt: String? = nil, updatedAt: String? = nil) {
+        self.id = id; self.userId = userId; self.serviceName = serviceName; self.amount = amount
+        self.currency = currency; self.billingPeriod = billingPeriod; self.startDate = startDate
+        self.nextPaymentDate = nextPaymentDate; self.reminderDays = reminderDays
+        self.iconColor = iconColor; self.isActive = isActive
+        self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         userId = try container.decode(String.self, forKey: .userId)
         serviceName = try container.decode(String.self, forKey: .serviceName)
-        // Handle numeric amount from DB (e.g. "100.00") → kopecks
-        // Handle numeric amount from DB (rubles → kopecks)
-        if let dbl = try? container.decode(Double.self, forKey: .amount) {
-            amount = Int64((dbl * 100).rounded())
-        } else if let str = try? container.decode(String.self, forKey: .amount),
-                  let decimal = Decimal(string: str) {
-            amount = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        } else {
-            amount = 0
-        }
+        amount = container.decodeKopecks(forKey: .amount)
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
         billingPeriod = try container.decode(BillingPeriod.self, forKey: .billingPeriod)
         startDate = try container.decode(String.self, forKey: .startDate)

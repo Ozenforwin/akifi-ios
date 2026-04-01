@@ -72,8 +72,7 @@ enum BudgetMath {
             let end = cal.date(byAdding: DateComponents(year: 1, day: -1), to: start)!
             return (start, end)
         case .custom:
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.isoDate
             if let startStr = budget.customStartDate,
                let endStr = budget.customEndDate,
                let start = df.date(from: startStr),
@@ -100,8 +99,7 @@ enum BudgetMath {
     // MARK: - Spent
 
     static func spentAmount(budget: Budget, transactions: [Transaction], period: (start: Date, end: Date)) -> Int64 {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
+        let df = AppDateFormatters.isoDate
         return transactions.filter { tx in
             guard tx.type == .expense && !tx.isTransfer else { return false }
             if let cats = budget.categoryIds, !cats.isEmpty {

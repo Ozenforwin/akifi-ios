@@ -29,20 +29,24 @@ actor ExchangeRateService {
         let urlString = "https://open.er-api.com/v6/latest/\(base)"
         guard let url = URL(string: urlString) else { return fallbackRates }
 
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                return loadCachedRates() ?? fallbackRates
-            }
+        // Retry with exponential backoff (2 attempts max)
+        for attempt in 0..<2 {
+            do {
+                if attempt > 0 {
+                    try await Task.sleep(for: .seconds(Double(attempt) * 2))
+                }
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else { continue }
 
-            let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
-            if decoded.result == "success" {
-                saveCachedRates(decoded.rates)
-                return decoded.rates
+                let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
+                if decoded.result == "success" {
+                    saveCachedRates(decoded.rates)
+                    return decoded.rates
+                }
+            } catch {
+                if attempt == 1 { break }
             }
-        } catch {
-            // Fall through to cached or fallback
         }
 
         return loadCachedRates() ?? fallbackRates

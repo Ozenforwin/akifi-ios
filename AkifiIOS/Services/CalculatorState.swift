@@ -34,20 +34,23 @@ final class CalculatorState {
         updateDisplay()
     }
 
+    private static let decimalSeparator = Locale.current.decimalSeparator ?? ","
+
     func handleDecimal() {
         if isComplete {
             expression = "0"
             isComplete = false
         }
         // Find current number segment
+        let sep = Self.decimalSeparator
         let parts = expression.split(omittingEmptySubsequences: false) { "+-×÷".contains($0) }
-        if let lastPart = parts.last, lastPart.contains(",") {
+        if let lastPart = parts.last, lastPart.contains(sep) {
             return // Already has decimal
         }
         if expression.isEmpty || (expression.last.map { "+-×÷".contains($0) } ?? true) {
             expression += "0"
         }
-        expression += ","
+        expression += sep
         updateDisplay()
     }
 
@@ -104,7 +107,10 @@ final class CalculatorState {
     // MARK: - Expression Evaluation
 
     private func evaluate(_ expr: String) -> Decimal? {
-        let normalized = expr.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")
+        let normalized = expr
+            .replacingOccurrences(of: Self.decimalSeparator, with: ".")
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: "")
         guard !normalized.isEmpty else { return nil }
 
         var tokens: [Token] = []
@@ -190,7 +196,10 @@ final class CalculatorState {
         }
 
         // Try to evaluate current expression for live preview
-        let normalized = expression.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")
+        let normalized = expression
+            .replacingOccurrences(of: Self.decimalSeparator, with: ".")
+            .replacingOccurrences(of: ",", with: ".")
+            .replacingOccurrences(of: " ", with: "")
         if let result = evaluate(normalized) {
             currentResult = result
         }
@@ -204,7 +213,7 @@ final class CalculatorState {
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 2
         formatter.minimumFractionDigits = 0
-        formatter.decimalSeparator = ","
+        formatter.locale = Locale.current
         formatter.groupingSeparator = " "
         return formatter.string(from: nsNumber) ?? "\(value)"
     }

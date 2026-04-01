@@ -7,6 +7,7 @@ private final class ImageCache: @unchecked Sendable {
 
     init() {
         cache.countLimit = 200
+        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
     }
 
     func image(for url: URL) -> UIImage? {
@@ -14,7 +15,8 @@ private final class ImageCache: @unchecked Sendable {
     }
 
     func store(_ image: UIImage, for url: URL) {
-        cache.setObject(image, forKey: url as NSURL)
+        let cost = image.pngData()?.count ?? 0
+        cache.setObject(image, forKey: url as NSURL, cost: cost)
     }
 }
 

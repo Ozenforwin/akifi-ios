@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 @Observable @MainActor
 final class DataStore {
@@ -31,48 +32,33 @@ final class DataStore {
         error = nil
         var errors: [String] = []
 
-        do {
-            accounts = try await accountRepo.fetchAll()
-        } catch {
-            // print("[DataStore] ❌ accounts fetch error: \(error)")
-            errors.append("accounts: \(error)")
-        }
+        // Parallel fetch of independent data sources
+        async let accountsFetch = accountRepo.fetchAll()
+        async let txFetch = transactionRepo.fetchAll()
+        async let catsFetch = categoryRepo.fetchAll()
+        async let budgetsFetch = budgetRepo.fetchAll()
+        async let subsFetch = subscriptionRepo.fetchAll()
+        async let profileFetch = profileRepo.fetch()
 
-        do {
-            transactions = try await transactionRepo.fetchAll()
-        } catch {
-            // print("[DataStore] ❌ transactions fetch error: \(error)")
-            errors.append("transactions: \(error)")
-        }
+        do { accounts = try await accountsFetch }
+        catch { AppLogger.data.warning("accounts: \(error)"); errors.append("accounts") }
 
-        do {
-            categories = try await categoryRepo.fetchAll()
-        } catch {
-            // print("[DataStore] ❌ categories fetch error: \(error)")
-            errors.append("categories: \(error)")
-        }
+        do { transactions = try await txFetch }
+        catch { AppLogger.data.warning("transactions: \(error)"); errors.append("transactions") }
 
-        do {
-            budgets = try await budgetRepo.fetchAll()
-        } catch {
-            // print("[DataStore] ❌ budgets fetch error: \(error)")
-            errors.append("budgets: \(error)")
-        }
+        do { categories = try await catsFetch }
+        catch { AppLogger.data.warning("categories: \(error)"); errors.append("categories") }
 
-        do {
-            subscriptions = try await subscriptionRepo.fetchAll()
-        } catch {
-            // print("[DataStore] ❌ subscriptions fetch error: \(error)")
-            errors.append("subscriptions: \(error)")
-        }
+        do { budgets = try await budgetsFetch }
+        catch { AppLogger.data.warning("budgets: \(error)"); errors.append("budgets") }
 
-        do {
-            profile = try await profileRepo.fetch()
-        } catch {
-            // print("[DataStore] ❌ profile fetch error: \(error)")
-        }
+        do { subscriptions = try await subsFetch }
+        catch { AppLogger.data.warning("subscriptions: \(error)"); errors.append("subscriptions") }
 
-        // Load profiles for transaction creators (shared accounts)
+        do { profile = try await profileFetch }
+        catch { AppLogger.data.debug("profile: \(error)") }
+
+        // Sequential: depends on transactions & profile being loaded
         do {
             let currentUserId = profile?.id ?? ""
             let otherUserIds = Array(Set(transactions.map(\.userId)).filter { $0 != currentUserId })
@@ -84,14 +70,12 @@ final class DataStore {
             }
             if let profile { profilesMap[profile.id] = profile }
         } catch {
-            // print("[DataStore] ❌ profiles map fetch error: \(error)")
+            AppLogger.data.debug("profiles map: \(error)")
         }
 
         if !errors.isEmpty {
             self.error = errors.joined(separator: "; ")
-            // print("[DataStore] ⚠️ Load completed with errors: \(self.error!)")
-        } else {
-            // print("[DataStore] ✅ All data loaded")
+            AppLogger.data.warning("Load completed with errors: \(self.error!)")
         }
         rebuildCaches()
         isLoading = false

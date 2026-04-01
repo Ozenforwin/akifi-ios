@@ -54,15 +54,7 @@ struct Budget: Decodable, Identifiable, Sendable {
         budgetDescription = try container.decodeIfPresent(String.self, forKey: .budgetDescription)
         accountIds = try container.decodeIfPresent([String].self, forKey: .accountIds)
         budgetType = try container.decodeIfPresent(String.self, forKey: .budgetType)
-        // Handle numeric amount from DB (rubles → kopecks)
-        if let dbl = try? container.decode(Double.self, forKey: .amount) {
-            amount = Int64((dbl * 100).rounded())
-        } else if let str = try? container.decode(String.self, forKey: .amount),
-                  let decimal = Decimal(string: str) {
-            amount = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        } else {
-            amount = 0
-        }
+        amount = container.decodeKopecks(forKey: .amount)
         billingPeriod = try container.decode(BillingPeriod.self, forKey: .billingPeriod)
         categoryIds = try container.decodeIfPresent([String].self, forKey: .categoryIds)
         customStartDate = try container.decodeIfPresent(String.self, forKey: .customStartDate)

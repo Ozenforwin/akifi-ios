@@ -15,17 +15,17 @@ struct MigrationCodeView: View {
                         .font(.system(size: 50))
                         .foregroundStyle(Color.accent)
 
-                    Text("Миграция из Telegram")
+                    Text(String(localized: "migration.title"))
                         .font(.title2.bold())
 
-                    Text("Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код")
+                    Text(String(localized: "migration.instructions"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
 
-                TextField("Код миграции", text: $code)
+                TextField(String(localized: "migration.codePlaceholder"), text: $code)
                     .font(.title2.monospaced())
                     .multilineTextAlignment(.center)
                     .textInputAutocapitalization(.characters)
@@ -49,7 +49,7 @@ struct MigrationCodeView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                     } else {
-                        Text("Привязать аккаунт")
+                        Text(String(localized: "migration.linkAccount"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -67,7 +67,7 @@ struct MigrationCodeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Закрыть") { dismiss() }
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
@@ -82,7 +82,7 @@ struct MigrationCodeView: View {
             await appViewModel.loadAfterAuth()
             dismiss()
         } catch {
-            errorMessage = "Неверный или просроченный код. Попробуйте получить новый."
+            errorMessage = String(localized: "migration.invalidCode")
         }
 
         isLoading = false

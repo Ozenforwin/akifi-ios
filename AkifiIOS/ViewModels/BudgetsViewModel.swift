@@ -12,7 +12,7 @@ final class BudgetsViewModel {
 
     private let periodLabelFormatter: DateFormatter = {
         let df = DateFormatter()
-        df.locale = Locale(identifier: "ru_RU")
+        df.locale = Locale.current
         return df
     }()
 
@@ -82,9 +82,9 @@ final class BudgetsViewModel {
         case .quarterly:
             let month = Calendar.current.component(.month, from: Date())
             let quarter = (month - 1) / 3 + 1
-            return "\(quarter)-й квартал \(Calendar.current.component(.year, from: Date()))"
+            return String(localized: "budget.quarterLabel.\(quarter).\(Calendar.current.component(.year, from: Date()))")
         case .yearly:
-            return "\(Calendar.current.component(.year, from: Date())) год"
+            return String(Calendar.current.component(.year, from: Date()))
         case .custom:
             let period = currentPeriod(for: budget)
             periodLabelFormatter.dateFormat = "d MMM yyyy"

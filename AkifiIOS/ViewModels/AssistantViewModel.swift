@@ -35,10 +35,12 @@ final class AssistantViewModel {
     var recordingDuration: TimeInterval = 0
     var isTranscribing = false
     private var audioRecorder: AVAudioRecorder?
-    private var recordingTimer: Timer?
+    private var recordingTask: Task<Void, Never>?
     private var recordingURL: URL?
 
     private let repo = AiRepository()
+    private var lastSendTime: Date = .distantPast
+    private static let minSendInterval: TimeInterval = 2.0
 
     // MARK: - Voice Recording
 
@@ -67,12 +69,14 @@ final class AssistantViewModel {
             audioRecorder?.record()
             isRecording = true
             recordingDuration = 0
-            recordingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    guard let self else { return }
+            recordingTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    guard let self, !Task.isCancelled else { return }
                     self.recordingDuration += 1
                     if self.recordingDuration >= 60 {
                         await self.stopRecordingAndSend()
+                        return
                     }
                 }
             }
@@ -84,8 +88,8 @@ final class AssistantViewModel {
     func cancelRecording() {
         audioRecorder?.stop()
         audioRecorder = nil
-        recordingTimer?.invalidate()
-        recordingTimer = nil
+        recordingTask?.cancel()
+        recordingTask = nil
         isRecording = false
         recordingDuration = 0
         if let url = recordingURL { try? FileManager.default.removeItem(at: url) }
@@ -95,8 +99,8 @@ final class AssistantViewModel {
 
     func stopRecordingAndSend() async {
         audioRecorder?.stop()
-        recordingTimer?.invalidate()
-        recordingTimer = nil
+        recordingTask?.cancel()
+        recordingTask = nil
         isRecording = false
 
         guard let url = recordingURL,
@@ -188,6 +192,14 @@ final class AssistantViewModel {
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+
+        // Client-side rate limiting
+        let now = Date()
+        guard now.timeIntervalSince(lastSendTime) >= Self.minSendInterval else {
+            self.error = String(localized: "assistant.tooFast")
+            return
+        }
+        lastSendTime = now
 
         // Validate length
         guard text.count >= 2 else {
@@ -375,13 +387,13 @@ final class AssistantViewModel {
 
     // MARK: - Navigation Actions
 
-    /// Returns the tab index to navigate to, or nil if action is not a navigation action
-    func tabIndexForAction(_ action: AssistantAction) -> Int? {
+    /// Returns the tab to navigate to, or nil if action is not a navigation action
+    func tabForAction(_ action: AssistantAction) -> AppTab? {
         switch action.type {
-        case .openTransactions: return 1
-        case .openBudgetTab: return 3
-        case .openSavings: return 3
-        case .openAddExpense, .openAddIncome: return nil // These open sheets
+        case .openTransactions: return .transactions
+        case .openBudgetTab: return .budgets
+        case .openSavings: return .budgets
+        case .openAddExpense, .openAddIncome: return nil
         default: return nil
         }
     }

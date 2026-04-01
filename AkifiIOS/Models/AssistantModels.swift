@@ -481,11 +481,16 @@ enum AnyCodableValue: Codable, Sendable {
     case int(Int)
     case double(Double)
     case bool(Bool)
+    case array([AnyCodableValue])
+    case dictionary([String: AnyCodableValue])
     case null
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let v = try? container.decode(Bool.self) { self = .bool(v) }
+        // Try complex types first, then primitives
+        if let v = try? container.decode([String: AnyCodableValue].self) { self = .dictionary(v) }
+        else if let v = try? container.decode([AnyCodableValue].self) { self = .array(v) }
+        else if let v = try? container.decode(Bool.self) { self = .bool(v) }
         else if let v = try? container.decode(Int.self) { self = .int(v) }
         else if let v = try? container.decode(Double.self) { self = .double(v) }
         else if let v = try? container.decode(String.self) { self = .string(v) }
@@ -499,6 +504,8 @@ enum AnyCodableValue: Codable, Sendable {
         case .int(let v): try container.encode(v)
         case .double(let v): try container.encode(v)
         case .bool(let v): try container.encode(v)
+        case .array(let v): try container.encode(v)
+        case .dictionary(let v): try container.encode(v)
         case .null: try container.encodeNil()
         }
     }

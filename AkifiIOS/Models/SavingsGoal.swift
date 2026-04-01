@@ -65,8 +65,8 @@ struct SavingsGoal: Decodable, Identifiable, Sendable {
         name = try container.decode(String.self, forKey: .name)
         icon = try container.decode(String.self, forKey: .icon)
         color = try container.decode(String.self, forKey: .color)
-        targetAmount = Self.decodeNumericAmount(from: container, key: .targetAmount)
-        currentAmount = Self.decodeNumericAmount(from: container, key: .currentAmount)
+        targetAmount = container.decodeKopecks(forKey: .targetAmount)
+        currentAmount = container.decodeKopecks(forKey: .currentAmount)
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
         deadline = try container.decodeIfPresent(String.self, forKey: .deadline)
         description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -74,8 +74,8 @@ struct SavingsGoal: Decodable, Identifiable, Sendable {
         interestRate = try container.decodeIfPresent(Double.self, forKey: .interestRate)
         interestType = try container.decodeIfPresent(String.self, forKey: .interestType)
         interestCompound = try container.decodeIfPresent(Bool.self, forKey: .interestCompound)
-        totalInterestEarned = Self.decodeOptionalNumericAmount(from: container, key: .totalInterestEarned)
-        monthlyTarget = Self.decodeOptionalNumericAmount(from: container, key: .monthlyTarget)
+        totalInterestEarned = container.decodeKopecksIfPresent(forKey: .totalInterestEarned)
+        monthlyTarget = container.decodeKopecksIfPresent(forKey: .monthlyTarget)
         reminderEnabled = try container.decodeIfPresent(Bool.self, forKey: .reminderEnabled) ?? false
         reminderDay = try container.decodeIfPresent(Int.self, forKey: .reminderDay)
         status = try container.decodeIfPresent(SavingsGoalStatus.self, forKey: .status) ?? .active
@@ -85,28 +85,6 @@ struct SavingsGoal: Decodable, Identifiable, Sendable {
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 
-    /// Decode DB numeric (rubles) → Int64 kopecks
-    private static func decodeNumericAmount(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int64 {
-        if let dbl = try? container.decode(Double.self, forKey: key) {
-            return Int64((dbl * 100).rounded())
-        }
-        if let str = try? container.decode(String.self, forKey: key),
-           let decimal = Decimal(string: str) {
-            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        }
-        return 0
-    }
-
-    private static func decodeOptionalNumericAmount(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int64? {
-        if let dbl = try? container.decode(Double.self, forKey: key) {
-            return Int64((dbl * 100).rounded())
-        }
-        if let str = try? container.decode(String.self, forKey: key),
-           let decimal = Decimal(string: str) {
-            return Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        }
-        return nil
-    }
 }
 
 enum SavingsGoalStatus: String, Codable, Sendable {
@@ -140,15 +118,7 @@ struct SavingsContribution: Decodable, Identifiable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         goalId = try container.decode(String.self, forKey: .goalId)
         userId = try container.decode(String.self, forKey: .userId)
-        // numeric → kopecks
-        if let dbl = try? container.decode(Double.self, forKey: .amount) {
-            amount = Int64((dbl * 100).rounded())
-        } else if let str = try? container.decode(String.self, forKey: .amount),
-                  let decimal = Decimal(string: str) {
-            amount = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        } else {
-            amount = 0
-        }
+        amount = container.decodeKopecks(forKey: .amount)
         type = try container.decode(ContributionType.self, forKey: .type)
         note = try container.decodeIfPresent(String.self, forKey: .note)
         transactionId = try container.decodeIfPresent(String.self, forKey: .transactionId)

@@ -45,7 +45,7 @@ final class NotificationDelegate: NSObject, MessagingDelegate, UNUserNotificatio
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
-        UserDefaults.standard.set(token, forKey: "fcmToken")
+        _ = KeychainService.save(key: "fcmToken", string: token)
         // Send to Supabase for server-side push delivery
         Task { await notifRepo.registerFCMToken(token) }
     }

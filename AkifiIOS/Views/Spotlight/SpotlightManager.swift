@@ -22,7 +22,7 @@ final class SpotlightManager {
         return frames[step.target]
     }
 
-    var requiredTab: Int? {
+    var requiredTab: AppTab? {
         currentStep?.tab
     }
 
