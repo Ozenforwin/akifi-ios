@@ -77,7 +77,7 @@ struct AchievementBadgeView: View {
             }
 
             VStack(spacing: 2) {
-                Text(isUnlocked || !achievement.isSecret ? achievement.nameRu : "???")
+                Text(isUnlocked || !achievement.isSecret ? achievement.localizedName : "???")
                     .font(.caption2.weight(.medium))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)

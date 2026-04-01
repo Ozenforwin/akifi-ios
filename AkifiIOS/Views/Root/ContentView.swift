@@ -91,7 +91,7 @@ struct MainTabView: View {
             // Achievement overlay
             if let achievement = unlockedAchievement {
                 LevelUpView(
-                    achievementName: achievement.nameRu,
+                    achievementName: achievement.localizedName,
                     points: achievement.points,
                     icon: achievement.icon,
                     tier: achievement.tier.rawValue

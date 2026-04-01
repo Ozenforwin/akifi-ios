@@ -30,6 +30,16 @@ struct Achievement: Codable, Identifiable, Sendable {
         case isSecret = "is_secret"
         case sortOrder = "sort_order"
     }
+
+    var localizedName: String {
+        let lang = Locale.current.language.languageCode?.identifier ?? "en"
+        return lang == "ru" ? nameRu : nameEn
+    }
+
+    var localizedDescription: String? {
+        let lang = Locale.current.language.languageCode?.identifier ?? "en"
+        return lang == "ru" ? descriptionRu : descriptionEn
+    }
 }
 
 enum AchievementCategory: String, Codable, Sendable {

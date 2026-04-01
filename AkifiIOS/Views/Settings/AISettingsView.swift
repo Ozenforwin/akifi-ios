@@ -11,7 +11,6 @@ struct AISettingsView: View {
 
     var body: some View {
         Form {
-            // Tone selection
             Section {
                 ForEach(AITone.allCases, id: \.self) { tone in
                     Button {
@@ -37,24 +36,22 @@ struct AISettingsView: View {
                     .buttonStyle(.plain)
                 }
             } header: {
-                Text("Тон ответов")
+                Text(String(localized: "ai.section.tone"))
             }
 
-            // Weekly digest
             Section {
-                Toggle("Еженедельный дайджест", isOn: $settings.digestOptIn)
+                Toggle(String(localized: "ai.weeklyDigest"), isOn: $settings.digestOptIn)
                     .onChange(of: settings.digestOptIn) {
                         Task { await saveSettings() }
                     }
             } header: {
-                Text("Дайджест")
+                Text(String(localized: "ai.section.digest"))
             } footer: {
-                Text("Получайте сводку по финансам каждый понедельник")
+                Text(String(localized: "ai.digestDescription"))
             }
 
-            // Quiet hours
             Section {
-                Toggle("Тихие часы", isOn: $quietHoursEnabled)
+                Toggle(String(localized: "ai.quietHours"), isOn: $quietHoursEnabled)
                     .onChange(of: quietHoursEnabled) {
                         if !quietHoursEnabled {
                             settings.quietHoursStart = nil
@@ -67,7 +64,7 @@ struct AISettingsView: View {
                     }
 
                 if quietHoursEnabled {
-                    Picker("Начало", selection: Binding(
+                    Picker(String(localized: "ai.quietHours.start"), selection: Binding(
                         get: { settings.quietHoursStart ?? 23 },
                         set: {
                             settings.quietHoursStart = $0
@@ -79,7 +76,7 @@ struct AISettingsView: View {
                         }
                     }
 
-                    Picker("Конец", selection: Binding(
+                    Picker(String(localized: "ai.quietHours.end"), selection: Binding(
                         get: { settings.quietHoursEnd ?? 8 },
                         set: {
                             settings.quietHoursEnd = $0
@@ -92,12 +89,12 @@ struct AISettingsView: View {
                     }
                 }
             } header: {
-                Text("Тихие часы")
+                Text(String(localized: "ai.section.quietHours"))
             } footer: {
-                Text("Без уведомлений AI в указанное время")
+                Text(String(localized: "ai.quietHoursDescription"))
             }
         }
-        .navigationTitle("Настройки AI")
+        .navigationTitle(String(localized: "ai.settings.title"))
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
             if isLoading {
@@ -106,7 +103,7 @@ struct AISettingsView: View {
         }
         .overlay(alignment: .bottom) {
             if showSavedToast {
-                Text("Сохранено")
+                Text(String(localized: "common.saved"))
                     .font(.caption.weight(.medium))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)

@@ -31,7 +31,7 @@ struct NotificationSettingsView: View {
                     Toggle(String(localized: "notifications.budgetWarnings"), isOn: $budgetWarnings)
                     if budgetWarnings {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(String(localized: "notifications.threshold.\(Int(budgetPercent))"))
+                            Text(String(localized: "notifications.thresholdLabel") + " \(Int(budgetPercent))%")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Slider(value: $budgetPercent, in: 50...100, step: 5)
