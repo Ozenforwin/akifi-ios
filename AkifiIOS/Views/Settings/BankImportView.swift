@@ -100,7 +100,7 @@ struct BankImportView: View {
                     .padding(.horizontal)
             }
         }
-        .padding(.bottom, 40)
+        .padding(.bottom, 120)
     }
 
     // MARK: - Parsing Progress
@@ -241,7 +241,7 @@ struct BankImportView: View {
                 .disabled(selectedIndices.isEmpty || isImporting)
             }
 
-            Color.clear.frame(height: 80)
+            Color.clear.frame(height: 100)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
@@ -284,7 +284,7 @@ struct BankImportView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal)
-            .padding(.bottom, 40)
+            .padding(.bottom, 120)
         }
     }
 
