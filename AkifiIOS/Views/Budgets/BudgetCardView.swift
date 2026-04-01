@@ -130,7 +130,7 @@ struct BudgetCardView: View {
             if metrics.remainingDays > 0 && metrics.remaining > 0 {
                 HStack(spacing: 16) {
                     Label {
-                        Text("\(fmt.formatAmount(metrics.safeToSpendDaily.displayAmount))/день")
+                        Text("\(fmt.formatAmount(metrics.safeToSpendDaily.displayAmount))/\(String(localized: "budget.perDay"))")
                             .font(.caption)
                     } icon: {
                         Image(systemName: "shield.checkered")

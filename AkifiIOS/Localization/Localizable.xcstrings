@@ -17067,6 +17067,138 @@
           }
         }
       }
+    },
+    "budget.periodName.monthly": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месячный бюджет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly Budget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuesto mensual"
+          }
+        }
+      }
+    },
+    "budget.periodName.weekly": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недельный бюджет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly Budget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuesto semanal"
+          }
+        }
+      }
+    },
+    "budget.periodName.quarterly": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Квартальный бюджет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quarterly Budget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuesto trimestral"
+          }
+        }
+      }
+    },
+    "budget.periodName.yearly": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Годовой бюджет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yearly Budget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuesto anual"
+          }
+        }
+      }
+    },
+    "budget.periodName.custom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Произвольный бюджет"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Budget"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presupuesto personalizado"
+          }
+        }
+      }
+    },
+    "budget.perDay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "день"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "day"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "día"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
