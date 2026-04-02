@@ -144,6 +144,19 @@ struct TransactionsTabView: View {
                     .listRowBackground(Color.clear)
                 }
 
+                if displayedTransactions.isEmpty && !hasActiveFilters {
+                    EmptyStateView(
+                        title: String(localized: "transactions.empty.title"),
+                        systemImage: "tray.fill",
+                        description: String(localized: "transactions.empty.description"),
+                        actionTitle: String(localized: "welcome.addTransaction")
+                    ) {
+                        showAddTransaction = true
+                    }
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+
                 ForEach(displayedTransactions) { transaction in
                     TransactionRowView(
                         transaction: transaction,

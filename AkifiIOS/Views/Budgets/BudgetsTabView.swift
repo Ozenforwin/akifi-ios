@@ -8,12 +8,26 @@ struct BudgetsTabView: View {
     @State private var subscriptionsVM = SubscriptionsViewModel()
 
     private var dataStore: DataStore { appViewModel.dataStore }
+    private var isNewUser: Bool { dataStore.transactions.isEmpty }
 
     var body: some View {
         NavigationStack {
             List {
                 // MARK: - Budgets
-                if dataStore.isLoading && dataStore.budgets.isEmpty {
+                if isNewUser {
+                    // Demo budget with blur
+                    Section {
+                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions)
+                        BudgetCardView(budget: DemoData.budget, metrics: metrics, categories: DemoData.categories)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .demoBlur(
+                                hint: String(localized: "welcome.budgetHint"),
+                                buttonTitle: String(localized: "common.create")
+                            ) { viewModel.showForm = true }
+                    }
+                } else if dataStore.isLoading && dataStore.budgets.isEmpty {
                     Section { LoadingView() }
                         .listRowSeparator(.hidden)
                 } else if !dataStore.budgets.isEmpty {
@@ -75,7 +89,21 @@ struct BudgetsTabView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
-                    if dataStore.subscriptions.isEmpty {
+                    if isNewUser {
+                        // Demo subscriptions with single blur overlay
+                        VStack(spacing: 8) {
+                            ForEach(DemoData.subscriptions) { sub in
+                                subscriptionRow(sub)
+                            }
+                        }
+                        .demoBlur(
+                            hint: String(localized: "welcome.subscriptionHint"),
+                            buttonTitle: String(localized: "subscriptions.add")
+                        ) { showSubscriptionForm = true }
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .listRowBackground(Color.clear)
+                    } else if dataStore.subscriptions.isEmpty {
                         HStack {
                             Spacer()
                             VStack(spacing: 8) {

@@ -9,7 +9,7 @@ struct AccountFormView: View {
 
     @State private var name = ""
     @State private var selectedIcon = "💳"
-    @State private var selectedColor = "#4ADE80"
+    @State private var selectedColor = "#A78BFA"
     @State private var selectedCurrency: CurrencyCode = .rub
     @State private var initialBalanceText = ""
     @State private var isSaving = false

@@ -55,16 +55,22 @@ struct LoginView: View {
                     } onCompletion: { result in
                         Task { await handleAppleSignIn(result) }
                     }
-                    .signInWithAppleButtonStyle(.whiteOutline)
+                    .signInWithAppleButtonStyle(.white)
                     .frame(height: 50)
-                    .cornerRadius(14)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(.separator), lineWidth: 0.5)
+                    )
 
                     // Continue with Google
                     Button {
                         Task { await handleGoogleSignIn() }
                     } label: {
                         HStack(spacing: 8) {
-                            GoogleLogo()
+                            Image("GoogleLogo")
+                                .resizable()
+                                .scaledToFit()
                                 .frame(width: 20, height: 20)
                             Text(String(localized: "auth.continueGoogle"))
                                 .font(.headline)
@@ -154,6 +160,7 @@ struct LoginView: View {
             do {
                 try await appViewModel.authManager.signInWithApple(idToken: idToken, nonce: nonce)
             } catch {
+                print("❌ Apple Sign-In error: \(error)")
                 errorMessage = AuthErrorMapper.message(for: error)
             }
 
@@ -184,6 +191,7 @@ struct LoginView: View {
             // User canceled — silently ignore
             return
         } catch {
+            print("❌ Google Sign-In error: \(error)")
             errorMessage = AuthErrorMapper.message(for: error)
         }
     }
@@ -205,20 +213,6 @@ private struct AuthFeatureRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-    }
-}
-
-private struct GoogleLogo: View {
-    var body: some View {
-        Text("G")
-            .font(.system(size: 18, weight: .bold, design: .rounded))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [.red, .yellow, .green, .blue],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
     }
 }
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct AnalyticsTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = AnalyticsViewModel()
+    @State private var showAddTransaction = false
 
     // Shared period filter for cashflow + categories
     @State private var selectedPeriod: WidgetPeriod = .month
@@ -11,6 +12,15 @@ struct AnalyticsTabView: View {
     @State private var selectedAccountId: String?
 
     private var dataStore: DataStore { appViewModel.dataStore }
+    private var isNewUser: Bool { dataStore.transactions.isEmpty }
+
+    private var effectiveTransactions: [Transaction] {
+        if isNewUser { return DemoData.transactions }
+        if let accountId = selectedAccountId {
+            return dataStore.transactions.filter { $0.accountId == accountId }
+        }
+        return dataStore.transactions
+    }
 
     private var allTransactions: [Transaction] {
         if let accountId = selectedAccountId {
@@ -28,7 +38,8 @@ struct AnalyticsTabView: View {
     private func filteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
         let startDate = period.startDate()
         let df = Self.isoDateFormatter
-        return allTransactions.filter { tx in
+        let txs = isNewUser ? DemoData.transactions : allTransactions
+        return txs.filter { tx in
             guard let date = df.date(from: tx.date) else { return false }
             return date >= startDate
         }
@@ -50,34 +61,73 @@ struct AnalyticsTabView: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         // 1. Monthly Summary with % change
-                        MonthlySummaryView(transactions: allTransactions)
-                            .spotlight(.analyticsChart)
+                        if isNewUser {
+                            MonthlySummaryView(transactions: DemoData.transactions)
+                                .demoBlur(
+                                    hint: String(localized: "welcome.summaryHint"),
+                                    buttonTitle: String(localized: "welcome.addTransaction")
+                                ) { showAddTransaction = true }
+                        } else {
+                            MonthlySummaryView(transactions: allTransactions)
+                                .spotlight(.analyticsChart)
+                        }
 
-                    // 2. Daily Limit Widget
-                    if !dataStore.budgets.isEmpty {
-                        DailyLimitWidgetView()
+                        // 2. Daily Limit Widget
+                        if !dataStore.budgets.isEmpty {
+                            DailyLimitWidgetView()
+                        }
+
+                        // 3. Portfolio
+                        if !isNewUser {
+                            PortfolioChartView()
+                        }
+
+                        // 4. 6-month Trend
+                        if isNewUser {
+                            CashflowTrendView(transactions: DemoData.transactions)
+                                .demoBlur(
+                                    hint: String(localized: "analytics.trendHint"),
+                                    buttonTitle: String(localized: "welcome.addTransaction")
+                                ) { showAddTransaction = true }
+                        } else {
+                            CashflowTrendView(transactions: allTransactions)
+                        }
+
+                        // 5. Period filter
+                        WidgetFilterView(selectedPeriod: $selectedPeriod)
+
+                        // 6. Cashflow Chart
+                        if isNewUser {
+                            CashflowChartView(
+                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
+                            )
+                            .demoBlur(
+                                hint: String(localized: "analytics.cashflowHint"),
+                                buttonTitle: String(localized: "welcome.addTransaction")
+                            ) { showAddTransaction = true }
+                        } else {
+                            CashflowChartView(
+                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
+                            )
+                        }
+
+                        // 7. Category Breakdown
+                        if isNewUser {
+                            CategoryBreakdownView(
+                                allTransactions: DemoData.transactions,
+                                categories: DemoData.categories
+                            )
+                            .demoBlur(
+                                hint: String(localized: "analytics.categoryHint"),
+                                buttonTitle: String(localized: "welcome.addTransaction")
+                            ) { showAddTransaction = true }
+                        } else {
+                            CategoryBreakdownView(
+                                allTransactions: allTransactions,
+                                categories: dataStore.categories
+                            )
+                        }
                     }
-
-                    // 3. Portfolio
-                    PortfolioChartView()
-
-                    // 4. 6-month Trend (above cashflow)
-                    CashflowTrendView(transactions: allTransactions)
-
-                    // 5. Period filter (shared for cashflow + categories)
-                    WidgetFilterView(selectedPeriod: $selectedPeriod)
-
-                    // 6. Cashflow Chart
-                    CashflowChartView(
-                        data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
-                    )
-
-                    // 7. Category Breakdown (self-filtering)
-                    CategoryBreakdownView(
-                        allTransactions: allTransactions,
-                        categories: dataStore.categories
-                    )
-                }
                     .padding(.horizontal)
                     .padding(.top, 4)
                     .padding(.bottom, 120)
@@ -87,6 +137,14 @@ struct AnalyticsTabView: View {
                 }
             }
             .navigationTitle(String(localized: "analytics.title"))
+            .sheet(isPresented: $showAddTransaction) {
+                TransactionFormView(
+                    categories: dataStore.categories,
+                    accounts: dataStore.accounts
+                ) {
+                    await dataStore.loadAll()
+                }
+            }
         }
     }
 
