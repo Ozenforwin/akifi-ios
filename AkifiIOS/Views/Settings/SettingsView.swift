@@ -80,9 +80,15 @@ struct SettingsView: View {
 
                 Section(header: Text(String(localized: "settings.section.settings"))) {
                     NavigationLink {
+                        BaseCurrencyPickerView()
+                    } label: {
+                        SettingsRow(icon: "banknote.fill", color: .mint, title: String(localized: "settings.baseCurrency"), value: appViewModel.currencyManager.dataCurrency.symbol)
+                    }
+
+                    NavigationLink {
                         CurrencyPickerView()
                     } label: {
-                        SettingsRow(icon: "dollarsign.circle.fill", color: .green, title: String(localized: "settings.currency"), value: appViewModel.currencyManager.selectedCurrency.symbol)
+                        SettingsRow(icon: "dollarsign.circle.fill", color: .green, title: String(localized: "settings.displayCurrency"), value: appViewModel.currencyManager.selectedCurrency.symbol)
                     }
 
                     NavigationLink {
@@ -409,6 +415,63 @@ struct CategoryLayoutPickerView: View {
         case "grid": return "square.grid.2x2"
         case "list": return "list.bullet"
         default: return "questionmark"
+        }
+    }
+}
+
+struct BaseCurrencyPickerView: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    @State private var showConfirmAlert = false
+    @State private var pendingCurrency: CurrencyCode?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                    Button {
+                        if currency != appViewModel.currencyManager.dataCurrency {
+                            pendingCurrency = currency
+                            showConfirmAlert = true
+                        }
+                    } label: {
+                        HStack {
+                            Text(currency.symbol)
+                                .font(.title2)
+                            VStack(alignment: .leading) {
+                                Text(currency.rawValue)
+                                    .font(.headline)
+                                Text(currency.name)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if appViewModel.currencyManager.dataCurrency == currency {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.accent)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+            }
+
+            Section {
+                Text(String(localized: "settings.baseCurrency.hint"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle(String(localized: "settings.baseCurrency"))
+        .alert(String(localized: "settings.baseCurrency.confirmTitle"), isPresented: $showConfirmAlert) {
+            Button(String(localized: "settings.baseCurrency.change")) {
+                if let currency = pendingCurrency {
+                    appViewModel.currencyManager.dataCurrency = currency
+                    appViewModel.currencyManager.selectedCurrency = currency
+                }
+            }
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "settings.baseCurrency.confirmMessage"))
         }
     }
 }

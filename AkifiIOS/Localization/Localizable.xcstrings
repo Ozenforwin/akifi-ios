@@ -13632,6 +13632,41 @@
         }
       }
     },
+    "settings.baseCurrency" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Base currency" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Moneda base" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Базовая валюта" } }
+      }
+    },
+    "settings.baseCurrency.change" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cambiar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Изменить" } }
+      }
+    },
+    "settings.baseCurrency.confirmMessage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All new transactions will be recorded in the new base currency. Existing transactions will not be converted." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todas las transacciones nuevas se registrarán en la nueva moneda base. Las transacciones existentes no se convertirán." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все новые транзакции будут записываться в новой базовой валюте. Существующие транзакции не будут конвертированы." } }
+      }
+    },
+    "settings.baseCurrency.confirmTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change base currency?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Cambiar moneda base?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сменить базовую валюту?" } }
+      }
+    },
+    "settings.baseCurrency.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The base currency is used to record transactions. All amounts are stored in this currency." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La moneda base se usa para registrar transacciones. Todos los montos se almacenan en esta moneda." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Базовая валюта используется для записи транзакций. Все суммы хранятся в этой валюте." } }
+      }
+    },
     "settings.currency" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -13644,7 +13679,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Currency"
+            "value" : "Moneda"
           }
         },
         "ru" : {
@@ -13653,6 +13688,13 @@
             "value" : "Валюта"
           }
         }
+      }
+    },
+    "settings.displayCurrency" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Display currency" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Moneda de visualización" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Валюта отображения" } }
       }
     },
     "settings.deleteAccount" : {

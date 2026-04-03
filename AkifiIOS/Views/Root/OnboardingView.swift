@@ -101,6 +101,7 @@ struct CurrencyStepView: View {
                 ForEach(CurrencyCode.allCases, id: \.self) { currency in
                     Button {
                         appViewModel.currencyManager.selectedCurrency = currency
+                        appViewModel.currencyManager.dataCurrency = currency
                     } label: {
                         HStack {
                             Text(currency.symbol)
