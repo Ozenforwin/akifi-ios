@@ -172,7 +172,13 @@ final class DataStore {
             case .expense:
                 expenseByAccount[accountId, default: 0] += tx.amount
             case .transfer:
-                break
+                // Negative amount = money left (treat as expense)
+                // Positive amount = money arrived (treat as income)
+                if tx.amount < 0 {
+                    expenseByAccount[accountId, default: 0] += abs(tx.amount)
+                } else if tx.amount > 0 {
+                    incomeByAccount[accountId, default: 0] += tx.amount
+                }
             }
         }
 
