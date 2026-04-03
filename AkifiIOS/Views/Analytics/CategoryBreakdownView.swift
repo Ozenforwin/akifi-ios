@@ -115,6 +115,7 @@ struct CategoryBreakdownView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 
@@ -275,11 +276,11 @@ struct CategoryTransactionsSheet: View {
                                 .foregroundStyle(Color.expense)
                         }
                         .padding()
-                        .background(.ultraThinMaterial)
+                        .background(.regularMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+                                .stroke(.white.opacity(0.3), lineWidth: 0.5)
                         )
 
                         // Transactions
@@ -307,16 +308,17 @@ struct CategoryTransactionsSheet: View {
                                 }
                             }
                         }
-                        .background(.ultraThinMaterial)
+                        .background(.regularMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+                                .stroke(.white.opacity(0.3), lineWidth: 0.5)
                         )
                     }
                     .padding()
                 }
             }
+            .scrollContentBackground(.hidden)
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
