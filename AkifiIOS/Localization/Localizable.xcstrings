@@ -1387,6 +1387,34 @@
         }
       }
     },
+    "analyticsPeriod.month" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Month" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Месяц" } }
+      }
+    },
+    "analyticsPeriod.quarter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Quarter" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Trimestre" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } }
+      }
+    },
+    "analyticsPeriod.week" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Week" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Semana" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неделя" } }
+      }
+    },
+    "analyticsPeriod.year" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Year" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Año" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Год" } }
+      }
+    },
     "analytics.transactionsCount.%lld" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1797,6 +1825,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Спросите что-нибудь..."
+          }
+        }
+      }
+    },
+    "assistant.tooFast" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too fast! Please wait a moment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Demasiado rápido! Espera un momento."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком быстро! Подождите немного."
           }
         }
       }
@@ -3549,6 +3599,13 @@
         }
       }
     },
+    "budget.quarter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Q" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "T" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } }
+      }
+    },
     "billingPeriod.custom" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5226,6 +5283,13 @@
             "value" : "Тип"
           }
         }
+      }
+    },
+    "category.uncategorized" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Uncategorized" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без категории" } }
       }
     },
     "common.account" : {
@@ -9532,6 +9596,27 @@
         }
       }
     },
+    "migration.codePlaceholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Migration code" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Código de migración" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Код миграции" } }
+      }
+    },
+    "migration.instructions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send /migrate to @akifiapp_bot in Telegram and enter the received code" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Envía /migrate al bot @akifiapp_bot en Telegram e ingresa el código recibido" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код" } }
+      }
+    },
+    "migration.invalidCode" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid or expired code. Try getting a new one." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Código inválido o expirado. Intenta obtener uno nuevo." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неверный или просроченный код. Попробуйте получить новый." } }
+      }
+    },
     "migration.link" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9576,6 +9661,13 @@
             "value" : "Миграция из Telegram"
           }
         }
+      }
+    },
+    "migration.linkAccount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Link account" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vincular cuenta" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Привязать аккаунт" } }
       }
     },
     "month.apr" : {
@@ -13885,6 +13977,94 @@
         }
       }
     },
+    "settings.language.later" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más tarde"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Позже"
+          }
+        }
+      }
+    },
+    "settings.language.restartMessage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app needs to restart for the language change to take effect."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La aplicación necesita reiniciarse para que el cambio de idioma surta efecto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для применения нового языка необходимо перезапустить приложение."
+          }
+        }
+      }
+    },
+    "settings.language.restartNow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar ahora"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перезапустить"
+          }
+        }
+      }
+    },
+    "settings.language.restartTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart required"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reinicio necesario"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Требуется перезапуск"
+          }
+        }
+      }
+    },
     "settings.language.system" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -16091,6 +16271,13 @@
             "value" : "Аналитика"
           }
         }
+      }
+    },
+    "tab.assistant" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Assistant" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Asistente" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ассистент" } }
       }
     },
     "tab.budgets" : {

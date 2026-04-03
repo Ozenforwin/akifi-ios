@@ -82,7 +82,8 @@ final class BudgetsViewModel {
         case .quarterly:
             let month = Calendar.current.component(.month, from: Date())
             let quarter = (month - 1) / 3 + 1
-            return String(localized: "budget.quarterLabel.\(quarter).\(Calendar.current.component(.year, from: Date()))")
+            let year = Calendar.current.component(.year, from: Date())
+            return "\(String(localized: "budget.quarter")) \(quarter), \(year)"
         case .yearly:
             return String(Calendar.current.component(.year, from: Date()))
         case .custom:

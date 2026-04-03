@@ -466,6 +466,7 @@ struct HapticToggleRow: View {
 
 struct LanguagePickerView: View {
     @AppStorage("appLanguage") private var appLanguage = "system"
+    @State private var showRestartAlert = false
 
     private let languages: [(id: String, name: String, flag: String)] = [
         ("system", "System", "🌐"),
@@ -478,8 +479,12 @@ struct LanguagePickerView: View {
         List {
             ForEach(languages, id: \.id) { lang in
                 Button {
+                    let oldLang = appLanguage
                     appLanguage = lang.id
                     applyLanguage(lang.id)
+                    if oldLang != lang.id {
+                        showRestartAlert = true
+                    }
                 } label: {
                     HStack(spacing: 12) {
                         Text(lang.flag)
@@ -494,14 +499,16 @@ struct LanguagePickerView: View {
                     }
                 }
             }
-
-            Section {
-                Text(String(localized: "settings.language.restart"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .navigationTitle(String(localized: "settings.language"))
+        .alert(String(localized: "settings.language.restartTitle"), isPresented: $showRestartAlert) {
+            Button(String(localized: "settings.language.restartNow")) {
+                exit(0)
+            }
+            Button(String(localized: "settings.language.later"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "settings.language.restartMessage"))
+        }
     }
 
     private func applyLanguage(_ code: String) {
