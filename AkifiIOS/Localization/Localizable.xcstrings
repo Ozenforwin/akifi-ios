@@ -1387,34 +1387,6 @@
         }
       }
     },
-    "analyticsPeriod.month" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Month" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Месяц" } }
-      }
-    },
-    "analyticsPeriod.quarter" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Quarter" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Trimestre" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } }
-      }
-    },
-    "analyticsPeriod.week" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Week" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Semana" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неделя" } }
-      }
-    },
-    "analyticsPeriod.year" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Year" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Año" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Год" } }
-      }
-    },
     "analytics.transactionsCount.%lld" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1480,6 +1452,98 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Тренд доходов и расходов за 6 месяцев"
+          }
+        }
+      }
+    },
+    "analyticsPeriod.month" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Месяц"
+          }
+        }
+      }
+    },
+    "analyticsPeriod.quarter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trimestre"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Квартал"
+          }
+        }
+      }
+    },
+    "analyticsPeriod.week" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semana"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неделя"
+          }
+        }
+      }
+    },
+    "analyticsPeriod.year" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Year"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Año"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Год"
           }
         }
       }
@@ -1825,28 +1889,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Спросите что-нибудь..."
-          }
-        }
-      }
-    },
-    "assistant.tooFast" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Too fast! Please wait a moment."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¡Demasiado rápido! Espera un momento."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Слишком быстро! Подождите немного."
           }
         }
       }
@@ -2215,6 +2257,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ассистент"
+          }
+        }
+      }
+    },
+    "assistant.tooFast" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too fast! Please wait a moment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Demasiado rápido! Espera un momento."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком быстро! Подождите немного."
           }
         }
       }
@@ -3599,13 +3664,6 @@
         }
       }
     },
-    "budget.quarter" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Q" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "T" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } }
-      }
-    },
     "billingPeriod.custom" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4315,6 +4373,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Годовой бюджет"
+          }
+        }
+      }
+    },
+    "budget.quarter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Q"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "T"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Квартал"
           }
         }
       }
@@ -5055,6 +5136,29 @@
         }
       }
     },
+    "category.uncategorized" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uncategorized"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin categoría"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без категории"
+          }
+        }
+      }
+    },
     "categoryLayout.grid" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5283,13 +5387,6 @@
             "value" : "Тип"
           }
         }
-      }
-    },
-    "category.uncategorized" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Uncategorized" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin categoría" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без категории" } }
       }
     },
     "common.account" : {
@@ -9597,24 +9694,72 @@
       }
     },
     "migration.codePlaceholder" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Migration code" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Código de migración" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Код миграции" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Migration code"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de migración"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код миграции"
+          }
+        }
       }
     },
     "migration.instructions" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send /migrate to @akifiapp_bot in Telegram and enter the received code" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Envía /migrate al bot @akifiapp_bot en Telegram e ingresa el código recibido" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send /migrate to @akifiapp_bot in Telegram and enter the received code"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía /migrate al bot @akifiapp_bot en Telegram e ingresa el código recibido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправьте /migrate боту @akifiapp_bot в Telegram и введите полученный код"
+          }
+        }
       }
     },
     "migration.invalidCode" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid or expired code. Try getting a new one." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Código inválido o expirado. Intenta obtener uno nuevo." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неверный или просроченный код. Попробуйте получить новый." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid or expired code. Try getting a new one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código inválido o expirado. Intenta obtener uno nuevo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неверный или просроченный код. Попробуйте получить новый."
+          }
+        }
       }
     },
     "migration.link" : {
@@ -9630,6 +9775,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Link account"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Привязать аккаунт"
+          }
+        }
+      }
+    },
+    "migration.linkAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincular cuenta"
           }
         },
         "ru" : {
@@ -9661,13 +9829,6 @@
             "value" : "Миграция из Telegram"
           }
         }
-      }
-    },
-    "migration.linkAccount" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Link account" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vincular cuenta" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Привязать аккаунт" } }
       }
     },
     "month.apr" : {
@@ -13609,6 +13770,121 @@
         }
       }
     },
+    "settings.baseCurrency" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Base currency"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moneda base"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Базовая валюта"
+          }
+        }
+      }
+    },
+    "settings.baseCurrency.change" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить"
+          }
+        }
+      }
+    },
+    "settings.baseCurrency.confirmMessage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All new transactions will be recorded in the new base currency. Existing transactions will not be converted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las transacciones nuevas se registrarán en la nueva moneda base. Las transacciones existentes no se convertirán."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все новые транзакции будут записываться в новой базовой валюте. Существующие транзакции не будут конвертированы."
+          }
+        }
+      }
+    },
+    "settings.baseCurrency.confirmTitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change base currency?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cambiar moneda base?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сменить базовую валюту?"
+          }
+        }
+      }
+    },
+    "settings.baseCurrency.hint" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The base currency is used to record transactions. All amounts are stored in this currency."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La moneda base se usa para registrar transacciones. Todos los montos se almacenan en esta moneda."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Базовая валюта используется для записи транзакций. Все суммы хранятся в этой валюте."
+          }
+        }
+      }
+    },
     "settings.categoryLayout" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -13632,41 +13908,6 @@
         }
       }
     },
-    "settings.baseCurrency" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Base currency" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Moneda base" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Базовая валюта" } }
-      }
-    },
-    "settings.baseCurrency.change" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cambiar" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Изменить" } }
-      }
-    },
-    "settings.baseCurrency.confirmMessage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All new transactions will be recorded in the new base currency. Existing transactions will not be converted." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todas las transacciones nuevas se registrarán en la nueva moneda base. Las transacciones existentes no se convertirán." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все новые транзакции будут записываться в новой базовой валюте. Существующие транзакции не будут конвертированы." } }
-      }
-    },
-    "settings.baseCurrency.confirmTitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Change base currency?" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Cambiar moneda base?" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сменить базовую валюту?" } }
-      }
-    },
-    "settings.baseCurrency.hint" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The base currency is used to record transactions. All amounts are stored in this currency." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "La moneda base se usa para registrar transacciones. Todos los montos se almacenan en esta moneda." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Базовая валюта используется для записи транзакций. Все суммы хранятся в этой валюте." } }
-      }
-    },
     "settings.currency" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -13688,13 +13929,6 @@
             "value" : "Валюта"
           }
         }
-      }
-    },
-    "settings.displayCurrency" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Display currency" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Moneda de visualización" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Валюта отображения" } }
       }
     },
     "settings.deleteAccount" : {
@@ -13858,6 +14092,29 @@
         }
       }
     },
+    "settings.displayCurrency" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display currency"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moneda de visualización"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюта отображения"
+          }
+        }
+      }
+    },
     "settings.editProfile" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -13996,6 +14253,29 @@
         }
       }
     },
+    "settings.language.later" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más tarde"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Позже"
+          }
+        }
+      }
+    },
     "settings.language.restart" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14019,29 +14299,8 @@
         }
       }
     },
-    "settings.language.later" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Later"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Más tarde"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Позже"
-          }
-        }
-      }
-    },
     "settings.language.restartMessage" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14064,6 +14323,7 @@
       }
     },
     "settings.language.restartNow" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14086,6 +14346,7 @@
       }
     },
     "settings.language.restartTitle" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16316,10 +16577,26 @@
       }
     },
     "tab.assistant" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Assistant" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Asistente" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ассистент" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assistant"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asistente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ассистент"
+          }
+        }
       }
     },
     "tab.budgets" : {
