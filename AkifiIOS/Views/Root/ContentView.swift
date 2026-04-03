@@ -85,6 +85,7 @@ struct MainTabView: View {
     @State private var fabSelectedCategoryId: String?
     @State private var unlockedAchievement: Achievement?
     @State private var spotlightManager = SpotlightManager()
+    @State private var pendingInviteCode: String?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -195,6 +196,18 @@ struct MainTabView: View {
             }
         }
         .task { await checkNewAchievements() }
+        .onOpenURL { url in
+            // Handle akifi://invite/{code}
+            guard url.scheme == "akifi", url.host == "invite",
+                  let code = url.pathComponents.last, code != "/" else { return }
+            pendingInviteCode = code
+        }
+        .sheet(isPresented: Binding(
+            get: { pendingInviteCode != nil },
+            set: { if !$0 { pendingInviteCode = nil } }
+        )) {
+            AcceptInviteView(initialCode: pendingInviteCode ?? "")
+        }
     }
 
     private func handleNavigationTarget(_ target: NavigationTarget) {

@@ -81,6 +81,8 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.447410741923-2qmj10sv278prpggutmicdjcu2l5db4r
+          - CFBundleURLSchemes:
+              - akifi
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app

@@ -97,7 +97,8 @@ struct ShareAccountView: View {
                                 }
                                 .buttonStyle(.plain)
 
-                                let shareText = String(localized: "share.messageTemplate.\(account.name).\(token)")
+                                let deepLink = "akifi://invite/\(token)"
+                                let shareText = String(localized: "share.messageTemplate.\(account.name).\(token)") + "\n\n\(deepLink)"
                                 ShareLink(item: shareText) {
                                     Label(String(localized: "share.send"), systemImage: "square.and.arrow.up")
                                         .font(.subheadline.weight(.medium))
@@ -197,12 +198,16 @@ struct ShareAccountView: View {
 struct AcceptInviteView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var code = ""
+    @State private var code: String
     @State private var isAccepting = false
     @State private var error: String?
     @State private var success: String?
 
     private let supabase = SupabaseManager.shared.client
+
+    init(initialCode: String = "") {
+        _code = State(initialValue: initialCode)
+    }
 
     var body: some View {
         NavigationStack {

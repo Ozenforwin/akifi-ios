@@ -187,7 +187,7 @@ struct SettingsView: View {
                     }
 
                     ShareLink(
-                        item: URL(string: "https://apps.apple.com/app/akifi")!,
+                        item: URL(string: "https://apps.apple.com/tj/app/akifi/id6761304897")!,
                         subject: Text("Akifi"),
                         message: Text(String(localized: "settings.shareMessage"))
                     ) {
