@@ -12,6 +12,7 @@ struct TransferFormView: View {
     @State private var toAccountId: String?
     @State private var date = Date()
     @State private var description = ""
+    @State private var selectedCurrency: CurrencyCode = .rub
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -81,6 +82,11 @@ struct TransferFormView: View {
                 Section(String(localized: "transfer.details")) {
                     TextField(String(localized: "transfer.comment"), text: $description)
                     DatePicker(String(localized: "common.date"), selection: $date, displayedComponents: .date)
+                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
+                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                            Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
                 }
 
                 if let errorMessage {
@@ -93,6 +99,9 @@ struct TransferFormView: View {
             }
             .navigationTitle(String(localized: "transaction.transfer"))
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
@@ -117,10 +126,17 @@ struct TransferFormView: View {
         }
 
         isLoading = true
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let dateStr = df.string(from: date)
+        let dateStr = AppDateFormatters.isoDate.string(from: date)
         let desc = description.isEmpty ? String(localized: "transaction.transfer") : description
+
+        // Convert entered amount from selected currency to base currency
+        let cm = appViewModel.currencyManager
+        let amountInBase: Decimal
+        if selectedCurrency == cm.dataCurrency {
+            amountInBase = amountValue
+        } else {
+            amountInBase = cm.convertFromAccountCurrency(amountValue, accountCurrency: selectedCurrency)
+        }
 
         do {
             let userId = try await transactionRepo.currentUserId()
@@ -128,8 +144,8 @@ struct TransferFormView: View {
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: fromId,
-                amount: amountValue,
-                currency: nil,
+                amount: amountInBase,
+                currency: selectedCurrency.rawValue,
                 type: TransactionType.transfer.rawValue,
                 date: dateStr,
                 description: desc,
@@ -140,8 +156,8 @@ struct TransferFormView: View {
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: toId,
-                amount: amountValue,
-                currency: nil,
+                amount: amountInBase,
+                currency: selectedCurrency.rawValue,
                 type: TransactionType.transfer.rawValue,
                 date: dateStr,
                 description: desc,
