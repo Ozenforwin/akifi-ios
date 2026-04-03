@@ -34,7 +34,7 @@ struct TransactionsTabView: View {
         var seenTransferGroups: Set<String> = []
         return base.filter { tx in
             // Deduplicate transfers: show only one per transfer_group_id
-            if tx.type == .transfer, let groupId = tx.transferGroupId {
+            if let groupId = tx.transferGroupId {
                 if seenTransferGroups.contains(groupId) { return false }
                 seenTransferGroups.insert(groupId)
             }

@@ -33,7 +33,7 @@ struct HomeTabView: View {
         // Deduplicate transfers: show only one per transfer_group_id
         var seenGroups: Set<String> = []
         return Array(txs.filter { tx in
-            if tx.type == .transfer, let groupId = tx.transferGroupId {
+            if let groupId = tx.transferGroupId {
                 if seenGroups.contains(groupId) { return false }
                 seenGroups.insert(groupId)
             }

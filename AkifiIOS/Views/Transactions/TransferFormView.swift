@@ -142,26 +142,26 @@ struct TransferFormView: View {
             let userId = try await transactionRepo.currentUserId()
             let groupId = UUID().uuidString
 
-            // Source: negative amount (money leaves this account)
+            // Source: expense (money leaves this account)
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: fromId,
-                amount: -amountInBase,
+                amount: amountInBase,
                 currency: selectedCurrency.rawValue,
-                type: TransactionType.transfer.rawValue,
+                type: TransactionType.expense.rawValue,
                 date: dateStr,
                 description: desc,
                 category_id: nil,
                 merchant_name: nil,
                 transfer_group_id: groupId
             ))
-            // Destination: positive amount (money arrives to this account)
+            // Destination: income (money arrives to this account)
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: toId,
                 amount: amountInBase,
                 currency: selectedCurrency.rawValue,
-                type: TransactionType.transfer.rawValue,
+                type: TransactionType.income.rawValue,
                 date: dateStr,
                 description: desc,
                 category_id: nil,
