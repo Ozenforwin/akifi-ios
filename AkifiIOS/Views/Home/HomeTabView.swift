@@ -19,6 +19,17 @@ struct HomeTabView: View {
 
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
 
+    private var selectedAccount: Account? {
+        viewModel.selectedAccount(from: dataStore.accounts)
+    }
+
+    private var recentTransactionsForAccount: [Transaction] {
+        guard let account = selectedAccount else {
+            return Array(dataStore.transactions.prefix(10))
+        }
+        return Array(dataStore.transactions.filter { $0.accountId == account.id }.prefix(10))
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -194,7 +205,7 @@ struct HomeTabView: View {
             ) { showAddTransaction = true }
         } else {
             RecentTransactionsView(
-                transactions: dataStore.recentTransactions,
+                transactions: recentTransactionsForAccount,
                 categories: dataStore.categories,
                 onEdit: { tx in editingTransaction = tx },
                 onDelete: { tx in
