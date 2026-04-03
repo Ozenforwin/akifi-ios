@@ -1,22 +1,46 @@
 import SwiftUI
+import CryptoKit
 
-/// In-memory image cache shared across all CachedAsyncImage instances.
+/// Two-tier image cache: NSCache (memory) + disk (Caches directory).
 private final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
-    private let cache = NSCache<NSURL, UIImage>()
+    private let memory = NSCache<NSURL, UIImage>()
+    private let diskDir: URL
 
     init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+        memory.countLimit = 200
+        memory.totalCostLimit = 50 * 1024 * 1024 // 50 MB
+
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        diskDir = caches.appendingPathComponent("ImageCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: diskDir, withIntermediateDirectories: true)
     }
 
     func image(for url: URL) -> UIImage? {
-        cache.object(forKey: url as NSURL)
+        // 1. Memory
+        if let cached = memory.object(forKey: url as NSURL) { return cached }
+        // 2. Disk
+        let file = diskPath(for: url)
+        guard let data = try? Data(contentsOf: file),
+              let image = UIImage(data: data) else { return nil }
+        memory.setObject(image, forKey: url as NSURL)
+        return image
     }
 
     func store(_ image: UIImage, for url: URL) {
         let cost = image.pngData()?.count ?? 0
-        cache.setObject(image, forKey: url as NSURL, cost: cost)
+        memory.setObject(image, forKey: url as NSURL, cost: cost)
+        // Write to disk in background
+        let file = diskPath(for: url)
+        if let data = image.jpegData(compressionQuality: 0.85) {
+            try? data.write(to: file, options: .atomic)
+        }
+    }
+
+    private func diskPath(for url: URL) -> URL {
+        let hash = SHA256.hash(data: Data(url.absoluteString.utf8))
+        let name = hash.compactMap { String(format: "%02x", $0) }.joined()
+        return diskDir.appendingPathComponent(name)
     }
 }
 
