@@ -144,6 +144,7 @@ struct AnalyticsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
         }
     }

@@ -74,6 +74,7 @@ struct ReportsView: View {
                 isExpense: vm.selectedType == .expense,
                 cm: appViewModel.currencyManager
             )
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 
@@ -392,14 +393,18 @@ private struct ReportCategoryDetailSheet: View {
                     .padding()
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(.clear)
             .navigationTitle(item.category.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
+        .background(.clear)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

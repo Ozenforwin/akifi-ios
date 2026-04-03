@@ -319,14 +319,17 @@ struct CategoryTransactionsSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .background(.clear)
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
+        .background(.clear)
     }
 }
 
