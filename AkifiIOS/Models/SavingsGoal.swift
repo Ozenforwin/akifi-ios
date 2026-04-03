@@ -1,6 +1,6 @@
 import Foundation
 
-struct SavingsGoal: Decodable, Identifiable, Sendable {
+struct SavingsGoal: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var name: String

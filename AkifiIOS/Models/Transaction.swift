@@ -1,6 +1,6 @@
 import Foundation
 
-struct Transaction: Decodable, Identifiable, Sendable {
+struct Transaction: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var accountId: String?
@@ -64,6 +64,24 @@ struct Transaction: Decodable, Identifiable, Sendable {
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encodeIfPresent(accountId, forKey: .accountId)
+        try container.encode(amount, forKey: .amount)
+        try container.encodeIfPresent(currency, forKey: .currency)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(categoryId, forKey: .categoryId)
+        try container.encode(type, forKey: .type)
+        try container.encode(rawDateTime, forKey: .date)
+        try container.encodeIfPresent(merchantName, forKey: .merchantName)
+        try container.encodeIfPresent(merchantFuzzy, forKey: .merchantFuzzy)
+        try container.encodeIfPresent(transferGroupId, forKey: .transferGroupId)
+        try container.encodeIfPresent(status, forKey: .status)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+    }
 }
 
 enum TransactionType: String, Codable, Sendable {

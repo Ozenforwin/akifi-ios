@@ -1,6 +1,6 @@
 import Foundation
 
-struct Budget: Decodable, Identifiable, Sendable {
+struct Budget: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var budgetName: String?
@@ -64,6 +64,26 @@ struct Budget: Decodable, Identifiable, Sendable {
         isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encodeIfPresent(budgetName, forKey: .budgetName)
+        try container.encodeIfPresent(budgetDescription, forKey: .budgetDescription)
+        try container.encodeIfPresent(accountIds, forKey: .accountIds)
+        try container.encodeIfPresent(budgetType, forKey: .budgetType)
+        try container.encode(amount, forKey: .amount)
+        try container.encode(billingPeriod, forKey: .billingPeriod)
+        try container.encodeIfPresent(categoryIds, forKey: .categoryIds)
+        try container.encodeIfPresent(customStartDate, forKey: .customStartDate)
+        try container.encodeIfPresent(customEndDate, forKey: .customEndDate)
+        try container.encode(rolloverEnabled, forKey: .rolloverEnabled)
+        try container.encodeIfPresent(alertThresholds, forKey: .alertThresholds)
+        try container.encode(isActive, forKey: .isActive)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 
     var name: String {

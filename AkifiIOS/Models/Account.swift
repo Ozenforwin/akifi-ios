@@ -35,6 +35,20 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(name, forKey: .name)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(color, forKey: .color)
+        try container.encode(currency, forKey: .currency)
+        // Store back as rubles (same format as DB) so decode always does *100
+        try container.encode(initialBalance / 100, forKey: .initialBalance)
+        try container.encode(isPrimary, forKey: .isPrimary)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+    }
+
     init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", createdAt: String? = nil) {
         self.id = id; self.userId = userId; self.name = name; self.icon = icon
         self.color = color; self.initialBalance = initialBalance; self.isPrimary = isPrimary

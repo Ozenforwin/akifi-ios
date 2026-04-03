@@ -89,6 +89,7 @@ final class AuthManager {
 
     func signOut() async throws {
         try await supabase.auth.signOut()
+        PersistenceManager.shared.clearAll()
         currentUser = nil
         isAuthenticated = false
     }
@@ -100,6 +101,7 @@ final class AuthManager {
             options: .init(body: ["confirm": true])
         )
         // Clear local state
+        PersistenceManager.shared.clearAll()
         UserDefaults.standard.removeObject(forKey: "onboarding_completed")
         UserDefaults.standard.removeObject(forKey: "selected_currency")
         UserDefaults.standard.removeObject(forKey: "data_currency")

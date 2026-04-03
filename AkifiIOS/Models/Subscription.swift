@@ -1,6 +1,6 @@
 import Foundation
 
-struct SubscriptionTracker: Decodable, Identifiable, Sendable {
+struct SubscriptionTracker: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var serviceName: String
@@ -56,6 +56,23 @@ struct SubscriptionTracker: Decodable, Identifiable, Sendable {
         isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(serviceName, forKey: .serviceName)
+        try container.encode(amount, forKey: .amount)
+        try container.encodeIfPresent(currency, forKey: .currency)
+        try container.encode(billingPeriod, forKey: .billingPeriod)
+        try container.encode(startDate, forKey: .startDate)
+        try container.encodeIfPresent(nextPaymentDate, forKey: .nextPaymentDate)
+        try container.encode(reminderDays, forKey: .reminderDays)
+        try container.encodeIfPresent(iconColor, forKey: .iconColor)
+        try container.encode(isActive, forKey: .isActive)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 
     // MARK: - Cycle Progress

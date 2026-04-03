@@ -1,6 +1,6 @@
 import Foundation
 
-struct Profile: Decodable, Identifiable, Sendable {
+struct Profile: Codable, Identifiable, Sendable {
     let id: String
     var email: String?
     var fullName: String?

@@ -27,12 +27,19 @@ final class DataStore {
     var profile: Profile?
     var profilesMap: [String: Profile] = [:]
 
+    private let cache = PersistenceManager.shared
+
     func loadAll() async {
         isLoading = true
         error = nil
+
+        // 1. Load from offline cache first (instant)
+        loadFromCache()
+        rebuildCaches()
+
+        // 2. Fetch fresh data from network
         var errors: [String] = []
 
-        // Parallel fetch of independent data sources
         async let accountsFetch = accountRepo.fetchAll()
         async let txFetch = transactionRepo.fetchAll()
         async let catsFetch = categoryRepo.fetchAll()
@@ -77,8 +84,31 @@ final class DataStore {
             self.error = errors.joined(separator: "; ")
             AppLogger.data.warning("Load completed with errors: \(self.error!)")
         }
+
+        // 3. Save fresh data to offline cache
+        saveToCache()
         rebuildCaches()
         isLoading = false
+    }
+
+    // MARK: - Offline Cache
+
+    private func loadFromCache() {
+        if let cached = cache.loadAccounts(), !cached.isEmpty { accounts = cached }
+        if let cached = cache.loadTransactions(), !cached.isEmpty { transactions = cached }
+        if let cached = cache.loadCategories(), !cached.isEmpty { categories = cached }
+        if let cached = cache.loadBudgets(), !cached.isEmpty { budgets = cached }
+        if let cached = cache.loadSubscriptions(), !cached.isEmpty { subscriptions = cached }
+        if let cached = cache.loadProfile() { profile = cached }
+    }
+
+    private func saveToCache() {
+        cache.saveAccounts(accounts)
+        cache.saveTransactions(transactions)
+        cache.saveCategories(categories)
+        cache.saveBudgets(budgets)
+        cache.saveSubscriptions(subscriptions)
+        if let profile { cache.saveProfile(profile) }
     }
 
     func addTransaction(_ input: CreateTransactionInput) async throws -> Transaction {
