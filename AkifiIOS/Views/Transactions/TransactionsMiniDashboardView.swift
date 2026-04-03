@@ -103,7 +103,7 @@ struct TransactionsMiniDashboardView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func abbreviate(_ value: Double) -> String {

@@ -72,17 +72,21 @@ struct HomeTabView: View {
                 AccountFormView {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $sharingAccount) { account in
                 ShareAccountView(account: account)
+                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSearch) {
                 SearchView()
+                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingAccount) { account in
                 AccountFormView(editingAccount: account) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingTransaction) { transaction in
                 TransactionFormView(
@@ -92,6 +96,7 @@ struct HomeTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
@@ -100,16 +105,19 @@ struct HomeTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showBankImport) {
                 NavigationStack {
                     BankImportView()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showReceiptScanner) {
                 ReceiptScannerView {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
         }
     }

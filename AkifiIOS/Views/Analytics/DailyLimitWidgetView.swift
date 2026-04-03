@@ -43,16 +43,7 @@ struct DailyLimitWidgetView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.fabEnd.opacity(0.08),
-                    Color(.systemBackground)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

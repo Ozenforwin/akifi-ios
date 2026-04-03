@@ -80,11 +80,11 @@ struct MonthlySummaryView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.secondarySystemGroupedBackground))
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
             )
         }
     }
@@ -117,11 +117,11 @@ struct MonthlySummaryView: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }

@@ -96,6 +96,7 @@ struct SavingsGoalDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showContribution) {
             ContributionSheetView(goal: goal, onContribute: onContribute)
+                .presentationBackground(.ultraThinMaterial)
         }
     }
 }

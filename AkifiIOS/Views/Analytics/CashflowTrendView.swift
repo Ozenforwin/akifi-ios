@@ -87,11 +87,11 @@ struct CashflowTrendView: View {
             }
         }
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }

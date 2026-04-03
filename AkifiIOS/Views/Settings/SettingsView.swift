@@ -254,6 +254,7 @@ struct SettingsView: View {
                 ReceiptScannerView {
                     await appViewModel.dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .navigationTitle(String(localized: "common.settings"))
             .toolbar {

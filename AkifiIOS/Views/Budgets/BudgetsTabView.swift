@@ -173,6 +173,7 @@ struct BudgetsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $viewModel.editingBudget) { budget in
                 BudgetFormView(
@@ -182,17 +183,20 @@ struct BudgetsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSubscriptionForm) {
                 SubscriptionFormView { name, amount, period, color in
                     await subscriptionsVM.create(name: name, amount: amount, period: period, color: color)
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingSubscription) { sub in
                 EditSubscriptionFormView(subscription: sub) {
                     await dataStore.loadAll()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
         }
     }

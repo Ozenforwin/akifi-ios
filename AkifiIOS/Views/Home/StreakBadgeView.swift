@@ -52,7 +52,7 @@ struct StreakBadgeView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }

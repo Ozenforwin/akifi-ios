@@ -163,37 +163,41 @@ struct MainTabView: View {
             AssistantView(viewModel: assistantVM) { target in
                 handleNavigationTarget(target)
             }
+            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .expense(let categoryId):
-                TransactionFormView(
-                    categories: appViewModel.dataStore.categories,
-                    accounts: appViewModel.dataStore.accounts,
-                    defaultCategoryId: categoryId
-                ) {
-                    await appViewModel.dataStore.loadAll()
-                    fabSelectedCategoryId = nil
-                }
-            case .income(let categoryId):
-                TransactionFormView(
-                    categories: appViewModel.dataStore.categories,
-                    accounts: appViewModel.dataStore.accounts,
-                    defaultType: .income,
-                    defaultCategoryId: categoryId
-                ) {
-                    await appViewModel.dataStore.loadAll()
-                    fabSelectedCategoryId = nil
-                }
-            case .transfer:
-                TransferFormView(accounts: appViewModel.dataStore.accounts) {
-                    await appViewModel.dataStore.loadAll()
-                }
-            case .receipt:
-                ReceiptScannerView {
-                    await appViewModel.dataStore.loadAll()
+            Group {
+                switch sheet {
+                case .expense(let categoryId):
+                    TransactionFormView(
+                        categories: appViewModel.dataStore.categories,
+                        accounts: appViewModel.dataStore.accounts,
+                        defaultCategoryId: categoryId
+                    ) {
+                        await appViewModel.dataStore.loadAll()
+                        fabSelectedCategoryId = nil
+                    }
+                case .income(let categoryId):
+                    TransactionFormView(
+                        categories: appViewModel.dataStore.categories,
+                        accounts: appViewModel.dataStore.accounts,
+                        defaultType: .income,
+                        defaultCategoryId: categoryId
+                    ) {
+                        await appViewModel.dataStore.loadAll()
+                        fabSelectedCategoryId = nil
+                    }
+                case .transfer:
+                    TransferFormView(accounts: appViewModel.dataStore.accounts) {
+                        await appViewModel.dataStore.loadAll()
+                    }
+                case .receipt:
+                    ReceiptScannerView {
+                        await appViewModel.dataStore.loadAll()
+                    }
                 }
             }
+            .presentationBackground(.ultraThinMaterial)
         }
         .task { await checkNewAchievements() }
         .onOpenURL { url in
@@ -207,6 +211,7 @@ struct MainTabView: View {
             set: { if !$0 { pendingInviteCode = nil } }
         )) {
             AcceptInviteView(initialCode: pendingInviteCode ?? "")
+                .presentationBackground(.ultraThinMaterial)
         }
     }
 

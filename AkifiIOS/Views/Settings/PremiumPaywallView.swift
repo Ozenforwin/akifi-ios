@@ -51,7 +51,7 @@ struct PremiumPaywallView: View {
                     PremiumFeatureRow(icon: "target", title: "Цели накоплений", subtitle: "Копите с процентами", isPro: false)
                 }
                 .padding()
-                .background(Color(.systemBackground))
+                .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
                 if !isPremium {

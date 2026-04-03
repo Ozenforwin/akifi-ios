@@ -30,7 +30,7 @@ struct EvidenceCardView: View {
             }
         }
         .padding(12)
-        .background(Color(.tertiarySystemBackground))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 

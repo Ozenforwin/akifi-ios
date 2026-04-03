@@ -68,6 +68,7 @@ struct SubscriptionListView: View {
             SubscriptionFormView { name, amount, period, color in
                 await viewModel.create(name: name, amount: amount, period: period, color: color)
             }
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 }
