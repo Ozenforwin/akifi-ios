@@ -67,6 +67,14 @@ struct CreateTransactionInput: Encodable, Sendable {
     let description: String?
     let category_id: String?
     let merchant_name: String?
+    let transfer_group_id: String?
+
+    init(user_id: String, account_id: String?, amount: Decimal, currency: String?, type: String, date: String, description: String?, category_id: String?, merchant_name: String?, transfer_group_id: String? = nil) {
+        self.user_id = user_id; self.account_id = account_id; self.amount = amount
+        self.currency = currency; self.type = type; self.date = date
+        self.description = description; self.category_id = category_id
+        self.merchant_name = merchant_name; self.transfer_group_id = transfer_group_id
+    }
 }
 
 struct UpdateTransactionInput: Encodable, Sendable {

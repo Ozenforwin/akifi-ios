@@ -58,12 +58,23 @@ struct TransactionRowView: View {
                     }
                 }
 
-                // Row 3: Description or transfer label
+                // Row 3: Description or transfer direction
                 if isTransfer {
-                    Text(transaction.description?.isEmpty == false ? transaction.description! : String(localized: "transaction.transferBetweenAccounts"))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                    if let desc = transaction.description, !desc.isEmpty {
+                        Text(desc)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    // Show "Account A → Account B" for transfers
+                    if let pairAccount = transferPairAccount {
+                        let fromName = transaction.amount < 0 ? (resolvedAccount?.name ?? "?") : pairAccount.name
+                        let toName = transaction.amount < 0 ? pairAccount.name : (resolvedAccount?.name ?? "?")
+                        Text("\(fromName) → \(toName)")
+                            .font(.caption2)
+                            .foregroundStyle(.quaternary)
+                            .lineLimit(1)
+                    }
                 } else if let desc = transaction.description, !desc.isEmpty {
                     Text(desc)
                         .font(.caption)
@@ -113,10 +124,20 @@ struct TransactionRowView: View {
         }
     }
 
+    /// Find the other account in a transfer pair via transfer_group_id
+    private var transferPairAccount: Account? {
+        guard let groupId = transaction.transferGroupId else { return nil }
+        let pair = dataStore.transactions.first {
+            $0.transferGroupId == groupId && $0.id != transaction.id
+        }
+        guard let pairAccountId = pair?.accountId else { return nil }
+        return dataStore.accounts.first { $0.id == pairAccountId }
+    }
+
     private var formattedAmount: String {
         if isTransfer {
-            let sign = transaction.type == .expense ? "-" : "+"
-            return "\(sign)\(appViewModel.currencyManager.formatAmount(transaction.amount.displayAmount))"
+            let amount = abs(transaction.amount).displayAmount
+            return appViewModel.currencyManager.formatAmount(amount)
         }
         let sign: String
         switch transaction.type {

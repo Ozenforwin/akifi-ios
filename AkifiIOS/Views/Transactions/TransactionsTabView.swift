@@ -31,7 +31,13 @@ struct TransactionsTabView: View {
         let toDate = filterDateTo.map { cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: $0))! }
 
         // Single-pass filter for all criteria
+        var seenTransferGroups: Set<String> = []
         return base.filter { tx in
+            // Deduplicate transfers: show only one per transfer_group_id
+            if tx.type == .transfer, let groupId = tx.transferGroupId {
+                if seenTransferGroups.contains(groupId) { return false }
+                seenTransferGroups.insert(groupId)
+            }
             // Type
             switch filterType {
             case .all: break

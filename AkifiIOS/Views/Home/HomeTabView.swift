@@ -24,10 +24,21 @@ struct HomeTabView: View {
     }
 
     private var recentTransactionsForAccount: [Transaction] {
-        guard let account = selectedAccount else {
-            return Array(dataStore.transactions.prefix(10))
+        let txs: [Transaction]
+        if let account = selectedAccount {
+            txs = dataStore.transactions.filter { $0.accountId == account.id }
+        } else {
+            txs = dataStore.transactions
         }
-        return Array(dataStore.transactions.filter { $0.accountId == account.id }.prefix(10))
+        // Deduplicate transfers: show only one per transfer_group_id
+        var seenGroups: Set<String> = []
+        return Array(txs.filter { tx in
+            if tx.type == .transfer, let groupId = tx.transferGroupId {
+                if seenGroups.contains(groupId) { return false }
+                seenGroups.insert(groupId)
+            }
+            return true
+        }.prefix(10))
     }
 
     var body: some View {
