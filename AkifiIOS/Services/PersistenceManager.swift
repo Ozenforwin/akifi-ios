@@ -19,10 +19,23 @@ final class PersistenceManager: Sendable {
         return d
     }()
 
+    /// Increment when encode format changes to invalidate stale cache
+    private static let cacheVersion = 2
+
     private init() {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         dir = caches.appendingPathComponent("OfflineData", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        migrateIfNeeded()
+    }
+
+    private func migrateIfNeeded() {
+        let key = "offline_cache_version"
+        let stored = UserDefaults.standard.integer(forKey: key)
+        if stored < Self.cacheVersion {
+            clearAll()
+            UserDefaults.standard.set(Self.cacheVersion, forKey: key)
+        }
     }
 
     // MARK: - Generic save/load

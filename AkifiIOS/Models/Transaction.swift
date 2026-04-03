@@ -69,7 +69,8 @@ struct Transaction: Codable, Identifiable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(userId, forKey: .userId)
         try container.encodeIfPresent(accountId, forKey: .accountId)
-        try container.encode(amount, forKey: .amount)
+        // Store as rubles (same format as DB) so decode always does ×100
+        try container.encode(Double(amount) / 100.0, forKey: .amount)
         try container.encodeIfPresent(currency, forKey: .currency)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(categoryId, forKey: .categoryId)

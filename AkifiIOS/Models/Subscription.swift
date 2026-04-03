@@ -63,7 +63,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         try container.encode(id, forKey: .id)
         try container.encode(userId, forKey: .userId)
         try container.encode(serviceName, forKey: .serviceName)
-        try container.encode(amount, forKey: .amount)
+        try container.encode(Double(amount) / 100.0, forKey: .amount)
         try container.encodeIfPresent(currency, forKey: .currency)
         try container.encode(billingPeriod, forKey: .billingPeriod)
         try container.encode(startDate, forKey: .startDate)

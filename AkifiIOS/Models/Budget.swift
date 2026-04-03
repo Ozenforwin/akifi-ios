@@ -74,7 +74,7 @@ struct Budget: Codable, Identifiable, Sendable {
         try container.encodeIfPresent(budgetDescription, forKey: .budgetDescription)
         try container.encodeIfPresent(accountIds, forKey: .accountIds)
         try container.encodeIfPresent(budgetType, forKey: .budgetType)
-        try container.encode(amount, forKey: .amount)
+        try container.encode(Double(amount) / 100.0, forKey: .amount)
         try container.encode(billingPeriod, forKey: .billingPeriod)
         try container.encodeIfPresent(categoryIds, forKey: .categoryIds)
         try container.encodeIfPresent(customStartDate, forKey: .customStartDate)
