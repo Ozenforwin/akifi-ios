@@ -30,6 +30,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
         Messaging.messaging().apnsToken = deviceToken
     }
 
+    // MARK: - APNs Registration Failure
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        AppLogger.notifications.error("APNs registration failed: \(error.localizedDescription)")
+    }
+
     // MARK: - Google Sign In URL handling
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {

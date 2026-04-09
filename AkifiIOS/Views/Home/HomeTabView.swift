@@ -100,21 +100,31 @@ struct HomeTabView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingTransaction) { transaction in
-                TransactionFormView(
-                    categories: dataStore.categories,
-                    accounts: dataStore.accounts,
-                    editingTransaction: transaction
-                ) {
-                    await dataStore.loadAll()
+                if transaction.isTransfer {
+                    TransferFormView(
+                        accounts: dataStore.accounts,
+                        editingTransaction: transaction
+                    ) {
+                        await dataStore.loadAll()
+                    }
+                    .presentationBackground(.ultraThinMaterial)
+                } else {
+                    TransactionFormView(
+                        categories: dataStore.categories,
+                        accounts: dataStore.accounts,
+                        editingTransaction: transaction
+                    ) {
+                        await dataStore.loadAll()
+                    }
+                    .presentationBackground(.ultraThinMaterial)
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
                     categories: dataStore.categories,
                     accounts: dataStore.accounts
                 ) {
-                    await dataStore.loadAll()
+                    dataStore.rebuildCaches()
                 }
                 .presentationBackground(.ultraThinMaterial)
             }

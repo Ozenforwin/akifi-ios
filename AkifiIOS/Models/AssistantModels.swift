@@ -263,6 +263,67 @@ struct RecommendedActionPayload: Codable, Sendable {
     }
 }
 
+// MARK: - Assistant Context (sent with each message)
+
+struct AssistantContext: Encodable, Sendable {
+    let accounts: [AccountSummary]
+    let categories: [CategorySummary]
+    let transactionSummary: TransactionSummary
+    let currency: String
+    let locale: String
+
+    struct AccountSummary: Encodable, Sendable {
+        let id: String
+        let name: String
+        let icon: String
+        let balance: Int64
+        let income: Int64
+        let expense: Int64
+        let currency: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, name, icon, balance, income, expense, currency
+        }
+    }
+
+    struct CategorySummary: Encodable, Sendable {
+        let id: String
+        let name: String
+        let icon: String
+        let type: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, name, icon, type
+        }
+    }
+
+    struct TransactionSummary: Encodable, Sendable {
+        let totalExpense: Int64
+        let totalIncome: Int64
+        let byCategory: [String: Int64]
+        let byAccount: [String: Int64]
+        let count: Int
+        let dateFrom: String?
+        let dateTo: String?
+
+        enum CodingKeys: String, CodingKey {
+            case totalExpense = "total_expense"
+            case totalIncome = "total_income"
+            case byCategory = "by_category"
+            case byAccount = "by_account"
+            case count
+            case dateFrom = "date_from"
+            case dateTo = "date_to"
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case accounts, categories
+        case transactionSummary = "transaction_summary"
+        case currency, locale
+    }
+}
+
 // MARK: - AI Feedback
 
 struct AIFeedback: Encodable, Sendable {

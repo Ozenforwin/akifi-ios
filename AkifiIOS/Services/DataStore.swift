@@ -157,6 +157,80 @@ final class DataStore {
         Array(transactions.prefix(10))
     }
 
+    // MARK: - Assistant Context
+
+    func buildAssistantContext() -> AssistantContext {
+        let accountSummaries = accounts.map { account in
+            AssistantContext.AccountSummary(
+                id: account.id,
+                name: account.name,
+                icon: account.icon,
+                balance: balance(for: account),
+                income: accountIncome[account.id] ?? 0,
+                expense: accountExpense[account.id] ?? 0,
+                currency: account.currency
+            )
+        }
+
+        let categorySummaries = categories.map { cat in
+            AssistantContext.CategorySummary(
+                id: cat.id,
+                name: cat.name,
+                icon: cat.icon,
+                type: cat.type.rawValue
+            )
+        }
+
+        // Per-category expense totals
+        var byCategory: [String: Int64] = [:]
+        var totalExpense: Int64 = 0
+        var totalIncome: Int64 = 0
+        for tx in transactions {
+            switch tx.type {
+            case .expense:
+                totalExpense += tx.amount
+                if let catId = tx.categoryId {
+                    byCategory[catId, default: 0] += tx.amount
+                }
+            case .income:
+                totalIncome += tx.amount
+            case .transfer:
+                break
+            }
+        }
+
+        // Per-account expense totals
+        var byAccount: [String: Int64] = [:]
+        for tx in transactions where tx.type == .expense {
+            if let accId = tx.accountId {
+                byAccount[accId, default: 0] += tx.amount
+            }
+        }
+
+        // Date range
+        let dates = transactions.map(\.date).sorted()
+        let dateFrom = dates.first
+        let dateTo = dates.last
+
+        let summary = AssistantContext.TransactionSummary(
+            totalExpense: totalExpense,
+            totalIncome: totalIncome,
+            byCategory: byCategory,
+            byAccount: byAccount,
+            count: transactions.count,
+            dateFrom: dateFrom,
+            dateTo: dateTo
+        )
+
+        return AssistantContext(
+            accounts: accountSummaries,
+            categories: categorySummaries,
+            transactionSummary: summary,
+            currency: accounts.first?.currency ?? "rub",
+            locale: Locale.current.identifier
+        )
+    }
+
     // MARK: - Cache
 
     /// Rebuild all caches in one pass — call after any data change

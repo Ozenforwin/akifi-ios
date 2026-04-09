@@ -23,9 +23,9 @@ struct TransactionRowView: View {
                             .font(.title3)
                     }
 
-                // Creator avatar badge (for shared accounts)
-                if let creator = appViewModel.dataStore.profilesMap[transaction.userId],
-                   creator.id != appViewModel.dataStore.profile?.id {
+                // Creator avatar badge (for shared accounts — show for all users including self)
+                if isOnSharedAccount,
+                   let creator = appViewModel.dataStore.profilesMap[transaction.userId] {
                     creatorBadge(creator)
                         .offset(x: 4, y: 4)
                 }
@@ -67,10 +67,8 @@ struct TransactionRowView: View {
                             .lineLimit(1)
                     }
                     // Show "Account A → Account B" for transfers
-                    if let pairAccount = transferPairAccount {
-                        let fromName = transaction.amount < 0 ? (resolvedAccount?.name ?? "?") : pairAccount.name
-                        let toName = transaction.amount < 0 ? pairAccount.name : (resolvedAccount?.name ?? "?")
-                        Text("\(fromName) → \(toName)")
+                    if let directionText = transferDirectionText {
+                        Text(directionText)
                             .font(.caption2)
                             .foregroundStyle(.quaternary)
                             .lineLimit(1)
@@ -107,6 +105,13 @@ struct TransactionRowView: View {
         isTransfer ? String(localized: "transaction.transfer") : (category?.name ?? String(localized: "transaction.noCategory"))
     }
 
+    /// True if this transaction's account has transactions from multiple users
+    private var isOnSharedAccount: Bool {
+        guard dataStore.profilesMap.count > 1, let accId = transaction.accountId else { return false }
+        let myId = dataStore.profile?.id
+        return dataStore.transactions.lazy.contains { $0.accountId == accId && $0.userId != myId }
+    }
+
     private var resolvedAccount: Account? {
         if let account { return account }
         guard let accId = transaction.accountId else { return nil }
@@ -124,14 +129,28 @@ struct TransactionRowView: View {
         }
     }
 
-    /// Find the other account in a transfer pair via transfer_group_id
-    private var transferPairAccount: Account? {
-        guard let groupId = transaction.transferGroupId else { return nil }
-        let pair = dataStore.transactions.first {
-            $0.transferGroupId == groupId && $0.id != transaction.id
+    /// Build "Account A → Account B" direction text for transfers.
+    /// Works even when the pair transaction is not accessible (e.g. on another user's private account).
+    private var transferDirectionText: String? {
+        guard transaction.transferGroupId != nil || transaction.isTransfer else { return nil }
+        let currentName = resolvedAccount?.name ?? "?"
+
+        if let groupId = transaction.transferGroupId,
+           let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != transaction.id }),
+           let pairAccountId = pair.accountId,
+           let pairAccount = dataStore.accounts.first(where: { $0.id == pairAccountId }) {
+            // Both sides available
+            let fromName = transaction.amount < 0 ? currentName : pairAccount.name
+            let toName = transaction.amount < 0 ? pairAccount.name : currentName
+            return "\(fromName) → \(toName)"
         }
-        guard let pairAccountId = pair?.accountId else { return nil }
-        return dataStore.accounts.first { $0.id == pairAccountId }
+
+        // Pair not accessible — show partial direction
+        if transaction.amount < 0 {
+            return "\(currentName) →"
+        } else {
+            return "→ \(currentName)"
+        }
     }
 
     private var formattedAmount: String {

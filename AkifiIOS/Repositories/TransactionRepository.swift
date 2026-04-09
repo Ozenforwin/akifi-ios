@@ -57,7 +57,7 @@ final class TransactionRepository: Sendable {
     }
 }
 
-struct CreateTransactionInput: Encodable, Sendable {
+struct CreateTransactionInput: Codable, Sendable {
     let user_id: String
     let account_id: String?
     let amount: Decimal
@@ -77,7 +77,7 @@ struct CreateTransactionInput: Encodable, Sendable {
     }
 }
 
-struct UpdateTransactionInput: Encodable, Sendable {
+struct UpdateTransactionInput: Codable, Sendable {
     let amount: Decimal?
     let currency: String?
     let type: String?
@@ -85,4 +85,12 @@ struct UpdateTransactionInput: Encodable, Sendable {
     let description: String?
     let category_id: String?
     let merchant_name: String?
+    let account_id: String?
+
+    init(amount: Decimal? = nil, currency: String? = nil, type: String? = nil, date: String? = nil, description: String? = nil, category_id: String? = nil, merchant_name: String? = nil, account_id: String? = nil) {
+        self.amount = amount; self.currency = currency; self.type = type
+        self.date = date; self.description = description
+        self.category_id = category_id; self.merchant_name = merchant_name
+        self.account_id = account_id
+    }
 }

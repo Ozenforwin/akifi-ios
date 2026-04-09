@@ -76,6 +76,9 @@ final class PersistenceManager: Sendable {
     func saveProfile(_ item: Profile) { save(item, filename: "profile.json") }
     func loadProfile() -> Profile? { load(Profile.self, filename: "profile.json") }
 
+    func savePendingOps(_ ops: [PendingOperation]) { save(ops, filename: "pending_ops.json") }
+    func loadPendingOps() -> [PendingOperation]? { load([PendingOperation].self, filename: "pending_ops.json") }
+
     /// Remove all cached data (e.g. on sign-out)
     func clearAll() {
         try? FileManager.default.removeItem(at: dir)

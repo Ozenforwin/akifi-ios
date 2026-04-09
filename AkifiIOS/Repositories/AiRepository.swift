@@ -48,13 +48,33 @@ final class AiRepository: Sendable {
 
     // MARK: - Send Message (Edge Function)
 
-    func sendMessage(conversationId: String?, content: String) async throws -> AssistantResponse {
+    func sendMessage(
+        conversationId: String?,
+        content: String,
+        context: AssistantContext? = nil,
+        recentMessages: [[String: String]]? = nil
+    ) async throws -> AssistantResponse {
         var body: [String: AnyJSON] = [
             "query": AnyJSON(stringLiteral: content),
             "source": AnyJSON(stringLiteral: "ios")
         ]
         if let conversationId {
             body["conversation_id"] = AnyJSON(stringLiteral: conversationId)
+        }
+        // Serialize complex objects as JSON strings — AnyJSON doesn't support nested dicts
+        if let context {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            if let data = try? encoder.encode(context),
+               let jsonString = String(data: data, encoding: .utf8) {
+                body["context_json"] = AnyJSON(stringLiteral: jsonString)
+            }
+        }
+        if let recentMessages, !recentMessages.isEmpty {
+            if let data = try? JSONSerialization.data(withJSONObject: recentMessages),
+               let jsonString = String(data: data, encoding: .utf8) {
+                body["recent_messages_json"] = AnyJSON(stringLiteral: jsonString)
+            }
         }
         return try await supabase.functions.invoke(
             "assistant-query",

@@ -234,23 +234,33 @@ struct TransactionsTabView: View {
                     categories: dataStore.categories,
                     accounts: dataStore.accounts
                 ) {
-                    await dataStore.loadAll()
+                    dataStore.rebuildCaches()
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingTransaction) { tx in
-                TransactionFormView(
-                    categories: dataStore.categories,
-                    accounts: dataStore.accounts,
-                    editingTransaction: tx
-                ) {
-                    await dataStore.loadAll()
+                if tx.isTransfer {
+                    TransferFormView(
+                        accounts: dataStore.accounts,
+                        editingTransaction: tx
+                    ) {
+                        await dataStore.loadAll()
+                    }
+                    .presentationBackground(.ultraThinMaterial)
+                } else {
+                    TransactionFormView(
+                        categories: dataStore.categories,
+                        accounts: dataStore.accounts,
+                        editingTransaction: tx
+                    ) {
+                        await dataStore.loadAll()
+                    }
+                    .presentationBackground(.ultraThinMaterial)
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showTransfer) {
                 TransferFormView(accounts: dataStore.accounts) {
-                    await dataStore.loadAll()
+                    dataStore.rebuildCaches()
                 }
                 .presentationBackground(.ultraThinMaterial)
             }

@@ -29,7 +29,9 @@ final class AuthManager {
 
     func checkSession() async {
         do {
-            let session = try await supabase.auth.session
+            let session = try await withTimeout(seconds: 5) {
+                try await self.supabase.auth.session
+            }
             currentUser = session.user
             isAuthenticated = true
         } catch {

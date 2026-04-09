@@ -5,6 +5,7 @@ struct TransferFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     let accounts: [Account]
+    let editingTransaction: Transaction?
     let onSave: () async -> Void
 
     @State private var calculatorState = CalculatorState()
@@ -16,7 +17,13 @@ struct TransferFormView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    private let transactionRepo = TransactionRepository()
+    private var isEditing: Bool { editingTransaction != nil }
+
+    init(accounts: [Account], editingTransaction: Transaction? = nil, onSave: @escaping () async -> Void) {
+        self.accounts = accounts
+        self.editingTransaction = editingTransaction
+        self.onSave = onSave
+    }
 
     private var isValid: Bool {
         guard let amount = calculatorState.getResult(), amount > 0 else { return false }
@@ -97,21 +104,80 @@ struct TransferFormView: View {
                     }
                 }
             }
-            .navigationTitle(String(localized: "transaction.transfer"))
+            .navigationTitle(isEditing ? String(localized: "common.editing") : String(localized: "transaction.transfer"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                selectedCurrency = appViewModel.currencyManager.selectedCurrency
+                prefillIfEditing()
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "transfer.submit")) {
+                    Button(isEditing ? String(localized: "common.update") : String(localized: "transfer.submit")) {
                         Task { await save() }
                     }
                     .disabled(!isValid || isLoading)
                 }
+            }
+        }
+    }
+
+    private static let isoDateTimeFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return df
+    }()
+    private static let isoDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private func prefillIfEditing() {
+        guard let tx = editingTransaction else {
+            selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            return
+        }
+
+        let cm = appViewModel.currencyManager
+        let dataStore = appViewModel.dataStore
+
+        // Amount
+        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+            selectedCurrency = code
+            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: code)
+            calculatorState.setValue(abs(displayAmount))
+        } else {
+            selectedCurrency = cm.selectedCurrency
+            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: cm.selectedCurrency)
+            calculatorState.setValue(abs(displayAmount))
+        }
+
+        description = tx.description ?? ""
+
+        // Parse date
+        if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
+            date = txDate
+        }
+
+        // Determine from/to accounts using the transfer pair
+        if let groupId = tx.transferGroupId,
+           let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != tx.id }) {
+            // The expense side is "from", the income side is "to"
+            if tx.amount < 0 {
+                fromAccountId = tx.accountId
+                toAccountId = pair.accountId
+            } else {
+                fromAccountId = pair.accountId
+                toAccountId = tx.accountId
+            }
+        } else {
+            // Pair not found — use current transaction's account
+            if tx.amount < 0 {
+                fromAccountId = tx.accountId
+            } else {
+                toAccountId = tx.accountId
             }
         }
     }
@@ -127,7 +193,7 @@ struct TransferFormView: View {
 
         isLoading = true
         let dateStr = AppDateFormatters.isoDate.string(from: date)
-        let desc = description.isEmpty ? String(localized: "transaction.transfer") : description
+        let desc = description.isEmpty ? nil : description
 
         // Convert entered amount from selected currency to base currency
         let cm = appViewModel.currencyManager
@@ -139,35 +205,78 @@ struct TransferFormView: View {
         }
 
         do {
-            let userId = try await transactionRepo.currentUserId()
-            let groupId = UUID().uuidString
+            guard let userId = appViewModel.dataStore.profile?.id else {
+                errorMessage = "User not found"
+                isLoading = false
+                return
+            }
+            let dataStore = appViewModel.dataStore
 
-            // Source: expense (money leaves this account)
-            _ = try await transactionRepo.create(CreateTransactionInput(
-                user_id: userId,
-                account_id: fromId,
-                amount: amountInBase,
-                currency: selectedCurrency.rawValue,
-                type: TransactionType.expense.rawValue,
-                date: dateStr,
-                description: desc,
-                category_id: nil,
-                merchant_name: nil,
-                transfer_group_id: groupId
-            ))
-            // Destination: income (money arrives to this account)
-            _ = try await transactionRepo.create(CreateTransactionInput(
-                user_id: userId,
-                account_id: toId,
-                amount: amountInBase,
-                currency: selectedCurrency.rawValue,
-                type: TransactionType.income.rawValue,
-                date: dateStr,
-                description: desc,
-                category_id: nil,
-                merchant_name: nil,
-                transfer_group_id: groupId
-            ))
+            if let tx = editingTransaction, let groupId = tx.transferGroupId {
+                // Editing: update both sides of the transfer
+                let pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
+
+                // Determine which is expense (from) and which is income (to)
+                let expenseTxId: String
+                let incomeTxId: String?
+                if tx.amount < 0 {
+                    expenseTxId = tx.id
+                    incomeTxId = pair?.id
+                } else {
+                    expenseTxId = pair?.id ?? tx.id
+                    incomeTxId = pair != nil ? tx.id : nil
+                }
+
+                // Update expense side (from)
+                try await dataStore.updateTransaction(id: expenseTxId, UpdateTransactionInput(
+                    amount: amountInBase,
+                    currency: selectedCurrency.rawValue,
+                    date: dateStr,
+                    description: desc,
+                    account_id: fromId
+                ))
+
+                // Update income side (to) if it exists
+                if let incomeId = incomeTxId {
+                    try await dataStore.updateTransaction(id: incomeId, UpdateTransactionInput(
+                        amount: amountInBase,
+                        currency: selectedCurrency.rawValue,
+                        date: dateStr,
+                        description: desc,
+                        account_id: toId
+                    ))
+                }
+            } else {
+                // Creating new transfer
+                let groupId = UUID().uuidString
+
+                // Source: expense (money leaves this account)
+                _ = try await dataStore.addTransaction(CreateTransactionInput(
+                    user_id: userId,
+                    account_id: fromId,
+                    amount: amountInBase,
+                    currency: selectedCurrency.rawValue,
+                    type: TransactionType.expense.rawValue,
+                    date: dateStr,
+                    description: desc,
+                    category_id: nil,
+                    merchant_name: nil,
+                    transfer_group_id: groupId
+                ))
+                // Destination: income (money arrives to this account)
+                _ = try await dataStore.addTransaction(CreateTransactionInput(
+                    user_id: userId,
+                    account_id: toId,
+                    amount: amountInBase,
+                    currency: selectedCurrency.rawValue,
+                    type: TransactionType.income.rawValue,
+                    date: dateStr,
+                    description: desc,
+                    category_id: nil,
+                    merchant_name: nil,
+                    transfer_group_id: groupId
+                ))
+            }
             await onSave()
             dismiss()
         } catch {

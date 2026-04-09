@@ -30,6 +30,9 @@ final class AssistantViewModel {
     var lastConfidence: Double?
     var lastRecommendedActions: [RecommendedAction]?
 
+    // DataStore for financial context
+    var dataStore: DataStore?
+
     // Voice recording
     var isRecording = false
     var recordingDuration: TimeInterval = 0
@@ -226,10 +229,18 @@ final class AssistantViewModel {
         await repo.logAnalyticsEvent(event: "ai_prompt_sent")
         AnalyticsService.logAIChat()
 
+        // Build financial context and recent message history
+        let context = dataStore?.buildAssistantContext()
+        let recentMsgs: [[String: String]] = chatMessages.suffix(10).map {
+            ["role": $0.role == .user ? "user" : "assistant", "content": $0.content]
+        }
+
         do {
             let response = try await repo.sendMessage(
                 conversationId: conversationId,
-                content: text
+                content: text,
+                context: context,
+                recentMessages: recentMsgs.isEmpty ? nil : recentMsgs
             )
 
             // If backend created a new conversation, save it

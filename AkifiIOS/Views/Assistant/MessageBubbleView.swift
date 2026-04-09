@@ -52,8 +52,8 @@ struct MessageBubbleView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Main text — full width, readable size
             Group {
-                if let md = try? AttributedString(markdown: message.content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                    Text(md)
+                if let md = try? AttributedString(markdown: message.content, options: .init(interpretedSyntax: .full)) {
+                    Text(colorizeFinancialTerms(md))
                 } else {
                     Text(message.content)
                 }
@@ -142,13 +142,19 @@ struct MessageBubbleView: View {
                     .buttonStyle(.plain)
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("•")
+                        Text("\u{2022}")
                             .font(.subheadline)
                             .foregroundStyle(.tertiary)
                         Text(fact)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        if let percentRange = fact.range(of: #"(\d+)%"#, options: .regularExpression),
+                           let percent = Int(fact[percentRange].dropLast()) {
+                            ProgressView(value: Double(min(percent, 100)), total: 100)
+                                .tint(percent > 50 ? .red : .orange)
+                                .frame(width: 60)
+                        }
                     }
                 }
             }
@@ -230,6 +236,59 @@ struct MessageBubbleView: View {
                 .font(.subheadline)
         }
         .foregroundStyle(result.success ? .green : .red)
+    }
+
+    // MARK: - Financial Term Colorization
+
+    /// Colorize amounts near expense/income keywords: red for expenses, green for income
+    private func colorizeFinancialTerms(_ source: AttributedString) -> AttributedString {
+        var result = source
+        let plain = String(result.characters)
+
+        // Patterns: amount (with currency or number) near expense/income keywords
+        let expenseKeywords = ["расход", "expense", "потрач", "трат", "списан"]
+        let incomeKeywords = ["доход", "income", "заработ", "получен", "поступлен"]
+
+        // Find amounts like "1 234", "1234.56", "1,234", with optional currency symbols
+        let amountPattern = #"[\$\u20BD\u20AC\u00A5]?\s*[\d\s]+[\d](?:[.,]\d{1,2})?\s*(?:[\$\u20BD\u20AC\u00A5]|руб|р\.?)?"#
+
+        guard let regex = try? NSRegularExpression(pattern: amountPattern, options: []) else {
+            return result
+        }
+
+        let matches = regex.matches(in: plain, range: NSRange(plain.startIndex..., in: plain))
+        let lowered = plain.lowercased()
+
+        for match in matches {
+            guard let range = Range(match.range, in: plain) else { continue }
+            let matchStart = plain.distance(from: plain.startIndex, to: range.lowerBound)
+            let matchEnd = plain.distance(from: plain.startIndex, to: range.upperBound)
+
+            // Look at surrounding context (60 chars before and after)
+            let contextStart = max(0, matchStart - 60)
+            let contextEnd = min(plain.count, matchEnd + 60)
+            let startIdx = lowered.index(lowered.startIndex, offsetBy: contextStart)
+            let endIdx = lowered.index(lowered.startIndex, offsetBy: contextEnd)
+            let context = String(lowered[startIdx..<endIdx])
+
+            var color: Color?
+            if expenseKeywords.contains(where: { context.contains($0) }) {
+                color = .red
+            } else if incomeKeywords.contains(where: { context.contains($0) }) {
+                color = .green
+            }
+
+            if let color {
+                // Convert String range to AttributedString range
+                let attrStart = result.characters.index(result.startIndex, offsetBy: matchStart)
+                let attrEnd = result.characters.index(result.startIndex, offsetBy: matchEnd)
+                let attrRange = attrStart..<attrEnd
+                result[attrRange].foregroundColor = color
+                result[attrRange].font = .body.bold()
+            }
+        }
+
+        return result
     }
 
     // MARK: - Feedback

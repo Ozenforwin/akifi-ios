@@ -19,9 +19,12 @@ struct AssistantView: View {
                     ScrollView {
                         LazyVStack(spacing: 8) {
                             if viewModel.chatMessages.isEmpty && !viewModel.isProcessing {
-                                AssistantWelcomeView { prompt in
-                                    Task { await viewModel.sendFollowUp(prompt) }
-                                }
+                                AssistantWelcomeView(
+                                    onPromptSelected: { prompt in
+                                        Task { await viewModel.sendFollowUp(prompt) }
+                                    },
+                                    dataStore: viewModel.dataStore
+                                )
                                 .padding(.top, 40)
                             }
 
@@ -299,6 +302,7 @@ struct FeedbackSheet: View {
 
 struct AssistantWelcomeView: View {
     let onPromptSelected: (String) -> Void
+    var dataStore: DataStore?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -317,7 +321,7 @@ struct AssistantWelcomeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            QuickPromptsView(onSelect: onPromptSelected)
+            QuickPromptsView(onSelect: onPromptSelected, dataStore: dataStore)
         }
     }
 }

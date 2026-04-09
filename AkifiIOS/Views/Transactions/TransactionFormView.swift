@@ -21,7 +21,6 @@ struct TransactionFormView: View {
     @State private var showCalculator = true
     @State private var selectedCurrency: CurrencyCode = .rub
 
-    private let transactionRepo = TransactionRepository()
     private static let isoDateTimeFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -202,7 +201,11 @@ struct TransactionFormView: View {
         }
 
         do {
-            let userId = try await transactionRepo.currentUserId()
+            guard let userId = appViewModel.dataStore.profile?.id else {
+                errorMessage = "User not found"
+                isLoading = false
+                return
+            }
             if let tx = editingTransaction {
                 let input = UpdateTransactionInput(
                     amount: amountInBase,
@@ -213,7 +216,7 @@ struct TransactionFormView: View {
                     category_id: selectedCategoryId,
                     merchant_name: nil
                 )
-                try await transactionRepo.update(id: tx.id, input)
+                try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
             } else {
                 let input = CreateTransactionInput(
                     user_id: userId,
@@ -226,7 +229,7 @@ struct TransactionFormView: View {
                     category_id: selectedCategoryId,
                     merchant_name: nil
                 )
-                _ = try await transactionRepo.create(input)
+                _ = try await appViewModel.dataStore.addTransaction(input)
             }
             await onSave()
             dismiss()

@@ -158,6 +158,19 @@ struct MainTabView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .pushNotificationTapped)) { notification in
+            if let tabName = notification.userInfo?["tab"] as? String {
+                withAnimation {
+                    switch tabName {
+                    case "home": selectedTab = .home
+                    case "transactions": selectedTab = .transactions
+                    case "budget", "budgets": selectedTab = .budgets
+                    case "analytics": selectedTab = .analytics
+                    default: break
+                    }
+                }
+            }
+        }
         .ignoresSafeArea(edges: .bottom)
         .fullScreenCover(isPresented: $showAssistant) {
             AssistantView(viewModel: assistantVM) { target in
