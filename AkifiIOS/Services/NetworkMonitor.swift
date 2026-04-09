@@ -5,13 +5,16 @@ import Network
 final class NetworkMonitor {
     static let shared = NetworkMonitor()
     private(set) var isConnected = true
+
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
 
     private init() {
+        let monitor = self.monitor
         monitor.pathUpdateHandler = { [weak self] path in
-            Task { @MainActor in
-                self?.isConnected = path.status == .satisfied
+            let satisfied = path.status == .satisfied
+            Task { @MainActor [weak self] in
+                self?.isConnected = satisfied
             }
         }
         monitor.start(queue: queue)

@@ -29,8 +29,11 @@ final class AuthManager {
 
     func checkSession() async {
         do {
+            // Capture supabase locally so the @Sendable closure inside
+            // withTimeout does not capture @MainActor-isolated self.
+            let client = self.supabase
             let session = try await withTimeout(seconds: 5) {
-                try await self.supabase.auth.session
+                try await client.auth.session
             }
             currentUser = session.user
             isAuthenticated = true

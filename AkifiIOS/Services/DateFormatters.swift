@@ -1,7 +1,6 @@
 import Foundation
 
 /// Shared DateFormatter cache.
-/// All callers are @MainActor, so static lets are safe (no thread-safety concern).
 enum AppDateFormatters {
 
     /// "yyyy-MM-dd" with POSIX locale (for DB dates)

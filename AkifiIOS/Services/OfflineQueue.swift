@@ -39,12 +39,13 @@ final class OfflineQueue {
     }
 
     func processQueue() async {
-        guard !pendingOperations.isEmpty else { return }
-        AppLogger.data.info("Offline queue: processing \(pendingOperations.count) operations")
+        guard !self.pendingOperations.isEmpty else { return }
+        let count = self.pendingOperations.count
+        AppLogger.data.info("Offline queue: processing \(count) operations")
 
         var remaining: [PendingOperation] = []
 
-        for op in pendingOperations {
+        for op in self.pendingOperations {
             do {
                 switch op.operation {
                 case .create(let input):
@@ -61,8 +62,8 @@ final class OfflineQueue {
             }
         }
 
-        pendingOperations = remaining
-        save()
+        self.pendingOperations = remaining
+        self.save()
     }
 
     private func save() {
