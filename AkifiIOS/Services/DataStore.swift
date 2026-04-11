@@ -159,15 +159,25 @@ final class DataStore {
 
     // MARK: - Assistant Context
 
+    /// Convert internal kopeck value (Int64) to whole currency units (Double).
+    private func toUnits(_ kopecks: Int64) -> Double {
+        Double(kopecks) / 100.0
+    }
+
     func buildAssistantContext() -> AssistantContext {
+        // Build category name lookup for human-readable keys
+        let categoryNameById = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0.name) })
+        // Build account name lookup
+        let accountNameById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.name) })
+
         let accountSummaries = accounts.map { account in
             AssistantContext.AccountSummary(
                 id: account.id,
                 name: account.name,
                 icon: account.icon,
-                balance: balance(for: account),
-                income: accountIncome[account.id] ?? 0,
-                expense: accountExpense[account.id] ?? 0,
+                balance: toUnits(balance(for: account)),
+                income: toUnits(accountIncome[account.id] ?? 0),
+                expense: toUnits(accountExpense[account.id] ?? 0),
                 currency: account.currency
             )
         }
@@ -181,31 +191,37 @@ final class DataStore {
             )
         }
 
-        // Per-category expense totals
-        var byCategory: [String: Int64] = [:]
-        var totalExpense: Int64 = 0
-        var totalIncome: Int64 = 0
+        // Per-category expense totals (use category names as keys for LLM readability)
+        var byCategoryKopecks: [String: Int64] = [:]
+        var totalExpenseKopecks: Int64 = 0
+        var totalIncomeKopecks: Int64 = 0
         for tx in transactions {
             switch tx.type {
             case .expense:
-                totalExpense += tx.amount
+                totalExpenseKopecks += tx.amount
                 if let catId = tx.categoryId {
-                    byCategory[catId, default: 0] += tx.amount
+                    let name = categoryNameById[catId] ?? catId
+                    byCategoryKopecks[name, default: 0] += tx.amount
                 }
             case .income:
-                totalIncome += tx.amount
+                totalIncomeKopecks += tx.amount
             case .transfer:
                 break
             }
         }
 
-        // Per-account expense totals
-        var byAccount: [String: Int64] = [:]
+        // Per-account expense totals (use account names as keys for LLM readability)
+        var byAccountKopecks: [String: Int64] = [:]
         for tx in transactions where tx.type == .expense {
             if let accId = tx.accountId {
-                byAccount[accId, default: 0] += tx.amount
+                let name = accountNameById[accId] ?? accId
+                byAccountKopecks[name, default: 0] += tx.amount
             }
         }
+
+        // Convert to whole currency units
+        let byCategory = byCategoryKopecks.mapValues { toUnits($0) }
+        let byAccount = byAccountKopecks.mapValues { toUnits($0) }
 
         // Date range
         let dates = transactions.map(\.date).sorted()
@@ -213,8 +229,8 @@ final class DataStore {
         let dateTo = dates.last
 
         let summary = AssistantContext.TransactionSummary(
-            totalExpense: totalExpense,
-            totalIncome: totalIncome,
+            totalExpense: toUnits(totalExpenseKopecks),
+            totalIncome: toUnits(totalIncomeKopecks),
             byCategory: byCategory,
             byAccount: byAccount,
             count: transactions.count,
@@ -222,12 +238,27 @@ final class DataStore {
             dateTo: dateTo
         )
 
+        // Total balance across all accounts
+        let totalBalance = accounts.reduce(0.0) { sum, account in
+            sum + toUnits(balance(for: account))
+        }
+
+        let currencyLabel: String
+        switch (accounts.first?.currency ?? "rub").lowercased() {
+        case "rub": currencyLabel = "rubles"
+        case "usd": currencyLabel = "US dollars"
+        case "eur": currencyLabel = "euros"
+        default: currencyLabel = accounts.first?.currency ?? "rubles"
+        }
+
         return AssistantContext(
             accounts: accountSummaries,
             categories: categorySummaries,
             transactionSummary: summary,
+            totalBalance: totalBalance,
             currency: accounts.first?.currency ?? "rub",
-            locale: Locale.current.identifier
+            locale: Locale.current.identifier,
+            amountUnit: "All monetary amounts are in whole \(currencyLabel) (NOT kopecks/cents). For example, 1500 means 1500 \(currencyLabel)."
         )
     }
 

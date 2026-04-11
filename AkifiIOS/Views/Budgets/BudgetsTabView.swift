@@ -186,9 +186,11 @@ struct BudgetsTabView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSubscriptionForm) {
-                SubscriptionFormView { name, amount, period, color in
-                    await subscriptionsVM.create(name: name, amount: amount, period: period, color: color)
-                    await dataStore.loadAll()
+                SubscriptionFormView { name, amount, period, color, currency, reminderDays in
+                    if let uid = dataStore.profile?.id {
+                        await subscriptionsVM.create(name: name, amount: amount, period: period, color: color, currency: currency, reminderDays: reminderDays, userId: uid)
+                        await dataStore.loadAll()
+                    }
                 }
                 .presentationBackground(.ultraThinMaterial)
             }

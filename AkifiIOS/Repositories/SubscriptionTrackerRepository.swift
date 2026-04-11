@@ -42,12 +42,14 @@ final class SubscriptionTrackerRepository: Sendable {
 }
 
 struct CreateSubscriptionInput: Encodable, Sendable {
+    let user_id: String
     let service_name: String
     let amount: Decimal
     let billing_period: String
     let start_date: String
     let icon_color: String?
     let reminder_days: Int?
+    let currency: String?
 }
 
 struct UpdateSubscriptionInput: Encodable, Sendable {

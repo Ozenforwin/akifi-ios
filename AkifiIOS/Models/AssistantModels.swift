@@ -269,16 +269,22 @@ struct AssistantContext: Encodable, Sendable {
     let accounts: [AccountSummary]
     let categories: [CategorySummary]
     let transactionSummary: TransactionSummary
+    let totalBalance: Double
     let currency: String
     let locale: String
+    /// Hint for the LLM: all monetary values are in this unit
+    let amountUnit: String
 
     struct AccountSummary: Encodable, Sendable {
         let id: String
         let name: String
         let icon: String
-        let balance: Int64
-        let income: Int64
-        let expense: Int64
+        /// Current balance in whole currency units (e.g. rubles, not kopecks)
+        let balance: Double
+        /// Total income for this account in whole currency units
+        let income: Double
+        /// Total expenses for this account in whole currency units
+        let expense: Double
         let currency: String
 
         enum CodingKeys: String, CodingKey {
@@ -298,10 +304,14 @@ struct AssistantContext: Encodable, Sendable {
     }
 
     struct TransactionSummary: Encodable, Sendable {
-        let totalExpense: Int64
-        let totalIncome: Int64
-        let byCategory: [String: Int64]
-        let byAccount: [String: Int64]
+        /// Total expenses in whole currency units (e.g. rubles)
+        let totalExpense: Double
+        /// Total income in whole currency units (e.g. rubles)
+        let totalIncome: Double
+        /// Expense totals by category name (not ID) in whole currency units
+        let byCategory: [String: Double]
+        /// Expense totals by account name (not ID) in whole currency units
+        let byAccount: [String: Double]
         let count: Int
         let dateFrom: String?
         let dateTo: String?
@@ -320,7 +330,9 @@ struct AssistantContext: Encodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case accounts, categories
         case transactionSummary = "transaction_summary"
+        case totalBalance = "total_balance"
         case currency, locale
+        case amountUnit = "amount_unit"
     }
 }
 

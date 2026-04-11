@@ -65,8 +65,10 @@ struct SubscriptionListView: View {
             await viewModel.load()
         }
         .sheet(isPresented: $viewModel.showForm) {
-            SubscriptionFormView { name, amount, period, color in
-                await viewModel.create(name: name, amount: amount, period: period, color: color)
+            SubscriptionFormView { name, amount, period, color, currency, reminderDays in
+                if let uid = appViewModel.dataStore.profile?.id {
+                    await viewModel.create(name: name, amount: amount, period: period, color: color, currency: currency, reminderDays: reminderDays, userId: uid)
+                }
             }
             .presentationBackground(.ultraThinMaterial)
         }
@@ -116,12 +118,14 @@ struct SubscriptionRowView: View {
 
 struct SubscriptionFormView: View {
     @Environment(\.dismiss) private var dismiss
-    let onSave: (String, Int64, BillingPeriod, String?) async -> Void
+    let onSave: (String, Int64, BillingPeriod, String?, String, Int) async -> Void
 
     @State private var name = ""
     @State private var amountText = ""
     @State private var period: BillingPeriod = .monthly
+    @State private var selectedCurrency: CurrencyCode = .rub
     @State private var selectedColor = "#60A5FA"
+    @State private var reminderDays: Int = 1
     @State private var isSaving = false
 
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
@@ -138,6 +142,24 @@ struct SubscriptionFormView: View {
                         Text(String(localized: "billingPeriod.monthly")).tag(BillingPeriod.monthly)
                         Text(String(localized: "billingPeriod.quarterly")).tag(BillingPeriod.quarterly)
                         Text(String(localized: "billingPeriod.yearly")).tag(BillingPeriod.yearly)
+                    }
+                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
+                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                            Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
+                }
+
+                Section(String(localized: "subscriptions.reminder")) {
+                    Picker(String(localized: "subscriptions.remind"), selection: $reminderDays) {
+                        Text(String(localized: "subscriptions.onChargeDay")).tag(0)
+                        Text(String(localized: "subscriptions.daysBefore.1")).tag(1)
+                        Text(String(localized: "subscriptions.daysBefore.2")).tag(2)
+                        Text(String(localized: "subscriptions.daysBefore.3")).tag(3)
+                        Text(String(localized: "subscriptions.daysBefore.5")).tag(5)
+                        Text(String(localized: "subscriptions.daysBefore.7")).tag(7)
+                        Text(String(localized: "subscriptions.daysBefore.14")).tag(14)
+                        Text(String(localized: "subscriptions.daysBefore.30")).tag(30)
                     }
                 }
 
@@ -177,9 +199,9 @@ struct SubscriptionFormView: View {
 
     private func save() async {
         isSaving = true
-        guard let decimal = Decimal(string: amountText) else { return }
+        guard let decimal = Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) else { return }
         let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        await onSave(name, amountCents, period, selectedColor)
+        await onSave(name, amountCents, period, selectedColor, selectedCurrency.rawValue, reminderDays)
         dismiss()
     }
 }

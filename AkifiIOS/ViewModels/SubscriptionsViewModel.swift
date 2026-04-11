@@ -32,18 +32,20 @@ final class SubscriptionsViewModel {
         isLoading = false
     }
 
-    func create(name: String, amount: Int64, period: BillingPeriod, color: String?, reminderDays: Int = 1) async {
+    func create(name: String, amount: Int64, period: BillingPeriod, color: String?, currency: String = "RUB", reminderDays: Int = 1, userId: String) async {
         do {
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
             let amountDecimal = Decimal(amount) / 100 // kopecks → rubles for DB
             let input = CreateSubscriptionInput(
+                user_id: userId,
                 service_name: name,
                 amount: amountDecimal,
                 billing_period: period.rawValue,
                 start_date: df.string(from: Date()),
                 icon_color: color,
-                reminder_days: reminderDays
+                reminder_days: reminderDays,
+                currency: currency
             )
             let sub = try await repo.create(input)
             subscriptions.append(sub)
