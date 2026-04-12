@@ -1,4 +1,7 @@
 workflows:
+  # ─────────────────────────────────────────────
+  # 1. Auto-build: push to main → TestFlight
+  # ─────────────────────────────────────────────
   ios-release:
     name: iOS Release to TestFlight
     max_build_duration: 60
@@ -12,17 +15,15 @@ workflows:
         XCODE_SCHEME: "AkifiIOS"
         BUNDLE_ID: "ru.akifi.app"
         TEAM_ID: "8GPVB9MQ58"
+        # Comma-separated TestFlight group names for auto-distribution
+        BETA_GROUPS: "Beta Testers,External Testers"
       xcode: 16.2
 
     triggering:
       events:
         - push
-        - tag
       branch_patterns:
         - pattern: main
-          include: true
-      tag_patterns:
-        - pattern: 'v*'
           include: true
       cancel_previous_builds: true
 
@@ -56,12 +57,10 @@ workflows:
 
       - name: Set up signing certificates and API key
         script: |
-          # Write API key from base64
           KEY_DIR="$HOME/.appstoreconnect/private_keys"
           KEY_FILE="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           mkdir -p "$KEY_DIR"
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_FILE"
-          # CERTIFICATE_PRIVATE_KEY env var is auto-read by Codemagic CLI
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
@@ -85,17 +84,32 @@ workflows:
             --scheme "$XCODE_SCHEME" \
             --config Release
 
-      - name: Upload to TestFlight
+      - name: Upload to TestFlight and distribute to testers
         script: |
-          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
-          if [ -n "$IPA_PATH" ]; then
-            xcrun altool --upload-app \
-              --file "$IPA_PATH" \
-              --type ios \
-              --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-              --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+          if [ -z "$IPA_PATH" ]; then
+            echo "Error: No IPA found"
+            exit 1
           fi
+          echo "Uploading $IPA_PATH to TestFlight..."
+
+          # Build --beta-group flags from comma-separated BETA_GROUPS
+          BETA_FLAGS=""
+          IFS=',' read -ra GROUPS <<< "$BETA_GROUPS"
+          for group in "${GROUPS[@]}"; do
+            group=$(echo "$group" | xargs)  # trim whitespace
+            if [ -n "$group" ]; then
+              BETA_FLAGS="$BETA_FLAGS --beta-group \"$group\""
+            fi
+          done
+
+          # Upload + distribute to beta groups
+          eval app-store-connect publish \
+            --path "$IPA_PATH" \
+            $BETA_FLAGS \
+            --max-build-processing-wait 1800
+
+          echo "Build uploaded and distributed to groups: $BETA_GROUPS"
 
       - name: Upload dSYMs to Firebase Crashlytics
         script: |
@@ -120,26 +134,68 @@ workflows:
         notify:
           success: true
           failure: true
-      # Slack notifications (uncomment and set SLACK_WEBHOOK_URL in Codemagic env vars)
-      # slack:
-      #   channel: '#builds'
-      #   notify_on_build_start: false
-      #   notify:
-      #     success: true
-      #     failure: true
-      scripts:
-        - name: Notify build status
-          script: |
-            if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
-              STATUS="✅ SUCCESS"
-            else
-              STATUS="❌ FAILED"
-            fi
-            echo ""
-            echo "========================================"
-            echo "  BUILD $STATUS"
-            echo "  App: AkifiIOS"
-            echo "  Branch: $CM_BRANCH"
-            echo "  Commit: $CM_COMMIT (${CM_REPO_SLUG})"
-            echo "  Build: #$CM_BUILD_ID"
-            echo "========================================"
+
+  # ─────────────────────────────────────────────
+  # 2. Submit to App Store Review (tag release/vX.Y.Z)
+  # ─────────────────────────────────────────────
+  ios-submit-review:
+    name: Submit to App Store Review
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      groups:
+        - Akifi
+      vars:
+        BUNDLE_ID: "ru.akifi.app"
+      xcode: 16.2
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'release/v*'
+          include: true
+
+    scripts:
+      - name: Set up API key
+        script: |
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode \
+            > "$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+
+      - name: Get version from tag
+        script: |
+          # Tag format: release/v1.2.3
+          VERSION=$(echo "$CM_TAG" | sed 's|release/v||')
+          echo "Submitting version: $VERSION"
+          echo "SUBMIT_VERSION=$VERSION" >> $CM_ENV
+
+      - name: Submit latest build for App Store review
+        script: |
+          echo "Creating App Store version $SUBMIT_VERSION..."
+
+          # Create new App Store version (or update existing)
+          app-store-connect app-store-versions create \
+            --bundle-id "$BUNDLE_ID" \
+            --platform IOS \
+            --version-string "$SUBMIT_VERSION" \
+            || echo "Version may already exist, continuing..."
+
+          echo "Submitting for App Store review..."
+
+          # Submit the latest processed build for review
+          app-store-connect submit-to-app-store \
+            --bundle-id "$BUNDLE_ID" \
+            --platform IOS
+
+          echo "Submitted $SUBMIT_VERSION for App Store review!"
+
+    publishing:
+      email:
+        recipients:
+          - dyadichev.biz@gmail.com
+        notify:
+          success: true
+          failure: true
