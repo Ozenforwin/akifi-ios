@@ -99,6 +99,7 @@
 		9C6066DD131B8B65522C96D8 /* BudgetMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A927BEDDC3755F4335C2F900 /* BudgetMath.swift */; };
 		A110A47979D241FF9501E804 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 47C26544A304BA16DA1F5165 /* Supabase */; };
 		A525AF8C213E918E5565684D /* BudgetCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14598720EA7BAE977C123766 /* BudgetCardView.swift */; };
+		D4729ED7DA42A320F27C82B5 /* BudgetHealthSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E3B2C1EC694596550AA4A8 /* BudgetHealthSummaryView.swift */; };
 		A7A02FD46221C19DBDFD8FFD /* TransferFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9385B9EDEECD0C2F651AC0F /* TransferFormView.swift */; };
 		AEC85BFBCAFBA0435CB138D6 /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFC8DCFEA3303390A669A84 /* PersistenceManager.swift */; };
 		B05751EE709F43878215746E /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C9C967FC5082FD8614BD31 /* CachedAsyncImage.swift */; };
@@ -174,6 +175,7 @@
 		0FA2CFABEE81EF72F8257D5C /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
 		0FFC8DCFEA3303390A669A84 /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
 		108F419604C10E9308F1B9F8 /* DailyLimitWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyLimitWidgetView.swift; sourceTree = "<group>"; };
+				14E3B2C1EC694596550AA4A8 /* BudgetHealthSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetHealthSummaryView.swift; sourceTree = "<group>"; };
 		14598720EA7BAE977C123766 /* BudgetCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetCardView.swift; sourceTree = "<group>"; };
 		149E11AA96194A21601EE73F /* HomeSavingsSnapshotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSavingsSnapshotView.swift; sourceTree = "<group>"; };
 		19329F8617609B485DA08998 /* PortfolioChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioChartView.swift; sourceTree = "<group>"; };
@@ -691,6 +693,7 @@
 			isa = PBXGroup;
 			children = (
 				14598720EA7BAE977C123766 /* BudgetCardView.swift */,
+				14E3B2C1EC694596550AA4A8 /* BudgetHealthSummaryView.swift */,
 				AE0890C3925BD64853C4FD23 /* BudgetFormView.swift */,
 				E66DD3DED8AB88DA009D848E /* BudgetsTabView.swift */,
 			);
@@ -810,6 +813,7 @@
 				E22BB9091A5326C6EBA09738 /* BankImportView.swift in Sources */,
 				67653039202E4322F26F51E5 /* Budget.swift in Sources */,
 				A525AF8C213E918E5565684D /* BudgetCardView.swift in Sources */,
+				D4729ED7DA42A320F27C82B5 /* BudgetHealthSummaryView.swift in Sources */,
 				F5ADA701D2725ABCBB1E2822 /* BudgetFormView.swift in Sources */,
 				9C6066DD131B8B65522C96D8 /* BudgetMath.swift in Sources */,
 				4DFA98A29CD11692D0D8EA90 /* BudgetRepository.swift in Sources */,

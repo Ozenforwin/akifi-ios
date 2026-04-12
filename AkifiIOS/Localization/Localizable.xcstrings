@@ -4,6 +4,9 @@
     "" : {
 
     },
+    " / %@" : {
+
+    },
     " %@ %@" : {
       "localizations" : {
         "ru" : {
@@ -26,6 +29,16 @@
     "%@" : {
 
     },
+    "%@ · %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ %@" : {
       "localizations" : {
         "ru" : {
@@ -37,9 +50,6 @@
       }
     },
     "%@ XP" : {
-
-    },
-    "%@ выбрано" : {
 
     },
     "%@ дн. до дедлайна" : {
@@ -3874,6 +3884,75 @@
         }
       }
     },
+    "budget.accessibility.remaining" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "remaining"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "restante"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "осталось"
+          }
+        }
+      }
+    },
+    "budget.accessibility.swipeToEdit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe to edit or archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desliza para editar o archivar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Смахните для редактирования или архивации"
+          }
+        }
+      }
+    },
+    "budget.advanced" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuración avanzada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Дополнительные настройки"
+          }
+        }
+      }
+    },
     "budget.alertThresholds" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4012,6 +4091,29 @@
         }
       }
     },
+    "budget.categoriesSelected.%lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld selected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld seleccionadas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld выбрано"
+          }
+        }
+      }
+    },
     "budget.createDesc" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4146,6 +4248,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Бюджет превышен на %@"
+          }
+        }
+      }
+    },
+    "budget.forecastOverrun.%@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At current pace, budget ends %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al ritmo actual, el presupuesto se agota el %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "При текущем темпе бюджет закончится %@"
           }
         }
       }
@@ -4307,6 +4432,98 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "В норме"
+          }
+        }
+      }
+    },
+    "budget.pace.onTrack" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On track"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En ritmo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В темпе"
+          }
+        }
+      }
+    },
+    "budget.pace.overPace" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Over pace"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exceso de ritmo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выше темпа"
+          }
+        }
+      }
+    },
+    "budget.pace.slightlyOver" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slightly over"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligeramente por encima"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чуть выше"
+          }
+        }
+      }
+    },
+    "budget.pace.underPace" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Under pace"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por debajo del ritmo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ниже темпа"
           }
         }
       }
@@ -4606,6 +4823,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Внимание"
+          }
+        }
+      }
+    },
+    "budget.summary.accessibility.%lld.%lld.%lld.%lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget overview: %1$lld on track, %2$lld warning, %3$lld over limit. Overall %4$lld percent spent."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumen: %1$lld en curso, %2$lld en alerta, %3$lld excedidos. %4$lld por ciento gastado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обзор: %1$lld в норме, %2$lld внимание, %3$lld превышены. %4$lld процентов использовано."
+          }
+        }
+      }
+    },
+    "budget.summary.total" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total budgets"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total presupuestos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всего бюджетов"
           }
         }
       }
@@ -4915,19 +5178,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Strict spending limit"
+            "value" : "Strict limit — alerts when approaching the cap"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Limite estricto de gastos"
+            "value" : "Límite estricto — alertas al acercarse al tope"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Строгий лимит расходов"
+            "value" : "Строгий лимит — оповещения при приближении к порогу"
           }
         }
       }
@@ -4950,7 +5213,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Мягкий"
+            "value" : "Гибкий"
           }
         }
       }
@@ -4961,19 +5224,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warning when exceeded"
+            "value" : "Flexible — tracks spending without hard caps"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aviso al exceder"
+            "value" : "Flexible — rastrea gastos sin límites estrictos"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Предупреждение при превышении"
+            "value" : "Гибкий — отслеживает расходы без жёстких ограничений"
           }
         }
       }

@@ -295,6 +295,15 @@ final class DataStore {
         balanceCache = cache
         accountIncome = incomeByAccount
         accountExpense = expenseByAccount
+
+        // Deduplicate categories (shared accounts may return same category multiple times)
+        var seen: Set<String> = []
+        categories = categories.filter { cat in
+            let key = "\(cat.name.lowercased())_\(cat.type.rawValue)"
+            if seen.contains(key) { return false }
+            seen.insert(key)
+            return true
+        }
         categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
     }
 }

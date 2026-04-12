@@ -17,10 +17,14 @@ workflows:
     triggering:
       events:
         - push
+        - tag
       branch_patterns:
         - pattern: main
           include: true
-          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+      cancel_previous_builds: true
 
     scripts:
       - name: Install XcodeGen
@@ -116,3 +120,26 @@ workflows:
         notify:
           success: true
           failure: true
+      # Slack notifications (uncomment and set SLACK_WEBHOOK_URL in Codemagic env vars)
+      # slack:
+      #   channel: '#builds'
+      #   notify_on_build_start: false
+      #   notify:
+      #     success: true
+      #     failure: true
+      scripts:
+        - name: Notify build status
+          script: |
+            if [ "$CM_BUILD_STEP_STATUS" = "success" ]; then
+              STATUS="✅ SUCCESS"
+            else
+              STATUS="❌ FAILED"
+            fi
+            echo ""
+            echo "========================================"
+            echo "  BUILD $STATUS"
+            echo "  App: AkifiIOS"
+            echo "  Branch: $CM_BRANCH"
+            echo "  Commit: $CM_COMMIT (${CM_REPO_SLUG})"
+            echo "  Build: #$CM_BUILD_ID"
+            echo "========================================"

@@ -55,14 +55,32 @@ struct BudgetFormView: View {
 
                 // Budget Type
                 Section {
-                    Picker(String(localized: "common.type"), selection: $budgetType) {
-                        ForEach(BudgetType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
+                    ForEach(BudgetType.allCases, id: \.self) { type in
+                        Button {
+                            budgetType = type
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: type.icon)
+                                    .font(.body)
+                                    .foregroundStyle(budgetType == type ? Color.accent : .secondary)
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(type.displayName)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    Text(type.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if budgetType == type {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.accent)
+                                }
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .pickerStyle(.segmented)
-                } footer: {
-                    Text(budgetType.description)
                 }
 
                 // Amount
@@ -70,11 +88,13 @@ struct BudgetFormView: View {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
-                // Period (DB only supports monthly, weekly, custom)
+                // Period
                 Section(String(localized: "common.period")) {
                     Picker(String(localized: "common.period"), selection: $period) {
                         Text(String(localized: "period.week")).tag(BillingPeriod.weekly)
                         Text(String(localized: "period.monthShort")).tag(BillingPeriod.monthly)
+                        Text(String(localized: "period.quarterShort")).tag(BillingPeriod.quarterly)
+                        Text(String(localized: "period.yearShort")).tag(BillingPeriod.yearly)
                         Text(String(localized: "period.customRange")).tag(BillingPeriod.custom)
                     }
 
@@ -96,7 +116,7 @@ struct BudgetFormView: View {
                             } else {
                                 let icons = expenseCategories.filter { selectedCategories.contains($0.id) }.map(\.icon).prefix(5).joined()
                                 Text(icons)
-                                Text("\(selectedCategories.count) выбрано")
+                                Text(String(localized: "budget.categoriesSelected.\(selectedCategories.count)"))
                                     .foregroundStyle(.primary)
                             }
                             Spacer()
@@ -117,15 +137,16 @@ struct BudgetFormView: View {
                                         selectedCategories.insert(category.id)
                                     }
                                 } label: {
-                                    VStack(spacing: 4) {
+                                    VStack(spacing: 6) {
                                         Text(category.icon)
                                             .font(.title3)
                                         Text(category.name)
-                                            .font(.system(size: 9))
-                                            .lineLimit(1)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(2)
+                                            .multilineTextAlignment(.center)
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
+                                    .frame(maxWidth: .infinity, minHeight: 56)
+                                    .padding(.vertical, 10)
                                     .background(isSelected ? Color.accent.opacity(0.15) : Color(.systemGray6))
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(
@@ -139,62 +160,63 @@ struct BudgetFormView: View {
                     }
                 }
 
-                // Account
-                if !accounts.isEmpty {
-                    Section(String(localized: "common.account")) {
-                        Picker(String(localized: "common.account"), selection: $selectedAccountId) {
-                            Text(String(localized: "budget.allAccounts")).tag(nil as String?)
-                            ForEach(accounts) { account in
-                                Text("\(account.icon) \(account.name)").tag(account.id as String?)
-                            }
-                        }
-                    }
-                }
+                // Advanced settings
+                Section {
+                    DisclosureGroup(String(localized: "budget.advanced")) {
+                        Toggle(String(localized: "budget.rollover"), isOn: $rolloverEnabled)
 
-                // Settings
-                Section(String(localized: "common.settings")) {
-                    Toggle(String(localized: "budget.rollover"), isOn: $rolloverEnabled)
-
-                    // Alert thresholds
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(String(localized: "budget.alertThresholds"))
-                                .font(.subheadline)
-                            Spacer()
-                            Button {
-                                if alertThresholds.count < 4 {
-                                    let next = (alertThresholds.last ?? 70) + 10
-                                    alertThresholds.append(min(next, 100))
+                        // Account
+                        if !accounts.isEmpty {
+                            Picker(String(localized: "common.account"), selection: $selectedAccountId) {
+                                Text(String(localized: "budget.allAccounts")).tag(nil as String?)
+                                ForEach(accounts) { account in
+                                    Text("\(account.icon) \(account.name)").tag(account.id as String?)
                                 }
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(Color.accent)
                             }
-                            .disabled(alertThresholds.count >= 4)
                         }
 
-                        ForEach(alertThresholds.indices, id: \.self) { index in
+                        // Alert thresholds
+                        VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("\(alertThresholds[index])%")
-                                    .font(.caption.monospacedDigit())
-                                    .frame(width: 40)
-                                Slider(
-                                    value: Binding(
-                                        get: { Double(alertThresholds[index]) },
-                                        set: { alertThresholds[index] = Int($0) }
-                                    ),
-                                    in: 10...100,
-                                    step: 5
-                                )
-                                .tint(.orange)
+                                Text(String(localized: "budget.alertThresholds"))
+                                    .font(.subheadline)
+                                Spacer()
+                                Button {
+                                    if alertThresholds.count < 4 {
+                                        let next = (alertThresholds.last ?? 70) + 10
+                                        alertThresholds.append(min(next, 100))
+                                    }
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundStyle(Color.accent)
+                                        .frame(width: 44, height: 44)
+                                }
+                                .disabled(alertThresholds.count >= 4)
+                            }
 
-                                if alertThresholds.count > 1 {
-                                    Button {
-                                        alertThresholds.remove(at: index)
-                                    } label: {
-                                        Image(systemName: "minus.circle")
-                                            .foregroundStyle(.red)
-                                            .font(.caption)
+                            ForEach(alertThresholds.indices, id: \.self) { index in
+                                HStack {
+                                    Text("\(alertThresholds[index])%")
+                                        .font(.caption.monospacedDigit())
+                                        .frame(width: 40)
+                                    Slider(
+                                        value: Binding(
+                                            get: { Double(alertThresholds[index]) },
+                                            set: { alertThresholds[index] = Int($0) }
+                                        ),
+                                        in: 10...100,
+                                        step: 5
+                                    )
+                                    .tint(.orange)
+
+                                    if alertThresholds.count > 1 {
+                                        Button {
+                                            alertThresholds.remove(at: index)
+                                        } label: {
+                                            Image(systemName: "minus.circle")
+                                                .foregroundStyle(.red)
+                                                .frame(width: 44, height: 44)
+                                        }
                                     }
                                 }
                             }

@@ -10,6 +10,27 @@ struct BudgetsTabView: View {
     private var dataStore: DataStore { appViewModel.dataStore }
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
 
+    /// Budgets sorted by criticality: overLimit first, then nearLimit, warning, onTrack
+    private var sortedBudgetsWithMetrics: [(budget: Budget, metrics: BudgetMetrics)] {
+        let items = dataStore.budgets.map { budget in
+            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions))
+        }
+        return items.sorted { a, b in
+            let priority: (BudgetStatus) -> Int = {
+                switch $0 {
+                case .overLimit: return 0
+                case .nearLimit: return 1
+                case .warning: return 2
+                case .onTrack: return 3
+                }
+            }
+            let pa = priority(a.metrics.status)
+            let pb = priority(b.metrics.status)
+            if pa != pb { return pa < pb }
+            return a.metrics.utilization > b.metrics.utilization
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -31,9 +52,23 @@ struct BudgetsTabView: View {
                     Section { LoadingView() }
                         .listRowSeparator(.hidden)
                 } else if !dataStore.budgets.isEmpty {
+                    // Health summary
+                    if sortedBudgetsWithMetrics.count > 1 {
+                        Section {
+                            BudgetHealthSummaryView(
+                                budgets: sortedBudgetsWithMetrics.map(\.budget),
+                                allMetrics: sortedBudgetsWithMetrics.map(\.metrics)
+                            )
+                        }
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(Color.clear)
+                    }
+
                     Section {
-                        ForEach(Array(dataStore.budgets.enumerated()), id: \.element.id) { index, budget in
-                            let metrics = BudgetMath.compute(budget: budget, transactions: dataStore.transactions)
+                        ForEach(Array(sortedBudgetsWithMetrics.enumerated()), id: \.element.budget.id) { index, item in
+                            let budget = item.budget
+                            let metrics = item.metrics
                             BudgetCardView(budget: budget, metrics: metrics, categories: dataStore.categories)
                                 .spotlight(index == 0 ? .budgetCard : nil)
                                 .listRowSeparator(.hidden)

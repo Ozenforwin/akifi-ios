@@ -129,13 +129,11 @@ enum BillingPeriod: String, Codable, Sendable, CaseIterable {
 enum BudgetType: String, Codable, Sendable, CaseIterable {
     case hard
     case soft
-    case goal
 
     var displayName: String {
         switch self {
         case .hard: return String(localized: "budgetType.hard")
         case .soft: return String(localized: "budgetType.soft")
-        case .goal: return String(localized: "budgetType.goal")
         }
     }
 
@@ -143,7 +141,13 @@ enum BudgetType: String, Codable, Sendable, CaseIterable {
         switch self {
         case .hard: return String(localized: "budgetType.hard.description")
         case .soft: return String(localized: "budgetType.soft.description")
-        case .goal: return String(localized: "budgetType.goal.description")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .hard: return "lock.shield"
+        case .soft: return "exclamationmark.bubble"
         }
     }
 }
