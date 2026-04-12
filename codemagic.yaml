@@ -172,24 +172,148 @@ workflows:
           echo "Submitting version: $VERSION"
           echo "SUBMIT_VERSION=$VERSION" >> $CM_ENV
 
-      - name: Submit latest build for App Store review
+      - name: Generate release notes from git history
+        script: |
+          # Find previous release tag
+          PREV_TAG=$(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "Generating changelog since $PREV_TAG..."
+            RAW_LOG=$(git log --pretty="%s" "$PREV_TAG"..HEAD --no-merges)
+          else
+            echo "No previous tag, using last 15 commits..."
+            RAW_LOG=$(git log --pretty="%s" -15 --no-merges)
+          fi
+
+          # Group by type and format
+          python3 << 'PYEOF'
+          import os, re
+
+          raw = os.environ.get("RAW_LOG", "")
+          if not raw:
+              raw = "Bug fixes and improvements"
+
+          features, fixes, other = [], [], []
+          for line in raw.strip().split("\n"):
+              line = line.strip()
+              if not line:
+                  continue
+              clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
+              clean = clean[0].upper() + clean[1:] if clean else clean
+              if line.startswith("feat"):
+                  features.append(clean)
+              elif line.startswith("fix"):
+                  fixes.append(clean)
+              else:
+                  other.append(clean)
+
+          sections = []
+          if features:
+              sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
+          if fixes:
+              sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
+          if other:
+              sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
+
+          changelog = "\n\n".join(sections) if sections else "Bug fixes and improvements."
+          print(changelog)
+
+          # Write to env file for next step
+          with open(os.environ["CM_ENV"], "a") as f:
+              # Escape newlines for env var
+              escaped = changelog.replace("\n", "\\n")
+              f.write(f"RELEASE_NOTES={escaped}\n")
+          PYEOF
+        env:
+          RAW_LOG: $(git log --pretty="%s" $(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')..HEAD --no-merges 2>/dev/null || git log --pretty="%s" -15 --no-merges)
+
+      - name: Create App Store version
         script: |
           echo "Creating App Store version $SUBMIT_VERSION..."
-
-          # Create new App Store version (or update existing)
           app-store-connect app-store-versions create \
             --bundle-id "$BUNDLE_ID" \
             --platform IOS \
             --version-string "$SUBMIT_VERSION" \
             || echo "Version may already exist, continuing..."
 
-          echo "Submitting for App Store review..."
+      - name: Update What's New in App Store Connect
+        script: |
+          pip3 install PyJWT cryptography requests --quiet
 
-          # Submit the latest processed build for review
+          python3 << 'PYEOF'
+          import jwt, time, os, requests, json
+
+          key_id = os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"]
+          issuer_id = os.environ["APP_STORE_CONNECT_ISSUER_ID"]
+          bundle_id = os.environ["BUNDLE_ID"]
+          version = os.environ["SUBMIT_VERSION"]
+          notes = os.environ.get("RELEASE_NOTES", "Bug fixes and improvements.").replace("\\n", "\n")
+
+          # Generate JWT
+          key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
+          with open(key_path) as f:
+              private_key = f.read()
+
+          token = jwt.encode(
+              {"iss": issuer_id, "iat": int(time.time()), "exp": int(time.time()) + 1200, "aud": "appstoreconnect-v1"},
+              private_key, algorithm="ES256", headers={"kid": key_id}
+          )
+
+          headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+          base = "https://api.appstoreconnect.apple.com/v1"
+
+          # Get app ID
+          r = requests.get(f"{base}/apps?filter[bundleId]={bundle_id}", headers=headers)
+          r.raise_for_status()
+          app_id = r.json()["data"][0]["id"]
+          print(f"App ID: {app_id}")
+
+          # Get app store version
+          r = requests.get(
+              f"{base}/apps/{app_id}/appStoreVersions",
+              params={"filter[versionString]": version, "filter[platform]": "IOS"},
+              headers=headers
+          )
+          r.raise_for_status()
+          versions = r.json()["data"]
+          if not versions:
+              print(f"Version {version} not found in App Store Connect, skipping metadata update")
+              exit(0)
+
+          version_id = versions[0]["id"]
+          print(f"Version ID: {version_id}")
+
+          # Get localizations
+          r = requests.get(f"{base}/appStoreVersions/{version_id}/appStoreVersionLocalizations", headers=headers)
+          r.raise_for_status()
+          localizations = r.json()["data"]
+
+          # Update whatsNew for each locale
+          for loc in localizations:
+              loc_id = loc["id"]
+              locale = loc["attributes"]["locale"]
+              payload = {
+                  "data": {
+                      "id": loc_id,
+                      "type": "appStoreVersionLocalizations",
+                      "attributes": {"whatsNew": notes}
+                  }
+              }
+              r = requests.patch(f"{base}/appStoreVersionLocalizations/{loc_id}", headers=headers, json=payload)
+              if r.ok:
+                  print(f"Updated What's New for {locale}")
+              else:
+                  print(f"Failed to update {locale}: {r.status_code} {r.text}")
+
+          print(f"\nRelease notes:\n{notes}")
+          PYEOF
+
+      - name: Submit for App Store review
+        script: |
+          echo "Submitting $SUBMIT_VERSION for App Store review..."
           app-store-connect submit-to-app-store \
             --bundle-id "$BUNDLE_ID" \
             --platform IOS
-
           echo "Submitted $SUBMIT_VERSION for App Store review!"
 
     publishing:
