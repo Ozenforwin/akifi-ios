@@ -165,156 +165,189 @@ workflows:
           echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode \
             > "$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
 
-      - name: Get version from tag
+      - name: Generate release notes and submit for review
         script: |
-          # Tag format: release/v1.2.3
+          # Extract version from tag
           VERSION=$(echo "$CM_TAG" | sed 's|release/v||')
-          echo "Submitting version: $VERSION"
-          echo "SUBMIT_VERSION=$VERSION" >> $CM_ENV
+          echo "Version: $VERSION"
 
-      - name: Generate release notes from git history
-        script: |
-          # Find previous release tag
+          # Generate changelog from git
           PREV_TAG=$(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')
-
           if [ -n "$PREV_TAG" ]; then
-            echo "Generating changelog since $PREV_TAG..."
+            echo "Changelog since $PREV_TAG:"
             RAW_LOG=$(git log --pretty="%s" "$PREV_TAG"..HEAD --no-merges)
           else
-            echo "No previous tag, using last 15 commits..."
+            echo "No previous tag, using last 15 commits:"
             RAW_LOG=$(git log --pretty="%s" -15 --no-merges)
           fi
+          echo "$RAW_LOG"
 
-          # Group by type and format
-          python3 << 'PYEOF'
-          import os, re
-
-          raw = os.environ.get("RAW_LOG", "")
-          if not raw:
-              raw = "Bug fixes and improvements"
-
-          features, fixes, other = [], [], []
-          for line in raw.strip().split("\n"):
-              line = line.strip()
-              if not line:
-                  continue
-              clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
-              clean = clean[0].upper() + clean[1:] if clean else clean
-              if line.startswith("feat"):
-                  features.append(clean)
-              elif line.startswith("fix"):
-                  fixes.append(clean)
-              else:
-                  other.append(clean)
-
-          sections = []
-          if features:
-              sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
-          if fixes:
-              sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
-          if other:
-              sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
-
-          changelog = "\n\n".join(sections) if sections else "Bug fixes and improvements."
-          print(changelog)
-
-          # Write to env file for next step
-          with open(os.environ["CM_ENV"], "a") as f:
-              # Escape newlines for env var
-              escaped = changelog.replace("\n", "\\n")
-              f.write(f"RELEASE_NOTES={escaped}\n")
-          PYEOF
-        env:
-          RAW_LOG: $(git log --pretty="%s" $(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')..HEAD --no-merges 2>/dev/null || git log --pretty="%s" -15 --no-merges)
-
-      - name: Create App Store version
-        script: |
-          echo "Creating App Store version $SUBMIT_VERSION..."
-          app-store-connect app-store-versions create \
-            --bundle-id "$BUNDLE_ID" \
-            --platform IOS \
-            --version-string "$SUBMIT_VERSION" \
-            || echo "Version may already exist, continuing..."
-
-      - name: Update What's New in App Store Connect
-        script: |
           pip3 install PyJWT cryptography requests --quiet
 
-          python3 << 'PYEOF'
-          import jwt, time, os, requests, json
+          python3 << PYEOF
+          import jwt, time, os, requests, json, re, sys
 
+          # ── Config ──
           key_id = os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"]
           issuer_id = os.environ["APP_STORE_CONNECT_ISSUER_ID"]
           bundle_id = os.environ["BUNDLE_ID"]
-          version = os.environ["SUBMIT_VERSION"]
-          notes = os.environ.get("RELEASE_NOTES", "Bug fixes and improvements.").replace("\\n", "\n")
+          version = "$VERSION"
 
-          # Generate JWT
           key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
           with open(key_path) as f:
               private_key = f.read()
 
+          # ── JWT ──
           token = jwt.encode(
               {"iss": issuer_id, "iat": int(time.time()), "exp": int(time.time()) + 1200, "aud": "appstoreconnect-v1"},
               private_key, algorithm="ES256", headers={"kid": key_id}
           )
+          H = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+          BASE = "https://api.appstoreconnect.apple.com/v1"
 
-          headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-          base = "https://api.appstoreconnect.apple.com/v1"
+          def api(method, path, **kw):
+              r = getattr(requests, method)(f"{BASE}/{path}", headers=H, **kw)
+              if not r.ok:
+                  print(f"  API {method.upper()} {path}: {r.status_code} {r.text[:200]}")
+              return r
 
-          # Get app ID
-          r = requests.get(f"{base}/apps?filter[bundleId]={bundle_id}", headers=headers)
+          # ── 1. Get app ID ──
+          r = api("get", f"apps?filter[bundleId]={bundle_id}")
           r.raise_for_status()
           app_id = r.json()["data"][0]["id"]
-          print(f"App ID: {app_id}")
+          print(f"1. App ID: {app_id}")
 
-          # Get app store version
-          r = requests.get(
-              f"{base}/apps/{app_id}/appStoreVersions",
-              params={"filter[versionString]": version, "filter[platform]": "IOS"},
-              headers=headers
-          )
+          # ── 2. Create or get App Store version ──
+          r = api("get", f"apps/{app_id}/appStoreVersions?filter[platform]=IOS")
           r.raise_for_status()
-          versions = r.json()["data"]
-          if not versions:
-              print(f"Version {version} not found in App Store Connect, skipping metadata update")
-              exit(0)
+          existing = r.json()["data"]
 
-          version_id = versions[0]["id"]
-          print(f"Version ID: {version_id}")
+          version_id = None
+          editable_states = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "WAITING_FOR_REVIEW", "INVALID_BINARY"}
 
-          # Get localizations
-          r = requests.get(f"{base}/appStoreVersions/{version_id}/appStoreVersionLocalizations", headers=headers)
-          r.raise_for_status()
-          localizations = r.json()["data"]
+          # Check if version exists
+          for v in existing:
+              if v["attributes"]["versionString"] == version:
+                  version_id = v["id"]
+                  state = v["attributes"]["appStoreState"]
+                  print(f"2. Found version {version} (state: {state})")
+                  break
 
-          # Update whatsNew for each locale
-          for loc in localizations:
-              loc_id = loc["id"]
-              locale = loc["attributes"]["locale"]
+          if not version_id:
+              # Create new version
               payload = {
                   "data": {
-                      "id": loc_id,
-                      "type": "appStoreVersionLocalizations",
-                      "attributes": {"whatsNew": notes}
+                      "type": "appStoreVersions",
+                      "attributes": {"versionString": version, "platform": "IOS"},
+                      "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}
                   }
               }
-              r = requests.patch(f"{base}/appStoreVersionLocalizations/{loc_id}", headers=headers, json=payload)
+              r = api("post", "appStoreVersions", json=payload)
               if r.ok:
-                  print(f"Updated What's New for {locale}")
+                  version_id = r.json()["data"]["id"]
+                  print(f"2. Created version {version}")
               else:
-                  print(f"Failed to update {locale}: {r.status_code} {r.text}")
+                  print(f"2. Failed to create version: {r.text[:300]}")
+                  sys.exit(1)
+
+          # ── 3. Find latest processed build ──
+          r = api("get", f"builds?filter[app]={app_id}&filter[processingState]=VALID&sort=-uploadedDate&limit=1")
+          r.raise_for_status()
+          builds = r.json()["data"]
+          if not builds:
+              print("3. No processed builds found! Wait for TestFlight build to finish processing.")
+              sys.exit(1)
+
+          build_id = builds[0]["id"]
+          build_version = builds[0]["attributes"].get("version", "?")
+          print(f"3. Latest build: {build_id} (version {build_version})")
+
+          # ── 4. Select build for this version ──
+          payload = {
+              "data": {"type": "builds", "id": build_id}
+          }
+          r = api("patch", f"appStoreVersions/{version_id}/relationships/build", json=payload)
+          if r.ok or r.status_code == 204:
+              print(f"4. Build {build_id} selected for version {version}")
+          elif r.status_code == 409:
+              print(f"4. Build already selected (conflict ok)")
+          else:
+              print(f"4. Warning: could not select build: {r.status_code}")
+
+          # ── 5. Generate & set What's New ──
+          raw = """$RAW_LOG"""
+          features, fixes, other = [], [], []
+          for line in raw.strip().split("\n"):
+              line = line.strip()
+              if not line: continue
+              clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
+              if clean: clean = clean[0].upper() + clean[1:]
+              if line.startswith("feat"): features.append(clean)
+              elif line.startswith("fix"): fixes.append(clean)
+              else: other.append(clean)
+
+          sections = []
+          if features: sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
+          if fixes: sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
+          if other: sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
+          notes = "\n\n".join(sections) if sections else "Bug fixes and improvements."
+
+          r = api("get", f"appStoreVersions/{version_id}/appStoreVersionLocalizations")
+          if r.ok:
+              for loc in r.json()["data"]:
+                  loc_id = loc["id"]
+                  locale = loc["attributes"]["locale"]
+                  payload = {"data": {"id": loc_id, "type": "appStoreVersionLocalizations", "attributes": {"whatsNew": notes}}}
+                  r2 = api("patch", f"appStoreVersionLocalizations/{loc_id}", json=payload)
+                  print(f"5. What's New [{locale}]: {'OK' if r2.ok else r2.status_code}")
 
           print(f"\nRelease notes:\n{notes}")
-          PYEOF
 
-      - name: Submit for App Store review
-        script: |
-          echo "Submitting $SUBMIT_VERSION for App Store review..."
-          app-store-connect submit-to-app-store \
-            --bundle-id "$BUNDLE_ID" \
-            --platform IOS
-          echo "Submitted $SUBMIT_VERSION for App Store review!"
+          # ── 6. Submit for review ──
+          # Create reviewSubmission
+          payload = {
+              "data": {
+                  "type": "reviewSubmissions",
+                  "attributes": {"platform": "IOS"},
+                  "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}
+              }
+          }
+          r = api("post", "reviewSubmissions", json=payload)
+          if r.ok:
+              submission_id = r.json()["data"]["id"]
+              print(f"6. Review submission created: {submission_id}")
+
+              # Add the version as a review item
+              payload = {
+                  "data": {
+                      "type": "reviewSubmissionItems",
+                      "relationships": {
+                          "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission_id}},
+                          "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}
+                      }
+                  }
+              }
+              r = api("post", "reviewSubmissionItems", json=payload)
+              print(f"6. Review item added: {'OK' if r.ok else r.status_code}")
+
+              # Confirm submission
+              payload = {
+                  "data": {
+                      "type": "reviewSubmissions",
+                      "id": submission_id,
+                      "attributes": {"submitted": True}
+                  }
+              }
+              r = api("patch", f"reviewSubmissions/{submission_id}", json=payload)
+              if r.ok:
+                  print(f"\n✅ Version {version} submitted for App Store review!")
+              else:
+                  print(f"\n⚠️  Submission confirm failed: {r.status_code} {r.text[:200]}")
+          else:
+              print(f"6. Could not create review submission: {r.status_code} {r.text[:300]}")
+              if "REVIEW_ALREADY" in r.text or "already" in r.text.lower():
+                  print("   (App may already be in review)")
+          PYEOF
 
     publishing:
       email:
