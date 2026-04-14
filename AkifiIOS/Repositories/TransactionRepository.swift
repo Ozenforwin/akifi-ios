@@ -27,7 +27,7 @@ final class TransactionRepository: Sendable {
     }
 
     func currentUserId() async throws -> String {
-        try await supabase.auth.session.user.id.uuidString
+        try await SupabaseManager.shared.currentUserId()
     }
 
     func create(_ input: CreateTransactionInput) async throws -> Transaction {

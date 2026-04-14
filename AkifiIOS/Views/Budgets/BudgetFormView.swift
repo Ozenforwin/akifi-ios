@@ -305,7 +305,7 @@ struct BudgetFormView: View {
                 try await budgetRepo.update(id: budget.id, input)
             } else {
                 // Create new budget
-                let userId = try await SupabaseManager.shared.client.auth.session.user.id.uuidString
+                let userId = try await SupabaseManager.shared.currentUserId()
                 let input = CreateBudgetInput(
                     user_id: userId,
                     name: budgetName.isEmpty ? nil : budgetName,

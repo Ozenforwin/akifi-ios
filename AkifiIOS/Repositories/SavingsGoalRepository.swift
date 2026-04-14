@@ -4,6 +4,10 @@ import Supabase
 final class SavingsGoalRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    func currentUserId() async throws -> String {
+        try await SupabaseManager.shared.currentUserId()
+    }
+
     func fetchAll() async throws -> [SavingsGoal] {
         try await supabase
             .from("savings_goals")
@@ -62,6 +66,7 @@ final class SavingsGoalRepository: Sendable {
 }
 
 struct CreateSavingsGoalInput: Encodable, Sendable {
+    let user_id: String
     let name: String
     let icon: String
     let color: String
@@ -81,6 +86,7 @@ struct UpdateSavingsGoalInput: Encodable, Sendable {
 }
 
 struct CreateContributionInput: Encodable, Sendable {
+    let user_id: String
     let goal_id: String
     let amount: Int64
     let type: String

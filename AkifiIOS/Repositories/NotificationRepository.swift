@@ -7,7 +7,7 @@ final class NotificationRepository: Sendable {
     /// Save FCM token to user profile
     func registerFCMToken(_ token: String) async {
         do {
-            let userId = try await supabase.auth.session.user.id.uuidString
+            let userId = try await SupabaseManager.shared.currentUserId()
             try await supabase
                 .from("profiles")
                 .update([
@@ -34,7 +34,7 @@ final class NotificationRepository: Sendable {
         budgetWarningPercent: Int
     ) async {
         do {
-            let userId = try await supabase.auth.session.user.id.uuidString
+            let userId = try await SupabaseManager.shared.currentUserId()
 
             struct SettingsInput: Encodable {
                 let user_id: String

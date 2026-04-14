@@ -201,11 +201,10 @@ struct TransactionFormView: View {
         }
 
         do {
-            guard let userId = appViewModel.dataStore.profile?.id else {
-                errorMessage = "User not found"
-                isLoading = false
-                return
-            }
+            // Always source user_id from the live Supabase session.
+            // `dataStore.profile?.id` can be stale right after sign-in or
+            // token refresh, and mismatch → RLS violation on INSERT.
+            let userId = try await SupabaseManager.shared.currentUserId()
             if let tx = editingTransaction {
                 let input = UpdateTransactionInput(
                     amount: amountInBase,

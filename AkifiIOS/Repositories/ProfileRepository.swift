@@ -5,7 +5,7 @@ final class ProfileRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetch() async throws -> Profile {
-        let userId = try await supabase.auth.session.user.id.uuidString
+        let userId = try await SupabaseManager.shared.currentUserId()
         return try await supabase
             .from("profiles")
             .select()
@@ -30,10 +30,11 @@ final class ProfileRepository: Sendable {
         if let fullName { updates["full_name"] = fullName }
         if let avatarUrl { updates["avatar_url"] = avatarUrl }
 
+        let userId = try await SupabaseManager.shared.currentUserId()
         try await supabase
             .from("profiles")
             .update(updates)
-            .eq("id", value: try await supabase.auth.session.user.id.uuidString)
+            .eq("id", value: userId)
             .execute()
     }
 }

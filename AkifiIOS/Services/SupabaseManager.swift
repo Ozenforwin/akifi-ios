@@ -15,4 +15,23 @@ final class SupabaseManager: Sendable {
             )
         )
     }
+
+    // MARK: - User ID helper
+    //
+    // Every user-owned table in Supabase has:
+    //   - `user_id uuid not null`
+    //   - RLS policy `WITH CHECK (auth.uid() = user_id)`
+    //
+    // Migration 20260413000060 adds `DEFAULT auth.uid()` to every such column,
+    // so server-side omitting user_id is now safe (Postgres fills it from the
+    // JWT). This helper remains the canonical client-side source of the
+    // currently authenticated user id for code that still wants to send it
+    // explicitly (e.g. Create*Input DTOs). Always prefer this over reading
+    // `dataStore.profile?.id`, which may be stale after sign-in/sign-out.
+    //
+    // Throws if there is no active session — callers should treat that as a
+    // precondition for any write.
+    func currentUserId() async throws -> String {
+        try await client.auth.session.user.id.uuidString
+    }
 }

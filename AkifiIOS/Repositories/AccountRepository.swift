@@ -25,7 +25,7 @@ final class AccountRepository: Sendable {
             .value
 
         // Fetch per-user is_primary from account_members (same as Telegram app)
-        let userId = try await supabase.auth.session.user.id.uuidString
+        let userId = try await SupabaseManager.shared.currentUserId()
         let memberships: [MembershipRow] = try await supabase
             .from("account_members")
             .select("account_id, role, is_primary")
@@ -52,6 +52,7 @@ final class AccountRepository: Sendable {
 
     func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String = "rub") async throws -> Account {
         struct CreateInput: Encodable {
+            let user_id: String
             let name: String
             let icon: String
             let color: String
@@ -59,11 +60,16 @@ final class AccountRepository: Sendable {
             let currency: String
         }
 
+        // RLS policy requires user_id = auth.uid().
+        // Migration 60 also sets DEFAULT auth.uid() server-side, so this is
+        // belt-and-suspenders.
+        let userId = try await SupabaseManager.shared.currentUserId()
+
         // iOS stores kopecks, DB stores whole rubles
         let balanceRubles = initialBalance / 100
         return try await supabase
             .from("accounts")
-            .insert(CreateInput(name: name, icon: icon, color: color, initial_balance: balanceRubles, currency: currency))
+            .insert(CreateInput(user_id: userId, name: name, icon: icon, color: color, initial_balance: balanceRubles, currency: currency))
             .select()
             .single()
             .execute()

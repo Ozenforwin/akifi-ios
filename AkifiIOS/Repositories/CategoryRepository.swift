@@ -34,6 +34,7 @@ final class CategoryRepository: Sendable {
 
     func create(name: String, icon: String, color: String, type: CategoryType, accountId: String? = nil) async throws -> Category {
         struct Input: Encodable {
+            let user_id: String
             let name: String
             let icon: String
             let color: String
@@ -41,9 +42,13 @@ final class CategoryRepository: Sendable {
             let account_id: String?
         }
 
+        // RLS policy requires user_id = auth.uid().
+        // Migration 60 also sets DEFAULT auth.uid() server-side.
+        let userId = try await SupabaseManager.shared.currentUserId()
+
         return try await supabase
             .from("categories")
-            .insert(Input(name: name, icon: icon, color: color, type: type.rawValue, account_id: accountId))
+            .insert(Input(user_id: userId, name: name, icon: icon, color: color, type: type.rawValue, account_id: accountId))
             .select()
             .single()
             .execute()

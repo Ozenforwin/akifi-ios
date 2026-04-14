@@ -69,7 +69,9 @@ final class SavingsViewModel {
 
     func createGoal(name: String, icon: String, color: String, targetAmount: Int64, deadline: String?, accountId: String?) async {
         do {
+            let userId = try await repo.currentUserId()
             let input = CreateSavingsGoalInput(
+                user_id: userId,
                 name: name,
                 icon: icon,
                 color: color,
@@ -89,7 +91,9 @@ final class SavingsViewModel {
 
     func addContribution(goalId: String, amount: Int64, type: ContributionType, note: String?) async {
         do {
+            let userId = try await repo.currentUserId()
             let input = CreateContributionInput(
+                user_id: userId,
                 goal_id: goalId,
                 amount: amount,
                 type: type.rawValue,
@@ -102,7 +106,6 @@ final class SavingsViewModel {
             let goal = goals.first { $0.id == goalId }
             let desc = "\(goal?.name ?? String(localized: "home.savings")): \(type == .withdrawal ? String(localized: "contribution.withdrawal") : String(localized: "contribution.deposit"))\(note != nil ? " — \(note!)" : "")"
             let txRepo = TransactionRepository()
-            let userId = try await txRepo.currentUserId()
             let txInput = CreateTransactionInput(
                 user_id: userId,
                 account_id: goal?.accountId,

@@ -155,7 +155,7 @@ struct ProfileEditView: View {
             }
 
             // Upload to Supabase Storage
-            let userId = try await SupabaseManager.shared.client.auth.session.user.id.uuidString
+            let userId = try await SupabaseManager.shared.currentUserId()
             let fileName = "avatars/\(userId).jpg"
 
             try await SupabaseManager.shared.client.storage

@@ -17,9 +17,12 @@ final class AiRepository: Sendable {
     }
 
     func createConversation() async throws -> AiConversation {
-        try await supabase
+        // RLS policy requires user_id = auth.uid().
+        // Migration 60 also sets DEFAULT auth.uid() server-side.
+        let userId = try await SupabaseManager.shared.currentUserId()
+        return try await supabase
             .from("ai_conversations")
-            .insert(["source": "ios"])
+            .insert(["user_id": userId, "source": "ios"])
             .select()
             .single()
             .execute()
@@ -169,7 +172,11 @@ final class AiRepository: Sendable {
     // MARK: - Feedback
 
     func submitFeedback(requestId: String, score: Int, reason: String?) async throws {
+        // RLS policy requires user_id = auth.uid().
+        // Migration 60 also sets DEFAULT auth.uid() server-side.
+        let userId = try await SupabaseManager.shared.currentUserId()
         var data: [String: AnyJSON] = [
+            "user_id": AnyJSON(stringLiteral: userId),
             "request_id": AnyJSON(stringLiteral: requestId),
             "score": AnyJSON(integerLiteral: score)
         ]
@@ -195,7 +202,7 @@ final class AiRepository: Sendable {
     }
 
     func upsertSettings(_ settings: AIUserSettings) async throws {
-        let userId = try await supabase.auth.session.user.id.uuidString
+        let userId = try await SupabaseManager.shared.currentUserId()
         var data: [String: AnyJSON] = [
             "user_id": AnyJSON(stringLiteral: userId),
             "tone": AnyJSON(stringLiteral: settings.tone.rawValue),
@@ -218,7 +225,11 @@ final class AiRepository: Sendable {
 
     func logAnalyticsEvent(event: String, metadata: [String: String]? = nil) async {
         do {
+            // RLS policy requires user_id = auth.uid().
+            // Migration 60 also sets DEFAULT auth.uid() server-side.
+            let userId = try await SupabaseManager.shared.currentUserId()
             var data: [String: AnyJSON] = [
+                "user_id": AnyJSON(stringLiteral: userId),
                 "event": AnyJSON(stringLiteral: event),
                 "source": AnyJSON(stringLiteral: "ios")
             ]

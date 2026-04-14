@@ -32,13 +32,17 @@ final class SubscriptionsViewModel {
         isLoading = false
     }
 
-    func create(name: String, amount: Int64, period: BillingPeriod, color: String?, currency: String = "RUB", reminderDays: Int = 1, userId: String) async {
+    // `userId` parameter kept for API compatibility with existing call sites.
+    // We ignore it and always source user_id from the Supabase session to
+    // prevent "wrong/stale user_id" → RLS violations.
+    func create(name: String, amount: Int64, period: BillingPeriod, color: String?, currency: String = "RUB", reminderDays: Int = 1, userId: String = "") async {
         do {
+            let resolvedUserId = try await SupabaseManager.shared.currentUserId()
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
             let amountDecimal = Decimal(amount) / 100 // kopecks → rubles for DB
             let input = CreateSubscriptionInput(
-                user_id: userId,
+                user_id: resolvedUserId,
                 service_name: name,
                 amount: amountDecimal,
                 billing_period: period.rawValue,
