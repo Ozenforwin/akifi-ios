@@ -182,7 +182,7 @@ workflows:
           fi
           echo "$RAW_LOG"
 
-          pip3 install PyJWT cryptography requests --quiet
+          pip3 install PyJWT cryptography requests anthropic --quiet
 
           python3 << PYEOF
           import jwt, time, os, requests, json, re, sys
@@ -274,34 +274,99 @@ workflows:
           else:
               print(f"4. Warning: could not select build: {r.status_code}")
 
-          # ── 5. Generate & set What's New ──
-          raw = """$RAW_LOG"""
-          features, fixes, other = [], [], []
-          for line in raw.strip().split("\n"):
-              line = line.strip()
-              if not line: continue
-              clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
-              if clean: clean = clean[0].upper() + clean[1:]
-              if line.startswith("feat"): features.append(clean)
-              elif line.startswith("fix"): fixes.append(clean)
-              else: other.append(clean)
+          # ── 5. Generate user-friendly What's New & Promotional Text via Claude ──
+          raw_log = """$RAW_LOG""".strip()
 
-          sections = []
-          if features: sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
-          if fixes: sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
-          if other: sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
-          notes = "\n\n".join(sections) if sections else "Bug fixes and improvements."
-
+          # Discover all locales available for this version
           r = api("get", f"appStoreVersions/{version_id}/appStoreVersionLocalizations")
-          if r.ok:
-              for loc in r.json()["data"]:
-                  loc_id = loc["id"]
-                  locale = loc["attributes"]["locale"]
-                  payload = {"data": {"id": loc_id, "type": "appStoreVersionLocalizations", "attributes": {"whatsNew": notes}}}
-                  r2 = api("patch", f"appStoreVersionLocalizations/{loc_id}", json=payload)
-                  print(f"5. What's New [{locale}]: {'OK' if r2.ok else r2.status_code}")
+          localizations = r.json()["data"] if r.ok else []
+          locales = [loc["attributes"]["locale"] for loc in localizations]
+          print(f"5. Locales to fill: {locales}")
 
-          print(f"\nRelease notes:\n{notes}")
+          # Fallback (technical) release notes if Claude is unavailable
+          def technical_notes(raw):
+              features, fixes, other = [], [], []
+              for line in raw.split("\n"):
+                  line = line.strip()
+                  if not line: continue
+                  clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
+                  if clean: clean = clean[0].upper() + clean[1:]
+                  if line.startswith("feat"): features.append(clean)
+                  elif line.startswith("fix"): fixes.append(clean)
+                  else: other.append(clean)
+              sections = []
+              if features: sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
+              if fixes: sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
+              if other: sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
+              return "\n\n".join(sections) if sections else "Bug fixes and performance improvements."
+
+          localized = {}
+          anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+          if anthropic_key and locales:
+              try:
+                  import anthropic
+                  client = anthropic.Anthropic(api_key=anthropic_key)
+                  prompt_parts = [
+                      f"You write App Store release notes for Akifi — an AI-powered personal finance app (budgets, expense tracking, savings goals, subscriptions, AI assistant).",
+                      f"",
+                      f"Here are the git commits shipped in version {version}:",
+                      f"<commits>",
+                      raw_log,
+                      f"</commits>",
+                      f"",
+                      f"Rewrite these into user-friendly copy for every locale below. DO NOT mention internal technical terms (RLS, migrations, payloads, repositories, refactors, Supabase, backend, API, etc.). Speak to end users about what they will notice or benefit from. If commits are purely internal cleanups, describe them as 'improved stability' / 'performance improvements'.",
+                      f"",
+                      f"For each locale produce:",
+                      f"- 'whatsNew': max 3900 chars. Structured as short bullet list under 1–2 headers (e.g. 'New:' / 'Fixed:' / 'Improved:'). Only include a header if there are items for it. Warm, simple, everyday language. No marketing fluff, no emojis.",
+                      f"- 'promotionalText': max 165 chars. One crisp sentence highlighting the most valuable change in this version — a reason to open the app today.",
+                      f"",
+                      f"Locales to fill: {json.dumps(locales)}",
+                      f"",
+                      f"For Russian locales (ru, ru-RU) write in natural Russian. For English locales (en-US, en-GB) in natural English. For any other locale, translate accurately into that locale's language.",
+                      f"",
+                      f"Respond ONLY with raw JSON, no markdown fences, no commentary:",
+                      f'{{"<locale>": {{"whatsNew": "...", "promotionalText": "..."}}, ...}}',
+                  ]
+                  prompt = "\n".join(prompt_parts)
+
+                  msg = client.messages.create(
+                      model="claude-haiku-4-5-20251001",
+                      max_tokens=4096,
+                      messages=[{"role": "user", "content": prompt}],
+                  )
+                  text = msg.content[0].text.strip()
+                  # Strip accidental markdown fences
+                  text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+                  localized = json.loads(text)
+                  print(f"5. Claude generated copy for {len(localized)} locales")
+              except Exception as e:
+                  print(f"5. Claude generation failed, falling back to technical notes: {e}")
+                  localized = {}
+          else:
+              print("5. ANTHROPIC_API_KEY not set — using technical fallback notes")
+
+          fallback_notes = technical_notes(raw_log)
+
+          for loc in localizations:
+              loc_id = loc["id"]
+              locale = loc["attributes"]["locale"]
+              entry = localized.get(locale, {})
+              whats_new = (entry.get("whatsNew") or fallback_notes)[:3900]
+              promo = (entry.get("promotionalText") or "")[:165]
+              attrs = {"whatsNew": whats_new}
+              if promo:
+                  attrs["promotionalText"] = promo
+              payload = {"data": {"id": loc_id, "type": "appStoreVersionLocalizations", "attributes": attrs}}
+              r2 = api("patch", f"appStoreVersionLocalizations/{loc_id}", json=payload)
+              print(f"5. Localization [{locale}]: {'OK' if r2.ok else r2.status_code}")
+
+          preview_locale = next((l for l in ["en-US", "en-GB", "ru", "ru-RU"] if l in localized), None)
+          if preview_locale:
+              print(f"\nPreview [{preview_locale}] whatsNew:\n{localized[preview_locale].get('whatsNew','')}")
+              print(f"\nPreview [{preview_locale}] promo:\n{localized[preview_locale].get('promotionalText','')}")
+          else:
+              print(f"\nFallback notes:\n{fallback_notes}")
 
           # ── 6. Submit for review ──
           # Create reviewSubmission
