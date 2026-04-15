@@ -4,11 +4,26 @@ import Supabase
 final class SubscriptionTrackerRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    /// Fetch non-cancelled subscriptions (active + paused). Cancelled rows are archived.
+    ///
+    /// Filters on `status` directly. The DB trigger keeps `is_active` in sync with
+    /// `status == 'active'`, so legacy v1.2.2 clients (which filter on `is_active=true`)
+    /// still see only active subscriptions.
     func fetchAll() async throws -> [SubscriptionTracker] {
         try await supabase
             .from("subscriptions")
             .select()
-            .eq("is_active", value: true)
+            .in("status", values: [SubscriptionTrackerStatus.active.rawValue, SubscriptionTrackerStatus.paused.rawValue])
+            .order("next_payment_date")
+            .execute()
+            .value
+    }
+
+    /// Fetch *all* subscriptions including cancelled ones — used for the archive view.
+    func fetchAllIncludingCancelled() async throws -> [SubscriptionTracker] {
+        try await supabase
+            .from("subscriptions")
+            .select()
             .order("next_payment_date")
             .execute()
             .value
@@ -32,6 +47,16 @@ final class SubscriptionTrackerRepository: Sendable {
             .execute()
     }
 
+    /// Patch just the lifecycle status. The DB trigger mirrors into `is_active`.
+    func updateStatus(id: String, _ status: SubscriptionTrackerStatus) async throws {
+        let patch = UpdateSubscriptionTrackerStatusInput(status: status.rawValue)
+        try await supabase
+            .from("subscriptions")
+            .update(patch)
+            .eq("id", value: id)
+            .execute()
+    }
+
     /// Patch just the last/next payment dates — used after `recordPayment`.
     func updateDates(id: String, lastPaymentDate: String?, nextPaymentDate: String?) async throws {
         let patch = UpdateSubscriptionDatesInput(
@@ -46,11 +71,8 @@ final class SubscriptionTrackerRepository: Sendable {
     }
 
     func delete(id: String) async throws {
-        try await supabase
-            .from("subscriptions")
-            .update(["is_active": false])
-            .eq("id", value: id)
-            .execute()
+        // Soft-delete: mark as cancelled. DB trigger mirrors into is_active=false.
+        try await updateStatus(id: id, .cancelled)
     }
 
     // MARK: - Payments
@@ -97,6 +119,7 @@ struct CreateSubscriptionInput: Encodable, Sendable {
     let icon_color: String?
     let reminder_days: Int?
     let currency: String?
+    let status: String?
 }
 
 struct UpdateSubscriptionInput: Encodable, Sendable {
@@ -109,11 +132,16 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let icon_color: String?
     let reminder_days: Int?
     let currency: String?
+    let status: String?
 }
 
 struct UpdateSubscriptionDatesInput: Encodable, Sendable {
     let last_payment_date: String?
     let next_payment_date: String?
+}
+
+struct UpdateSubscriptionTrackerStatusInput: Encodable, Sendable {
+    let status: String
 }
 
 struct CreateSubscriptionPaymentInput: Encodable, Sendable {

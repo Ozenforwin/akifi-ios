@@ -1,5 +1,36 @@
 import Foundation
 
+/// Lifecycle state of a subscription.
+///
+/// Supersedes the legacy `is_active` boolean. Backward compat:
+/// old clients (v1.2.2) that only read `is_active` keep working thanks to a
+/// DB trigger that mirrors `status == .active` → `is_active = true`.
+///
+/// - `.active`    — charges continue, reminders scheduled, shown in "Active" list.
+/// - `.paused`    — user temporarily paused it; reminders cancelled; auto-recalc frozen.
+/// - `.cancelled` — ended; reminders cancelled; shown in archive only.
+enum SubscriptionTrackerStatus: String, Codable, CaseIterable, Sendable {
+    case active
+    case paused
+    case cancelled
+
+    var localizedName: String {
+        switch self {
+        case .active: return String(localized: "subscriptions.status.active")
+        case .paused: return String(localized: "subscriptions.status.paused")
+        case .cancelled: return String(localized: "subscriptions.status.cancelled")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .active: return "play.circle.fill"
+        case .paused: return "pause.circle.fill"
+        case .cancelled: return "xmark.circle.fill"
+        }
+    }
+}
+
 struct SubscriptionTracker: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
@@ -13,6 +44,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
     var reminderDays: Int
     var iconColor: String?
     var isActive: Bool
+    var status: SubscriptionTrackerStatus
     let createdAt: String?
     let updatedAt: String?
 
@@ -28,6 +60,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         case reminderDays = "reminder_days"
         case iconColor = "icon_color"
         case isActive = "is_active"
+        case status
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -35,12 +68,14 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
     init(id: String, userId: String, serviceName: String, amount: Int64, currency: String? = nil,
          billingPeriod: BillingPeriod, startDate: String, lastPaymentDate: String? = nil,
          nextPaymentDate: String? = nil, reminderDays: Int = 1, iconColor: String? = nil,
-         isActive: Bool = true, createdAt: String? = nil, updatedAt: String? = nil) {
+         isActive: Bool = true, status: SubscriptionTrackerStatus? = nil,
+         createdAt: String? = nil, updatedAt: String? = nil) {
         self.id = id; self.userId = userId; self.serviceName = serviceName; self.amount = amount
         self.currency = currency; self.billingPeriod = billingPeriod; self.startDate = startDate
         self.lastPaymentDate = lastPaymentDate
         self.nextPaymentDate = nextPaymentDate; self.reminderDays = reminderDays
         self.iconColor = iconColor; self.isActive = isActive
+        self.status = status ?? (isActive ? .active : .cancelled)
         self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
@@ -57,7 +92,16 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         nextPaymentDate = try container.decodeIfPresent(String.self, forKey: .nextPaymentDate)
         reminderDays = try container.decodeIfPresent(Int.self, forKey: .reminderDays) ?? 1
         iconColor = try container.decodeIfPresent(String.self, forKey: .iconColor)
-        isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        let decodedIsActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        isActive = decodedIsActive
+        // Backward compat: if `status` is missing (pre-v1.2.3 payloads or cached data),
+        // derive it from `is_active`.
+        if let rawStatus = try container.decodeIfPresent(String.self, forKey: .status),
+           let decoded = SubscriptionTrackerStatus(rawValue: rawStatus) {
+            status = decoded
+        } else {
+            status = decodedIsActive ? .active : .cancelled
+        }
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
@@ -76,6 +120,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         try container.encode(reminderDays, forKey: .reminderDays)
         try container.encodeIfPresent(iconColor, forKey: .iconColor)
         try container.encode(isActive, forKey: .isActive)
+        try container.encode(status.rawValue, forKey: .status)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }

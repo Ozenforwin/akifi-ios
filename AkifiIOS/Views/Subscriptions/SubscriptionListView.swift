@@ -29,15 +29,34 @@ struct SubscriptionListView: View {
                         }
                     }
 
-                    Section(String(localized: "subscriptions.active")) {
-                        ForEach(viewModel.subscriptions) { sub in
-                            SubscriptionRowView(subscription: sub)
-                        }
-                        .onDelete { indices in
-                            Task {
-                                for index in indices {
-                                    await viewModel.delete(viewModel.subscriptions[index])
+                    if !viewModel.activeSubscriptions.isEmpty {
+                        Section(String(localized: "subscriptions.section.active")) {
+                            ForEach(viewModel.activeSubscriptions) { sub in
+                                SubscriptionRowView(subscription: sub)
+                            }
+                            .onDelete { indices in
+                                Task {
+                                    for index in indices {
+                                        await viewModel.delete(viewModel.activeSubscriptions[index])
+                                    }
                                 }
+                            }
+                        }
+                    }
+
+                    if !viewModel.pausedSubscriptions.isEmpty {
+                        Section(String(localized: "subscriptions.section.paused")) {
+                            ForEach(viewModel.pausedSubscriptions) { sub in
+                                SubscriptionRowView(subscription: sub)
+                            }
+                        }
+                    }
+
+                    if !viewModel.archivedSubscriptions.isEmpty {
+                        Section(String(localized: "subscriptions.section.archive")) {
+                            ForEach(viewModel.archivedSubscriptions) { sub in
+                                SubscriptionRowView(subscription: sub)
+                                    .opacity(0.55)
                             }
                         }
                     }
@@ -93,8 +112,15 @@ struct SubscriptionRowView: View {
                 }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(subscription.serviceName)
-                    .font(.subheadline.weight(.medium))
+                HStack(spacing: 6) {
+                    Text(subscription.serviceName)
+                        .font(.subheadline.weight(.medium))
+                    if subscription.status != .active {
+                        Image(systemName: subscription.status.systemImage)
+                            .font(.caption2)
+                            .foregroundStyle(subscription.status == .paused ? Color.warning : .secondary)
+                    }
+                }
                 Text(periodLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -65,10 +65,21 @@ struct ContentView: View {
             withAnimation(.easeOut(duration: 0.4)) {
                 showSplash = false
             }
+            // After the initial load settles, reconcile pending notifications
+            // with the current subscription list. Non-blocking — runs after
+            // `loadAll` has populated `dataStore.subscriptions`.
+            let subs = appViewModel.dataStore.subscriptions
+            Task {
+                await NotificationManager.rescheduleAllReminders(subscriptions: subs)
+            }
         }
         .onChange(of: appViewModel.authManager.isAuthenticated) { _, isAuth in
             if isAuth {
-                Task { await appViewModel.loadAfterAuth() }
+                Task {
+                    await appViewModel.loadAfterAuth()
+                    let subs = appViewModel.dataStore.subscriptions
+                    await NotificationManager.rescheduleAllReminders(subscriptions: subs)
+                }
             }
         }
     }
@@ -130,6 +141,26 @@ struct MainTabView: View {
                     unlockedAchievement = nil
                 }
                 .transition(.opacity)
+            }
+
+            // Subscription auto-match banner (non-modal, above tab bar, below overlays)
+            if let match = appViewModel.dataStore.pendingAutoMatch {
+                VStack {
+                    SubscriptionMatchBanner(
+                        match: match,
+                        onUndo: {
+                            Task { await appViewModel.dataStore.undoAutoMatch() }
+                        },
+                        onDismiss: {
+                            appViewModel.dataStore.clearPendingAutoMatch()
+                        }
+                    )
+                    .id(match.id)
+                    Spacer()
+                }
+                .padding(.top, 8)
+                .zIndex(2)
+                .animation(.easeInOut(duration: 0.25), value: appViewModel.dataStore.pendingAutoMatch)
             }
 
             // Spotlight onboarding overlay (must be LAST — above everything)

@@ -83,4 +83,24 @@ enum AnalyticsService {
             AnalyticsParameterScreenName: name
         ])
     }
+
+    // MARK: - Subscriptions
+    static func logSubscriptionStatusChange(to status: String) {
+        Analytics.logEvent("subscription_status_change", parameters: ["status": status])
+    }
+
+    static func logSubscriptionAutoMatch(score: Int) {
+        Analytics.logEvent("subscription_auto_match", parameters: ["score": score])
+    }
+
+    static func logSubscriptionAutoMatchUndo() {
+        Analytics.logEvent("subscription_auto_match_undo", parameters: nil)
+    }
+
+    static func logRemindersRescheduled(scheduled: Int, cancelled: Int) {
+        Analytics.logEvent("subscription_reminders_rescheduled", parameters: [
+            "scheduled": scheduled,
+            "cancelled": cancelled
+        ])
+    }
 }

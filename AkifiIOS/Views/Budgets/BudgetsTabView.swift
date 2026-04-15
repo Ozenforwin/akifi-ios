@@ -155,31 +155,44 @@ struct BudgetsTabView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(dataStore.subscriptions) { sub in
-                            subscriptionRow(sub)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                                .listRowBackground(Color.clear)
-                                .contentShape(Rectangle())
-                                .onTapGesture { editingSubscription = sub }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        Task {
-                                            try? await SubscriptionTrackerRepository().delete(id: sub.id)
-                                            await dataStore.loadAll()
+                        ForEach(subscriptionsByStatus, id: \.status) { group in
+                            if !group.items.isEmpty {
+                                Text(group.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.top, 4)
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
+                                ForEach(group.items) { sub in
+                                    subscriptionRow(sub)
+                                        .opacity(sub.status == .cancelled ? 0.55 : 1.0)
+                                        .listRowSeparator(.hidden)
+                                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                        .listRowBackground(Color.clear)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { editingSubscription = sub }
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                            Button(role: .destructive) {
+                                                Task {
+                                                    try? await SubscriptionTrackerRepository().delete(id: sub.id)
+                                                    await dataStore.loadAll()
+                                                }
+                                            } label: {
+                                                Label(String(localized: "common.delete"), systemImage: "trash.fill")
+                                            }
                                         }
-                                    } label: {
-                                        Label(String(localized: "common.delete"), systemImage: "trash.fill")
-                                    }
+                                        .swipeActions(edge: .leading) {
+                                            Button {
+                                                editingSubscription = sub
+                                            } label: {
+                                                Label(String(localized: "common.edit"), systemImage: "pencil")
+                                            }
+                                            .tint(.blue)
+                                        }
                                 }
-                                .swipeActions(edge: .leading) {
-                                    Button {
-                                        editingSubscription = sub
-                                    } label: {
-                                        Label(String(localized: "common.edit"), systemImage: "pencil")
-                                    }
-                                    .tint(.blue)
-                                }
+                            }
                         }
                     }
                 }
@@ -240,6 +253,25 @@ struct BudgetsTabView: View {
         }
     }
 
+    // MARK: - Subscription grouping by status
+
+    private struct SubscriptionGroup {
+        let status: SubscriptionTrackerStatus
+        let title: String
+        let items: [SubscriptionTracker]
+    }
+
+    private var subscriptionsByStatus: [SubscriptionGroup] {
+        let active = dataStore.subscriptions.filter { $0.status == .active }
+        let paused = dataStore.subscriptions.filter { $0.status == .paused }
+        let archive = dataStore.subscriptions.filter { $0.status == .cancelled }
+        return [
+            SubscriptionGroup(status: .active, title: String(localized: "subscriptions.section.active"), items: active),
+            SubscriptionGroup(status: .paused, title: String(localized: "subscriptions.section.paused"), items: paused),
+            SubscriptionGroup(status: .cancelled, title: String(localized: "subscriptions.section.archive"), items: archive)
+        ]
+    }
+
     // MARK: - Subscription row
 
     private func subscriptionRow(_ sub: SubscriptionTracker) -> some View {
@@ -255,8 +287,15 @@ struct BudgetsTabView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(sub.serviceName)
-                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: 6) {
+                        Text(sub.serviceName)
+                            .font(.subheadline.weight(.medium))
+                        if sub.status != .active {
+                            Image(systemName: sub.status.systemImage)
+                                .font(.caption2)
+                                .foregroundStyle(sub.status == .paused ? Color.warning : .secondary)
+                        }
+                    }
                     Text(periodLabel(sub.billingPeriod))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -343,6 +382,7 @@ struct EditSubscriptionFormView: View {
     @State private var selectedColor: String = "#60A5FA"
     @State private var reminderDays: Int = 1
     @State private var isSaving = false
+    @State private var status: SubscriptionTrackerStatus = .active
 
     @State private var specifyLastPayment = false
     @State private var lastPaymentDate: Date = Calendar.current.startOfDay(for: Date())
@@ -377,6 +417,17 @@ struct EditSubscriptionFormView: View {
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
                         }
                     }
+                }
+
+                Section {
+                    Picker(String(localized: "subscriptions.status"), selection: $status) {
+                        Text(String(localized: "subscriptions.status.active")).tag(SubscriptionTrackerStatus.active)
+                        Text(String(localized: "subscriptions.status.paused")).tag(SubscriptionTrackerStatus.paused)
+                        Text(String(localized: "subscriptions.status.cancelled")).tag(SubscriptionTrackerStatus.cancelled)
+                    }
+                    .pickerStyle(.segmented)
+                } footer: {
+                    Text(statusFooter(status))
                 }
 
                 Section {
@@ -475,12 +526,21 @@ struct EditSubscriptionFormView: View {
         }
     }
 
+    private func statusFooter(_ status: SubscriptionTrackerStatus) -> String {
+        switch status {
+        case .active: return String(localized: "subscriptions.status.footer.active")
+        case .paused: return String(localized: "subscriptions.status.footer.paused")
+        case .cancelled: return String(localized: "subscriptions.status.footer.cancelled")
+        }
+    }
+
     private func prefill() {
         name = subscription.serviceName
         amountText = "\(subscription.amount.displayAmount)"
         period = subscription.billingPeriod
         selectedColor = subscription.iconColor ?? "#60A5FA"
         reminderDays = subscription.reminderDays
+        status = subscription.status
         if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
             selectedCurrency = code
         }
@@ -514,8 +574,12 @@ struct EditSubscriptionFormView: View {
             currency: selectedCurrency.rawValue,
             reminderDays: reminderDays,
             lastPaymentDate: specifyLastPayment ? lastPaymentDate : nil,
-            nextPaymentDate: nextPaymentDate
+            nextPaymentDate: nextPaymentDate,
+            status: status
         )
+        if status != subscription.status {
+            AnalyticsService.logSubscriptionStatusChange(to: status.rawValue)
+        }
         await onSave()
         dismiss()
     }

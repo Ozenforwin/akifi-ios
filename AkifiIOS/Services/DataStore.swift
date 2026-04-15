@@ -9,6 +9,10 @@ final class DataStore {
     var isLoading = false
     var error: String?
 
+    /// A recently-auto-matched subscription payment, surfaced as a banner in the UI.
+    /// When non-nil, the root view shows an undo-banner; it auto-dismisses after 5 s.
+    var pendingAutoMatch: PendingAutoMatch?
+
     private var balanceCache: [String: Int64] = [:]
     private var categoryIndex: [String: Category] = [:]
     // Pre-computed per-account income/expense for cards
@@ -28,6 +32,9 @@ final class DataStore {
     var profilesMap: [String: Profile] = [:]
 
     private let cache = PersistenceManager.shared
+
+    // MARK: - Auto-match settings key
+    static let autoMatchEnabledKey = "subscriptionsAutoMatchEnabled"
 
     func loadAll() async {
         isLoading = true
@@ -120,7 +127,136 @@ final class DataStore {
             amount: Double(truncating: input.amount as NSDecimalNumber),
             category: input.category_id
         )
+        await attemptAutoMatch(for: tx)
         return tx
+    }
+
+    // MARK: - Subscription auto-match
+
+    /// Structured event surfaced to the UI when a transaction is automatically
+    /// linked to a subscription. Contains enough state to undo the operation.
+    struct PendingAutoMatch: Identifiable, Equatable {
+        let id = UUID()
+        let subscriptionId: String
+        let subscriptionName: String
+        let paymentId: String
+        let previousLastPaymentDate: String?
+        let previousNextPaymentDate: String?
+    }
+
+    /// If auto-match is enabled in Settings, try to link `tx` to an active
+    /// subscription. On success, records a payment via the repository and
+    /// surfaces a `PendingAutoMatch` so the UI can offer undo.
+    private func attemptAutoMatch(for tx: Transaction) async {
+        // Setting defaults to ON (key missing → use default of true).
+        let autoMatchEnabled: Bool = {
+            if UserDefaults.standard.object(forKey: Self.autoMatchEnabledKey) == nil { return true }
+            return UserDefaults.standard.bool(forKey: Self.autoMatchEnabledKey)
+        }()
+        guard autoMatchEnabled, tx.type == .expense else { return }
+
+        guard let match = SubscriptionMatcher.bestMatch(for: tx, in: subscriptions) else { return }
+
+        let sub = match.subscription
+        let previousLast = sub.lastPaymentDate
+        let previousNext = sub.nextPaymentDate
+
+        guard let txDate = SubscriptionDateEngine.parseDbDate(tx.date) else { return }
+
+        do {
+            let amountDecimal = Decimal(tx.amount) / 100
+            let paymentDateStr = SubscriptionDateEngine.formatDbDate(txDate)
+            let payment = try await subscriptionRepo.addPayment(
+                CreateSubscriptionPaymentInput(
+                    subscription_id: sub.id,
+                    amount: amountDecimal,
+                    currency: sub.currency ?? "RUB",
+                    payment_date: paymentDateStr
+                )
+            )
+            let newNextDate = SubscriptionDateEngine.nextPaymentDate(from: txDate, period: sub.billingPeriod)
+            let newNextStr = SubscriptionDateEngine.formatDbDate(newNextDate)
+            try await subscriptionRepo.updateDates(
+                id: sub.id,
+                lastPaymentDate: paymentDateStr,
+                nextPaymentDate: newNextStr
+            )
+
+            // Local state update.
+            if let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) {
+                var updated = subscriptions[idx]
+                updated.lastPaymentDate = paymentDateStr
+                updated.nextPaymentDate = newNextStr
+                subscriptions[idx] = updated
+                // Reschedule reminder.
+                await NotificationManager.scheduleSubscriptionReminder(
+                    id: updated.id,
+                    serviceName: updated.serviceName,
+                    amount: updated.amount,
+                    currency: updated.currency ?? "RUB",
+                    nextPaymentDate: newNextDate,
+                    daysBefore: updated.reminderDays
+                )
+            }
+
+            pendingAutoMatch = PendingAutoMatch(
+                subscriptionId: sub.id,
+                subscriptionName: sub.serviceName,
+                paymentId: payment.id,
+                previousLastPaymentDate: previousLast,
+                previousNextPaymentDate: previousNext
+            )
+            AnalyticsService.logSubscriptionAutoMatch(score: match.score)
+        } catch {
+            AppLogger.data.warning("Auto-match payment insert failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Revert the most recent auto-match: deletes the payment row, restores
+    /// the subscription's prior `last_payment_date` / `next_payment_date`, and
+    /// reschedules the reminder accordingly.
+    func undoAutoMatch() async {
+        guard let match = pendingAutoMatch else { return }
+        pendingAutoMatch = nil
+
+        do {
+            try await subscriptionRepo.deletePayment(id: match.paymentId)
+            try await subscriptionRepo.updateDates(
+                id: match.subscriptionId,
+                lastPaymentDate: match.previousLastPaymentDate,
+                nextPaymentDate: match.previousNextPaymentDate
+            )
+            if let idx = subscriptions.firstIndex(where: { $0.id == match.subscriptionId }) {
+                var sub = subscriptions[idx]
+                sub.lastPaymentDate = match.previousLastPaymentDate
+                sub.nextPaymentDate = match.previousNextPaymentDate
+                subscriptions[idx] = sub
+
+                if sub.status == .active,
+                   let nextStr = sub.nextPaymentDate,
+                   let nextDate = SubscriptionDateEngine.parseDbDate(nextStr) {
+                    await NotificationManager.scheduleSubscriptionReminder(
+                        id: sub.id,
+                        serviceName: sub.serviceName,
+                        amount: sub.amount,
+                        currency: sub.currency ?? "RUB",
+                        nextPaymentDate: nextDate,
+                        daysBefore: sub.reminderDays
+                    )
+                } else {
+                    await NotificationManager.cancelSubscriptionReminder(id: sub.id)
+                }
+            }
+            AnalyticsService.logSubscriptionAutoMatchUndo()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Clears the pending-match banner (used when the user dismisses or the
+    /// timer expires, without undoing).
+    func clearPendingAutoMatch() {
+        pendingAutoMatch = nil
     }
 
     func updateTransaction(id: String, _ input: UpdateTransactionInput) async throws {

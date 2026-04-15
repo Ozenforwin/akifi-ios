@@ -153,4 +153,70 @@ final class NotificationManager {
         let identifier = subscriptionReminderIdentifier(id: id)
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
+
+    /// Walks the entire subscription list and brings pending local notifications
+    /// back into alignment with each subscription's desired state.
+    ///
+    /// Runs at app startup (and after `loadAll`) so that:
+    ///   - newly installed devices / reinstalls re-register reminders that existed
+    ///     purely in the OS notification center,
+    ///   - legacy subscriptions created before v1.2.2 get reminders on first run,
+    ///   - subscriptions whose `status` was changed outside the app (e.g. via
+    ///     another device) get their reminders reconciled.
+    ///
+    /// Side effects: schedules/cancels via `UNUserNotificationCenter`. Returns a
+    /// tuple `(scheduled, cancelled)` with the number of operations performed,
+    /// suitable for analytics / logging.
+    @discardableResult
+    static func rescheduleAllReminders(subscriptions: [SubscriptionTracker]) async -> (scheduled: Int, cancelled: Int) {
+        let center = UNUserNotificationCenter.current()
+
+        // Skip if user has denied notifications.
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus != .denied else { return (0, 0) }
+
+        let pending = await center.pendingNotificationRequests()
+        let scheduledIds: Set<String> = Set(
+            pending
+                .map(\.identifier)
+                .filter { $0.hasPrefix("sub-reminder-") }
+                .map { String($0.dropFirst("sub-reminder-".count)) }
+        )
+
+        var scheduledCount = 0
+        var cancelledCount = 0
+
+        for sub in subscriptions {
+            let isScheduled = scheduledIds.contains(sub.id)
+
+            switch sub.status {
+            case .active:
+                // Need a reminder — only schedule if missing and date is in the future.
+                guard !isScheduled else { continue }
+                guard let nextStr = sub.nextPaymentDate,
+                      let nextDate = SubscriptionDateEngine.parseDbDate(nextStr),
+                      nextDate > Date() else { continue }
+                await scheduleSubscriptionReminder(
+                    id: sub.id,
+                    serviceName: sub.serviceName,
+                    amount: sub.amount,
+                    currency: sub.currency ?? "RUB",
+                    nextPaymentDate: nextDate,
+                    daysBefore: sub.reminderDays
+                )
+                scheduledCount += 1
+
+            case .paused, .cancelled:
+                // Must NOT have a reminder.
+                guard isScheduled else { continue }
+                await cancelSubscriptionReminder(id: sub.id)
+                cancelledCount += 1
+            }
+        }
+
+        if scheduledCount > 0 || cancelledCount > 0 {
+            AnalyticsService.logRemindersRescheduled(scheduled: scheduledCount, cancelled: cancelledCount)
+        }
+        return (scheduledCount, cancelledCount)
+    }
 }

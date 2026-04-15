@@ -9,8 +9,24 @@ final class SubscriptionsViewModel {
 
     private let repo = SubscriptionTrackerRepository()
 
+    // MARK: - Derived collections
+
+    var activeSubscriptions: [SubscriptionTracker] {
+        subscriptions.filter { $0.status == .active }
+    }
+
+    var pausedSubscriptions: [SubscriptionTracker] {
+        subscriptions.filter { $0.status == .paused }
+    }
+
+    var archivedSubscriptions: [SubscriptionTracker] {
+        subscriptions.filter { $0.status == .cancelled }
+    }
+
+    /// Monthly total is computed over **active** subscriptions only — paused ones
+    /// are not currently billing and cancelled ones are archived.
     var monthlyTotal: Int64 {
-        subscriptions.reduce(Int64(0)) { total, sub in
+        activeSubscriptions.reduce(Int64(0)) { total, sub in
             switch sub.billingPeriod {
             case .weekly: total + sub.amount * 4
             case .monthly: total + sub.amount
@@ -74,7 +90,8 @@ final class SubscriptionsViewModel {
                 next_payment_date: nextStr,
                 icon_color: color,
                 reminder_days: reminderDays,
-                currency: currency
+                currency: currency,
+                status: SubscriptionTrackerStatus.active.rawValue
             )
             let sub = try await repo.create(input)
             subscriptions.append(sub)
@@ -88,7 +105,8 @@ final class SubscriptionsViewModel {
 
     func update(id: String, name: String, amount: Int64, period: BillingPeriod,
                 color: String?, currency: String, reminderDays: Int,
-                lastPaymentDate: Date?, nextPaymentDate: Date) async {
+                lastPaymentDate: Date?, nextPaymentDate: Date,
+                status: SubscriptionTrackerStatus? = nil) async {
         do {
             let amountDecimal = Decimal(amount) / 100
             let input = UpdateSubscriptionInput(
@@ -100,7 +118,8 @@ final class SubscriptionsViewModel {
                 next_payment_date: SubscriptionDateEngine.formatDbDate(nextPaymentDate),
                 icon_color: color,
                 reminder_days: reminderDays,
-                currency: currency
+                currency: currency,
+                status: status?.rawValue
             )
             try await repo.update(id: id, input)
             if let idx = subscriptions.firstIndex(where: { $0.id == id }) {
@@ -113,8 +132,30 @@ final class SubscriptionsViewModel {
                 sub.iconColor = color
                 sub.lastPaymentDate = lastPaymentDate.map(SubscriptionDateEngine.formatDbDate)
                 sub.nextPaymentDate = SubscriptionDateEngine.formatDbDate(nextPaymentDate)
+                if let status {
+                    sub.status = status
+                    sub.isActive = (status == .active)
+                }
                 subscriptions[idx] = sub
-                await scheduleReminder(for: sub)
+                await applyReminderPolicy(for: sub)
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    // MARK: - Status transitions
+
+    /// Change subscription status. Cancels reminders on pause/cancel, schedules on resume.
+    func setStatus(_ newStatus: SubscriptionTrackerStatus, for subscriptionId: String) async {
+        do {
+            try await repo.updateStatus(id: subscriptionId, newStatus)
+            if let idx = subscriptions.firstIndex(where: { $0.id == subscriptionId }) {
+                var sub = subscriptions[idx]
+                sub.status = newStatus
+                sub.isActive = (newStatus == .active)
+                subscriptions[idx] = sub
+                await applyReminderPolicy(for: sub)
             }
         } catch {
             self.error = error.localizedDescription
@@ -126,7 +167,13 @@ final class SubscriptionsViewModel {
     func delete(_ sub: SubscriptionTracker) async {
         do {
             try await repo.delete(id: sub.id)
-            subscriptions.removeAll { $0.id == sub.id }
+            // Keep archived row in memory as cancelled so it can reappear in archive view.
+            if let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) {
+                var updated = subscriptions[idx]
+                updated.status = .cancelled
+                updated.isActive = false
+                subscriptions[idx] = updated
+            }
             await NotificationManager.cancelSubscriptionReminder(id: sub.id)
         } catch {
             self.error = error.localizedDescription
@@ -176,9 +223,38 @@ final class SubscriptionsViewModel {
         }
     }
 
+    /// Undo a previously recorded payment: delete the payment row, restore the
+    /// subscription's `lastPaymentDate` / `nextPaymentDate` to the supplied
+    /// previous values. Used by the auto-match undo banner.
+    func undoPayment(
+        paymentId: String,
+        subscriptionId: String,
+        previousLastPaymentDate: String?,
+        previousNextPaymentDate: String?
+    ) async {
+        do {
+            try await repo.deletePayment(id: paymentId)
+            try await repo.updateDates(
+                id: subscriptionId,
+                lastPaymentDate: previousLastPaymentDate,
+                nextPaymentDate: previousNextPaymentDate
+            )
+            if let idx = subscriptions.firstIndex(where: { $0.id == subscriptionId }) {
+                var updated = subscriptions[idx]
+                updated.lastPaymentDate = previousLastPaymentDate
+                updated.nextPaymentDate = previousNextPaymentDate
+                subscriptions[idx] = updated
+                await scheduleReminder(for: updated)
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     // MARK: - Notifications
 
     private func scheduleReminder(for sub: SubscriptionTracker) async {
+        guard sub.status == .active else { return }
         guard let nextStr = sub.nextPaymentDate,
               let nextDate = SubscriptionDateEngine.parseDbDate(nextStr) else { return }
         await NotificationManager.scheduleSubscriptionReminder(
@@ -189,5 +265,15 @@ final class SubscriptionsViewModel {
             nextPaymentDate: nextDate,
             daysBefore: sub.reminderDays
         )
+    }
+
+    /// Ensures the notification state matches subscription status:
+    /// schedules on active, cancels on paused/cancelled.
+    private func applyReminderPolicy(for sub: SubscriptionTracker) async {
+        if sub.status == .active {
+            await scheduleReminder(for: sub)
+        } else {
+            await NotificationManager.cancelSubscriptionReminder(id: sub.id)
+        }
     }
 }

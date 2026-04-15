@@ -10,6 +10,7 @@ struct NotificationSettingsView: View {
     @AppStorage("notif_largeThreshold") private var largeThreshold = 0 // 0 = auto
     @AppStorage("notif_inactivity") private var inactivity = false
     @AppStorage("notif_savingsMilestones") private var savingsMilestones = true
+    @AppStorage("subscriptionsAutoMatchEnabled") private var subscriptionsAutoMatch = true
 
     private let thresholdOptions: [(label: String, value: Int)] = [
         ("Auto", 0),
@@ -62,6 +63,14 @@ struct NotificationSettingsView: View {
 
                 Section(String(localized: "notifications.savings")) {
                     Toggle(String(localized: "notifications.savingsMilestones"), isOn: $savingsMilestones)
+                }
+
+                Section {
+                    Toggle(String(localized: "subscriptions.autoMatch.setting"), isOn: $subscriptionsAutoMatch)
+                } header: {
+                    Text(String(localized: "subscriptions.title"))
+                } footer: {
+                    Text(String(localized: "subscriptions.autoMatch.settingFooter"))
                 }
             }
 

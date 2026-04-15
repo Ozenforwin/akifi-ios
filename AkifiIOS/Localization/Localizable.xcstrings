@@ -19178,6 +19178,111 @@
         }
       }
     },
+    "subscriptions.status" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Status" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Статус" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estado" } }
+      }
+    },
+    "subscriptions.status.active" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активна" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Activa" } }
+      }
+    },
+    "subscriptions.status.paused" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "На паузе" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Pausada" } }
+      }
+    },
+    "subscriptions.status.cancelled" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancelled" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отменена" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelada" } }
+      }
+    },
+    "subscriptions.status.footer.active" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription is charging as scheduled." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка списывается по расписанию." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La suscripción se cobra según lo previsto." } }
+      }
+    },
+    "subscriptions.status.footer.paused" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Billing is temporarily suspended. Reminders are off." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Списания приостановлены. Напоминания выключены." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Los cobros están suspendidos. Recordatorios desactivados." } }
+      }
+    },
+    "subscriptions.status.footer.cancelled" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription is cancelled and moved to archive." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка отменена и перемещена в архив." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "La suscripción está cancelada y archivada." } }
+      }
+    },
+    "subscriptions.section.active" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активные" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Activas" } }
+      }
+    },
+    "subscriptions.section.paused" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "На паузе" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "En pausa" } }
+      }
+    },
+    "subscriptions.section.archive" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Archive" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Архив" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Archivo" } }
+      }
+    },
+    "subscriptions.autoMatch.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment linked" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Платёж связан" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Pago vinculado" } }
+      }
+    },
+    "subscriptions.autoMatch.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transaction linked to subscription \"%@\"." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транзакция связана с подпиской «%@»." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacción vinculada a la suscripción «%@»." } }
+      }
+    },
+    "subscriptions.autoMatch.setting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto-link transactions" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Автоматически связывать транзакции" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vincular transacciones automáticamente" } }
+      }
+    },
+    "subscriptions.autoMatch.settingFooter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New expenses matching an active subscription are recorded automatically. You can undo within 5 seconds." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новые расходы, совпадающие с активной подпиской, записываются автоматически. Отменить можно в течение 5 секунд." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Los gastos nuevos que coincidan con una suscripción activa se registran automáticamente. Puedes deshacer en 5 segundos." } }
+      }
+    },
+    "common.undo" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Undo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отменить" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Deshacer" } }
+      }
+    },
     "notification.subscription.title" : {
       "localizations" : {
         "en" : {
