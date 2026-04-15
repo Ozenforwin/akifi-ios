@@ -221,11 +221,13 @@ struct BudgetsTabView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSubscriptionForm) {
-                SubscriptionFormView { name, amount, period, color, currency, reminderDays in
-                    if let uid = dataStore.profile?.id {
-                        await subscriptionsVM.create(name: name, amount: amount, period: period, color: color, currency: currency, reminderDays: reminderDays, userId: uid)
-                        await dataStore.loadAll()
-                    }
+                SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate in
+                    await subscriptionsVM.create(
+                        name: name, amount: amount, period: period, color: color,
+                        currency: currency, reminderDays: reminderDays,
+                        lastPaymentDate: lastDate, nextPaymentDate: nextDate
+                    )
+                    await dataStore.loadAll()
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
@@ -332,6 +334,8 @@ struct EditSubscriptionFormView: View {
     let subscription: SubscriptionTracker
     let onSave: () async -> Void
 
+    @State private var viewModel = SubscriptionsViewModel()
+
     @State private var name: String = ""
     @State private var amountText: String = ""
     @State private var period: BillingPeriod = .monthly
@@ -340,9 +344,14 @@ struct EditSubscriptionFormView: View {
     @State private var reminderDays: Int = 1
     @State private var isSaving = false
 
-    private static let reminderOptions = [0, 1, 2, 3, 5, 7, 14, 30]
+    @State private var specifyLastPayment = false
+    @State private var lastPaymentDate: Date = Calendar.current.startOfDay(for: Date())
+    @State private var nextPaymentDate: Date = Calendar.current.startOfDay(for: Date())
+    @State private var nextManuallyEdited = false
+
+    @State private var showHistory = false
+
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
-    private let repo = SubscriptionTrackerRepository()
 
     var body: some View {
         NavigationStack {
@@ -352,13 +361,62 @@ struct EditSubscriptionFormView: View {
                     TextField(String(localized: "common.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
                     Picker(String(localized: "common.period"), selection: $period) {
-                        Text(String(localized: "period.monthShort")).tag(BillingPeriod.monthly)
-                        Text(String(localized: "period.quarterShort")).tag(BillingPeriod.quarterly)
-                        Text(String(localized: "period.yearShort")).tag(BillingPeriod.yearly)
+                        Text(String(localized: "billingPeriod.weekly")).tag(BillingPeriod.weekly)
+                        Text(String(localized: "billingPeriod.monthly")).tag(BillingPeriod.monthly)
+                        Text(String(localized: "billingPeriod.quarterly")).tag(BillingPeriod.quarterly)
+                        Text(String(localized: "billingPeriod.yearly")).tag(BillingPeriod.yearly)
+                    }
+                    .onChange(of: period) { _, newValue in
+                        if !nextManuallyEdited {
+                            let base = specifyLastPayment ? lastPaymentDate : Calendar.current.startOfDay(for: Date())
+                            nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: newValue)
+                        }
                     }
                     Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
+                }
+
+                Section {
+                    Toggle(String(localized: "subscriptions.specifyLastPayment"), isOn: $specifyLastPayment)
+                    if specifyLastPayment {
+                        DatePicker(
+                            String(localized: "subscriptions.lastPayment"),
+                            selection: $lastPaymentDate,
+                            displayedComponents: .date
+                        )
+                        .onChange(of: lastPaymentDate) { _, newValue in
+                            if !nextManuallyEdited {
+                                nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: newValue, period: period)
+                            }
+                        }
+                    }
+                    DatePicker(
+                        String(localized: "subscriptions.nextPayment"),
+                        selection: $nextPaymentDate,
+                        displayedComponents: .date
+                    )
+                    .onChange(of: nextPaymentDate) { _, _ in
+                        nextManuallyEdited = true
+                    }
+                } header: {
+                    Text(String(localized: "subscriptions.datesSection"))
+                } footer: {
+                    Text(String(localized: "subscriptions.autoCalculated"))
+                }
+
+                Section {
+                    Button {
+                        showHistory = true
+                    } label: {
+                        HStack {
+                            Label(String(localized: "subscriptions.paymentHistory"), systemImage: "list.bullet.rectangle")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
                         }
                     }
                 }
@@ -407,31 +465,57 @@ struct EditSubscriptionFormView: View {
                     .disabled(name.isEmpty || amountText.isEmpty || isSaving)
                 }
             }
-            .onAppear {
-                name = subscription.serviceName
-                amountText = "\(subscription.amount.displayAmount)"
-                period = subscription.billingPeriod
-                selectedColor = subscription.iconColor ?? "#60A5FA"
-                reminderDays = subscription.reminderDays
-                if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
-                    selectedCurrency = code
+            .onAppear(perform: prefill)
+            .sheet(isPresented: $showHistory) {
+                SubscriptionPaymentsHistoryView(subscription: subscription) {
+                    await onSave()
                 }
+                .presentationBackground(.ultraThinMaterial)
             }
+        }
+    }
+
+    private func prefill() {
+        name = subscription.serviceName
+        amountText = "\(subscription.amount.displayAmount)"
+        period = subscription.billingPeriod
+        selectedColor = subscription.iconColor ?? "#60A5FA"
+        reminderDays = subscription.reminderDays
+        if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+            selectedCurrency = code
+        }
+        if let lastStr = subscription.lastPaymentDate,
+           let lastDate = SubscriptionDateEngine.parseDbDate(lastStr) {
+            specifyLastPayment = true
+            lastPaymentDate = lastDate
+        }
+        if let nextStr = subscription.nextPaymentDate,
+           let nextDate = SubscriptionDateEngine.parseDbDate(nextStr) {
+            nextPaymentDate = nextDate
+        } else {
+            nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(
+                from: lastPaymentDate, period: period
+            )
         }
     }
 
     private func save() async {
         isSaving = true
         guard let decimal = Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) else { return }
-        let input = UpdateSubscriptionInput(
-            service_name: name,
-            amount: decimal,
-            billing_period: period.rawValue,
-            icon_color: selectedColor,
-            reminder_days: reminderDays,
-            currency: selectedCurrency.rawValue
+        let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        // Seed VM with our current subscription so update can reschedule notifications.
+        viewModel.subscriptions = [subscription]
+        await viewModel.update(
+            id: subscription.id,
+            name: name,
+            amount: amountCents,
+            period: period,
+            color: selectedColor,
+            currency: selectedCurrency.rawValue,
+            reminderDays: reminderDays,
+            lastPaymentDate: specifyLastPayment ? lastPaymentDate : nil,
+            nextPaymentDate: nextPaymentDate
         )
-        try? await repo.update(id: subscription.id, input)
         await onSave()
         dismiss()
     }

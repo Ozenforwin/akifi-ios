@@ -8,6 +8,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
     var currency: String?
     var billingPeriod: BillingPeriod
     var startDate: String
+    var lastPaymentDate: String?
     var nextPaymentDate: String?
     var reminderDays: Int
     var iconColor: String?
@@ -22,6 +23,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         case amount, currency
         case billingPeriod = "billing_period"
         case startDate = "start_date"
+        case lastPaymentDate = "last_payment_date"
         case nextPaymentDate = "next_payment_date"
         case reminderDays = "reminder_days"
         case iconColor = "icon_color"
@@ -31,11 +33,12 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
     }
 
     init(id: String, userId: String, serviceName: String, amount: Int64, currency: String? = nil,
-         billingPeriod: BillingPeriod, startDate: String, nextPaymentDate: String? = nil,
-         reminderDays: Int = 1, iconColor: String? = nil, isActive: Bool = true,
-         createdAt: String? = nil, updatedAt: String? = nil) {
+         billingPeriod: BillingPeriod, startDate: String, lastPaymentDate: String? = nil,
+         nextPaymentDate: String? = nil, reminderDays: Int = 1, iconColor: String? = nil,
+         isActive: Bool = true, createdAt: String? = nil, updatedAt: String? = nil) {
         self.id = id; self.userId = userId; self.serviceName = serviceName; self.amount = amount
         self.currency = currency; self.billingPeriod = billingPeriod; self.startDate = startDate
+        self.lastPaymentDate = lastPaymentDate
         self.nextPaymentDate = nextPaymentDate; self.reminderDays = reminderDays
         self.iconColor = iconColor; self.isActive = isActive
         self.createdAt = createdAt; self.updatedAt = updatedAt
@@ -50,6 +53,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
         billingPeriod = try container.decode(BillingPeriod.self, forKey: .billingPeriod)
         startDate = try container.decode(String.self, forKey: .startDate)
+        lastPaymentDate = try container.decodeIfPresent(String.self, forKey: .lastPaymentDate)
         nextPaymentDate = try container.decodeIfPresent(String.self, forKey: .nextPaymentDate)
         reminderDays = try container.decodeIfPresent(Int.self, forKey: .reminderDays) ?? 1
         iconColor = try container.decodeIfPresent(String.self, forKey: .iconColor)
@@ -67,6 +71,7 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
         try container.encodeIfPresent(currency, forKey: .currency)
         try container.encode(billingPeriod, forKey: .billingPeriod)
         try container.encode(startDate, forKey: .startDate)
+        try container.encodeIfPresent(lastPaymentDate, forKey: .lastPaymentDate)
         try container.encodeIfPresent(nextPaymentDate, forKey: .nextPaymentDate)
         try container.encode(reminderDays, forKey: .reminderDays)
         try container.encodeIfPresent(iconColor, forKey: .iconColor)

@@ -90,4 +90,67 @@ final class NotificationManager {
     func removeAllPending() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
+
+    // MARK: - Subscription reminders
+
+    private static func subscriptionReminderIdentifier(id: String) -> String {
+        "sub-reminder-\(id)"
+    }
+
+    /// Requests notification authorization if needed, then schedules
+    /// a local reminder for the given subscription.
+    ///
+    /// - Notes: Skips scheduling silently if the user has denied permission.
+    ///   Always cancels any prior reminder with the same identifier first.
+    static func scheduleSubscriptionReminder(
+        id: String,
+        serviceName: String,
+        amount: Int64,
+        currency: String,
+        nextPaymentDate: Date,
+        daysBefore: Int
+    ) async {
+        let center = UNUserNotificationCenter.current()
+
+        // Ensure authorization (best-effort; request on first use).
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            _ = try? await center.requestAuthorization(options: [.alert, .badge, .sound])
+        case .denied:
+            return
+        default:
+            break
+        }
+
+        let identifier = subscriptionReminderIdentifier(id: id)
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+
+        guard let fire = SubscriptionDateEngine.reminderFireDate(
+            nextPaymentDate: nextPaymentDate,
+            daysBefore: daysBefore
+        ) else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "notification.subscription.title")
+        content.body = daysBefore == 0
+            ? String(localized: "notification.subscription.bodyToday \(serviceName)")
+            : String(localized: "notification.subscription.body \(serviceName) \(daysBefore)")
+        content.sound = .default
+        content.userInfo = ["subscription_id": id, "amount": amount, "currency": currency]
+
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        try? await center.add(request)
+    }
+
+    /// Cancels the pending reminder for a subscription (if any).
+    static func cancelSubscriptionReminder(id: String) async {
+        let identifier = subscriptionReminderIdentifier(id: id)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
 }

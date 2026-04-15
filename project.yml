@@ -18,7 +18,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 1.2.1
+    MARKETING_VERSION: 1.2.2
     VERSIONING_SYSTEM: apple-generic
 
 packages:
@@ -88,10 +88,27 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app
         CODE_SIGN_ENTITLEMENTS: AkifiIOS/AkifiIOS.entitlements
 
+  AkifiIOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - AkifiIOSTests
+    dependencies:
+      - target: AkifiIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   AkifiIOS:
     build:
       targets:
         AkifiIOS: all
+        AkifiIOSTests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - AkifiIOSTests
