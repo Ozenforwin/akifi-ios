@@ -131,56 +131,99 @@ struct InsightCardView: View {
     var onDismiss: (() -> Void)? = nil
 
     @State private var dragOffset: CGFloat = 0
+    /// Once the user starts a gesture, we lock in the dominant axis.
+    /// - `nil`: haven't decided yet
+    /// - `.horizontal`: will consume the drag for dismiss
+    /// - `.vertical`: must let the enclosing ScrollView take over
+    @State private var gestureAxis: Axis?
 
     private let dismissThreshold: CGFloat = 100
+    private let axisLockDistance: CGFloat = 8
+
+    private var swipeProgress: CGFloat {
+        min(1.0, abs(dragOffset) / dismissThreshold)
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(insight.emoji)
-                .font(.title2)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(insight.title)
-                        .font(.subheadline.weight(.semibold))
-                    Image(systemName: "sparkles")
-                        .font(.caption2)
-                        .foregroundStyle(insight.kind.color.opacity(0.6))
-                }
-                Text(insight.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(insight.kind.color.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
+        ZStack(alignment: .trailing) {
+            // Red "trash" indicator revealed under the card as the user swipes left.
+            // Mirrors the SwiftUI List.swipeActions look used on transaction rows.
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [insight.kind.color.opacity(0.5), insight.kind.color.opacity(0.2)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
+                .fill(Color.red.opacity(0.18 + 0.5 * swipeProgress))
+                .overlay(
+                    HStack {
+                        Spacer()
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .scaleEffect(0.6 + 0.6 * swipeProgress)
+                            .opacity(dragOffset < -4 ? 1 : 0)
+                            .padding(.trailing, 20)
+                    }
                 )
-        )
-        .offset(x: dragOffset)
-        .opacity(1.0 - min(abs(dragOffset) / 200, 0.6))
-        .gesture(
-            DragGesture(minimumDistance: 10)
+                .opacity(dragOffset < 0 ? 1 : 0)
+
+            HStack(spacing: 12) {
+                Text(insight.emoji)
+                    .font(.title2)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(insight.title)
+                            .font(.subheadline.weight(.semibold))
+                        Image(systemName: "sparkles")
+                            .font(.caption2)
+                            .foregroundStyle(insight.kind.color.opacity(0.6))
+                    }
+                    Text(insight.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(insight.kind.color.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [insight.kind.color.opacity(0.5), insight.kind.color.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .offset(x: dragOffset)
+        }
+        .opacity(1.0 - min(abs(dragOffset) / 400, 0.4))
+        // `simultaneousGesture` lets the ScrollView still receive the pan for
+        // vertical scrolling; we only consume the drag once we've locked in
+        // the horizontal axis (after the first few points of movement).
+        .simultaneousGesture(
+            DragGesture(minimumDistance: axisLockDistance)
                 .onChanged { value in
-                    // Swipe left only (cards are cleared by dragging to the left).
+                    if gestureAxis == nil {
+                        // First meaningful movement — decide which axis wins.
+                        if abs(value.translation.width) > abs(value.translation.height) {
+                            gestureAxis = .horizontal
+                        } else {
+                            gestureAxis = .vertical
+                        }
+                    }
+                    guard gestureAxis == .horizontal else { return }
+                    // Swipe left only.
                     let t = min(0, value.translation.width)
                     dragOffset = t
                 }
                 .onEnded { value in
+                    defer { gestureAxis = nil }
+                    guard gestureAxis == .horizontal else { return }
                     if -value.translation.width > dismissThreshold {
                         withAnimation(.easeOut(duration: 0.2)) {
                             dragOffset = -500
