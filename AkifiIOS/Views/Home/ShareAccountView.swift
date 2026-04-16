@@ -70,7 +70,6 @@ struct ShareAccountView: View {
                 if let token = inviteToken {
                     Section(String(localized: "share.inviteCode")) {
                         VStack(spacing: 16) {
-                            // Large readable code
                             Text(formatCode(token))
                                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                                 .tracking(2)
@@ -84,7 +83,7 @@ struct ShareAccountView: View {
 
                             HStack(spacing: 12) {
                                 Button {
-                                    UIPasteboard.general.string = token
+                                    UIPasteboard.general.string = deepLink(for: token)
                                     copied = true
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
                                 } label: {
@@ -97,9 +96,7 @@ struct ShareAccountView: View {
                                 }
                                 .buttonStyle(.plain)
 
-                                let deepLink = "akifi://invite/\(token)"
-                                let shareText = String(localized: "share.messageTemplate.\(account.name).\(token)") + "\n\n\(deepLink)"
-                                ShareLink(item: shareText) {
+                                ShareLink(item: shareMessage(for: token)) {
                                     Label(String(localized: "share.send"), systemImage: "square.and.arrow.up")
                                         .font(.subheadline.weight(.medium))
                                         .frame(maxWidth: .infinity)
@@ -134,14 +131,24 @@ struct ShareAccountView: View {
     }
 
     private func formatCode(_ token: String) -> String {
-        // Show first 16 chars in groups of 4 for readability
         let short = String(token.prefix(16)).uppercased()
         var result = ""
         for (i, char) in short.enumerated() {
-            if i > 0 && i % 4 == 0 { result += " " }
+            if i > 0 && i % 4 == 0 { result += "  " }
             result.append(char)
         }
         return result
+    }
+
+    private func deepLink(for token: String) -> String {
+        "https://akifi.pro/invite/\(token)"
+    }
+
+    private func shareMessage(for token: String) -> String {
+        let name = account.name
+        let link = deepLink(for: token)
+        let shortCode = formatCode(token)
+        return String(localized: "share.messageV3.\(name).\(shortCode).\(link)")
     }
 
     private func loadMembers() async {
@@ -202,64 +209,52 @@ struct AcceptInviteView: View {
     @State private var isAccepting = false
     @State private var error: String?
     @State private var success: String?
+    private let autoAccept: Bool
 
     private let supabase = SupabaseManager.shared.client
 
     init(initialCode: String = "") {
         _code = State(initialValue: initialCode)
+        autoAccept = !initialCode.isEmpty
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(String(localized: "invite.pasteHint"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        TextField(String(localized: "invite.codePlaceholder"), text: $code)
-                            .font(.system(.body, design: .monospaced))
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
-
-                        Button {
-                            Task { await acceptInvite() }
-                        } label: {
-                            HStack {
-                                Spacer()
-                                if isAccepting {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Text(String(localized: "invite.accept"))
-                                        .fontWeight(.semibold)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 12)
-                            .background(code.count >= 16 ? Color.accent : Color.gray)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                        .disabled(code.count < 16 || isAccepting)
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                if let success {
-                    Section {
-                        Label(success, systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    }
-                }
-
-                if let error {
-                    Section {
-                        Text(error)
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    }
+            VStack(spacing: 24) {
+                if isAccepting {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(1.3)
+                    Text(String(localized: "invite.joining"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 12)
+                    Spacer()
+                } else if let success {
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(.green)
+                    Text(success)
+                        .font(.headline)
+                    Button(String(localized: "common.close")) { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
+                    Spacer()
+                } else if let error {
+                    Spacer()
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.orange)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    manualEntrySection
+                    Spacer()
+                } else {
+                    manualEntrySection
                 }
             }
             .navigationTitle(String(localized: "invite.title"))
@@ -269,7 +264,48 @@ struct AcceptInviteView: View {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
+            .task {
+                if autoAccept {
+                    await acceptInvite()
+                }
+            }
         }
+    }
+
+    private var manualEntrySection: some View {
+        VStack(spacing: 12) {
+            Text(String(localized: "invite.pasteHint"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            TextField(String(localized: "invite.codePlaceholder"), text: $code)
+                .font(.system(.body, design: .monospaced))
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .padding(12)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 16)
+
+            Button {
+                Task { await acceptInvite() }
+            } label: {
+                HStack {
+                    Spacer()
+                    Text(String(localized: "invite.accept"))
+                        .fontWeight(.semibold)
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+                .background(code.count >= 16 ? Color.accent : Color.gray)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .disabled(code.count < 16 || isAccepting)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+        }
+        .padding(.top, 20)
     }
 
     private struct AcceptParams: Encodable {
@@ -294,6 +330,10 @@ struct AcceptInviteView: View {
                 success = String(localized: "invite.success")
                 await appViewModel.dataStore.loadAll()
                 code = ""
+                if autoAccept {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    dismiss()
+                }
             } else {
                 let errCode = response["error"] ?? "unknown"
                 switch errCode {

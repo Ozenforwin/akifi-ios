@@ -9634,6 +9634,419 @@
         }
       }
     },
+    "journal.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Diario" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Журнал" } }
+      }
+    },
+    "journal.search" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search journal" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Buscar en el diario" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поиск по журналу" } }
+      }
+    },
+    "journal.newNote" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Note" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nueva nota" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новая заметка" } }
+      }
+    },
+    "journal.newReflection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly Reflection" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Reflexión semanal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Еженедельная рефлексия" } }
+      }
+    },
+    "journal.editNote" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit Note" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Editar nota" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Редактировать" } }
+      }
+    },
+    "journal.deleteConfirm" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete this note?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar esta nota?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить эту заметку?" } }
+      }
+    },
+    "journal.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No Notes Yet" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin notas aún" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Журнал пуст" } }
+      }
+    },
+    "journal.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start recording your financial thoughts and reflections" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Comienza a registrar tus pensamientos financieros" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Записывайте финансовые мысли и еженедельные рефлексии" } }
+      }
+    },
+    "journal.empty.action" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create Note" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Crear nota" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создать заметку" } }
+      }
+    },
+    "journal.noteType" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Note Type" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tipo de nota" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Тип заметки" } }
+      }
+    },
+    "journal.content" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Content" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Contenido" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Содержание" } }
+      }
+    },
+    "journal.titlePlaceholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Title (optional)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Título (opcional)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заголовок (необязательно)" } }
+      }
+    },
+    "journal.contentPlaceholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What's on your mind?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Qué piensas?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "О чём думаете?" } }
+      }
+    },
+    "journal.mood" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mood" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estado de ánimo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настроение" } }
+      }
+    },
+    "journal.tags" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tags" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Etiquetas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Теги" } }
+      }
+    },
+    "journal.tagPlaceholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add a tag" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Agregar etiqueta" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить тег" } }
+      }
+    },
+    "journal.linkedTransaction" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Linked Transaction" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacción vinculada" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Связанная транзакция" } }
+      }
+    },
+    "journal.transactionLinked" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transaction linked" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacción vinculada" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транзакция привязана" } }
+      }
+    },
+    "journal.selectTransaction" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a transaction" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Seleccionar transacción" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выберите транзакцию" } }
+      }
+    },
+    "journal.photos" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Photos" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fotos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Фотографии" } }
+      }
+    },
+    "journal.addPhotos" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Photos" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añadir fotos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить фото" } }
+      }
+    },
+    "journal.photosSelected %lld" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld photos selected" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%lld fotos seleccionadas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выбрано фото: %lld" } }
+      }
+    },
+    "journal.filter.all" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все" } }
+      }
+    },
+    "journal.filter.transactions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transactions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacciones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транзакции" } }
+      }
+    },
+    "journal.filter.reflections" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reflections" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Reflexiones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Рефлексии" } }
+      }
+    },
+    "journal.filter.freeform" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Notas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заметки" } }
+      }
+    },
+    "journal.weeklyReflection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly Reflection" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Reflexión semanal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Еженедельная рефлексия" } }
+      }
+    },
+    "journal.reflection.yourWeek" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Week" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tu semana" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ваша неделя" } }
+      }
+    },
+    "journal.reflection.income" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Income" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ingresos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доходы" } }
+      }
+    },
+    "journal.reflection.expense" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expenses" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gastos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расходы" } }
+      }
+    },
+    "journal.reflection.transactions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transactions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacciones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Операции" } }
+      }
+    },
+    "journal.reflection.topCategories" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top Categories" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Categorías principales" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Топ категории" } }
+      }
+    },
+    "journal.reflection.prompts" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reflection Prompts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Indicadores" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подсказки" } }
+      }
+    },
+    "journal.reflection.prompt1" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What was the most useful expense?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Cuál fue el gasto más útil?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Какой расход был самым полезным?" } }
+      }
+    },
+    "journal.reflection.prompt2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What would you not buy again?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Qué no volverías a comprar?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что бы вы не покупали снова?" } }
+      }
+    },
+    "journal.reflection.prompt3" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Did you stick to your budget?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Cumpliste tu presupuesto?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалось ли уложиться в бюджет?" } }
+      }
+    },
+    "journal.reflection.prompt4" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Financial goal for next week?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Meta financiera para la próxima semana?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Финансовая цель на следующую неделю?" } }
+      }
+    },
+    "journal.reflection.weekMood" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "How was your financial week?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Cómo fue tu semana financiera?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Как прошла финансовая неделя?" } }
+      }
+    },
+    "journal.reflection.yourThoughts" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Thoughts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tus pensamientos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ваши мысли" } }
+      }
+    },
+    "journal.reflection.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share your weekly reflection..." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Comparte tu reflexión semanal..." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поделитесь мыслями о неделе..." } }
+      }
+    },
+    "journal.reflection.weekTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly Reflection" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Reflexión semanal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Рефлексия за неделю" } }
+      }
+    },
+    "mood.great" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Great" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Genial" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отлично" } }
+      }
+    },
+    "mood.good" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Good" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Bien" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Хорошо" } }
+      }
+    },
+    "mood.neutral" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Neutral" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Neutral" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нейтрально" } }
+      }
+    },
+    "mood.worried" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Worried" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Preocupado" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Тревожно" } }
+      }
+    },
+    "mood.stressed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Stressed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estresado" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "В стрессе" } }
+      }
+    },
+    "noteType.transaction" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transaction" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Transacción" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транзакция" } }
+      }
+    },
+    "noteType.reflection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reflection" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Reflexión" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Рефлексия" } }
+      }
+    },
+    "noteType.freeform" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Note" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nota" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заметка" } }
+      }
+    },
+    "status.offline" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Offline" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin conexión" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет сети" } }
+      }
+    },
+    "date.today" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Today" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Hoy" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сегодня" } }
+      }
+    },
+    "date.yesterday" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Yesterday" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ayer" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вчера" } }
+      }
+    },
+    "action.edit" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Editar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Редактировать" } }
+      }
+    },
+    "action.delete" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить" } }
+      }
+    },
+    "action.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } }
+      }
+    },
+    "action.save" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранить" } }
+      }
+    },
+    "tab.journal" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Diario" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Журнал" } }
+      }
+    },
+    "home.analytics" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Analytics" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Analíticas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Аналитика" } }
+      }
+    },
+    "home.analytics.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Charts and spending breakdown" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gráficos y desglose de gastos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Графики и разбивка расходов" } }
+      }
+    },
     "language.russian" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -15274,6 +15687,73 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Присоединяйся к моему счёту \"%1$@\" в Akifi! Код приглашения: %2$@"
+          }
+        }
+      }
+    },
+    "share.messageV2.%@.%@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join my account \"%1$@\" in Akifi!\n\n%2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Únete a mi cuenta \"%1$@\" en Akifi!\n\n%2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединяйся к моему счёту \"%1$@\" в Akifi!\n\n%2$@"
+          }
+        }
+      }
+    },
+    "share.messageV3.%@.%@.%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join my account \"%1$@\" in Akifi!\n\nTap the link to join automatically:\n%3$@\n\nOr enter the code manually: %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Únete a mi cuenta \"%1$@\" en Akifi!\n\nToca el enlace para unirte:\n%3$@\n\nO ingresa el código: %2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединяйся к моему счёту \"%1$@\" в Akifi!\n\nНажми на ссылку:\n%3$@\n\nИли введи код вручную: %2$@"
+          }
+        }
+      }
+    },
+    "invite.joining" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joining account..."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uniéndose a la cuenta..."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединяемся к счёту..."
           }
         }
       }

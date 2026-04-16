@@ -61,7 +61,33 @@ struct HomeTabView: View {
                     // 4. Savings
                     HomeSavingsSnapshotView()
 
-                    // 5. Summary Cards
+                    // 5. Analytics shortcut
+                    NavigationLink {
+                        AnalyticsTabView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .font(.title3)
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(localized: "home.analytics"))
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text(String(localized: "home.analytics.subtitle"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(12)
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
+                    // 6. Summary Cards
                     summarySection
 
                     // 6. Recent Transactions

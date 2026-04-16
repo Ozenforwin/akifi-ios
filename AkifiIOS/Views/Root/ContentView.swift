@@ -6,13 +6,15 @@ enum AppTab: Int, CaseIterable {
     case home = 0
     case transactions = 1
     case analytics = 2
-    case budgets = 3
+    case journal = 3
+    case budgets = 4
 
     var screenName: String {
         switch self {
         case .home: "Home"
         case .transactions: "Transactions"
         case .analytics: "Analytics"
+        case .journal: "Journal"
         case .budgets: "Budgets"
         }
     }
@@ -106,6 +108,7 @@ struct MainTabView: View {
                 case .home: HomeTabView()
                 case .transactions: TransactionsTabView()
                 case .analytics: AnalyticsTabView()
+                case .journal: JournalTabView()
                 case .budgets: BudgetsTabView()
                 }
             }
@@ -141,6 +144,27 @@ struct MainTabView: View {
                     unlockedAchievement = nil
                 }
                 .transition(.opacity)
+            }
+
+            // Offline indicator
+            if !NetworkMonitor.shared.isConnected {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                            .font(.caption)
+                        Text(String(localized: "status.offline"))
+                            .font(.caption.weight(.medium))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.orange))
+                    .padding(.bottom, 100)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.easeInOut, value: NetworkMonitor.shared.isConnected)
+                .zIndex(3)
             }
 
             // Subscription auto-match banner (non-modal, above tab bar, below overlays)
@@ -197,6 +221,7 @@ struct MainTabView: View {
                     case "transactions": selectedTab = .transactions
                     case "budget", "budgets": selectedTab = .budgets
                     case "analytics": selectedTab = .analytics
+                    case "journal": selectedTab = .journal
                     default: break
                     }
                 }
@@ -245,10 +270,17 @@ struct MainTabView: View {
         }
         .task { await checkNewAchievements() }
         .onOpenURL { url in
-            // Handle akifi://invite/{code}
-            guard url.scheme == "akifi", url.host == "invite",
-                  let code = url.pathComponents.last, code != "/" else { return }
-            pendingInviteCode = code
+            let code: String?
+            if url.scheme == "akifi", url.host == "invite" {
+                code = url.pathComponents.last
+            } else if url.host == "akifi.pro", url.pathComponents.contains("invite") {
+                code = url.pathComponents.last
+            } else {
+                code = nil
+            }
+            if let code, code != "/", code.count >= 16 {
+                pendingInviteCode = code
+            }
         }
         .sheet(isPresented: Binding(
             get: { pendingInviteCode != nil },
@@ -267,6 +299,8 @@ struct MainTabView: View {
             selectedTab = .budgets
         case .savings:
             selectedTab = .budgets
+        case .journal:
+            selectedTab = .journal
         case .addExpense:
             activeSheet = .expense(categoryId: nil)
         case .addIncome:
@@ -320,21 +354,21 @@ private struct CustomTabBar: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 52, height: 52)
+                            .frame(width: 48, height: 48)
                             .shadow(color: Color.aiGradientStart.opacity(0.2), radius: 8, x: 0, y: 4)
 
                         Image(systemName: "sparkles")
-                            .font(.system(size: 22, weight: .medium))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundStyle(.white)
                     }
-                    .offset(y: -22)
+                    .offset(y: -20)
                     .spotlight(.aiButton)
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel(String(localized: "tab.assistant"))
 
-                tabButton("chart.bar.fill", String(localized: "tab.analytics"), .analytics)
+                tabButton("book.fill", String(localized: "tab.journal"), .journal)
                 tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), .budgets)
             }
             .padding(.horizontal, 12)

@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "V94355K5YY.ru.akifi.app",
+        "paths": [
+          "/invite/*"
+        ]
+      }
+    ]
+  }
+}

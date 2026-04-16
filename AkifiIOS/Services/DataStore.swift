@@ -32,6 +32,7 @@ final class DataStore {
     var profilesMap: [String: Profile] = [:]
 
     private let cache = PersistenceManager.shared
+    let offlineQueue = OfflineQueue()
 
     // MARK: - Auto-match settings key
     static let autoMatchEnabledKey = "subscriptionsAutoMatchEnabled"
@@ -43,6 +44,11 @@ final class DataStore {
         // 1. Load from offline cache first (instant)
         loadFromCache()
         rebuildCaches()
+
+        // 1b. Sync offline queue if we have pending operations
+        if offlineQueue.hasPending && NetworkMonitor.shared.isConnected {
+            await offlineQueue.processQueue()
+        }
 
         // 2. Fetch fresh data from network
         var errors: [String] = []
@@ -119,6 +125,23 @@ final class DataStore {
     }
 
     func addTransaction(_ input: CreateTransactionInput) async throws -> Transaction {
+        if !NetworkMonitor.shared.isConnected {
+            offlineQueue.enqueue(PendingOperation(operation: .create(input)))
+            let placeholder = Transaction(
+                id: UUID().uuidString, userId: input.user_id,
+                accountId: input.account_id,
+                amount: Int64(truncating: (input.amount * 100) as NSDecimalNumber),
+                currency: input.currency, description: input.description,
+                categoryId: input.category_id, type: TransactionType(rawValue: input.type) ?? .expense,
+                date: input.date, merchantName: input.merchant_name,
+                merchantFuzzy: nil, transferGroupId: input.transfer_group_id,
+                status: "pending", createdAt: nil, updatedAt: nil
+            )
+            transactions.insert(placeholder, at: 0)
+            rebuildCaches()
+            return placeholder
+        }
+
         let tx = try await transactionRepo.create(input)
         transactions.insert(tx, at: 0)
         rebuildCaches()

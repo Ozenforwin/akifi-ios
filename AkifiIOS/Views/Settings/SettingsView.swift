@@ -566,9 +566,6 @@ struct LanguagePickerView: View {
         }
         .navigationTitle(String(localized: "settings.language"))
         .alert(String(localized: "settings.language.restartTitle"), isPresented: $showRestartAlert) {
-            Button(String(localized: "settings.language.restartNow")) {
-                exit(0)
-            }
             Button(String(localized: "settings.language.later"), role: .cancel) {}
         } message: {
             Text(String(localized: "settings.language.restartMessage"))

@@ -103,4 +103,10 @@ enum AnalyticsService {
             "cancelled": cancelled
         ])
     }
+
+    // MARK: - Generic
+
+    static func logEvent(_ name: String, params: [String: Any]? = nil) {
+        Analytics.logEvent(name, parameters: params)
+    }
 }

@@ -437,6 +437,7 @@ enum NavigationTarget {
     case transactions(categoryFilter: String?, merchantFilter: String?, highlightTxIds: [String]?)
     case budgets
     case savings
+    case journal
     case addExpense
     case addIncome
 }
