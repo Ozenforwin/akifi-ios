@@ -131,14 +131,8 @@ struct InsightCardView: View {
     var onDismiss: (() -> Void)? = nil
 
     @State private var dragOffset: CGFloat = 0
-    /// Once the user starts a gesture, we lock in the dominant axis.
-    /// - `nil`: haven't decided yet
-    /// - `.horizontal`: will consume the drag for dismiss
-    /// - `.vertical`: must let the enclosing ScrollView take over
-    @State private var gestureAxis: Axis?
 
     private let dismissThreshold: CGFloat = 100
-    private let axisLockDistance: CGFloat = 8
 
     private var swipeProgress: CGFloat {
         min(1.0, abs(dragOffset) / dismissThreshold)
@@ -202,29 +196,17 @@ struct InsightCardView: View {
             .offset(x: dragOffset)
         }
         .opacity(1.0 - min(abs(dragOffset) / 400, 0.4))
-        // `simultaneousGesture` lets the ScrollView still receive the pan for
-        // vertical scrolling; we only consume the drag once we've locked in
-        // the horizontal axis (after the first few points of movement).
-        .simultaneousGesture(
-            DragGesture(minimumDistance: axisLockDistance)
-                .onChanged { value in
-                    if gestureAxis == nil {
-                        // First meaningful movement — decide which axis wins.
-                        if abs(value.translation.width) > abs(value.translation.height) {
-                            gestureAxis = .horizontal
-                        } else {
-                            gestureAxis = .vertical
-                        }
-                    }
-                    guard gestureAxis == .horizontal else { return }
-                    // Swipe left only.
-                    let t = min(0, value.translation.width)
-                    dragOffset = t
-                }
-                .onEnded { value in
-                    defer { gestureAxis = nil }
-                    guard gestureAxis == .horizontal else { return }
-                    if -value.translation.width > dismissThreshold {
+        // UIKit-backed pan recogniser: only starts on predominantly-horizontal
+        // drags and cooperates with the outer ScrollView's vertical pan via
+        // `shouldRecognizeSimultaneouslyWith`. This is the only reliable way
+        // to get swipe-to-dismiss inside a vertical scroller in SwiftUI.
+        .overlay(
+            HorizontalSwipeGesture(
+                onChanged: { dx in
+                    dragOffset = min(0, dx)
+                },
+                onEnded: { dx in
+                    if -dx > dismissThreshold {
                         withAnimation(.easeOut(duration: 0.2)) {
                             dragOffset = -500
                         }
@@ -236,6 +218,8 @@ struct InsightCardView: View {
                         }
                     }
                 }
+            )
+            .allowsHitTesting(true)
         )
         .contextMenu {
             if let onDismiss {
