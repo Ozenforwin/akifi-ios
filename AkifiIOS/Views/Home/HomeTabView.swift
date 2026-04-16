@@ -65,37 +65,7 @@ struct HomeTabView: View {
                     NavigationLink {
                         JournalTabView()
                     } label: {
-                        HStack {
-                            Image(systemName: "book.fill")
-                                .font(.title3)
-                                .foregroundStyle(.purple)
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 6) {
-                                    Text(String(localized: "home.journal"))
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                    Text("BETA")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 2)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.purple.opacity(0.15))
-                                        )
-                                        .foregroundStyle(.purple)
-                                }
-                                Text(String(localized: "home.journal.subtitle"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(12)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        JournalShortcutView()
                     }
 
                     // 6. Summary Cards
@@ -279,5 +249,116 @@ struct HomeTabView: View {
                 }
             )
         }
+    }
+}
+
+// MARK: - Journal Shortcut Card
+
+private struct JournalShortcutView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let gradient = LinearGradient(
+        colors: [Color.aiGradientStart, Color.aiGradientEnd],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Icon container
+            ZStack {
+                Circle()
+                    .fill(gradient)
+                    .frame(width: 52, height: 52)
+                    .shadow(color: Color.aiGradientStart.opacity(0.45), radius: 8, x: 0, y: 4)
+
+                Image(systemName: "book.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+
+            // Text block
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(String(localized: "home.journal"))
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    // BETA badge — outlined capsule with gradient stroke
+                    Text("BETA")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.aiGradientStart, Color.aiGradientEnd],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color.aiGradientStart, Color.aiGradientEnd],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                }
+
+                Text(String(localized: "home.journal.subtitle"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            // Navigation hint
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.aiGradientStart, Color.aiGradientEnd],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .padding(8)
+                .background(
+                    Circle()
+                        .fill(Color.aiGradientStart.opacity(colorScheme == .dark ? 0.20 : 0.10))
+                )
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(minHeight: 76)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.aiGradientStart.opacity(colorScheme == .dark ? 0.50 : 0.30),
+                                    Color.aiGradientEnd.opacity(colorScheme == .dark ? 0.35 : 0.18)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(
+                    color: Color.aiGradientStart.opacity(colorScheme == .dark ? 0.18 : 0.12),
+                    radius: 12,
+                    x: 0,
+                    y: 6
+                )
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
