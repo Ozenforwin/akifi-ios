@@ -219,4 +219,39 @@ final class NotificationManager {
         }
         return (scheduledCount, cancelledCount)
     }
+
+    // MARK: - Weekly Digest
+
+    static let weeklyDigestId = "weekly-digest"
+
+    /// Schedule a repeating weekly digest notification for Sunday at 10:00 local time.
+    /// The body is provided eagerly — the system shows a static message each week.
+    /// For a dynamic body you would need a silent background refresh, which is out
+    /// of scope here; this notification simply prompts the user to open the app.
+    static func scheduleWeeklyDigest(body: String) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+
+        center.removePendingNotificationRequests(withIdentifiers: [weeklyDigestId])
+
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "notification.weeklyDigest.title")
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["tab": "journal"]
+
+        var components = DateComponents()
+        components.weekday = 1  // Sunday (1 = Sunday in UNCalendarNotificationTrigger)
+        components.hour = 10
+        components.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+
+        let request = UNNotificationRequest(identifier: weeklyDigestId, content: content, trigger: trigger)
+        try? await center.add(request)
+    }
+
+    static func cancelWeeklyDigest() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [weeklyDigestId])
+    }
 }

@@ -73,6 +73,7 @@ struct ContentView: View {
             let subs = appViewModel.dataStore.subscriptions
             Task {
                 await NotificationManager.rescheduleAllReminders(subscriptions: subs)
+                await scheduleWeeklyDigestIfNeeded()
             }
         }
         .onChange(of: appViewModel.authManager.isAuthenticated) { _, isAuth in
@@ -81,9 +82,33 @@ struct ContentView: View {
                     await appViewModel.loadAfterAuth()
                     let subs = appViewModel.dataStore.subscriptions
                     await NotificationManager.rescheduleAllReminders(subscriptions: subs)
+                    await scheduleWeeklyDigestIfNeeded()
                 }
             }
         }
+    }
+
+    @MainActor
+    private func scheduleWeeklyDigestIfNeeded() async {
+        let dataStore = appViewModel.dataStore
+        let fmt = appViewModel.currencyManager
+        // Snapshot on main actor before crossing concurrency boundary.
+        let transactions = dataStore.transactions
+        let categories = dataStore.categories
+        let budgets = dataStore.budgets
+        let subscriptions = dataStore.subscriptions
+        let body = InsightEngine.weeklyDigest(
+            InsightEngine.Input(
+                transactions: transactions,
+                categories: categories,
+                budgets: budgets,
+                subscriptions: subscriptions,
+                formatAmount: { amount in
+                    MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) }
+                }
+            )
+        )
+        await NotificationManager.scheduleWeeklyDigest(body: body)
     }
 }
 

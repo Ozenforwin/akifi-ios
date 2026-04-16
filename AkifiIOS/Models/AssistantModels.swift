@@ -312,6 +312,10 @@ struct AssistantContext: Encodable, Sendable {
         let byCategory: [String: Double]
         /// Expense totals by account name (not ID) in whole currency units
         let byAccount: [String: Double]
+        /// Monthly breakdown, keyed by "YYYY-MM".
+        /// Each value maps category name → expense amount for that month.
+        /// Enables NL queries like "How much on cafes in March?"
+        let byMonthCategory: [String: [String: Double]]
         let count: Int
         let dateFrom: String?
         let dateTo: String?
@@ -321,14 +325,50 @@ struct AssistantContext: Encodable, Sendable {
             case totalIncome = "total_income"
             case byCategory = "by_category"
             case byAccount = "by_account"
+            case byMonthCategory = "by_month_category"
             case count
             case dateFrom = "date_from"
             case dateTo = "date_to"
         }
     }
 
+    struct SubscriptionSummary: Encodable, Sendable {
+        let name: String
+        let amountMonthly: Double
+        let period: String
+        let nextPaymentDate: String?
+        let category: String?
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case amountMonthly = "amount_monthly"
+            case period
+            case nextPaymentDate = "next_payment_date"
+            case category
+        }
+    }
+
+    struct BudgetSummary: Encodable, Sendable {
+        let name: String
+        let limit: Double
+        let spent: Double
+        let remaining: Double
+        let utilization: Int
+        let period: String
+        let status: String
+        let subscriptionCommitted: Double
+
+        enum CodingKeys: String, CodingKey {
+            case name, limit, spent, remaining, utilization, period, status
+            case subscriptionCommitted = "subscription_committed"
+        }
+    }
+
+    let subscriptions: [SubscriptionSummary]?
+    let budgets: [BudgetSummary]?
+
     enum CodingKeys: String, CodingKey {
-        case accounts, categories
+        case accounts, categories, subscriptions, budgets
         case transactionSummary = "transaction_summary"
         case totalBalance = "total_balance"
         case currency, locale

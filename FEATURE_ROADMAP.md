@@ -100,38 +100,46 @@
 
 ---
 
-## ФАЗА 3: AI 2.0 + Cash Flow (RICE 6.40 + 5.10, ~3 спринта)
+## ФАЗА 3: AI 2.0 + Cash Flow (RICE 6.40 + 5.10, ~3 спринта) — ВЫПОЛНЕНО
 
 ### 3.1 Natural Language запросы
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Расширить system prompt Edge Function для NL-запросов | TODO | Edge Function `assistant-query` |
-| Поддержка: "Сколько на кафе в марте?", "Расходы > 5000" | TODO | Edge Function |
-| Добавить в контекст AI структуру категорий с суммами по месяцам | TODO | `DataStore.swift` → `buildAssistantContext()` |
+| Расширить system prompt Edge Function для NL-запросов | DEFERRED | требует деплоя Edge Function |
+| Добавить в контекст AI помесячную разбивку по категориям | **DONE** | `DataStore.swift` → `buildAssistantContext()` |
+| Добавить в контекст AI список активных подписок (нормализовано по месяцам) | **DONE** | `DataStore.swift`, `AssistantModels.swift` |
+| Добавить в контекст AI список бюджетов с метриками | **DONE** | `DataStore.swift`, `AssistantModels.swift` |
 
 ### 3.2 Проактивные инсайты (Nudges)
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Создать `InsightEngine` (анализ паттернов расходов) | TODO | `Services/InsightEngine.swift` (новый) |
-| Типы: budget_warning, spending_spike, savings_milestone | TODO | |
-| Push-уведомления с инсайтами (max 1/день) | TODO | `Services/NotificationManager.swift` |
-| Карточки инсайтов на Home | TODO | `Views/Home/InsightCardsView.swift` |
+| Создать `InsightEngine` (анализ паттернов расходов) | **DONE** | `Services/InsightEngine.swift` |
+| Типы: budget_warning, spending_spike, subscription_approaching, topCategoryHeavy, etc. (10 типов) | **DONE** | `InsightEngine.Kind` |
+| Карточки инсайтов на Home (через InsightEngine) | **DONE** | `Views/Home/InsightCardsView.swift` |
 
-### 3.3 Еженедельный AI-рекап
+### 3.3 Еженедельный дайджест
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Edge Function для генерации сводки недели | TODO | Edge Function (новый) |
-| Push в воскресенье с AI-сводкой | TODO | `NotificationManager.swift` |
-| Связь с рефлексией в журнале | TODO | `JournalReflectionFormView.swift` |
+| `InsightEngine.weeklyDigest()` — генератор текста сводки | **DONE** | `Services/InsightEngine.swift` |
+| `NotificationManager.scheduleWeeklyDigest()` — local notification в вс 10:00 | **DONE** | `Services/NotificationManager.swift` |
+| Ссылка на таб «Журнал» через userInfo (deep link) | **DONE** | `ContentView.swift` |
+| Связь с рефлексией в журнале | **DONE** | клик → открывает JournalTabView |
 
 ### 3.4 Cash Flow прогнозирование
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| `CashFlowEngine` (анализ паттернов + подписки + регулярный доход) | TODO | `Services/CashFlowEngine.swift` (новый) |
-| Прогноз на 1/3/6 месяцев | TODO | |
-| `CashFlowForecastView` (график: текущий → прогноз, confidence band) | TODO | `Views/Analytics/CashFlowForecastView.swift` (новый) |
-| Маркеры подписок на таймлайне | TODO | |
-| Интеграция в AnalyticsTabView | TODO | `Views/Analytics/AnalyticsTabView.swift` |
+| `CashFlowEngine` (паттерны + подписки + variance) | **DONE** | `Services/CashFlowEngine.swift` |
+| Нормализация периодов (weekly/monthly/quarterly/yearly → monthly) | **DONE** | `CashFlowEngine.normalizeToMonthly` |
+| Прогноз на 1/3/6 месяцев с confidence band (±σ) | **DONE** | `CashFlowEngine.forecast` |
+| Confidence levels: low (<2 мес) / medium (2-3) / high (4+) | **DONE** | `CashFlowEngine.Confidence` |
+| `CashFlowForecastView` — график + summary grid | **DONE** | `Views/Analytics/CashFlowForecastView.swift` |
+| Интеграция в AnalyticsTabView | **DONE** | `Views/Analytics/AnalyticsTabView.swift` |
+
+### 3.5 Тесты
+| Задача | Статус | Файлы |
+|--------|--------|-------|
+| Unit-тесты CashFlowEngine (14 тестов) | **DONE** | `AkifiIOSTests/CashFlowEngineTests.swift` |
+| Покрытие: normalizeToMonthly, forecast (empty/history/subs), variance, confidence | **DONE** | — |
 
 ---
 
@@ -190,8 +198,7 @@
 |--------|-------|-------|--------|
 | **S1** (нед 1) | Fixes + Journal | Исправления + Финансовый журнал + Шаринг | **DONE** |
 | **S2** (нед 2) | Subscriptions | Подписки ↔ Бюджеты интеграция | **DONE** |
-| **S3-S4** (нед 3-4) | AI 2.0 | Natural language + Nudges | TODO |
-| **S5** (нед 5) | Cash Flow | Прогнозирование на 1-3 мес | TODO |
+| **S3-S5** (нед 3-5) | AI 2.0 + Cash Flow | Nudges + InsightEngine + CashFlowEngine + ForecastView + дайджест | **DONE** |
 | **S6** (нед 6) | Reports | PDF-отчёты + подключение ReportsView | TODO |
 | **S7-S8** (нед 7-8) | Gamification | Challenges + streak rewards + skill tree | TODO |
 | **S9-S10** (нед 9-10) | Widgets | WidgetKit (4 виджета) | TODO |
@@ -212,7 +219,7 @@
 | Privacy-first (без банковского подключения) | **Есть** | Дифференциатор |
 | **Финансовый журнал** | **Есть** | **НИ У КОГО нет** (Gap #1 рынка) |
 | **Подписки ↔ Бюджеты связь** | **Есть** | **НИ У КОГО нет** (Gap #7 рынка) |
-| Cash flow прогноз | TODO | Есть у Monarch/Quicken |
+| Cash flow прогноз | **Есть** | На уровне Monarch/Quicken |
 | PDF-отчёты | TODO | Есть у Monarch/Rocket |
 | Savings challenges | TODO | Базовые у Cleo |
 | iOS Виджеты | TODO | Есть у многих |

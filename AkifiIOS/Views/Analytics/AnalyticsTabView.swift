@@ -93,6 +93,11 @@ struct AnalyticsTabView: View {
                             CashflowTrendView(transactions: allTransactions)
                         }
 
+                        // 4b. Cash Flow Forecast
+                        if !isNewUser && !dataStore.transactions.isEmpty {
+                            CashFlowForecastView()
+                        }
+
                         // 5. Period filter
                         WidgetFilterView(selectedPeriod: $selectedPeriod)
 

@@ -352,6 +352,8 @@ final class DataStore {
 
         // Per-category expense totals (use category names as keys for LLM readability)
         var byCategoryKopecks: [String: Int64] = [:]
+        // Per-month per-category expense totals for NL queries like "How much on cafes in March?"
+        var byMonthCategoryKopecks: [String: [String: Int64]] = [:]
         var totalExpenseKopecks: Int64 = 0
         var totalIncomeKopecks: Int64 = 0
         for tx in transactions {
@@ -361,6 +363,8 @@ final class DataStore {
                 if let catId = tx.categoryId {
                     let name = categoryNameById[catId] ?? catId
                     byCategoryKopecks[name, default: 0] += tx.amount
+                    let monthKey = String(tx.date.prefix(7))  // yyyy-MM
+                    byMonthCategoryKopecks[monthKey, default: [:]][name, default: 0] += tx.amount
                 }
             case .income:
                 totalIncomeKopecks += tx.amount
@@ -381,6 +385,9 @@ final class DataStore {
         // Convert to whole currency units
         let byCategory = byCategoryKopecks.mapValues { toUnits($0) }
         let byAccount = byAccountKopecks.mapValues { toUnits($0) }
+        let byMonthCategory = byMonthCategoryKopecks.mapValues { inner in
+            inner.mapValues { toUnits($0) }
+        }
 
         // Date range
         let dates = transactions.map(\.date).sorted()
@@ -392,6 +399,7 @@ final class DataStore {
             totalIncome: toUnits(totalIncomeKopecks),
             byCategory: byCategory,
             byAccount: byAccount,
+            byMonthCategory: byMonthCategory,
             count: transactions.count,
             dateFrom: dateFrom,
             dateTo: dateTo
@@ -410,6 +418,42 @@ final class DataStore {
         default: currencyLabel = accounts.first?.currency ?? "rubles"
         }
 
+        // Subscriptions (active only), normalized to monthly rate
+        let subSummaries: [AssistantContext.SubscriptionSummary] = subscriptions
+            .filter { $0.status == .active }
+            .map { sub in
+                let monthlyAmount = BudgetMath.normalizedAmount(
+                    sub.amount, from: sub.billingPeriod, to: .monthly
+                )
+                let catName = sub.categoryId.flatMap { categoryNameById[$0] }
+                return AssistantContext.SubscriptionSummary(
+                    name: sub.serviceName,
+                    amountMonthly: toUnits(monthlyAmount),
+                    period: sub.billingPeriod.rawValue,
+                    nextPaymentDate: sub.nextPaymentDate,
+                    category: catName
+                )
+            }
+
+        // Budgets with computed metrics
+        let budgetSummaries: [AssistantContext.BudgetSummary] = budgets
+            .filter { $0.isActive }
+            .map { budget in
+                let metrics = BudgetMath.compute(
+                    budget: budget, transactions: transactions, subscriptions: subscriptions
+                )
+                return AssistantContext.BudgetSummary(
+                    name: budget.name,
+                    limit: toUnits(metrics.effectiveLimit),
+                    spent: toUnits(metrics.spent),
+                    remaining: toUnits(metrics.remaining),
+                    utilization: metrics.utilization,
+                    period: budget.billingPeriod.rawValue,
+                    status: metrics.status.rawValue,
+                    subscriptionCommitted: toUnits(metrics.subscriptionCommitted)
+                )
+            }
+
         return AssistantContext(
             accounts: accountSummaries,
             categories: categorySummaries,
@@ -417,7 +461,9 @@ final class DataStore {
             totalBalance: totalBalance,
             currency: accounts.first?.currency ?? "rub",
             locale: Locale.current.identifier,
-            amountUnit: "All monetary amounts are in whole \(currencyLabel) (NOT kopecks/cents). For example, 1500 means 1500 \(currencyLabel)."
+            amountUnit: "All monetary amounts are in whole \(currencyLabel) (NOT kopecks/cents). For example, 1500 means 1500 \(currencyLabel).",
+            subscriptions: subSummaries.isEmpty ? nil : subSummaries,
+            budgets: budgetSummaries.isEmpty ? nil : budgetSummaries
         )
     }
 

@@ -9669,6 +9669,174 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без категории" } }
       }
     },
+    "forecast.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cash Flow Forecast" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Previsión de flujo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Прогноз баланса" } }
+      }
+    },
+    "forecast.horizon" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Horizon" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Horizonte" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Горизонт" } }
+      }
+    },
+    "forecast.horizon.1m" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1 month" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "1 mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "1 месяц" } }
+      }
+    },
+    "forecast.horizon.3m" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "3 months" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "3 meses" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "3 месяца" } }
+      }
+    },
+    "forecast.horizon.6m" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "6 months" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "6 meses" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "6 месяцев" } }
+      }
+    },
+    "forecast.confidence.low" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Low confidence" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Baja confianza" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Низкая точность" } }
+      }
+    },
+    "forecast.confidence.medium" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Medium confidence" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Confianza media" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Средняя точность" } }
+      }
+    },
+    "forecast.confidence.high" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "High confidence" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Alta confianza" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Высокая точность" } }
+      }
+    },
+    "forecast.avgIncome" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Avg income" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ingreso prom" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доход/мес" } }
+      }
+    },
+    "forecast.avgExpense" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Avg expense" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gasto prom" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расход/мес" } }
+      }
+    },
+    "forecast.subsMonthly" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subs/mo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Suscr/mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки" } }
+      }
+    },
+    "forecast.netMonthly" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Net/mo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Neto/mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чисто/мес" } }
+      }
+    },
+    "forecast.lowConfidence" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add more transaction history for a more accurate forecast" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añade más historial para un pronóstico más preciso" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте больше операций для точного прогноза" } }
+      }
+    },
+    "forecast.noData" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not enough data for forecast" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Datos insuficientes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Недостаточно данных" } }
+      }
+    },
+    "notification.weeklyDigest.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly digest" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Resumen semanal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итоги недели" } }
+      }
+    },
+    "insight.weeklyDigest.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions this week. Time to plan ahead?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin transacciones esta semana. ¿Hora de planificar?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "На неделе не было операций. Время подумать о планах?" } }
+      }
+    },
+    "insight.weeklyDigest.%lld.%@.%@.%@.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$lld tx: +%2$@ / −%3$@, net %4$@%5$@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%1$lld op: +%2$@ / −%3$@, neto %4$@%5$@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%1$lld операций: +%2$@ / −%3$@, итог %4$@%5$@" } }
+      }
+    },
+    "insight.subscription.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ charge coming up" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ próximo cobro" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Скоро списание %@" } }
+      }
+    },
+    "insight.subscription.today.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ will be charged today" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Se cobrarán %@ hoy" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сегодня спишут %@" } }
+      }
+    },
+    "insight.subscription.inDays.%lld.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%2$@ in %1$lld days" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%2$@ en %1$lld días" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%2$@ через %1$lld дн." } }
+      }
+    },
+    "insight.budgetWarning.%@.%lld" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ at %2$lld%%" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ al %2$lld%%" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ на %2$lld%%" } }
+      }
+    },
+    "insight.budgetWarning.detail.%lld" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld days left in the period" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Quedan %lld días" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Осталось дней: %lld" } }
+      }
+    },
+    "insight.subscriptionsEatBudget.%@.%lld" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscriptions consume %2$lld%% of %1$@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Las suscripciones ocupan %2$lld%% de %1$@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки занимают %2$lld%% бюджета «%1$@»" } }
+      }
+    },
+    "insight.subscriptionsEatBudget.detail.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ committed monthly" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%@ mensuales comprometidos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%@ зарезервировано ежемесячно" } }
+      }
+    },
     "journal.title" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },
