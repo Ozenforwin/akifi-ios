@@ -9261,6 +9261,20 @@
         }
       }
     },
+    "home.journal" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Diario" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Журнал" } }
+      }
+    },
+    "home.journal.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes, reflections, mood tracking" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Notas, reflexiones, estado de ánimo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заметки, рефлексии, настроение" } }
+      }
+    },
     "home.analytics" : {
       "extractionState" : "stale",
       "localizations" : {

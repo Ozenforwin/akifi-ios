@@ -16,6 +16,18 @@ struct JournalTabView: View {
             }
             .navigationTitle(String(localized: "journal.title"))
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 8) {
+                        Text(String(localized: "journal.title"))
+                            .font(.headline)
+                        Text("BETA")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.purple.opacity(0.15)))
+                            .foregroundStyle(.purple)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {

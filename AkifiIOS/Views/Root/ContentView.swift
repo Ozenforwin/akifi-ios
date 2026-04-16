@@ -396,7 +396,7 @@ private struct CustomTabBar: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel(String(localized: "tab.assistant"))
 
-                tabButton("book.fill", String(localized: "tab.journal"), .journal)
+                tabButton("chart.bar.fill", String(localized: "tab.analytics"), .analytics)
                 tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), .budgets)
             }
             .padding(.horizontal, 12)

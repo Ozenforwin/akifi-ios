@@ -61,19 +61,30 @@ struct HomeTabView: View {
                     // 4. Savings
                     HomeSavingsSnapshotView()
 
-                    // 5. Analytics shortcut
+                    // 5. Journal shortcut (beta)
                     NavigationLink {
-                        AnalyticsTabView()
+                        JournalTabView()
                     } label: {
                         HStack {
-                            Image(systemName: "chart.bar.fill")
+                            Image(systemName: "book.fill")
                                 .font(.title3)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.purple)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(String(localized: "home.analytics"))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text(String(localized: "home.analytics.subtitle"))
+                                HStack(spacing: 6) {
+                                    Text(String(localized: "home.journal"))
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                    Text("BETA")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.purple.opacity(0.15))
+                                        )
+                                        .foregroundStyle(.purple)
+                                }
+                                Text(String(localized: "home.journal.subtitle"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
