@@ -585,10 +585,20 @@ struct LanguagePickerView: View {
 
     /// When the user changes language, locally-scheduled notifications still
     /// carry the old-language body. Reschedule them to pick up new translations.
+    /// Also syncs the language preference to the server so backend-driven push
+    /// (smart-notifications, send-weekly-digest) renders in the new language.
     private func rescheduleLocalizedNotifications() async {
         let dataStore = appViewModel.dataStore
         let fmt = appViewModel.currencyManager
         let subs = dataStore.subscriptions
+
+        // Backend sync — best effort; silently ignored when offline.
+        let serverLang: String = {
+            if appLanguage != "system" { return appLanguage }
+            return Locale.current.language.languageCode?.identifier ?? "ru"
+        }()
+        try? await ProfileRepository().updatePreferredLanguage(serverLang)
+
         _ = await NotificationManager.rescheduleAllReminders(subscriptions: subs)
 
         let transactions = dataStore.transactions

@@ -37,4 +37,20 @@ final class ProfileRepository: Sendable {
             .eq("id", value: userId)
             .execute()
     }
+
+    /// Sync the user's UI language preference so backend notifications
+    /// (weekly digest, smart notifications) render in the same language.
+    /// Accepts "ru", "en", "es"; anything else becomes "ru".
+    func updatePreferredLanguage(_ languageCode: String) async throws {
+        let normalized: String = {
+            let prefix = languageCode.lowercased().split(separator: "_").first.map(String.init) ?? languageCode.lowercased()
+            return ["ru", "en", "es"].contains(prefix) ? prefix : "ru"
+        }()
+        let userId = try await SupabaseManager.shared.currentUserId()
+        try await supabase
+            .from("profiles")
+            .update(["preferred_language": normalized])
+            .eq("id", value: userId)
+            .execute()
+    }
 }
