@@ -529,6 +529,7 @@ struct HapticToggleRow: View {
 }
 
 struct LanguagePickerView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     @AppStorage("appLanguage") private var appLanguage = "system"
     @State private var showRestartAlert = false
 
@@ -548,6 +549,7 @@ struct LanguagePickerView: View {
                     applyLanguage(lang.id)
                     if oldLang != lang.id {
                         showRestartAlert = true
+                        Task { await rescheduleLocalizedNotifications() }
                     }
                 } label: {
                     HStack(spacing: 12) {
@@ -579,5 +581,30 @@ struct LanguagePickerView: View {
             UserDefaults.standard.set([code], forKey: "AppleLanguages")
         }
         AnalyticsService.logChangeLanguage(to: code)
+    }
+
+    /// When the user changes language, locally-scheduled notifications still
+    /// carry the old-language body. Reschedule them to pick up new translations.
+    private func rescheduleLocalizedNotifications() async {
+        let dataStore = appViewModel.dataStore
+        let fmt = appViewModel.currencyManager
+        let subs = dataStore.subscriptions
+        _ = await NotificationManager.rescheduleAllReminders(subscriptions: subs)
+
+        let transactions = dataStore.transactions
+        let categories = dataStore.categories
+        let budgets = dataStore.budgets
+        let body = InsightEngine.weeklyDigest(
+            InsightEngine.Input(
+                transactions: transactions,
+                categories: categories,
+                budgets: budgets,
+                subscriptions: subs,
+                formatAmount: { amount in
+                    MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) }
+                }
+            )
+        )
+        await NotificationManager.scheduleWeeklyDigest(body: body)
     }
 }

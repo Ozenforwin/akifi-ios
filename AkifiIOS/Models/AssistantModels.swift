@@ -366,6 +366,11 @@ struct AssistantContext: Encodable, Sendable {
 
     let subscriptions: [SubscriptionSummary]?
     let budgets: [BudgetSummary]?
+    /// BCP-47 tag that the assistant MUST respond in (e.g. "ru", "en", "es").
+    /// Derived from the user's effective app language (UserDefaults `appLanguage`
+    /// if overridden, otherwise the system language). Takes precedence over
+    /// `locale` when the edge function decides response language.
+    let responseLanguage: String
 
     enum CodingKeys: String, CodingKey {
         case accounts, categories, subscriptions, budgets
@@ -373,6 +378,7 @@ struct AssistantContext: Encodable, Sendable {
         case totalBalance = "total_balance"
         case currency, locale
         case amountUnit = "amount_unit"
+        case responseLanguage = "response_language"
     }
 }
 

@@ -410,13 +410,18 @@ final class DataStore {
             sum + toUnits(balance(for: account))
         }
 
-        let currencyLabel: String
-        switch (accounts.first?.currency ?? "rub").lowercased() {
-        case "rub": currencyLabel = "rubles"
-        case "usd": currencyLabel = "US dollars"
-        case "eur": currencyLabel = "euros"
-        default: currencyLabel = accounts.first?.currency ?? "rubles"
-        }
+        let currencyCode = (accounts.first?.currency ?? "RUB").uppercased()
+
+        // Resolve the user's effective language preference:
+        // `appLanguage` UserDefaults override wins, otherwise system language.
+        // This determines which language the AI must respond in.
+        let responseLanguage: String = {
+            if let override = UserDefaults.standard.string(forKey: "appLanguage"),
+               override != "system", !override.isEmpty {
+                return override
+            }
+            return Locale.current.language.languageCode?.identifier ?? "en"
+        }()
 
         // Subscriptions (active only), normalized to monthly rate
         let subSummaries: [AssistantContext.SubscriptionSummary] = subscriptions
@@ -461,9 +466,10 @@ final class DataStore {
             totalBalance: totalBalance,
             currency: accounts.first?.currency ?? "rub",
             locale: Locale.current.identifier,
-            amountUnit: "All monetary amounts are in whole \(currencyLabel) (NOT kopecks/cents). For example, 1500 means 1500 \(currencyLabel).",
+            amountUnit: "Amounts are whole units of \(currencyCode) (not minor units). 1500 means 1500 \(currencyCode).",
             subscriptions: subSummaries.isEmpty ? nil : subSummaries,
-            budgets: budgetSummaries.isEmpty ? nil : budgetSummaries
+            budgets: budgetSummaries.isEmpty ? nil : budgetSummaries,
+            responseLanguage: responseLanguage
         )
     }
 
