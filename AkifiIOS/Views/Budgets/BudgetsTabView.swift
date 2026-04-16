@@ -12,8 +12,9 @@ struct BudgetsTabView: View {
 
     /// Budgets sorted by criticality: overLimit first, then nearLimit, warning, onTrack
     private var sortedBudgetsWithMetrics: [(budget: Budget, metrics: BudgetMetrics)] {
+        let subs = dataStore.subscriptions
         let items = dataStore.budgets.map { budget in
-            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions))
+            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs))
         }
         return items.sorted { a, b in
             let priority: (BudgetStatus) -> Int = {
@@ -38,7 +39,7 @@ struct BudgetsTabView: View {
                 if isNewUser {
                     // Demo budget with blur
                     Section {
-                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions)
+                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions, subscriptions: DemoData.subscriptions)
                         BudgetCardView(budget: DemoData.budget, metrics: metrics, categories: DemoData.categories)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -234,11 +235,12 @@ struct BudgetsTabView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSubscriptionForm) {
-                SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate in
+                SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId in
                     await subscriptionsVM.create(
                         name: name, amount: amount, period: period, color: color,
                         currency: currency, reminderDays: reminderDays,
-                        lastPaymentDate: lastDate, nextPaymentDate: nextDate
+                        lastPaymentDate: lastDate, nextPaymentDate: nextDate,
+                        categoryId: categoryId
                     )
                     await dataStore.loadAll()
                 }
@@ -369,6 +371,7 @@ struct BudgetsTabView: View {
 // MARK: - Edit Subscription Form
 
 struct EditSubscriptionFormView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
     let subscription: SubscriptionTracker
     let onSave: () async -> Void
@@ -381,8 +384,13 @@ struct EditSubscriptionFormView: View {
     @State private var selectedCurrency: CurrencyCode = .rub
     @State private var selectedColor: String = "#60A5FA"
     @State private var reminderDays: Int = 1
+    @State private var selectedCategoryId: String?
     @State private var isSaving = false
     @State private var status: SubscriptionTrackerStatus = .active
+
+    private var expenseCategories: [Category] {
+        appViewModel.dataStore.categories.filter { $0.type == .expense }
+    }
 
     @State private var specifyLastPayment = false
     @State private var lastPaymentDate: Date = Calendar.current.startOfDay(for: Date())
@@ -415,6 +423,13 @@ struct EditSubscriptionFormView: View {
                     Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
+
+                    Picker(String(localized: "subscriptions.category"), selection: $selectedCategoryId) {
+                        Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
+                        ForEach(expenseCategories, id: \.id) { cat in
+                            Text("\(cat.icon) \(cat.name)").tag(String?(cat.id))
                         }
                     }
                 }
@@ -540,6 +555,7 @@ struct EditSubscriptionFormView: View {
         period = subscription.billingPeriod
         selectedColor = subscription.iconColor ?? "#60A5FA"
         reminderDays = subscription.reminderDays
+        selectedCategoryId = subscription.categoryId
         status = subscription.status
         if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
             selectedCurrency = code
@@ -575,7 +591,8 @@ struct EditSubscriptionFormView: View {
             reminderDays: reminderDays,
             lastPaymentDate: specifyLastPayment ? lastPaymentDate : nil,
             nextPaymentDate: nextPaymentDate,
-            status: status
+            status: status,
+            categoryId: selectedCategoryId
         )
         if status != subscription.status {
             AnalyticsService.logSubscriptionStatusChange(to: status.rawValue)

@@ -67,14 +67,16 @@ final class SubscriptionsViewModel {
             currency: currency,
             reminderDays: reminderDays,
             lastPaymentDate: nil,
-            nextPaymentDate: nextPayment
+            nextPaymentDate: nextPayment,
+            categoryId: nil
         )
     }
 
     /// New API: explicit dates from the form.
     func create(name: String, amount: Int64, period: BillingPeriod, color: String?,
                 currency: String, reminderDays: Int,
-                lastPaymentDate: Date?, nextPaymentDate: Date) async {
+                lastPaymentDate: Date?, nextPaymentDate: Date,
+                categoryId: String? = nil) async {
         do {
             let resolvedUserId = try await SupabaseManager.shared.currentUserId()
             let amountDecimal = Decimal(amount) / 100
@@ -91,7 +93,8 @@ final class SubscriptionsViewModel {
                 icon_color: color,
                 reminder_days: reminderDays,
                 currency: currency,
-                status: SubscriptionTrackerStatus.active.rawValue
+                status: SubscriptionTrackerStatus.active.rawValue,
+                category_id: categoryId
             )
             let sub = try await repo.create(input)
             subscriptions.append(sub)
@@ -106,7 +109,8 @@ final class SubscriptionsViewModel {
     func update(id: String, name: String, amount: Int64, period: BillingPeriod,
                 color: String?, currency: String, reminderDays: Int,
                 lastPaymentDate: Date?, nextPaymentDate: Date,
-                status: SubscriptionTrackerStatus? = nil) async {
+                status: SubscriptionTrackerStatus? = nil,
+                categoryId: String? = nil) async {
         do {
             let amountDecimal = Decimal(amount) / 100
             let input = UpdateSubscriptionInput(
@@ -119,7 +123,8 @@ final class SubscriptionsViewModel {
                 icon_color: color,
                 reminder_days: reminderDays,
                 currency: currency,
-                status: status?.rawValue
+                status: status?.rawValue,
+                category_id: categoryId
             )
             try await repo.update(id: id, input)
             if let idx = subscriptions.firstIndex(where: { $0.id == id }) {
@@ -130,6 +135,7 @@ final class SubscriptionsViewModel {
                 sub.currency = currency
                 sub.reminderDays = reminderDays
                 sub.iconColor = color
+                sub.categoryId = categoryId
                 sub.lastPaymentDate = lastPaymentDate.map(SubscriptionDateEngine.formatDbDate)
                 sub.nextPaymentDate = SubscriptionDateEngine.formatDbDate(nextPaymentDate)
                 if let status {

@@ -150,16 +150,30 @@ struct BudgetCardView: View {
                     .clipShape(Capsule())
             }
 
-            // Progress bar — 12pt height with threshold marker
+            // Progress bar — 12pt height with subscription segment + threshold marker
             GeometryReader { geo in
+                let spentWidth = geo.size.width * min(CGFloat(metrics.utilization) / 100, 1.0)
+                let subPct = metrics.effectiveLimit > 0
+                    ? CGFloat(metrics.subscriptionCommitted) / CGFloat(metrics.effectiveLimit)
+                    : 0
+                let subWidth = min(geo.size.width - spentWidth, geo.size.width * min(subPct, 1.0))
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Color(.systemGray5))
 
-                    Capsule()
-                        .fill(progressGradient)
-                        .frame(width: geo.size.width * min(CGFloat(metrics.utilization) / 100, 1.0))
-                        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: metrics.utilization)
+                    HStack(spacing: 0) {
+                        Capsule()
+                            .fill(progressGradient)
+                            .frame(width: spentWidth)
+                            .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: metrics.utilization)
+
+                        if metrics.subscriptionCommitted > 0 && subWidth > 0 {
+                            Capsule()
+                                .fill(Color.budget.opacity(0.35))
+                                .frame(width: subWidth)
+                                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: metrics.subscriptionCommitted)
+                        }
+                    }
 
                     // 80% threshold tick
                     Rectangle()
@@ -192,6 +206,22 @@ struct BudgetCardView: View {
                 Text("\(metrics.utilization)%")
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(progressColor)
+            }
+
+            // Subscription committed row
+            if metrics.subscriptionCommitted > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "repeat.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.budget)
+                    Text(String(localized: "budget.subscriptions.\(fmt.formatAmount(metrics.subscriptionCommitted.displayAmount))"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(String(localized: "budget.freeRemaining.\(fmt.formatAmount(metrics.freeRemaining.displayAmount))"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // Safe-to-spend daily + remaining days

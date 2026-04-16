@@ -9634,6 +9634,41 @@
         }
       }
     },
+    "budget.subscriptions.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscriptions: %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Suscripciones: %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки: %@" } }
+      }
+    },
+    "budget.freeRemaining.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Free: %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Libre: %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Свободно: %@" } }
+      }
+    },
+    "budget.summary.subscriptions.%@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscriptions commit %@/period" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Suscripciones comprometen %@/período" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки резервируют %@ / период" } }
+      }
+    },
+    "subscriptions.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категория" } }
+      }
+    },
+    "subscriptions.noCategory" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "None" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ninguna" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без категории" } }
+      }
+    },
     "journal.title" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Journal" } },

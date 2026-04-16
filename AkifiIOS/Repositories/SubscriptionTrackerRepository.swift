@@ -120,6 +120,7 @@ struct CreateSubscriptionInput: Encodable, Sendable {
     let reminder_days: Int?
     let currency: String?
     let status: String?
+    let category_id: String?
 }
 
 struct UpdateSubscriptionInput: Encodable, Sendable {
@@ -133,6 +134,7 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let reminder_days: Int?
     let currency: String?
     let status: String?
+    let category_id: String?
 }
 
 struct UpdateSubscriptionDatesInput: Encodable, Sendable {

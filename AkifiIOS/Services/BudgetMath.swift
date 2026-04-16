@@ -16,19 +16,24 @@ struct BudgetMetrics {
     let riskLevel: RiskLevel
     let status: BudgetStatus
     let progressColor: String     // hex
+    let subscriptionCommitted: Int64
+    let freeRemaining: Int64
 }
 
 enum BudgetMath {
 
-    static func compute(budget: Budget, transactions: [Transaction]) -> BudgetMetrics {
+    static func compute(budget: Budget, transactions: [Transaction], subscriptions: [SubscriptionTracker] = []) -> BudgetMetrics {
         let period = currentPeriod(for: budget)
         let spent = spentAmount(budget: budget, transactions: transactions, period: period)
         let limit = budget.amount
         let remaining = max(0, limit - spent)
 
+        let subCommitted = subscriptionCommitted(budget: budget, subscriptions: subscriptions)
+        let freeRemaining = max(0, remaining - subCommitted)
+
         let utilization = computeProgress(spent: spent, limit: limit)
         let days = daysMeta(start: period.start, end: period.end)
-        let safe = computeSafeToSpend(limit: limit, spent: spent, remainingDays: days.remaining)
+        let safe = computeSafeToSpend(limit: limit, spent: spent + subCommitted, remainingDays: days.remaining)
         let pace = computePace(limit: limit, spent: spent, elapsed: days.elapsed, total: days.total)
         let risk = computeRiskLevel(utilization: utilization, pace: pace, remainingDays: days.remaining)
         let status = computeStatus(utilization: utilization, pace: pace)
@@ -39,7 +44,8 @@ enum BudgetMath {
             utilization: utilization,
             totalDays: days.total, elapsedDays: days.elapsed, remainingDays: days.remaining,
             safeToSpendDaily: safe, paceRatio: pace,
-            riskLevel: risk, status: status, progressColor: color
+            riskLevel: risk, status: status, progressColor: color,
+            subscriptionCommitted: subCommitted, freeRemaining: freeRemaining
         )
     }
 
@@ -111,6 +117,48 @@ enum BudgetMath {
             guard let d = df.date(from: tx.date) else { return false }
             return d >= period.start && d <= period.end
         }.reduce(Int64(0)) { $0 + $1.amount }
+    }
+
+    // MARK: - Subscription Committed
+
+    static func subscriptionCommitted(budget: Budget, subscriptions: [SubscriptionTracker]) -> Int64 {
+        let activeSubs = subscriptions.filter { $0.status == .active }
+        guard !activeSubs.isEmpty else { return 0 }
+
+        var total: Int64 = 0
+        for sub in activeSubs {
+            if let cats = budget.categoryIds, !cats.isEmpty {
+                guard let catId = sub.categoryId, cats.contains(catId) else { continue }
+            }
+            total += normalizedAmount(sub.amount, from: sub.billingPeriod, to: budget.billingPeriod)
+        }
+        return total
+    }
+
+    static func normalizedAmount(_ amount: Int64, from: BillingPeriod, to: BillingPeriod) -> Int64 {
+        if from == to { return amount }
+        let monthly = monthlyEquivalent(amount, period: from)
+        return fromMonthly(monthly, period: to)
+    }
+
+    private static func monthlyEquivalent(_ amount: Int64, period: BillingPeriod) -> Double {
+        switch period {
+        case .weekly: return Double(amount) * 52.0 / 12.0
+        case .monthly: return Double(amount)
+        case .quarterly: return Double(amount) / 3.0
+        case .yearly: return Double(amount) / 12.0
+        case .custom: return Double(amount)
+        }
+    }
+
+    private static func fromMonthly(_ monthly: Double, period: BillingPeriod) -> Int64 {
+        switch period {
+        case .weekly: return Int64(monthly * 12.0 / 52.0)
+        case .monthly: return Int64(monthly)
+        case .quarterly: return Int64(monthly * 3.0)
+        case .yearly: return Int64(monthly * 12.0)
+        case .custom: return Int64(monthly)
+        }
     }
 
     // MARK: - Progress (0–999 %)

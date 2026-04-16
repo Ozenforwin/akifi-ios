@@ -7,6 +7,7 @@ struct BudgetHealthSummaryView: View {
 
     private var totalLimit: Int64 { allMetrics.reduce(0) { $0 + $1.effectiveLimit } }
     private var totalSpent: Int64 { allMetrics.reduce(0) { $0 + $1.spent } }
+    private var totalSubCommitted: Int64 { allMetrics.reduce(0) { $0 + $1.subscriptionCommitted } }
     private var overallUtilization: Int {
         guard totalLimit > 0 else { return 0 }
         return min(999, Int(Double(totalSpent) / Double(totalLimit) * 100))
@@ -74,6 +75,26 @@ struct BudgetHealthSummaryView: View {
                     statusCounter(count: overCount, icon: "xmark.octagon.fill", color: .red, label: String(localized: "budget.status.overLimit"))
                 }
                 Spacer()
+            }
+
+            // Subscription commitment summary
+            if totalSubCommitted > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "repeat.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.budget)
+                    Text(String(localized: "budget.summary.subscriptions.\(fmt.formatAmount(totalSubCommitted.displayAmount))"))
+                        .font(.caption)
+                        .foregroundStyle(.primary)
+                    if totalLimit > 0 {
+                        let pct = Int(Double(totalSubCommitted) / Double(totalLimit) * 100)
+                        Text("(\(pct)%)")
+                            .font(.caption)
+                            .foregroundStyle(pct > 50 ? Color.warning : .secondary)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 4)
             }
         }
         .padding(16)

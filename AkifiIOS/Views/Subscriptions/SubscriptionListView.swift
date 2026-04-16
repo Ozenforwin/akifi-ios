@@ -84,11 +84,12 @@ struct SubscriptionListView: View {
             await viewModel.load()
         }
         .sheet(isPresented: $viewModel.showForm) {
-            SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate in
+            SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId in
                 await viewModel.create(
                     name: name, amount: amount, period: period, color: color,
                     currency: currency, reminderDays: reminderDays,
-                    lastPaymentDate: lastDate, nextPaymentDate: nextDate
+                    lastPaymentDate: lastDate, nextPaymentDate: nextDate,
+                    categoryId: categoryId
                 )
             }
             .presentationBackground(.ultraThinMaterial)
@@ -147,9 +148,10 @@ struct SubscriptionRowView: View {
 // MARK: - Create Form
 
 struct SubscriptionFormView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
-    /// Callback: (name, amountCents, period, color, currency, reminderDays, lastPayment?, nextPayment)
-    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date) async -> Void
+    /// Callback: (name, amountCents, period, color, currency, reminderDays, lastPayment?, nextPayment, categoryId?)
+    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date, String?) async -> Void
 
     @State private var name = ""
     @State private var amountText = ""
@@ -157,6 +159,7 @@ struct SubscriptionFormView: View {
     @State private var selectedCurrency: CurrencyCode = .rub
     @State private var selectedColor = "#60A5FA"
     @State private var reminderDays: Int = 1
+    @State private var selectedCategoryId: String?
     @State private var isSaving = false
 
     @State private var specifyLastPayment = false
@@ -167,6 +170,10 @@ struct SubscriptionFormView: View {
     @State private var nextManuallyEdited = false
 
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
+
+    private var expenseCategories: [Category] {
+        appViewModel.dataStore.categories.filter { $0.type == .expense }
+    }
 
     var body: some View {
         NavigationStack {
@@ -192,6 +199,13 @@ struct SubscriptionFormView: View {
                     Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
+                        }
+                    }
+
+                    Picker(String(localized: "subscriptions.category"), selection: $selectedCategoryId) {
+                        Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
+                        ForEach(expenseCategories, id: \.id) { cat in
+                            Text("\(cat.icon) \(cat.name)").tag(String?(cat.id))
                         }
                     }
                 }
@@ -278,7 +292,7 @@ struct SubscriptionFormView: View {
         let last: Date? = specifyLastPayment ? lastPaymentDate : nil
         await onSave(
             name, amountCents, period, selectedColor, selectedCurrency.rawValue,
-            reminderDays, last, nextPaymentDate
+            reminderDays, last, nextPaymentDate, selectedCategoryId
         )
         dismiss()
     }
