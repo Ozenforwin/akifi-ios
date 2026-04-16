@@ -612,6 +612,9 @@ struct LanguagePickerView: View {
                 subscriptions: subs,
                 formatAmount: { amount in
                     MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) }
+                },
+                formatAmountInCurrency: { amount, currency in
+                    InsightCardsView.formatInCurrency(amount: amount, currency: currency)
                 }
             )
         )

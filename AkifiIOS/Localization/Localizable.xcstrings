@@ -9148,6 +9148,27 @@
         }
       }
     },
+    "insights.showMore.%lld" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show %lld more" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar %lld más" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ещё %lld" } }
+      }
+    },
+    "insights.showLess" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show less" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar menos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Скрыть" } }
+      }
+    },
+    "insights.dismiss" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dismiss" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Descartar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Скрыть" } }
+      }
+    },
     "forecast.title" : {
       "extractionState" : "stale",
       "localizations" : {

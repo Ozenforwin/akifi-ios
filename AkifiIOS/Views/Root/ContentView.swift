@@ -105,6 +105,9 @@ struct ContentView: View {
                 subscriptions: subscriptions,
                 formatAmount: { amount in
                     MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) }
+                },
+                formatAmountInCurrency: { amount, currency in
+                    InsightCardsView.formatInCurrency(amount: amount, currency: currency)
                 }
             )
         )

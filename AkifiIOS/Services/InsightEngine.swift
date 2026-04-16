@@ -62,7 +62,13 @@ enum InsightEngine {
         let categories: [Category]
         let budgets: [Budget]
         let subscriptions: [SubscriptionTracker]
+        /// Format an amount in the user's display currency (used for transactions,
+        /// budgets, aggregates — anything in the user's chosen currency).
         let formatAmount: @Sendable (Int64) -> String
+        /// Format an amount using a specific currency symbol. Used for subscription
+        /// insights so a USD subscription (e.g. Claude $100) doesn't show as ₽100.
+        /// Defaults to `formatAmount` when the caller doesn't supply a formatter.
+        let formatAmountInCurrency: @Sendable (Int64, String?) -> String
         let now: Date
 
         init(
@@ -71,6 +77,7 @@ enum InsightEngine {
             budgets: [Budget],
             subscriptions: [SubscriptionTracker],
             formatAmount: @escaping @Sendable (Int64) -> String,
+            formatAmountInCurrency: (@Sendable (Int64, String?) -> String)? = nil,
             now: Date = Date()
         ) {
             self.transactions = transactions
@@ -78,6 +85,7 @@ enum InsightEngine {
             self.budgets = budgets
             self.subscriptions = subscriptions
             self.formatAmount = formatAmount
+            self.formatAmountInCurrency = formatAmountInCurrency ?? { amount, _ in formatAmount(amount) }
             self.now = now
         }
     }
@@ -223,8 +231,8 @@ enum InsightEngine {
                     kind: .subscriptionApproaching,
                     title: String(localized: "insight.subscription.\(sub.serviceName)"),
                     subtitle: days == 0
-                        ? String(localized: "insight.subscription.today.\(input.formatAmount(sub.amount))")
-                        : String(localized: "insight.subscription.inDays.\(days).\(input.formatAmount(sub.amount))")
+                        ? String(localized: "insight.subscription.today.\(input.formatAmountInCurrency(sub.amount, sub.currency))")
+                        : String(localized: "insight.subscription.inDays.\(days).\(input.formatAmountInCurrency(sub.amount, sub.currency))")
                 ))
             }
         }
