@@ -34,7 +34,6 @@ struct MarkdownBlockView: View {
         var currentNumberedItems: [String] = []
         var inCodeBlock = false
         var codeLines: [String] = []
-        var listType: String = "" // "bullet" or "numbered"
 
         func flushParagraph() {
             let joined = currentParagraphLines.joined(separator: " ").trimmingCharacters(in: .whitespaces)

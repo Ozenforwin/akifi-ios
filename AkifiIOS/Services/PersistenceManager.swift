@@ -11,12 +11,12 @@ final class PersistenceManager: Sendable {
     /// JSONEncoder / JSONDecoder may not conform to Sendable on all
     /// SDK versions. They are only used sequentially inside save/load,
     /// so nonisolated(unsafe) is safe here.
-    nonisolated(unsafe) private let encoder: JSONEncoder = {
+    private let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601
         return e
     }()
-    nonisolated(unsafe) private let decoder: JSONDecoder = {
+    private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
         return d

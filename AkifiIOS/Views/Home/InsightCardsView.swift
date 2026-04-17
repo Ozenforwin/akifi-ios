@@ -21,7 +21,7 @@ struct InsightCardsView: View {
                 categories: dataStore.categories,
                 budgets: dataStore.budgets,
                 subscriptions: dataStore.subscriptions,
-                formatAmount: { amount in fmt.formatAmount(amount.displayAmount) },
+                formatAmount: { amount in MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) } },
                 formatAmountInCurrency: { amount, currency in
                     Self.formatInCurrency(amount: amount, currency: currency)
                 }
