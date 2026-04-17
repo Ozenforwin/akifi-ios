@@ -14,7 +14,7 @@
 | Analytics & Push | Firebase (Analytics, Crashlytics, FCM, Performance) |
 | Графики | Swift Charts (нативный) |
 | Auth | Sign in with Apple, Google Sign-In, Email/Password, Telegram migration |
-| Локализация | 3 языка: Русский, English, Español (470+ ключей) |
+| Локализация | 3 языка: Русский, English, Español (1000+ ключей) |
 | Project Gen | XcodeGen (project.yml) |
 | CI/CD | Codemagic (TestFlight) |
 
@@ -43,11 +43,12 @@
 ### Data Flow
 
 `AppViewModel` (root) владеет:
-- `AuthManager` — аутентификация (Apple, Google, Email, Telegram migration)
+- `AuthManager` — аутентификация (Apple, Google, Email, Telegram migration) + auto-refresh при foreground
 - `CurrencyManager` — курсы валют, форматирование, конвертация
 - `PaymentManager` — проверка Premium статуса
-- `DataStore` — shared хранилище с параллельной загрузкой (`async let`) и предвычисленными кэшами (balance, income/expense по счетам, category index)
+- `DataStore` — shared хранилище с параллельной загрузкой (`async let`), предвычисленными кэшами (balance, income/expense по счетам, category index), `displayCategories` для UI-пикеров
 - `ThemeManager` — тема оформления
+- `JournalViewModel` — shared state журнала (переживает tab switches, 60s TTL кэш)
 
 Инжектируется через `.environment(appViewModel)` из `AkifiApp.swift`.
 
@@ -59,12 +60,13 @@
 - **Кэшированные форматтеры** — `AppDateFormatters` со static lazy свойствами
 - **Структурированное логирование** — `AppLogger` через `os.Logger` с категориями (data, ai, auth, network)
 - **Concurrency** — Task-based таймеры, async/await повсюду, Sendable репозитории
+- **Shared account category merging** — ID-based dedup в DataStore, name-based grouping в Reports
 
 ## Структура проекта
 
 ```
 AkifiIOS/
-├── AkifiApp.swift                    # Entry point, Firebase init
+├── AkifiApp.swift                    # Entry point, Firebase init, scenePhase auth refresh
 ├── AppConstants.swift                # Config из Info.plist (Supabase URL/Key)
 ├── Info.plist                        # Permissions, URL schemes
 ├── AkifiIOS.entitlements             # Apple Sign In, APNs
@@ -77,8 +79,10 @@ AkifiIOS/
 │   ├── Category.swift                # Категории расходов/доходов
 │   ├── SavingsGoal.swift             # Цели накоплений + проценты
 │   ├── Subscription.swift            # Трекер подписок
+│   ├── SubscriptionPayment.swift     # Платежи подписок
+│   ├── FinancialNote.swift           # Журнал: заметки + рефлексии (NoteType, NoteMood)
 │   ├── Achievement.swift             # Достижения (9 категорий, 4 тира)
-│   ├── AssistantModels.swift         # AI request/response + AnyCodableValue
+│   ├── AssistantModels.swift         # AI request/response + AnyCodableValue + error classification
 │   ├── AiConversation.swift          # AI чат-сессии
 │   ├── Profile.swift                 # Профиль пользователя
 │   ├── ReceiptScan.swift             # Данные OCR чека
@@ -87,22 +91,30 @@ AkifiIOS/
 │   └── UserSubscription.swift        # Premium статус
 │
 ├── Services/
-│   ├── AuthManager.swift             # Auth: Apple/Google/Email/Telegram
-│   ├── SupabaseManager.swift         # Singleton Supabase client
-│   ├── DataStore.swift               # Shared state + параллельная загрузка
+│   ├── AuthManager.swift             # Auth: Apple/Google/Email/Telegram + refreshSessionIfNeeded()
+│   ├── SupabaseManager.swift         # Singleton Supabase client, lowercased currentUserId()
+│   ├── DataStore.swift               # Shared state + параллельная загрузка + displayCategories
 │   ├── CurrencyManager.swift         # Мультивалюта, курсы, форматирование
 │   ├── PaymentManager.swift          # Premium-подписка
 │   ├── ThemeManager.swift            # Тема (light/dark)
 │   ├── BudgetMath.swift              # Вычисление метрик бюджетов
+│   ├── CashFlowEngine.swift          # Прогноз денежного потока
+│   ├── InsightEngine.swift           # Умные финансовые инсайты + weekly digest
 │   ├── CalculatorState.swift         # Калькулятор (locale-aware)
 │   ├── ExchangeRateService.swift     # API курсов с retry + fallback
 │   ├── AnalyticsService.swift        # Firebase Analytics (18 типов событий)
-│   ├── NotificationManager.swift     # Push-уведомления
+│   ├── NotificationManager.swift     # Push-уведомления + weekly digest scheduling
 │   ├── HapticManager.swift           # Тактильная обратная связь
 │   ├── CSVExporter.swift             # Экспорт в CSV
 │   ├── KeychainService.swift         # Secure storage (токены, FCM)
 │   ├── AppLogger.swift               # os.Logger (data/ai/auth/network)
 │   ├── DateFormatters.swift          # Кэш статических DateFormatter
+│   ├── NetworkMonitor.swift          # Мониторинг подключения к сети
+│   ├── OfflineQueue.swift            # Очередь операций при отсутствии сети
+│   ├── PersistenceManager.swift      # Локальное хранение (JSON encode/decode)
+│   ├── SubscriptionDateEngine.swift  # Расчёт дат подписок (billing period, next payment)
+│   ├── SubscriptionMatcher.swift     # Авто-сопоставление транзакций с подписками
+│   ├── JournalPhotoUploader.swift    # Загрузка фото в Supabase Storage (resize, JPEG)
 │   └── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
 │
 ├── Repositories/                     # Data access (все Sendable)
@@ -113,89 +125,132 @@ AkifiIOS/
 │   ├── SavingsGoalRepository.swift
 │   ├── SubscriptionTrackerRepository.swift
 │   ├── AchievementRepository.swift
-│   ├── AiRepository.swift            # AI edge functions
+│   ├── AiRepository.swift            # AI edge functions + invokeWithAuthRetry
+│   ├── FinancialNoteRepository.swift # Журнал CRUD + fetchAllTags
 │   ├── ProfileRepository.swift
 │   ├── NotificationRepository.swift
 │   └── FeatureFlagRepository.swift
 │
 ├── ViewModels/                       # @Observable @MainActor
-│   ├── AppViewModel.swift            # Root state coordinator
+│   ├── AppViewModel.swift            # Root state coordinator + journalViewModel
 │   ├── AssistantViewModel.swift      # AI чат + голос + rate limiting
 │   ├── AnalyticsViewModel.swift      # Аналитика по периодам
 │   ├── BudgetsViewModel.swift        # Управление бюджетами
 │   ├── SavingsViewModel.swift        # Цели накоплений
 │   ├── SubscriptionsViewModel.swift  # Подписки
 │   ├── AchievementsViewModel.swift   # Достижения и уровни
-│   ├── ReportsViewModel.swift        # Отчёты
+│   ├── ReportsViewModel.swift        # Отчёты (name-based category merge для shared accounts)
 │   ├── TransactionsViewModel.swift   # Фильтры, поиск
+│   ├── JournalViewModel.swift        # Журнал: CRUD, tags, caching, hiddenTags
 │   └── HomeViewModel.swift           # Home tab
 │
 ├── Views/
 │   ├── Root/
-│   │   └── ContentView.swift         # Auth router + MainTabView + AppTab enum
+│   │   ├── ContentView.swift         # Auth router + MainTabView + AppTab enum
+│   │   ├── OnboardingView.swift      # Онбординг новых пользователей
+│   │   └── SplashView.swift          # Splash screen
 │   ├── Home/
-│   │   ├── HomeTabView.swift         # Счета, саммари, инсайты
+│   │   ├── HomeTabView.swift         # Счета, savings, инсайты, streak
 │   │   ├── AccountCarouselView.swift # Карусель с frosted glass
 │   │   ├── AccountFormView.swift     # Создание/редактирование счёта
 │   │   ├── ShareAccountView.swift    # Общие счета
 │   │   ├── SummaryCardsView.swift    # Доходы/расходы карточки
-│   │   ├── InsightCardsView.swift    # Умные инсайты
+│   │   ├── InsightCardsView.swift    # Умные инсайты (swipeable)
+│   │   ├── HomeSavingsSnapshotView.swift # Превью целей накоплений
 │   │   ├── RecentTransactionsView.swift
-│   │   └── StreakBadgeView.swift     # Streak активности
+│   │   └── StreakBadgeView.swift      # Streak активности
 │   ├── Transactions/
-│   │   ├── TransactionsTabView.swift # Список транзакций + фильтры
-│   │   ├── TransactionFormView.swift # Создание с калькулятором
+│   │   ├── TransactionsTabView.swift  # Список транзакций + фильтры
+│   │   ├── TransactionFormView.swift  # Создание с калькулятором
 │   │   ├── TransactionRowView.swift
-│   │   ├── TransferFormView.swift    # Переводы между счетами
-│   │   └── CategoryPickerView.swift
+│   │   ├── TransferFormView.swift     # Переводы между счетами
+│   │   ├── CategoryPickerView.swift
+│   │   ├── SearchView.swift           # Глобальный поиск
+│   │   ├── TransactionSearchView.swift # Поиск транзакций
+│   │   └── TransactionsMiniDashboardView.swift # Мини-дашборд
 │   ├── Analytics/
-│   │   ├── AnalyticsTabView.swift    # Портфель, тренды, категории
-│   │   ├── CashflowTrendView.swift   # Денежный поток
+│   │   ├── AnalyticsTabView.swift     # Портфель, тренды, категории
+│   │   ├── CashflowTrendView.swift    # Тренд доходов/расходов (6 мес)
+│   │   ├── CashflowChartView.swift    # Bar chart денежного потока
+│   │   ├── CashFlowForecastView.swift # Прогноз денежного потока
 │   │   ├── CategoryBreakdownView.swift # Donut chart по категориям
+│   │   ├── PortfolioChartView.swift   # Портфель счетов
 │   │   ├── MonthlySummaryView.swift
-│   │   └── WidgetFilterView.swift    # Фильтр по периодам
+│   │   ├── DailyLimitWidgetView.swift # Рекомендуемый расход на день
+│   │   └── WidgetFilterView.swift     # Фильтр по периодам
+│   ├── Reports/
+│   │   └── ReportsView.swift          # Отчёты: donut chart + category list + detail sheet
 │   ├── Budgets/
-│   │   ├── BudgetsTabView.swift      # Бюджеты + подписки
-│   │   ├── BudgetFormView.swift      # Создание/редактирование
-│   │   └── BudgetCardView.swift      # Карточка с прогрессом
+│   │   ├── BudgetsTabView.swift       # Бюджеты + подписки
+│   │   ├── BudgetFormView.swift       # Создание/редактирование
+│   │   ├── BudgetCardView.swift       # Карточка с прогрессом
+│   │   └── BudgetHealthSummaryView.swift # Сводка здоровья бюджетов
 │   ├── Savings/
 │   │   ├── SavingsGoalListView.swift
 │   │   ├── SavingsGoalDetailView.swift
 │   │   ├── SavingsGoalFormView.swift
+│   │   ├── SavingsGoalCardView.swift
 │   │   └── ContributionSheetView.swift
+│   ├── Journal/ (BETA, скрыт из UI)
+│   │   ├── JournalTabView.swift       # Список заметок + фильтры + pull-to-refresh
+│   │   ├── JournalNoteFormView.swift   # Unified форма (Note + Reflection)
+│   │   ├── JournalNoteDetailView.swift # Детали + ReflectionPeriodCard
+│   │   ├── JournalNoteCardView.swift   # 3 варианта карточек
+│   │   ├── JournalReflectionFormView.swift # Wrapper для Reflection
+│   │   ├── JournalPhotoViewer.swift   # Full-screen photo viewer (pinch-zoom)
+│   │   ├── JournalSharedComponents.swift # TypePill, TagFilterSheet, SuggestionChip
+│   │   └── TransactionPickerSheet.swift  # Выбор транзакции для привязки
 │   ├── Assistant/
-│   │   ├── AssistantView.swift       # Полноэкранный AI чат
+│   │   ├── AssistantView.swift        # Полноэкранный AI чат
 │   │   ├── MessageBubbleView.swift
-│   │   ├── ActionPreviewSheet.swift  # Preview→confirm действий
-│   │   └── EvidenceCardView.swift    # Heatmap аномалий
+│   │   ├── MarkdownBlockView.swift    # Рендеринг markdown в сообщениях
+│   │   ├── QuickPromptsView.swift     # Быстрые подсказки
+│   │   ├── ActionPreviewSheet.swift   # Preview→confirm действий
+│   │   └── EvidenceCardView.swift     # Heatmap аномалий
 │   ├── Auth/
-│   │   ├── LoginView.swift           # Apple/Google/Email sign in
-│   │   ├── EmailAuthView.swift       # Email регистрация/вход
-│   │   ├── MigrationCodeView.swift   # Миграция из Telegram
-│   │   ├── OnboardingView.swift      # Онбординг новых пользователей
-│   │   └── SplashView.swift
+│   │   ├── LoginView.swift            # Apple/Google/Email sign in
+│   │   ├── EmailAuthView.swift        # Email регистрация/вход
+│   │   ├── ForgotPasswordView.swift   # Сброс пароля
+│   │   ├── AuthComponents.swift       # Shared auth UI components
+│   │   └── MigrationCodeView.swift    # Миграция из Telegram
 │   ├── Settings/
-│   │   ├── SettingsView.swift        # Все настройки
-│   │   ├── ProfileEditView.swift     # Редактирование профиля
+│   │   ├── SettingsView.swift         # Все настройки
+│   │   ├── ProfileEditView.swift      # Редактирование профиля + аватар
 │   │   ├── CategoriesManagementView.swift
-│   │   ├── BankImportView.swift      # Импорт PDF выписок
-│   │   ├── ExportView.swift          # CSV экспорт
-│   │   └── PremiumPaywallView.swift  # Paywall
+│   │   ├── TagManagementView.swift    # Управление тегами журнала
+│   │   ├── AISettingsView.swift       # Настройки AI ассистента
+│   │   ├── NotificationSettingsView.swift # Настройки уведомлений
+│   │   ├── BankImportView.swift       # Импорт PDF выписок
+│   │   ├── ExportView.swift           # CSV экспорт
+│   │   └── PremiumPaywallView.swift   # Paywall
+│   ├── Subscriptions/
+│   │   ├── SubscriptionListView.swift # Список подписок
+│   │   └── SubscriptionPaymentsHistoryView.swift # История платежей
 │   ├── Shared/
 │   │   ├── FAB/
 │   │   │   └── CategorySheetView.swift # Grid/list выбор категорий
-│   │   ├── FABView.swift             # Плавающая кнопка + arc menu + wheel
-│   │   ├── SwipeableRow.swift        # Swipe-to-action строки
-│   │   ├── CachedAsyncImage.swift    # Image cache (50 MB limit)
+│   │   ├── FABView.swift              # Плавающая кнопка + arc menu + wheel
+│   │   ├── FilterHeaderView.swift     # Переиспользуемые filter chips
+│   │   ├── SwipeableRow.swift         # Swipe-to-action строки
+│   │   ├── CachedAsyncImage.swift     # Image cache (NSCache + disk, 50 MB)
+│   │   ├── CurrencyText.swift         # Форматированный текст суммы
 │   │   ├── CalculatorKeyboardView.swift
+│   │   ├── HorizontalSwipeGesture.swift # UIKit pan gesture для swipe
+│   │   ├── SubscriptionMatchBanner.swift # Баннер авто-привязки подписки
+│   │   ├── AppHeaderView.swift
+│   │   ├── LoadingView.swift
+│   │   ├── ReceiptScannerView.swift
 │   │   ├── WelcomeOverlayView.swift
 │   │   └── EmptyStateView.swift
 │   ├── Spotlight/
-│   │   ├── SpotlightStep.swift       # Онбординг-подсветка элементов
+│   │   ├── SpotlightStep.swift        # Онбординг-подсветка элементов
 │   │   ├── SpotlightOverlayView.swift
+│   │   ├── SpotlightModifier.swift    # .spotlight() ViewModifier
 │   │   └── SpotlightManager.swift
 │   └── Achievements/
-│       └── AchievementsView.swift    # Уровни и достижения
+│       ├── AchievementsView.swift     # Уровни и достижения
+│       ├── AchievementBadgeView.swift # Бейдж с прогресс-кольцом
+│       └── LevelUpView.swift          # Celebration popup
 │
 ├── Extensions/
 │   ├── Color+Hex.swift               # Hex → Color
@@ -206,7 +261,7 @@ AkifiIOS/
 │   └── String+Nonce.swift            # Nonce для Apple Sign In
 │
 ├── Localization/
-│   └── Localizable.xcstrings         # 470+ ключей, 3 языка
+│   └── Localizable.xcstrings         # 1000+ ключей, 3 языка (RU/EN/ES)
 │
 ├── Assets.xcassets/
 │   ├── AppIcon.appiconset
@@ -224,7 +279,7 @@ AkifiIOS/
 - **Мультисчета** — карусель с круговой прокруткой, frosted glass эффект, стек-подложки
 - **Транзакции** — CRUD с категориями, описанием, датой+временем, мультивалютой
 - **Переводы** между счетами с group tracking
-- **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer)
+- **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer), корректный merge категорий в отчётах
 - **Мультивалюта** — курсы в реальном времени, конвертация отображения
 
 ### Бюджеты
@@ -234,6 +289,7 @@ AkifiIOS/
 - **Rollover** — перенос остатка на следующий период
 - **Alert thresholds** — настраиваемые пороги 80%/100%
 - **По категориям или счетам**
+- **Health summary** — общая сводка здоровья бюджетов
 
 ### Цели накоплений
 - **Прогресс-кольцо** с визуальным индикатором
@@ -241,20 +297,39 @@ AkifiIOS/
 - **Пополнения/снятия** как внутренние транзакции
 - **Дедлайн и напоминания**
 - **Pace tracking** — on_track / falling_behind / completed
+- **Home snapshot** — компактное превью на главном экране
 
 ### Подписки
 - **Трекер** с прогресс-баром обратного отсчёта до списания
 - **Reminder days** — уведомления за N дней
 - **Авто-транзакции** при списании
 - **Мультивалюта**
+- **Авто-сопоставление** — банковские транзакции привязываются к подпискам (SubscriptionMatcher)
+- **История платежей** — отдельный экран с хронологией
 
 ### Аналитика
 - **Портфель счетов** — цветная полоса-прогресс, список с процентами
 - **Тренд доходов/расходов** — 6 месяцев, две кривые, тап-для-тултипа
 - **Денежный поток** — bar chart по периодам
+- **Прогноз** — CashFlowEngine предсказывает будущие расходы
 - **По категориям** — donut chart, сворачиваемый список, тап→sheet с транзакциями
 - **Дневной лимит** — рекомендуемый расход на сегодня
 - **Summary карточки** — доходы/расходы за текущий месяц
+
+### Отчёты
+- **Donut chart** по категориям с иконками на линиях
+- **Фильтры** — по счёту, периоду (месяц/квартал/год)
+- **Детализация** — тап на категорию → sheet со всеми транзакциями
+- **Shared accounts** — категории с одинаковыми именами объединяются для корректных итогов
+
+### Журнал (BETA, скрыт из UI)
+- **Два типа записей** — Note (быстрая заметка) и Reflection (структурированная рефлексия с промптами)
+- **Mood picker** — emoji-only 44pt circles, accessible
+- **Tag system** — inline chip picker, autocomplete, удаление из истории
+- **Фото** — upload в Supabase Storage, inline thumbnails, full-screen viewer с pinch-zoom
+- **Transaction linking** — привязка заметки к транзакции через searchable picker
+- **Reflection** — PeriodCard с income/expense/net/top categories + 4 guided prompts
+- **Кэширование** — shared JournalViewModel с 60s TTL
 
 ### AI Ассистент
 - **Полноэкранный чат** с Supabase Edge Function (assistant-query)
@@ -267,6 +342,13 @@ AkifiIOS/
 - **История бесед** — до 30 сохранённых, автоархивация
 - **Rate limiting** — клиентская защита от спама (2 сек между сообщениями)
 - **Сохранение контекста** при переходе между экранами
+- **Auth retry** — автоматический refresh + retry при 401, JWT grace period на сервере
+- **Quick prompts** — быстрые подсказки для начала диалога
+
+### Умные инсайты
+- **InsightEngine** — анализирует транзакции и генерирует персональные советы
+- **Swipeable карточки** с UIKit pan gesture
+- **Weekly digest** — еженедельная сводка через push-уведомление
 
 ### Сканер чеков
 - **Камера или галерея** → сжатие до 1800px JPEG
@@ -292,6 +374,7 @@ AkifiIOS/
 - **Inactivity reminder** — нет транзакций >3 дня
 - **Weekly pace** — темп расходов >120% бюджета
 - **Subscription reminder** — N дней до списания
+- **Weekly digest** — еженедельная сводка
 - **Настройки** синхронизируются с сервером
 
 ### Другое
@@ -301,10 +384,12 @@ AkifiIOS/
 - **Тактильный отклик** — haptic на таббар, FAB, достижения (отключаемый)
 - **Тёмная тема** — адаптивные цвета на всех экранах
 - **Portrait** на iPhone, все ориентации на iPad
+- **Offline indicator** — баннер при потере сети
+- **Network monitor** — NWPathMonitor для отслеживания состояния сети
 
 ## Локализация
 
-470+ ключей на 3 языка:
+1000+ ключей на 3 языка:
 - Русский (основной)
 - English
 - Español
@@ -317,11 +402,11 @@ AkifiIOS/
 
 | Пакет | Версия | Назначение |
 |-------|--------|-----------|
-| supabase-swift | 2.43+ | REST/realtime клиент, auth |
+| supabase-swift | 2.43+ | REST/realtime клиент, auth, storage, functions |
 | firebase-ios-sdk | 11.0.0+ | Analytics, Crashlytics, FCM, Performance |
 | GoogleSignIn-iOS | 8.0.0+ | OAuth для Google Sign-In |
 
-Встроенные фреймворки: SwiftUI, Swift Charts, AVFoundation, PhotosUI, AuthenticationServices, CoreHaptics.
+Встроенные фреймворки: SwiftUI, Swift Charts, AVFoundation, PhotosUI, AuthenticationServices, CoreHaptics, Network.
 
 ## Firebase
 
@@ -335,13 +420,17 @@ AkifiIOS/
 ## Supabase
 
 ### Таблицы
-`profiles`, `accounts`, `account_members`, `transactions`, `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`
+`profiles`, `accounts`, `account_members`, `transactions`, `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`
+
+### Storage Buckets
+- `avatars` — аватары пользователей (public)
+- `journal-photos` — фото журнала (public, 5MB limit, JPEG/PNG/HEIC/WebP, RLS по user_id)
 
 ### Edge Functions
 
 | Функция | Назначение |
 |---------|-----------|
-| `assistant-query` | AI-ассистент (intent classification + coaching LLM) |
+| `assistant-query` | AI-ассистент (intent classification + coaching LLM), --no-verify-jwt + JWT grace period |
 | `assistant-action` | Действия ассистента (preview/confirm) |
 | `transcribe-voice` | Голосовая транскрипция (Whisper) |
 | `analyze-receipt` | OCR чеков (OpenAI Vision) |
@@ -349,12 +438,14 @@ AkifiIOS/
 | `parse-bank-statement` | Парсинг PDF выписок |
 | `import-bank-statement` | Импорт транзакций из выписки |
 | `smart-notifications` | Серверные push (FCM + Telegram) |
+| `coaching-reminders` | Коучинговые напоминания |
 | `check-subscriptions` | Напоминания о подписках + авто-транзакции |
+| `send-weekly-digest` | Еженедельная сводка |
 | `ios-migrate-auth` | Миграция из Telegram |
 | `delete-account` | Удаление аккаунта (Apple compliance) |
 
 ### RLS
-Все таблицы защищены Row Level Security. Данные фильтруются по `user_id`.
+Все таблицы защищены Row Level Security. Данные фильтруются по `user_id`. Shared accounts имеют отдельные policies для чтения данных участников.
 
 ## Установка и запуск
 
@@ -409,6 +500,8 @@ open AkifiIOS.xcodeproj
 - RLS на всех таблицах Supabase
 - Клиентский rate limiting для AI-чата
 - Retry с exponential backoff для внешних API
+- JWT grace period (2h) на edge functions для expired tokens
+- Proactive session refresh при возврате из background
 
 ## Дизайн
 
@@ -420,6 +513,8 @@ open AkifiIOS.xcodeproj
 - **Emoji конфетти** — particle system для celebration popup
 - **Скруглённый таббар** — 24pt radius, тень, 44pt touch targets
 - **FAB** — floating action button с arc menu (long press) и wheel/grid/list (tap)
+- **TypePill** — inline capsule для типов записей (Note/Reflection)
+- **CachedAsyncImage** — двухуровневый кэш (NSCache + disk SHA256)
 
 ## Лицензия
 
