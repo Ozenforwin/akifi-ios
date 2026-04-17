@@ -195,7 +195,7 @@ struct InsightCardView: View {
             )
             .offset(x: dragOffset)
         }
-        .opacity(1.0 - min(abs(dragOffset) / 400, 0.4))
+        .opacity(1.0 - min(abs(dragOffset) / 400.0, 0.4))
         // UIKit-backed pan recogniser: only starts on predominantly-horizontal
         // drags and cooperates with the outer ScrollView's vertical pan via
         // `shouldRecognizeSimultaneouslyWith`. This is the only reliable way
