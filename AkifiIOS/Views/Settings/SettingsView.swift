@@ -76,6 +76,12 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "tag.fill", color: .orange, title: String(localized: "budgets.categories"))
                     }
+
+                    NavigationLink {
+                        TagManagementView()
+                    } label: {
+                        SettingsRow(icon: "number", color: .purple, title: String(localized: "journal.manageTagsTitle"))
+                    }
                 }
 
                 Section(header: Text(String(localized: "settings.section.settings"))) {

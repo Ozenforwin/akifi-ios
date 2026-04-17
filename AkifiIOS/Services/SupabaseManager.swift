@@ -32,6 +32,10 @@ final class SupabaseManager: Sendable {
     // Throws if there is no active session — callers should treat that as a
     // precondition for any write.
     func currentUserId() async throws -> String {
-        try await client.auth.session.user.id.uuidString
+        // Swift's `UUID.uuidString` returns UPPERCASE; Postgres `auth.uid()::text`
+        // is lowercase. Storage policies that compare folder names to `auth.uid()::text`
+        // (e.g. `(storage.foldername(name))[1] = auth.uid()::text`) fail without
+        // this lowercasing — photo uploads were hit by RLS violations (BUG-001).
+        try await client.auth.session.user.id.uuidString.lowercased()
     }
 }

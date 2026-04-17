@@ -6,6 +6,7 @@ import FirebaseMessaging
 @main
 struct AkifiApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @Environment(\.scenePhase) private var scenePhase
     @State private var appViewModel = AppViewModel()
 
     init() {
@@ -26,6 +27,13 @@ struct AkifiApp: App {
                 .environment(appViewModel)
                 .preferredColorScheme(appViewModel.themeManager.selectedScheme)
                 .onAppear { installTapToDismissKeyboard() }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                // App returned to foreground — refresh auth token proactively
+                // so subsequent requests don't hit 401 with a stale access token.
+                Task { await appViewModel.authManager.refreshSessionIfNeeded() }
+            }
         }
     }
 

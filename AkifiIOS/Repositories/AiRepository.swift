@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Functions
 
 final class AiRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
@@ -79,10 +80,74 @@ final class AiRepository: Sendable {
                 body["recent_messages_json"] = AnyJSON(stringLiteral: jsonString)
             }
         }
-        return try await supabase.functions.invoke(
-            "assistant-query",
-            options: .init(body: body)
-        )
+        return try await invokeWithAuthRetry("assistant-query", body: body)
+    }
+
+    /// Invoke an edge function with one-shot auth retry.
+    ///
+    /// If the first call fails with an authentication error (401 / expired JWT),
+    /// refresh the Supabase session and try once more. Avoids the "Сессия истекла"
+    /// alert for the common case of a stale access token after background suspension.
+    ///
+    /// Key fix: after refreshSession(), we explicitly read the fresh accessToken
+    /// and pass it via FunctionInvokeOptions.headers to bypass the race condition
+    /// where the SDK's internal Functions auth header hasn't been updated yet.
+    private func invokeWithAuthRetry<T: Decodable>(
+        _ name: String,
+        body: [String: AnyJSON]
+    ) async throws -> T {
+        // Proactively refresh the session before calling the edge function.
+        // This prevents 401s caused by stale tokens after background suspension.
+        let freshOptions = await freshInvokeOptions(body: body)
+
+        do {
+            return try await supabase.functions.invoke(name, options: freshOptions)
+        } catch {
+            guard isAuthFailure(error) else { throw error }
+            AppLogger.ai.warning("Edge function \(name) hit auth failure — refreshing and retrying")
+
+            // Force-refresh the session and get a guaranteed fresh token.
+            let retryOptions = await refreshAndBuildOptions(body: body)
+            return try await supabase.functions.invoke(name, options: retryOptions)
+        }
+    }
+
+    /// Build FunctionInvokeOptions with an explicit Authorization header
+    /// from the current session, bypassing the SDK's potentially stale internal state.
+    private func freshInvokeOptions(body: [String: AnyJSON]) async -> FunctionInvokeOptions {
+        do {
+            let session = try await supabase.auth.session
+            let token = session.accessToken
+            AppLogger.ai.debug("Using access token expiring at \(session.expiresAt)")
+            return .init(headers: ["Authorization": "Bearer \(token)"], body: body)
+        } catch {
+            AppLogger.ai.warning("Could not read session for fresh token: \(error.localizedDescription)")
+            // Fall back to SDK's internal auth header
+            return .init(body: body)
+        }
+    }
+
+    /// Refresh the session, then build options with the new token.
+    private func refreshAndBuildOptions(body: [String: AnyJSON]) async -> FunctionInvokeOptions {
+        do {
+            let session = try await supabase.auth.refreshSession()
+            let token = session.accessToken
+            AppLogger.ai.info("Refreshed session OK, new token expires at \(session.expiresAt)")
+            return .init(headers: ["Authorization": "Bearer \(token)"], body: body)
+        } catch {
+            AppLogger.ai.error("refreshSession() failed: \(error.localizedDescription)")
+            // Last resort: try with whatever the SDK has internally
+            return .init(body: body)
+        }
+    }
+
+    private func isAuthFailure(_ error: Error) -> Bool {
+        if case FunctionsError.httpError(code: 401, data: _) = error { return true }
+        if case FunctionsError.httpError(code: 403, data: _) = error { return true }
+        let description = "\(error)".lowercased()
+        return description.contains("401")
+            || description.contains("jwt")
+            || description.contains("unauthorized")
     }
 
     // MARK: - Action Preview & Execute

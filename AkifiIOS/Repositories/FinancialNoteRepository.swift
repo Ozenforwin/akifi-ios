@@ -83,6 +83,9 @@ final class FinancialNoteRepository: Sendable {
 }
 
 struct CreateNoteInput: Encodable, Sendable {
+    /// Optional client-generated UUID (lowercase). When present, the note row is
+    /// created with this id so pre-uploaded photo paths can reference it.
+    let id: String?
     let user_id: String
     let title: String?
     let content: String
@@ -95,15 +98,68 @@ struct CreateNoteInput: Encodable, Sendable {
     let period_end: String?
 }
 
+/// Partial update payload. Fields left as `nil` are omitted from the JSON so
+/// existing DB values are preserved. `transaction_id`, `period_start` and
+/// `period_end` use double-optional so callers can explicitly clear them by
+/// passing `.some(nil)` (encoded as JSON `null`).
 struct UpdateNoteInput: Encodable, Sendable {
     let title: String?
     let content: String?
+    let transaction_id: String??
     let tags: [String]?
     let mood: String?
     let photo_urls: [String]?
+    let period_start: String??
+    let period_end: String??
 
-    init(title: String? = nil, content: String? = nil, tags: [String]? = nil, mood: String? = nil, photo_urls: [String]? = nil) {
-        self.title = title; self.content = content
-        self.tags = tags; self.mood = mood; self.photo_urls = photo_urls
+    init(
+        title: String? = nil,
+        content: String? = nil,
+        transaction_id: String?? = nil,
+        tags: [String]? = nil,
+        mood: String? = nil,
+        photo_urls: [String]? = nil,
+        period_start: String?? = nil,
+        period_end: String?? = nil
+    ) {
+        self.title = title
+        self.content = content
+        self.transaction_id = transaction_id
+        self.tags = tags
+        self.mood = mood
+        self.photo_urls = photo_urls
+        self.period_start = period_start
+        self.period_end = period_end
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title, content
+        case transaction_id
+        case tags, mood
+        case photo_urls
+        case period_start
+        case period_end
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(content, forKey: .content)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encodeIfPresent(mood, forKey: .mood)
+        try c.encodeIfPresent(photo_urls, forKey: .photo_urls)
+        // Double-optional: .none = omit, .some(nil) = encode JSON null, .some(x) = encode x
+        if let tx = transaction_id {
+            if let tx { try c.encode(tx, forKey: .transaction_id) }
+            else { try c.encodeNil(forKey: .transaction_id) }
+        }
+        if let ps = period_start {
+            if let ps { try c.encode(ps, forKey: .period_start) }
+            else { try c.encodeNil(forKey: .period_start) }
+        }
+        if let pe = period_end {
+            if let pe { try c.encode(pe, forKey: .period_end) }
+            else { try c.encodeNil(forKey: .period_end) }
+        }
     }
 }

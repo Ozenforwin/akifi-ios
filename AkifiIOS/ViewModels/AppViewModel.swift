@@ -7,6 +7,9 @@ final class AppViewModel {
     let paymentManager = PaymentManager()
     let dataStore = DataStore()
     let themeManager = ThemeManager()
+    /// Shared Journal view-model — survives tab switches so the Journal list
+    /// and tag index are not reloaded on every return to the tab.
+    let journalViewModel = JournalViewModel()
 
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     private var hasLoadedData = false

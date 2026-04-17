@@ -75,6 +75,7 @@ import { analyzeWithLLM } from './analysis-llm.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const SUPABASE_JWT_SECRET = Deno.env.get('JWT_SECRET') ?? Deno.env.get('SUPABASE_JWT_SECRET') ?? '';
 const AI_DAILY_LIMIT = Math.max(10, Number(Deno.env.get('AI_DAILY_LIMIT') ?? '40'));
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
 
@@ -192,15 +193,122 @@ function json(data: unknown, status = 200): Response {
 
 // ── Auth helper ──
 
-async function resolveUserId(authHeader: string): Promise<string | null> {
+// Grace period: accept expired JWTs that are less than 2 hours old.
+// This eliminates the "session expired" error for users whose iOS app
+// sends a slightly stale token (background suspension, race conditions).
+const JWT_GRACE_PERIOD_SEC = 2 * 60 * 60; // 2 hours
+
+/**
+ * Decode a base64url string (no padding) to a UTF-8 string.
+ */
+function base64UrlDecode(str: string): string {
+  // Replace URL-safe chars and add padding
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  if (pad === 2) base64 += '==';
+  else if (pad === 3) base64 += '=';
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/**
+ * Verify HMAC-SHA256 signature and extract user ID from a Supabase JWT.
+ * Returns the user ID (sub claim) if the signature is valid AND the token
+ * is either not expired or expired within the grace period.
+ * Returns null if the JWT is malformed, signature is invalid, or too old.
+ */
+async function verifyJwtManually(token: string): Promise<string | null> {
+  if (!SUPABASE_JWT_SECRET) {
+    console.warn('[auth] JWT_SECRET not available, cannot verify JWT manually');
+    return null;
+  }
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Verify HMAC-SHA256 signature
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(SUPABASE_JWT_SECRET);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+
+    const signedInput = encoder.encode(`${headerB64}.${payloadB64}`);
+    // Decode base64url signature to ArrayBuffer
+    let sigB64 = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
+    const sigPad = sigB64.length % 4;
+    if (sigPad === 2) sigB64 += '==';
+    else if (sigPad === 3) sigB64 += '=';
+    const sigBinary = atob(sigB64);
+    const sigBytes = new Uint8Array(sigBinary.length);
+    for (let i = 0; i < sigBinary.length; i++) sigBytes[i] = sigBinary.charCodeAt(i);
+
+    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, signedInput);
+    if (!isValid) {
+      console.warn('[auth] JWT signature verification failed');
+      return null;
+    }
+
+    // Parse payload
+    const payload = JSON.parse(base64UrlDecode(payloadB64));
+    const sub = payload.sub;
+    if (typeof sub !== 'string' || !sub) {
+      console.warn('[auth] JWT has no sub claim');
+      return null;
+    }
+
+    // Check expiry with grace period
+    const exp = payload.exp;
+    if (typeof exp === 'number') {
+      const now = Math.floor(Date.now() / 1000);
+      if (now > exp + JWT_GRACE_PERIOD_SEC) {
+        console.warn(`[auth] JWT expired ${now - exp}s ago (grace=${JWT_GRACE_PERIOD_SEC}s), rejecting`);
+        return null;
+      }
+      if (now > exp) {
+        console.info(`[auth] JWT expired ${now - exp}s ago but within grace period, accepting user ${sub}`);
+      }
+    }
+
+    return sub;
+  } catch (err) {
+    console.error('[auth] JWT manual verification error:', err);
+    return null;
+  }
+}
+
+interface ResolveResult {
+  userId: string;
+  /** true when the token was accepted via grace period (expired but valid signature) */
+  viaGracePeriod: boolean;
+}
+
+async function resolveUserId(authHeader: string): Promise<ResolveResult | null> {
+  // Stage 1: Try standard GoTrue validation (fast path for valid tokens)
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: authHeader } },
   });
 
   const { data, error } = await anonClient.auth.getUser();
-  if (error || !data.user?.id) return null;
-  return data.user.id;
+  if (!error && data.user?.id) return { userId: data.user.id, viaGracePeriod: false };
+
+  // Stage 2: GoTrue rejected the token (likely expired JWT).
+  // Manually verify signature and accept within grace period.
+  console.info(`[auth] GoTrue rejected token (${error?.message ?? 'no user'}), trying manual JWT verification`);
+  const token = authHeader.replace(/^bearer\s+/i, '');
+  const manualUserId = await verifyJwtManually(token);
+  if (manualUserId) return { userId: manualUserId, viaGracePeriod: true };
+  return null;
 }
 
 function startOfTodayIso(): string {
@@ -353,15 +461,25 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized', detail: 'Missing bearer token' }, 401);
     }
 
-    const resolvedUserId = await resolveUserId(authHeader);
-    if (!resolvedUserId) {
+    const resolveResult = await resolveUserId(authHeader);
+    if (!resolveResult) {
       return json({ error: 'Unauthorized', detail: 'Failed to resolve user from token' }, 401);
     }
-    userId = resolvedUserId;
-    anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-      global: { headers: { Authorization: authHeader } },
-    });
+    userId = resolveResult.userId;
+
+    if (resolveResult.viaGracePeriod) {
+      // Token expired but accepted via grace period — use service_role for DB queries
+      // since the expired JWT won't pass PostgREST validation.
+      console.info(`[auth] User ${userId} authenticated via grace period, using service client`);
+      anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    } else {
+      anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: authHeader } },
+      });
+    }
   }
 
   const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {

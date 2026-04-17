@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum NoteMood: String, Codable, Sendable, CaseIterable {
     case great, good, neutral, worried, stressed
@@ -24,6 +25,9 @@ enum NoteMood: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Stored enum in DB. User-facing picker only exposes `.freeform` and `.reflection`.
+/// `.transaction` is kept for backward compatibility with v1 entries and treated
+/// identically to `.freeform` in the v2 UI (see `displayType`).
 enum NoteType: String, Codable, Sendable, CaseIterable {
     case transaction
     case reflection
@@ -39,9 +43,49 @@ enum NoteType: String, Codable, Sendable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .transaction: "arrow.left.arrow.right"
+        case .transaction: "note.text"
         case .reflection: "brain.head.profile"
         case .freeform: "note.text"
+        }
+    }
+}
+
+/// Simplified two-type user-facing taxonomy (Journal v2).
+/// `.transaction` collapses into `.note`.
+enum JournalDisplayType: String, Sendable, CaseIterable, Identifiable {
+    case note
+    case reflection
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .note: String(localized: "noteType.note")
+        case .reflection: String(localized: "noteType.reflection")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .note: "note.text"
+        case .reflection: "brain.head.profile"
+        }
+    }
+
+    /// Mapping back to stored `NoteType` when persisting new entries.
+    var storageType: NoteType {
+        switch self {
+        case .note: .freeform
+        case .reflection: .reflection
+        }
+    }
+}
+
+extension NoteType {
+    var displayType: JournalDisplayType {
+        switch self {
+        case .reflection: .reflection
+        case .transaction, .freeform: .note
         }
     }
 }

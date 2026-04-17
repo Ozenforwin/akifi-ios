@@ -44,6 +44,27 @@ final class AuthManager {
         isLoading = false
     }
 
+    /// Force-refresh the access token. Call on app foreground to avoid stale
+    /// tokens after long background suspension. Silent no-op if no session.
+    func refreshSessionIfNeeded() async {
+        guard isAuthenticated else { return }
+        do {
+            let client = self.supabase
+            let session = try await withTimeout(seconds: 10) {
+                try await client.auth.refreshSession()
+            }
+            currentUser = session.user
+            AppLogger.auth.info("Session refreshed successfully")
+        } catch {
+            AppLogger.auth.error("Session refresh failed: \(error.localizedDescription)")
+            // Refresh token likely expired. Clear session so UI can re-route
+            // to sign-in, rather than showing "session expired" to the user.
+            isAuthenticated = false
+            currentUser = nil
+            try? await supabase.auth.signOut()
+        }
+    }
+
     func signInWithApple(idToken: String, nonce: String) async throws {
         let session = try await supabase.auth.signInWithIdToken(
             credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)

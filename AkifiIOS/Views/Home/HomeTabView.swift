@@ -61,13 +61,6 @@ struct HomeTabView: View {
                     // 4. Savings
                     HomeSavingsSnapshotView()
 
-                    // 5. Journal shortcut (beta)
-                    NavigationLink {
-                        JournalTabView()
-                    } label: {
-                        JournalShortcutView()
-                    }
-
                     // 6. Summary Cards
                     summarySection
 

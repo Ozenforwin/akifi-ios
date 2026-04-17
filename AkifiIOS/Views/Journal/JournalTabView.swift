@@ -2,11 +2,13 @@ import SwiftUI
 
 struct JournalTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = JournalViewModel()
     @State private var showNoteForm = false
     @State private var showReflectionForm = false
+    @State private var showTagSheet = false
     @State private var searchText = ""
-    @State private var isSearching = false
+
+    private var viewModel: JournalViewModel { appViewModel.journalViewModel }
+    private static let visibleTagLimit = 5
 
     var body: some View {
         NavigationStack {
@@ -52,76 +54,117 @@ struct JournalTabView: View {
                 Task { await viewModel.search() }
             }
             .sheet(isPresented: $showNoteForm) {
-                JournalNoteFormView(viewModel: viewModel)
-                    .presentationBackground(.ultraThinMaterial)
+                JournalNoteFormView(viewModel: viewModel, initialType: .note)
+                    .presentationBackground(.regularMaterial)
             }
             .sheet(isPresented: $showReflectionForm) {
-                JournalReflectionFormView(viewModel: viewModel, dataStore: appViewModel.dataStore)
-                    .presentationBackground(.ultraThinMaterial)
+                JournalNoteFormView(viewModel: viewModel, initialType: .reflection)
+                    .presentationBackground(.regularMaterial)
             }
-            .task { await viewModel.loadInitial() }
+            .sheet(isPresented: $showTagSheet) {
+                TagFilterSheet(viewModel: viewModel)
+            }
+            .refreshable {
+                await viewModel.loadInitial(force: true)
+            }
+            .task {
+                await viewModel.loadInitialIfNeeded()
+            }
         }
     }
 
-    // MARK: - Filter Bar
+    // MARK: - Filter Bar (spec R2.3)
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let allTags = viewModel.tagsByFrequency
+        let visibleTags = Array(allTags.prefix(Self.visibleTagLimit))
+        let overflowCount = max(0, allTags.count - visibleTags.count)
+
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(JournalViewModel.NoteFilter.allCases, id: \.self) { filter in
-                    Button {
+                    // Reuse shared FilterChip for visual consistency (R2.9).
+                    FilterChip(
+                        title: filter.localizedName,
+                        isSelected: viewModel.selectedFilter == filter
+                    ) {
                         viewModel.selectedFilter = filter
-                        Task { await viewModel.loadInitial() }
-                    } label: {
-                        Text(filter.localizedName)
-                            .font(.subheadline.weight(.medium))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule().fill(viewModel.selectedFilter == filter
-                                    ? Color.accentColor : Color(.tertiarySystemFill))
-                            )
-                            .foregroundStyle(viewModel.selectedFilter == filter ? .white : .primary)
+                        viewModel.refilter()
                     }
-                    .buttonStyle(.plain)
                 }
 
-                if !viewModel.allTags.isEmpty {
+                if !allTags.isEmpty {
                     Divider().frame(height: 20)
 
-                    ForEach(viewModel.allTags, id: \.self) { tag in
+                    ForEach(visibleTags, id: \.self) { tag in
+                        tagChip(tag)
+                    }
+
+                    if overflowCount > 0 {
                         Button {
-                            if viewModel.selectedTag == tag {
-                                viewModel.selectedTag = nil
-                            } else {
-                                viewModel.selectedTag = tag
-                            }
-                            Task { await viewModel.loadInitial() }
+                            showTagSheet = true
                         } label: {
-                            Text("#\(tag)")
+                            Text("+\(overflowCount)")
                                 .font(.caption.weight(.medium))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(
-                                    Capsule().fill(viewModel.selectedTag == tag
-                                        ? Color.purple.opacity(0.2) : Color(.quaternarySystemFill))
-                                )
-                                .foregroundStyle(viewModel.selectedTag == tag ? .purple : .secondary)
+                                .background(Capsule().fill(Color(.quaternarySystemFill)))
+                                .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Text(String(localized: "journal.tags.moreButton \(overflowCount)")))
                     }
                 }
+
+                // Small trailing spacer so the last chip always has breathing
+                // room from the fade mask (avoids clipping — BUG-004).
+                Color.clear.frame(width: 12, height: 1)
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 16)
             .padding(.vertical, 8)
         }
+        .mask(
+            HStack(spacing: 0) {
+                Color.black
+                LinearGradient(
+                    colors: [.black, .black.opacity(0)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 24)
+            }
+        )
+    }
+
+    private func tagChip(_ tag: String) -> some View {
+        let isSelected = viewModel.selectedTag == tag
+        return Button {
+            if isSelected {
+                viewModel.selectedTag = nil
+            } else {
+                viewModel.selectedTag = tag
+            }
+            viewModel.refilter()
+        } label: {
+            Text("#\(tag)")
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule().fill(isSelected
+                        ? Color.budget.opacity(0.15)
+                        : Color(.quaternarySystemFill))
+                )
+                .foregroundStyle(isSelected ? Color.budget : .secondary)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Notes List
 
     private var notesList: some View {
         Group {
-            if viewModel.isLoading && viewModel.notes.isEmpty {
+            if !viewModel.hasLoadedOnce && viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if viewModel.filteredNotes.isEmpty {
@@ -147,8 +190,8 @@ struct JournalTabView: View {
                                     Spacer()
                                 }
                                 .padding(.horizontal, 16)
-                                .padding(.top, 16)
-                                .padding(.bottom, 4)
+                                .padding(.top, 20)
+                                .padding(.bottom, 6)
                             }
                         }
 
@@ -164,28 +207,52 @@ struct JournalTabView: View {
         }
     }
 
+    // MARK: - Empty State (spec R2.2)
+
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "book.closed")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text(String(localized: "journal.empty.title"))
-                .font(.headline)
-            Text(String(localized: "journal.empty.subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+            ZStack {
+                Circle()
+                    .fill(Color.accent.opacity(0.08))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "text.book.closed")
+                    .font(.system(size: 32))
+                    .foregroundStyle(Color.accent)
+            }
+            VStack(spacing: 8) {
+                Text(String(localized: "journal.empty.title"))
+                    .font(.title3.weight(.semibold))
+                Text(String(localized: "journal.empty.subtitle"))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
             Button {
                 showNoteForm = true
             } label: {
-                Label(String(localized: "journal.empty.action"), systemImage: "plus")
-                    .font(.subheadline.weight(.medium))
+                Label(String(localized: "journal.empty.writeNote"), systemImage: "pencil")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .frame(maxWidth: 280)
+
+            Button {
+                showReflectionForm = true
+            } label: {
+                Text(String(localized: "journal.empty.reflection"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.budget)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, -8)
+
             Spacer()
         }
+        .padding(.horizontal, 32)
     }
 
     private func formatSectionDate(_ dateStr: String) -> String {

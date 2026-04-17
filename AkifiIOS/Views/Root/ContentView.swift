@@ -249,7 +249,6 @@ struct MainTabView: View {
                     case "transactions": selectedTab = .transactions
                     case "budget", "budgets": selectedTab = .budgets
                     case "analytics": selectedTab = .analytics
-                    case "journal": selectedTab = .journal
                     default: break
                     }
                 }
@@ -328,7 +327,7 @@ struct MainTabView: View {
         case .savings:
             selectedTab = .budgets
         case .journal:
-            selectedTab = .journal
+            break
         case .addExpense:
             activeSheet = .expense(categoryId: nil)
         case .addIncome:
