@@ -58,7 +58,7 @@ struct SettingsView: View {
                     HStack(spacing: 16) {
                         StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: String(localized: "stats.accounts"))
                         StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: String(localized: "stats.transactions"))
-                        StatBadge(value: "\(appViewModel.dataStore.categories.count)", label: String(localized: "stats.categories"))
+                        StatBadge(value: "\(appViewModel.dataStore.displayCategories.count)", label: String(localized: "stats.categories"))
                     }
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)

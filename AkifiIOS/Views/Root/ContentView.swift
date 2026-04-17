@@ -266,7 +266,7 @@ struct MainTabView: View {
                 switch sheet {
                 case .expense(let categoryId):
                     TransactionFormView(
-                        categories: appViewModel.dataStore.categories,
+                        categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
                         defaultCategoryId: categoryId
                     ) {
@@ -275,7 +275,7 @@ struct MainTabView: View {
                     }
                 case .income(let categoryId):
                     TransactionFormView(
-                        categories: appViewModel.dataStore.categories,
+                        categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
                         defaultType: .income,
                         defaultCategoryId: categoryId

@@ -172,7 +172,7 @@ struct SubscriptionFormView: View {
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
 
     private var expenseCategories: [Category] {
-        appViewModel.dataStore.categories.filter { $0.type == .expense }
+        appViewModel.dataStore.displayCategories.filter { $0.type == .expense }
     }
 
     var body: some View {

@@ -9,7 +9,7 @@ struct CategorySheetView: View {
     let onTransfer: () -> Void
 
     private var filteredCategories: [Category] {
-        appViewModel.dataStore.categories.filter { $0.type.rawValue == selectedType.rawValue }
+        appViewModel.dataStore.displayCategories.filter { $0.type.rawValue == selectedType.rawValue }
     }
 
     var body: some View {

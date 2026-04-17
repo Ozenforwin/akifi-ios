@@ -110,7 +110,7 @@ struct HomeTabView: View {
                     .presentationBackground(.ultraThinMaterial)
                 } else {
                     TransactionFormView(
-                        categories: dataStore.categories,
+                        categories: dataStore.displayCategories,
                         accounts: dataStore.accounts,
                         editingTransaction: transaction
                     ) {
@@ -121,7 +121,7 @@ struct HomeTabView: View {
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     accounts: dataStore.accounts
                 ) {
                     dataStore.rebuildCaches()

@@ -308,6 +308,26 @@ final class DataStore {
         return categoryIndex[categoryId]
     }
 
+    /// Categories deduplicated by name+type for UI display (pickers, management).
+    /// Prefers the current user's own categories over shared-account duplicates.
+    var displayCategories: [Category] {
+        let currentUserId = profile?.id ?? ""
+        // Sort: current user's categories first so they "win" in dedup
+        let sorted = categories.sorted { a, b in
+            let aOwn = a.userId == currentUserId
+            let bOwn = b.userId == currentUserId
+            if aOwn != bOwn { return aOwn }
+            return (a.createdAt ?? "") < (b.createdAt ?? "")
+        }
+        var seen: Set<String> = []
+        return sorted.filter { cat in
+            let key = "\(cat.name.lowercased().trimmingCharacters(in: .whitespaces))_\(cat.type.rawValue)"
+            if seen.contains(key) { return false }
+            seen.insert(key)
+            return true
+        }
+    }
+
     func balance(for account: Account) -> Int64 {
         balanceCache[account.id] ?? account.initialBalance
     }
@@ -507,12 +527,13 @@ final class DataStore {
         accountIncome = incomeByAccount
         accountExpense = expenseByAccount
 
-        // Deduplicate categories (shared accounts may return same category multiple times)
-        var seen: Set<String> = []
+        // Deduplicate categories by ID only (shared accounts may return same row twice).
+        // We must NOT deduplicate by name because different users may have categories
+        // with the same name but different IDs, and transactions reference those IDs.
+        var seenIds: Set<String> = []
         categories = categories.filter { cat in
-            let key = "\(cat.name.lowercased())_\(cat.type.rawValue)"
-            if seen.contains(key) { return false }
-            seen.insert(key)
+            if seenIds.contains(cat.id) { return false }
+            seenIds.insert(cat.id)
             return true
         }
         categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })

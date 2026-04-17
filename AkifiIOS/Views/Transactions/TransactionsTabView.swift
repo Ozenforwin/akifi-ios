@@ -231,7 +231,7 @@ struct TransactionsTabView: View {
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     accounts: dataStore.accounts
                 ) {
                     dataStore.rebuildCaches()
@@ -249,7 +249,7 @@ struct TransactionsTabView: View {
                     .presentationBackground(.ultraThinMaterial)
                 } else {
                     TransactionFormView(
-                        categories: dataStore.categories,
+                        categories: dataStore.displayCategories,
                         accounts: dataStore.accounts,
                         editingTransaction: tx
                     ) {
@@ -267,7 +267,7 @@ struct TransactionsTabView: View {
             .sheet(isPresented: $showFilters) {
                 TransactionFilterSheet(
                     accounts: dataStore.accounts,
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     selectedAccountIds: $filterAccountIds,
                     selectedCategoryIds: $filterCategoryIds,
                     dateFrom: $filterDateFrom,

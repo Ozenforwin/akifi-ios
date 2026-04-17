@@ -198,7 +198,7 @@ struct FABView: View {
     // MARK: - Category wheel
 
     private var filteredCategories: [Category] {
-        appViewModel.dataStore.categories.filter { $0.type.rawValue == selectedType.rawValue }
+        appViewModel.dataStore.displayCategories.filter { $0.type.rawValue == selectedType.rawValue }
     }
 
     @ViewBuilder

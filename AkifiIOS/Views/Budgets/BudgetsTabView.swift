@@ -217,7 +217,7 @@ struct BudgetsTabView: View {
             }
             .sheet(isPresented: $viewModel.showForm) {
                 BudgetFormView(
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     accounts: dataStore.accounts
                 ) {
                     await dataStore.loadAll()
@@ -226,7 +226,7 @@ struct BudgetsTabView: View {
             }
             .sheet(item: $viewModel.editingBudget) { budget in
                 BudgetFormView(
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     accounts: dataStore.accounts,
                     editingBudget: budget
                 ) {
@@ -389,7 +389,7 @@ struct EditSubscriptionFormView: View {
     @State private var status: SubscriptionTrackerStatus = .active
 
     private var expenseCategories: [Category] {
-        appViewModel.dataStore.categories.filter { $0.type == .expense }
+        appViewModel.dataStore.displayCategories.filter { $0.type == .expense }
     }
 
     @State private var specifyLastPayment = false

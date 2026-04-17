@@ -144,7 +144,7 @@ struct AnalyticsTabView: View {
             .navigationTitle(String(localized: "analytics.title"))
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
-                    categories: dataStore.categories,
+                    categories: dataStore.displayCategories,
                     accounts: dataStore.accounts
                 ) {
                     await dataStore.loadAll()
