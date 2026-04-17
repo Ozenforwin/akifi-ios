@@ -47,12 +47,107 @@ workflows:
           print(f"KEY length: {len(key)}")
           PYEOF
 
-      - name: Set build number and generate Xcode project
+      - name: Auto-version, set build number and generate Xcode project
         script: |
+          # ── 1. Unique build number from timestamp ──
           BUILD_NUM=$(($(date +%s) / 60))
           echo "Build number: $BUILD_NUM"
           sed -i '' "s/CURRENT_PROJECT_VERSION: 1/CURRENT_PROJECT_VERSION: $BUILD_NUM/" project.yml
+
+          # ── 2. Auto-detect next version from App Store Connect ──
+          # Queries ASC for the latest approved/in-review version and the latest
+          # TestFlight version. Picks the highest and bumps the patch component.
+          # This prevents "train is closed" errors without manual version edits.
+          pip3 install PyJWT cryptography requests --quiet
+
+          NEXT_VERSION=$(python3 << 'PYEOF'
+          import jwt, time, os, requests, sys
+
+          key_id = os.environ.get("APP_STORE_CONNECT_KEY_IDENTIFIER", "")
+          issuer_id = os.environ.get("APP_STORE_CONNECT_ISSUER_ID", "")
+          bundle_id = os.environ.get("BUNDLE_ID", "ru.akifi.app")
+
+          key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
+          if not os.path.exists(key_path):
+              # Fallback: use version from project.yml as-is
+              print("")
+              sys.exit(0)
+
+          with open(key_path) as f:
+              private_key = f.read()
+
+          token = jwt.encode(
+              {"iss": issuer_id, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+              private_key, algorithm="ES256", headers={"kid": key_id}
+          )
+          H = {"Authorization": f"Bearer {token}"}
+          BASE = "https://api.appstoreconnect.apple.com/v1"
+
+          # Get app ID
+          r = requests.get(f"{BASE}/apps?filter[bundleId]={bundle_id}", headers=H)
+          if not r.ok:
+              print("", file=sys.stdout)
+              sys.exit(0)
+          app_id = r.json()["data"][0]["id"]
+
+          # Get all App Store versions (approved, in review, prepare for submission)
+          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=10", headers=H)
+          store_versions = []
+          if r.ok:
+              for v in r.json()["data"]:
+                  vs = v["attributes"]["versionString"]
+                  store_versions.append(vs)
+
+          # Get latest TestFlight build version
+          r = requests.get(f"{BASE}/builds?filter[app]={app_id}&sort=-uploadedDate&limit=5", headers=H)
+          tf_versions = []
+          if r.ok:
+              for b in r.json()["data"]:
+                  pv = b["attributes"].get("preReleaseVersion")
+                  if pv:
+                      # preReleaseVersion is a relationship, not inline
+                      pass
+          # Also check preReleaseVersions
+          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?sort=-version&limit=5&filter[platform]=IOS", headers=H)
+          if r.ok:
+              for v in r.json()["data"]:
+                  tf_versions.append(v["attributes"]["version"])
+
+          all_versions = store_versions + tf_versions
+          print(f"Found versions: store={store_versions}, tf={tf_versions}", file=sys.stderr)
+
+          def parse_ver(v):
+              parts = v.split(".")
+              return tuple(int(p) for p in parts if p.isdigit())
+
+          if not all_versions:
+              print("")
+              sys.exit(0)
+
+          max_ver = max(all_versions, key=lambda v: parse_ver(v))
+          parts = list(parse_ver(max_ver))
+          while len(parts) < 3:
+              parts.append(0)
+          parts[2] += 1  # bump patch
+          next_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
+          print(f"Max existing: {max_ver}, next: {next_ver}", file=sys.stderr)
+          print(next_ver)
+          PYEOF
+          )
+
+          if [ -n "$NEXT_VERSION" ]; then
+            echo "Auto-detected next version: $NEXT_VERSION"
+            CURRENT_VERSION=$(grep 'MARKETING_VERSION:' project.yml | awk '{print $2}')
+            sed -i '' "s/MARKETING_VERSION: $CURRENT_VERSION/MARKETING_VERSION: $NEXT_VERSION/" project.yml
+            echo "Updated project.yml: MARKETING_VERSION: $NEXT_VERSION"
+          else
+            echo "Could not auto-detect version, using project.yml as-is"
+          fi
+
+          grep MARKETING_VERSION project.yml
           grep CURRENT_PROJECT_VERSION project.yml
+
+          # ── 3. Generate Xcode project ──
           xcodegen generate
 
       - name: Set up signing certificates and API key
