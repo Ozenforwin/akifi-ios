@@ -212,15 +212,18 @@ struct ReportsView: View {
     // MARK: - Category List (pre-computes transactions on tap)
 
     private func categoryList(items: [ReportsViewModel.CategoryBreakdownItem]) -> some View {
-        let lastId = items.last?.category.id
-        // Pre-filter once for all categories
+        let lastName = items.last?.category.name
         let periodTxs = vm.monthTransactions(from: dataStore.transactions)
+        let categoryIndex = Dictionary(uniqueKeysWithValues: dataStore.categories.map { ($0.id, $0) })
 
         return VStack(spacing: 0) {
-            ForEach(items, id: \.category.id) { item in
+            ForEach(items, id: \.category.name) { item in
                 Button {
-                    // Instant: filter from already-filtered period transactions
-                    let catTxs = periodTxs.filter { $0.categoryId == item.category.id }
+                    let catName = item.category.name
+                    let catTxs = periodTxs.filter {
+                        let resolved = $0.categoryId.flatMap { categoryIndex[$0] }
+                        return (resolved?.name ?? String(localized: "transaction.noCategory")) == catName
+                    }
                     sheetData = CategorySheetData(item: item, transactions: catTxs)
                 } label: {
                     HStack(spacing: 12) {
@@ -253,7 +256,7 @@ struct ReportsView: View {
                 }
                 .buttonStyle(.plain)
 
-                if item.category.id != lastId {
+                if item.category.name != lastName {
                     Divider().padding(.leading, 68)
                 }
             }

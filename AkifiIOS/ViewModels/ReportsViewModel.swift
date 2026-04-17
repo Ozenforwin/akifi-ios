@@ -186,16 +186,7 @@ final class ReportsViewModel {
         let total = filtered.reduce(Int64(0)) { $0 + $1.amount }
         guard total > 0 else { return [] }
 
-        var byCategoryAmount: [String: Int64] = [:]
-        var byCategoryCount: [String: Int] = [:]
-
-        let knownCategoryIds = Set(categories.map(\.id))
-        for tx in filtered {
-            let catId = if let cid = tx.categoryId, knownCategoryIds.contains(cid) { cid } else { "uncategorized" }
-            byCategoryAmount[catId, default: 0] += tx.amount
-            byCategoryCount[catId, default: 0] += 1
-        }
-
+        let categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         let fallbackCategory = Category(
             id: "uncategorized",
             userId: "",
@@ -208,10 +199,24 @@ final class ReportsViewModel {
             createdAt: nil
         )
 
-        return byCategoryAmount.compactMap { catId, amount in
-            let cat = categories.first { $0.id == catId } ?? fallbackCategory
+        // Group by display name (not ID) to merge same-name categories
+        // from shared accounts (e.g. both users have "Кофе" with different IDs).
+        var byNameAmount: [String: Int64] = [:]
+        var byNameCount: [String: Int] = [:]
+        var byNameCategory: [String: Category] = [:]
+
+        for tx in filtered {
+            let cat = tx.categoryId.flatMap { categoryIndex[$0] } ?? fallbackCategory
+            let key = cat.name
+            byNameAmount[key, default: 0] += tx.amount
+            byNameCount[key, default: 0] += 1
+            if byNameCategory[key] == nil { byNameCategory[key] = cat }
+        }
+
+        return byNameAmount.compactMap { name, amount in
+            guard let cat = byNameCategory[name] else { return nil }
             let percentage = Double(amount) / Double(total) * 100.0
-            let count = byCategoryCount[catId, default: 0]
+            let count = byNameCount[name, default: 0]
             return CategoryBreakdownItem(
                 category: cat,
                 amount: amount,
