@@ -189,8 +189,9 @@ final class ReportsViewModel {
         var byCategoryAmount: [String: Int64] = [:]
         var byCategoryCount: [String: Int] = [:]
 
+        let knownCategoryIds = Set(categories.map(\.id))
         for tx in filtered {
-            let catId = tx.categoryId ?? "uncategorized"
+            let catId = if let cid = tx.categoryId, knownCategoryIds.contains(cid) { cid } else { "uncategorized" }
             byCategoryAmount[catId, default: 0] += tx.amount
             byCategoryCount[catId, default: 0] += 1
         }
