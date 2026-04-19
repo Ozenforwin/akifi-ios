@@ -13,9 +13,14 @@ import Foundation
 /// switch `fairShare(M) = totalExpenses * weight(M)` instead of equal split.
 /// Current MVP is intentionally equal.
 ///
+/// Contributions are credited via `transferGroupId` (both auto-transfers
+/// and manual transfer pairs touching the shared account). The peer leg's
+/// account is mapped back to a member via `personalAccountsByUser`.
+///
 /// TODO(payment-source v2): attribution of "direct" expenses on the shared
-/// account (no auto-transfer). Today they inflate `totalExpenses` but don't
-/// credit anyone. Options to decide when production data shows the pattern:
+/// account (no transfer pair at all — paid straight with the shared card).
+/// Today they inflate `totalExpenses` but don't credit anyone. Options to
+/// decide when production data shows the pattern:
 /// (a) credit the creator, (b) prompt user to retroactively attach source,
 /// (c) document it as an out-of-pocket shared spend.
 enum SettlementCalculator {
@@ -118,46 +123,52 @@ enum SettlementCalculator {
         let memberCount = Int64(memberUserIds.count)
         let fairShare = memberCount > 0 ? totalExpenses / memberCount : 0
 
-        // 3. Build contribution per user by walking auto-transfer groups.
-        //    For a group that has an income-leg on sharedAccountId:
-        //      - find the sibling expense-leg on any account
+        // 3. Build contribution per user by walking ALL transfer groups that
+        //    touch the shared account — both auto-transfer groups (created via
+        //    create_expense_with_auto_transfer) AND manual transfer pairs (the
+        //    legacy flow where users manually recorded a transfer from their
+        //    personal card to the shared account). Both are legitimate
+        //    contributions; the distinction matters only for UI (badge) but
+        //    not for settlement math.
+        //
+        //    For each transfer-leg on sharedAccountId:
+        //      - find the sibling leg on a different account
         //      - if that account belongs to user U's personal set → credit U
-        //    For a group that has an expense-leg on sharedAccountId (rare —
-        //    means someone used the shared account to fund a personal
-        //    account): debit the receiving user.
+        //    Direction: income-leg on shared = U contributed; expense-leg on
+        //    shared = U withdrew (rare — someone used the shared account to
+        //    fund their personal account).
         var contributions: [String: Int64] = Dictionary(uniqueKeysWithValues: memberUserIds.map { ($0, 0) })
 
-        let groupedByAutoId = Dictionary(grouping: accountRows.filter { $0.autoTransferGroupId != nil }, by: { $0.autoTransferGroupId! })
+        let transferRowsOnShared = accountRows.filter { $0.transferGroupId != nil }
 
-        for (groupId, rowsOnShared) in groupedByAutoId {
-            // All legs of the group (including ones on other accounts).
-            let allLegs = transactions.filter { $0.autoTransferGroupId == groupId && $0.transferGroupId != nil }
+        for row in transferRowsOnShared {
+            guard let groupId = row.transferGroupId else { continue }
 
-            for row in rowsOnShared where row.transferGroupId != nil {
-                // peer leg: same group, different account
-                guard let peer = allLegs.first(where: { $0.accountId != sharedAccountId }) else {
-                    // Peer is invisible (RLS hid it). Best-effort: use the
-                    // row's own `user_id` as the contributor.
-                    let uid = row.userId
-                    if row.type == .income {
-                        contributions[uid, default: 0] += row.amount
-                    } else if row.type == .expense {
-                        contributions[uid, default: 0] -= row.amount
-                    }
-                    continue
-                }
-                // Attribute to whichever user owns the peer account.
-                let peerAccountId = peer.accountId ?? ""
-                let attributedUser: String? = personalAccountsByUser.first { _, accounts in
-                    accounts.contains(peerAccountId)
-                }?.key ?? row.userId // fall back to the creator if we can't map the peer
+            // Peer leg: same transfer_group_id, different account.
+            let peer = transactions.first { $0.transferGroupId == groupId && $0.id != row.id }
 
-                guard let uid = attributedUser else { continue }
+            guard let peer, let peerAccountId = peer.accountId else {
+                // Peer hidden by RLS — attribute to the row creator as best-effort.
+                let uid = row.userId
                 if row.type == .income {
                     contributions[uid, default: 0] += row.amount
                 } else if row.type == .expense {
                     contributions[uid, default: 0] -= row.amount
                 }
+                continue
+            }
+
+            // Attribute to whichever member's personal-account set contains the
+            // peer. If not found (rare: peer is an account of a non-member or
+            // a different shared account), fall back to the row creator.
+            let attributedUser = personalAccountsByUser.first { _, accounts in
+                accounts.contains(peerAccountId)
+            }?.key ?? row.userId
+
+            if row.type == .income {
+                contributions[attributedUser, default: 0] += row.amount
+            } else if row.type == .expense {
+                contributions[attributedUser, default: 0] -= row.amount
             }
         }
 

@@ -55,21 +55,51 @@ final class TransactionRepository: Sendable {
     }
 
     private func createExpenseWithAutoTransfer(_ input: CreateTransactionInput) async throws -> Transaction {
+        // PostgREST matches RPC overloads by the exact set of argument *names*
+        // present in the JSON body. Swift's default Encodable DROPS keys whose
+        // value is nil, which would make the 6-argument signature no longer
+        // match the 8-arg Postgres function → "Could not find the function".
+        // Force all keys into the payload by using a custom encode(to:) that
+        // emits JSON null for missing fields.
         struct Params: Encodable {
-            let p_account_id: String?
+            let p_account_id: String
             let p_category_id: String?
             let p_amount: Decimal
-            let p_currency: String?
+            let p_currency: String
             let p_date: String
             let p_description: String?
             let p_merchant_name: String?
             let p_payment_source_account_id: String?
+
+            enum CodingKeys: String, CodingKey {
+                case p_account_id, p_category_id, p_amount, p_currency
+                case p_date, p_description, p_merchant_name
+                case p_payment_source_account_id
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(p_account_id, forKey: .p_account_id)
+                try c.encode(p_category_id, forKey: .p_category_id)
+                try c.encode(p_amount, forKey: .p_amount)
+                try c.encode(p_currency, forKey: .p_currency)
+                try c.encode(p_date, forKey: .p_date)
+                try c.encode(p_description, forKey: .p_description)
+                try c.encode(p_merchant_name, forKey: .p_merchant_name)
+                try c.encode(p_payment_source_account_id, forKey: .p_payment_source_account_id)
+            }
+        }
+        guard let accountId = input.account_id else {
+            throw NSError(
+                domain: "TransactionRepository", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "account_id is required for expense with auto-transfer"]
+            )
         }
         let params = Params(
-            p_account_id: input.account_id,
+            p_account_id: accountId,
             p_category_id: input.category_id,
             p_amount: input.amount,
-            p_currency: input.currency,
+            p_currency: input.currency ?? "RUB",
             p_date: input.date,
             p_description: input.description,
             p_merchant_name: input.merchant_name,
@@ -108,6 +138,8 @@ final class TransactionRepository: Sendable {
     }
 
     private func updateExpenseWithAutoTransfer(id: String, _ input: UpdateTransactionInput) async throws {
+        // See note in createExpenseWithAutoTransfer — must emit null keys,
+        // not omit them, so PostgREST matches the 6-arg signature.
         struct Params: Encodable {
             let p_expense_id: String
             let p_amount: Decimal?
@@ -115,6 +147,21 @@ final class TransactionRepository: Sendable {
             let p_date: String?
             let p_description: String?
             let p_merchant_name: String?
+
+            enum CodingKeys: String, CodingKey {
+                case p_expense_id, p_amount, p_category_id
+                case p_date, p_description, p_merchant_name
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(p_expense_id, forKey: .p_expense_id)
+                try c.encode(p_amount, forKey: .p_amount)
+                try c.encode(p_category_id, forKey: .p_category_id)
+                try c.encode(p_date, forKey: .p_date)
+                try c.encode(p_description, forKey: .p_description)
+                try c.encode(p_merchant_name, forKey: .p_merchant_name)
+            }
         }
         let params = Params(
             p_expense_id: id,

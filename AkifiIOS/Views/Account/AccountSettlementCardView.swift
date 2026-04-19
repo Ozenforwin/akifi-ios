@@ -22,21 +22,8 @@ struct AccountSettlementCardView: View {
                 Label(String(localized: "settlement.title"), systemImage: "scalemass.fill")
                     .font(.headline)
                 Spacer()
+                periodMenu
             }
-
-            Picker(String(localized: "settlement.period"), selection: Binding(
-                get: { viewModel.selectedPeriod },
-                set: { newValue in
-                    viewModel.selectedPeriod = newValue
-                    Task { await viewModel.load(sharedAccountId: sharedAccountId, dataStore: dataStore) }
-                }
-            )) {
-                Text(String(localized: "settlement.period.thisMonth")).tag(SettlementPeriod.thisMonth)
-                Text(String(localized: "settlement.period.lastMonth")).tag(SettlementPeriod.lastMonth)
-                Text(String(localized: "settlement.period.quarter")).tag(SettlementPeriod.quarter)
-                Text(String(localized: "settlement.period.ytd")).tag(SettlementPeriod.ytd)
-            }
-            .pickerStyle(.segmented)
 
             if viewModel.isLoading {
                 ProgressView()
@@ -70,6 +57,48 @@ struct AccountSettlementCardView: View {
     }
 
     // MARK: - Subviews
+
+    @ViewBuilder
+    private var periodMenu: some View {
+        Menu {
+            Picker(selection: Binding(
+                get: { viewModel.selectedPeriod },
+                set: { newValue in
+                    viewModel.selectedPeriod = newValue
+                    Task { await viewModel.load(sharedAccountId: sharedAccountId, dataStore: dataStore) }
+                }
+            )) {
+                Text(String(localized: "settlement.period.thisMonth")).tag(SettlementPeriod.thisMonth)
+                Text(String(localized: "settlement.period.lastMonth")).tag(SettlementPeriod.lastMonth)
+                Text(String(localized: "settlement.period.quarter")).tag(SettlementPeriod.quarter)
+                Text(String(localized: "settlement.period.ytd")).tag(SettlementPeriod.ytd)
+            } label: {
+                EmptyView()
+            }
+            .labelsHidden()
+        } label: {
+            HStack(spacing: 4) {
+                Text(periodLabel(viewModel.selectedPeriod))
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(Capsule())
+        }
+    }
+
+    private func periodLabel(_ p: SettlementPeriod) -> String {
+        switch p {
+        case .thisMonth: return String(localized: "settlement.period.thisMonth")
+        case .lastMonth: return String(localized: "settlement.period.lastMonth")
+        case .quarter: return String(localized: "settlement.period.quarter")
+        case .ytd: return String(localized: "settlement.period.ytd")
+        case .custom: return String(localized: "settlement.period.thisMonth")
+        }
+    }
 
     @ViewBuilder
     private var balancesList: some View {

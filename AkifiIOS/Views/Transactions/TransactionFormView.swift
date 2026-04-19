@@ -241,12 +241,16 @@ struct TransactionFormView: View {
     @ViewBuilder
     private var paymentSourceSection: some View {
         Section(String(localized: "tx.paymentSource")) {
-            Picker(String(localized: "tx.paymentSource"), selection: $selectedPaymentSourceId) {
+            Picker(selection: $selectedPaymentSourceId) {
                 Text(selfPaymentLabel).tag(nil as String?)
                 ForEach(eligibleSources) { acc in
                     Text(paymentSourceLabel(for: acc)).tag(acc.id as String?)
                 }
+            } label: {
+                EmptyView()
             }
+            .labelsHidden()
+            .pickerStyle(.menu)
             .disabled(paymentSourceDisabled)
 
             if paymentSourceDisabled {
@@ -257,9 +261,11 @@ struct TransactionFormView: View {
                       let source = accounts.first(where: { $0.id == sourceId }),
                       let target = selectedAccount {
                 // Live preview hint: "We'll create a transfer of X from A to B."
-                let cm = appViewModel.currencyManager
+                // Format the raw entered amount in the transaction's currency —
+                // do NOT run through CurrencyManager.formatAmount, which would
+                // convert between user's display currency and assume RUB input.
                 let amountValue = calculatorState.getResult() ?? 0
-                let amountStr = cm.formatAmount(amountValue)
+                let amountStr = Self.formatRawAmount(amountValue, currency: selectedCurrency)
                 let hint = String(format: String(localized: "tx.paymentSource.hint.autoTransfer"),
                                   amountStr, source.name, target.name)
                 Text(hint)
@@ -407,6 +413,20 @@ struct TransactionFormView: View {
         }
 
         isLoading = false
+    }
+
+    /// Formats an amount already expressed in the transaction's currency
+    /// without running it through CurrencyManager (which converts from RUB
+    /// to the user's display currency and would corrupt the number when
+    /// the transaction is in USD / EUR / etc).
+    nonisolated static func formatRawAmount(_ amount: Decimal, currency: CurrencyCode) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 0
+        formatter.groupingSeparator = " "
+        let formatted = formatter.string(from: abs(amount) as NSDecimalNumber) ?? "0"
+        return "\(formatted) \(currency.symbol)"
     }
 }
 
