@@ -1,6 +1,13 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// TODO(payment-source v2): when importing bank statements, skip rows that
+// match an existing auto-transfer leg. Candidate matcher: (account_id,
+// date ± 1 day, amount) with `transactions.auto_transfer_group_id != null`.
+// Without this, a real bank-card expense that already backs an auto-
+// transfer will be double-counted. Tracked in .claude/prd/payment-source
+// -and-settlement.md "Bank import reconciliation" (v2).
+
 struct BankImportView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss

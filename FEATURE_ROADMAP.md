@@ -223,6 +223,28 @@
 
 ---
 
+## ФАЗА 4.6: Payment Source + Shared Account Settlement (2026-04-19) — MVP ВЫПОЛНЕНО
+
+Закрывает боль с общим счётом Вова/Оля: оплаты общих трат с личных карт теперь 1 тап, без ручного балансирования.
+
+| Задача | Статус | Файлы / коммит |
+|--------|--------|-------|
+| 3 миграции (payment_source_columns, user_account_defaults, settlements) | **DONE** | `1efe5af` |
+| 3 RPC функции атомарной тройки (create/update/delete) | **DONE** | `supabase/migrations/20260419130300_*.sql` |
+| iOS data layer: модели, репозитории, PaymentDefaultsVM | **DONE** | `7448300` |
+| Picker «Оплачено с» в TransactionFormView + валютная блокировка | **DONE** | `7a53d47` |
+| Бейдж «Из X» + deletion guard в TransactionDetailView | **DONE** | `7a53d47` |
+| Settings → «Способы оплаты» per-account | **DONE** | `6aeb850` |
+| SettlementCalculator (equal split + greedy min-cash-flow) + 7 тестов | **DONE** | `58991a9` |
+| SharedAccountDetailView с settlement card | **DONE** | `0fdbb88` |
+| Discovery-онбординг для новых юзеров (P1, ~30 мин) | TODO v2 | PRD секция `План v2 → P1` |
+| Bank import dedup против auto-transfer (P2, ~20 мин) | TODO v2 | TODO-коммент в `BankImportView.swift` |
+| Custom split weights 60/40 (P3) | TODO v2 | TODO-коммент в `SettlementCalculator.swift` |
+| Direct-expense attribution (P4, продуктовое решение) | TODO v2 | TODO-коммент в `SettlementCalculator.swift` |
+| Edit existing expense source reassignment | TODO v2 | PRD секция `Edit-existing-expense change of source` |
+
+---
+
 ## ФАЗА 4.5: Стабильность (внеплановая, 2026-04-17 … 19) — ВЫПОЛНЕНО
 
 Баги обнаружены в TestFlight, починены с глубоким копанием в root cause:

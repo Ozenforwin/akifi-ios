@@ -7,6 +7,17 @@ import Foundation
 ///
 /// All amounts are signed Int64 kopecks (minor units). The function
 /// contracts don't depend on any UI or Supabase code — trivially testable.
+///
+/// TODO(payment-source v2): custom split weights. Add
+/// `account_members.split_weight NUMERIC` (sum-to-1 per account) and
+/// switch `fairShare(M) = totalExpenses * weight(M)` instead of equal split.
+/// Current MVP is intentionally equal.
+///
+/// TODO(payment-source v2): attribution of "direct" expenses on the shared
+/// account (no auto-transfer). Today they inflate `totalExpenses` but don't
+/// credit anyone. Options to decide when production data shows the pattern:
+/// (a) credit the creator, (b) prompt user to retroactively attach source,
+/// (c) document it as an out-of-pocket shared spend.
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
