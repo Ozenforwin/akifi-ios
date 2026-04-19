@@ -19,15 +19,32 @@ tags: [shared-accounts, payment-flow, settlement, rls]
 | `2978474` | Swipe-delete auto-transfer: локальное состояние синкается с триплетом (не «возвращаются») |
 | `79339f3` | Orphan settlement не показывается когда нет транзакций в периоде |
 | `6ece83a` | Дефолт picker'а «Оплачено с» = «Этот счёт», auto-transfer только по явному выбору |
+| `550a57f` | DB v2: `account_members.split_weight` + 10-арная перегрузка RPC для cross-currency |
+| `1b548ec` | iOS v2: ByBit (USD) в picker'е, hint с обеими суммами, RPC routing |
+| `21ff449` | iOS v2: Custom split weights per-member в ShareAccountView + 3 теста |
+| `33e2201` | UI v2: design pass + onboarding банн­ер |
+| `71988bd` | UX: «Участники и доли» entry в экране редактирования счёта |
+| `bbd466c` | Fix: cross-currency check vs selectedCurrency + strip %@ из delta captions |
+| `0161bdb` | **v3:** Bank import dedup против auto-transfer легов |
+| `d12f41e` | **v3:** Direct-expense attribution (credits creator) + FX-normalize cross-currency вкладов + 4 теста |
+| `615f064` | **v3:** Прокидка CurrencyManager в SettlementViewModel |
+| `1e75432` | **v3:** Orphan cleanup button когда balances пусты |
+| `77bf4c5` | **v3:** Edit existing expense source reassignment (client-side delete+recreate) |
+| `9c67264` | chore: bump 1.2.6 → 1.2.7 (ASC train closed) |
 
-**Текущее поведение:**
-- По умолчанию picker показывает «Этот счёт (обычный расход)» — авто-перевод создаётся только при явном выборе другого источника
-- ⭐ рядом с сохранённым в `user_account_defaults` источником — one-tap к привычной карте, но не pre-select
-- Settlement считает только транзакции с `auto_transfer_group_id != null` (новая фича). Старые ручные переводы игнорятся
-- Закрытые settlements уменьшают suggestions через применение delta (from += amount, to −= amount)
+**Текущее поведение (после v1+v2+v3):**
+- Picker «Оплачено с» в форме транзакции: дефолт = «Этот счёт (обычный расход)». Любой свой счёт (в т.ч. cross-currency) — через явный выбор
+- ⭐ рядом с сохранённым дефолтом — one-tap, но не pre-select
+- Picker доступен и в edit-mode — смена source re-создаёт auto-transfer пару
+- Cross-currency: source отображается с FX-preview «(≈ 2,63 $)», на save передаётся `p_source_amount`/`p_source_currency` в 10-арную RPC
+- Settlement **feature-scoped**: считает auto-transfer легги + direct expenses на общем счёте (creditsCreator) + FX-normalize cross-currency легов через CurrencyManager.rates
+- Custom split weights на участника через `account_members.split_weight` (редактируется в «Участники и доли» на экране edit account)
+- Закрытые settlements уменьшают suggestions через применение delta
+- Orphan settlements: скрываются когда balances пусты + кнопка «Очистить историю» для batch-delete
 - Свайп-delete auto-transfer → триплет убирается и из DB (через RPC), и из локального DataStore
+- Bank import проверяет коллизию с auto-transfer легами (±1 день, same account, same amount) и снимает галочку по дефолту
 
-Build clean, 125/125 тестов проходят.
+Build clean, 132/132 тестов проходят. Версия 1.2.7 в TestFlight.
 
 ## План v2 (deferred, в порядке приоритета)
 

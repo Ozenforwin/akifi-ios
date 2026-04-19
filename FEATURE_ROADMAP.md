@@ -255,15 +255,25 @@
 | Custom split weights (60/40 и т.п.) | **DONE** | `21ff449` |
 | Design pass (settlement card, hero, участники, бейджи) | **DONE** | `33e2201` |
 
-### TODO v3
+### v3 (2026-04-19, commits `0161bdb`…`77bf4c5`) — ЗАКРЫТО
 
-| Пункт | Приоритет | Оценка |
+| Пункт | Статус | Коммит |
 |---|---|---|
-| Bank import dedup против auto-transfer | P2 | ~20 мин |
-| Direct-expense attribution (прямые расходы на общий счёт) | P4 | продуктовое решение |
-| Orphan settlements auto-cleanup | P5 | ~2 часа |
-| Edit-existing-expense source reassignment | — | ~2 часа |
-| FX-correct settlement math (cross-currency contribution normalization) | — | ~1 день (architect + migration) |
+| Bank import dedup против auto-transfer | **DONE** | `0161bdb` |
+| Direct-expense attribution (credits creator) | **DONE** | `d12f41e` |
+| FX-normalize cross-currency contributions + 4 теста | **DONE** | `d12f41e` + `615f064` |
+| Orphan settlements auto-cleanup | **DONE** | `1e75432` |
+| Edit-existing-expense source reassignment | **DONE** | `77bf4c5` (client-side) |
+| Bump 1.2.7 (ASC train closed) | **DONE** | `9c67264` |
+
+**Итого по Phase 4.6:** MVP → v2 → v3 закрыто. 132/132 тестов. TestFlight 1.2.7.
+
+### TODO v4 (если понадобится)
+- **Atomic `reassign_expense_source` RPC** — сейчас client-side delete+recreate, окно неатомарности ~300ms. Повысить до RPC если частые reassignments в телеметрии.
+- **Per-row `fx_rate_to_base` column** — сейчас FX snapshot current. Мигрируем если нужна историческая точность при скачках курсов.
+- **Push-напоминания для челленджей** (унаследовано из Phase 4.2)
+- **Bonus streak achievements** (унаследовано из Phase 4.3)
+- **Skill tree v2 canvas** (унаследовано из Phase 4.4)
 
 ### Осознанно НЕ делаем
 - Retroactive attach к старым ручным переводам
