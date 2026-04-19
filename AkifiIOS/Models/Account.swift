@@ -9,6 +9,10 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
     var initialBalance: Int64
     var isPrimary: Bool
     var currency: String
+    /// Classifier for checking/savings/cash/deposit/investment. Defaults to
+    /// `.checking` on decode when the column is missing (backward compat for
+    /// pre-migration cached rows).
+    var accountType: AccountType
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -17,6 +21,7 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         case name, icon, color, currency
         case initialBalance = "initial_balance"
         case isPrimary = "is_primary"
+        case accountType = "account_type"
         case createdAt = "created_at"
     }
 
@@ -32,6 +37,7 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         let rawBalance = try container.decode(Int64.self, forKey: .initialBalance)
         initialBalance = rawBalance * 100
         isPrimary = try container.decodeIfPresent(Bool.self, forKey: .isPrimary) ?? false
+        accountType = try container.decodeIfPresent(AccountType.self, forKey: .accountType) ?? .checking
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
     }
 
@@ -46,13 +52,14 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         // Store back as rubles (same format as DB) so decode always does *100
         try container.encode(initialBalance / 100, forKey: .initialBalance)
         try container.encode(isPrimary, forKey: .isPrimary)
+        try container.encode(accountType, forKey: .accountType)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
     }
 
-    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", createdAt: String? = nil) {
+    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", accountType: AccountType = .checking, createdAt: String? = nil) {
         self.id = id; self.userId = userId; self.name = name; self.icon = icon
         self.color = color; self.initialBalance = initialBalance; self.isPrimary = isPrimary
-        self.currency = currency; self.createdAt = createdAt
+        self.currency = currency; self.accountType = accountType; self.createdAt = createdAt
     }
 
     var currencyCode: CurrencyCode {
