@@ -35,6 +35,20 @@
                ReferencedContainer = "container:AkifiIOS.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "299973BA75F89C0ACB62164C"
+               BuildableName = "AkifiWidgetExtension.appex"
+               BlueprintName = "AkifiWidgetExtension"
+               ReferencedContainer = "container:AkifiIOS.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

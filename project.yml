@@ -50,6 +50,7 @@ targets:
       - package: Firebase
         product: FirebasePerformance
       - package: GoogleSignIn
+      - target: AkifiWidgetExtension
     entitlements:
       path: AkifiIOS/AkifiIOS.entitlements
       properties:
@@ -58,6 +59,8 @@ targets:
         aps-environment: development
         com.apple.developer.associated-domains:
           - applinks:akifi.pro
+        com.apple.security.application-groups:
+          - group.ru.akifi.app
     info:
       path: AkifiIOS/Info.plist
       properties:
@@ -90,6 +93,33 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app
         CODE_SIGN_ENTITLEMENTS: AkifiIOS/AkifiIOS.entitlements
 
+  AkifiWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: AkifiWidget
+      - path: AkifiIOS/Shared/Widget
+    dependencies: []
+    entitlements:
+      path: AkifiWidget/AkifiWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.ru.akifi.app
+    info:
+      path: AkifiWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Akifi
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app.widget
+        CODE_SIGN_ENTITLEMENTS: AkifiWidget/AkifiWidget.entitlements
+        INFOPLIST_KEY_NSSupportsLiveActivities: NO
+        SKIP_INSTALL: NO
+
   AkifiIOSTests:
     type: bundle.unit-test
     platform: iOS
@@ -107,6 +137,7 @@ schemes:
     build:
       targets:
         AkifiIOS: all
+        AkifiWidgetExtension: all
         AkifiIOSTests: [test]
     run:
       config: Debug
