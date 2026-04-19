@@ -194,7 +194,11 @@ final class SettlementViewModel {
 
             // Full reload — refetch past settlements + recompute balances &
             // suggestions with the new closure applied.
-            await load(sharedAccountId: sharedAccountId, dataStore: dataStore)
+            await load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: currencyManager
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -205,13 +209,62 @@ final class SettlementViewModel {
     func cancelSettlement(
         _ settlement: Settlement,
         sharedAccountId: String,
-        dataStore: DataStore
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
     ) async {
         do {
             try await settlementRepo.delete(id: settlement.id)
-            await load(sharedAccountId: sharedAccountId, dataStore: dataStore)
+            await load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: currencyManager
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Past settlements across ALL periods for this view-model's most
+    /// recent `load()` call, filtered to the currently-selected period
+    /// regardless of whether `balances` is empty. Used to power the
+    /// "orphan cleanup" affordance (P3) — when all source transactions
+    /// have been deleted but the settlement rows remain.
+    ///
+    /// Different from `pastSettlementsForCurrentPeriod` only in intent:
+    /// both lists contain the same rows at runtime. Keeping a named
+    /// alias so the UI contract reads clearly when we intentionally
+    /// surface the list during the empty state.
+    var pastSettlementsForCurrentPeriodIgnoredOrphans: [Settlement] {
+        pastSettlementsForCurrentPeriod
+    }
+
+    /// Removes all past settlements whose `period_end` falls inside the
+    /// currently-selected period. Used by the "Clear settled records"
+    /// affordance when `balances` is empty but stale settlement rows
+    /// remain (e.g. user closed debts, then deleted the underlying
+    /// transactions). Only rows the current user created can be
+    /// deleted per RLS; failures on individual rows are swallowed so
+    /// a partial cleanup doesn't block the rest.
+    func cleanOrphanSettlements(
+        sharedAccountId: String,
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
+        let stale = pastSettlementsForCurrentPeriod
+        guard !stale.isEmpty else { return }
+        for s in stale {
+            do {
+                try await settlementRepo.delete(id: s.id)
+            } catch {
+                // Creator-only RLS; swallow per-row errors but surface
+                // the last one so the user knows something didn't go.
+                errorMessage = error.localizedDescription
+            }
+        }
+        await load(
+            sharedAccountId: sharedAccountId,
+            dataStore: dataStore,
+            currencyManager: currencyManager
+        )
     }
 }

@@ -64,7 +64,11 @@ struct AccountSettlementCardView: View {
         )
         .shadow(color: .primary.opacity(0.05), radius: 10, x: 0, y: 3)
         .task(id: sharedAccountId) {
-            await viewModel.load(sharedAccountId: sharedAccountId, dataStore: dataStore)
+            await viewModel.load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: cm
+            )
         }
     }
 
@@ -72,19 +76,78 @@ struct AccountSettlementCardView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Text(String(localized: "settlement.empty.title"))
-                .font(.subheadline.weight(.medium))
-            Text(String(localized: "settlement.empty.body"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+        VStack(spacing: 12) {
+            VStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "settlement.empty.title"))
+                    .font(.subheadline.weight(.medium))
+                Text(String(localized: "settlement.empty.body"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Orphan settlements: rows in `settlements` whose source
+            // transactions were deleted. We surface a warning + a
+            // one-tap cleanup so the records don't interfere with
+            // future-period calculations if the user re-adds expenses.
+            if !viewModel.pastSettlementsForCurrentPeriodIgnoredOrphans.isEmpty {
+                orphanCleanupBanner
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
+    }
+
+    @ViewBuilder
+    private var orphanCleanupBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.subheadline)
+                Text(String(format: String(localized: "settlement.orphans.warning"),
+                            viewModel.pastSettlementsForCurrentPeriodIgnoredOrphans.count))
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                HapticManager.medium()
+                Task {
+                    await viewModel.cleanOrphanSettlements(
+                        sharedAccountId: sharedAccountId,
+                        dataStore: dataStore,
+                        currencyManager: cm
+                    )
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash")
+                        .font(.caption.weight(.bold))
+                    Text(String(localized: "settlement.orphans.cleanup"))
+                        .font(.subheadline.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.15))
+                .foregroundStyle(.orange)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.orange.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.orange.opacity(0.25), lineWidth: 0.5)
+        )
     }
 
     @ViewBuilder
@@ -95,7 +158,13 @@ struct AccountSettlementCardView: View {
                 set: { newValue in
                     HapticManager.selection()
                     viewModel.selectedPeriod = newValue
-                    Task { await viewModel.load(sharedAccountId: sharedAccountId, dataStore: dataStore) }
+                    Task {
+                        await viewModel.load(
+                            sharedAccountId: sharedAccountId,
+                            dataStore: dataStore,
+                            currencyManager: cm
+                        )
+                    }
                 }
             )) {
                 Text(String(localized: "settlement.period.thisMonth")).tag(SettlementPeriod.thisMonth)
@@ -193,7 +262,8 @@ struct AccountSettlementCardView: View {
                                 suggestion: s,
                                 sharedAccountId: sharedAccountId,
                                 currency: currency,
-                                dataStore: dataStore
+                                dataStore: dataStore,
+                                currencyManager: cm
                             )
                         }
                     } label: {
@@ -270,7 +340,8 @@ struct AccountSettlementCardView: View {
                             await viewModel.cancelSettlement(
                                 s,
                                 sharedAccountId: sharedAccountId,
-                                dataStore: dataStore
+                                dataStore: dataStore,
+                                currencyManager: cm
                             )
                         }
                     } label: {

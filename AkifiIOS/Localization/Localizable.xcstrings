@@ -20603,17 +20603,49 @@
       }
     },
     "settlement.balance.negative" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Owes the group" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Debe al grupo" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Должен доплатить" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owes the group"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debe al grupo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Должен доплатить"
+          }
+        }
       }
     },
     "settlement.balance.positive" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Above fair share" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aportó de más" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вложил больше доли" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Above fair share"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aportó de más"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вложил больше доли"
+          }
+        }
       }
     },
     "settlement.cancelSettled" : {
@@ -20750,6 +20782,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Отметить выполненным"
+          }
+        }
+      }
+    },
+    "settlement.orphans.cleanup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar historial"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Очистить историю"
+          }
+        }
+      }
+    },
+    "settlement.orphans.warning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This period has %lld closed settlements with no matching transactions."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este período tiene %lld liquidaciones cerradas sin transacciones."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В этом периоде %lld закрытых расчётов без транзакций."
           }
         }
       }
