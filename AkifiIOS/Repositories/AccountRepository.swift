@@ -50,7 +50,7 @@ final class AccountRepository: Sendable {
         return accounts
     }
 
-    func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String = "rub") async throws -> Account {
+    func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String = "rub", accountType: AccountType = .checking) async throws -> Account {
         struct CreateInput: Encodable {
             let user_id: String
             let name: String
@@ -58,6 +58,7 @@ final class AccountRepository: Sendable {
             let color: String
             let initial_balance: Int64
             let currency: String
+            let account_type: String
         }
 
         // RLS policy requires user_id = auth.uid().
@@ -69,7 +70,15 @@ final class AccountRepository: Sendable {
         let balanceRubles = initialBalance / 100
         return try await supabase
             .from("accounts")
-            .insert(CreateInput(user_id: userId, name: name, icon: icon, color: color, initial_balance: balanceRubles, currency: currency))
+            .insert(CreateInput(
+                user_id: userId,
+                name: name,
+                icon: icon,
+                color: color,
+                initial_balance: balanceRubles,
+                currency: currency,
+                account_type: accountType.rawValue
+            ))
             .select()
             .single()
             .execute()
