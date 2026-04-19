@@ -21,6 +21,13 @@ struct TransactionFormView: View {
     @State private var showCalculator = true
     @State private var selectedCurrency: CurrencyCode = .rub
 
+    // Payment source state
+    /// Selected source account. `nil` means "same as target" (regular expense, no auto-transfer).
+    @State private var selectedPaymentSourceId: String?
+    /// `accountId → defaultSourceId` loaded from `user_account_defaults` on appear.
+    @State private var userDefaults: [String: String] = [:]
+    private let defaultsRepo = UserAccountDefaultsRepository()
+
     private static let isoDateTimeFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -51,6 +58,59 @@ struct TransactionFormView: View {
         categories.filter { $0.type.rawValue == selectedType.rawValue || selectedType == .transfer }
     }
 
+    // MARK: - Payment-source helpers
+
+    private var selectedAccount: Account? {
+        guard let id = selectedAccountId else { return nil }
+        return accounts.first { $0.id == id }
+    }
+
+    private var currentUserId: String? {
+        appViewModel.dataStore.profile?.id
+    }
+
+    /// True iff the target account has transactions from more than one user,
+    /// i.e. it's considered shared for the current user. Falls back to false
+    /// when we have no profile yet.
+    private var targetIsShared: Bool {
+        guard let acc = selectedAccount, let uid = currentUserId else { return false }
+        return appViewModel.dataStore.transactions.contains { $0.accountId == acc.id && $0.userId != uid }
+            || acc.userId != uid
+    }
+
+    /// Eligible source accounts for the picker — own accounts in the same
+    /// currency as the target. Always includes the target itself as "this account".
+    private var eligibleSources: [Account] {
+        guard let target = selectedAccount, let uid = currentUserId else { return [] }
+        return accounts.filter { acc in
+            acc.userId == uid && acc.id != target.id && acc.currency.lowercased() == target.currency.lowercased()
+        }
+    }
+
+    /// True if the payment-source picker should be shown at all. Only
+    /// surfaces for expenses on a shared target account that has at least
+    /// one eligible personal source.
+    private var shouldShowPaymentSource: Bool {
+        selectedType == .expense && !isEditing && targetIsShared && !eligibleSources.isEmpty
+    }
+
+    /// True iff we should disable the picker entirely (e.g. currency mismatch
+    /// with every own account — already filtered out, so this is effectively
+    /// "no eligible sources"). Kept as separate flag for extension.
+    private var paymentSourceDisabled: Bool { eligibleSources.isEmpty }
+
+    private func paymentSourceLabel(for acc: Account) -> String {
+        let starred = userDefaults[selectedAccountId ?? ""] == acc.id
+        let starSuffix = starred ? " ⭐" : ""
+        return "\(acc.icon) \(acc.name)\(starSuffix)"
+    }
+
+    private var selfPaymentLabel: String {
+        String(localized: "tx.paymentSource.self")
+    }
+
+    // MARK: - View
+
     var body: some View {
         NavigationStack {
             Form {
@@ -64,6 +124,36 @@ struct TransactionFormView: View {
 
                 Section(String(localized: "common.amount")) {
                     CalculatorKeyboardView(state: calculatorState)
+                }
+
+                if !accounts.isEmpty {
+                    Section(String(localized: "common.account")) {
+                        Picker(String(localized: "common.account"), selection: $selectedAccountId) {
+                            Text(String(localized: "transaction.noAccount")).tag(nil as String?)
+                            ForEach(accounts) { account in
+                                Text("\(account.icon) \(account.name)").tag(account.id as String?)
+                            }
+                        }
+                        .onChange(of: selectedAccountId) { _, newValue in
+                            // When target changes, auto-pick the stored default (if any) and of matching currency.
+                            guard let newId = newValue,
+                                  let target = accounts.first(where: { $0.id == newId }) else {
+                                selectedPaymentSourceId = nil
+                                return
+                            }
+                            if let defaultId = userDefaults[newId],
+                               let src = accounts.first(where: { $0.id == defaultId }),
+                               src.currency.lowercased() == target.currency.lowercased() {
+                                selectedPaymentSourceId = defaultId
+                            } else {
+                                selectedPaymentSourceId = nil  // = target (no auto-transfer)
+                            }
+                        }
+                    }
+                }
+
+                if shouldShowPaymentSource {
+                    paymentSourceSection
                 }
 
                 Section(String(localized: "common.category")) {
@@ -95,17 +185,6 @@ struct TransactionFormView: View {
                                 ) {
                                     selectedCategoryId = category.id
                                 }
-                            }
-                        }
-                    }
-                }
-
-                if !accounts.isEmpty {
-                    Section(String(localized: "common.account")) {
-                        Picker(String(localized: "common.account"), selection: $selectedAccountId) {
-                            Text(String(localized: "transaction.noAccount")).tag(nil as String?)
-                            ForEach(accounts) { account in
-                                Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
                         }
                     }
@@ -143,6 +222,9 @@ struct TransactionFormView: View {
                 }
             }
             .onAppear { prefillIfEditing() }
+            .task {
+                await loadUserDefaults()
+            }
             .sheet(isPresented: $showCategoryPicker) {
                 CategoryPickerView(
                     categories: categories,
@@ -151,6 +233,65 @@ struct TransactionFormView: View {
                 )
                 .presentationDetents([.medium])
             }
+        }
+    }
+
+    // MARK: - Payment source section
+
+    @ViewBuilder
+    private var paymentSourceSection: some View {
+        Section(String(localized: "tx.paymentSource")) {
+            Picker(String(localized: "tx.paymentSource"), selection: $selectedPaymentSourceId) {
+                Text(selfPaymentLabel).tag(nil as String?)
+                ForEach(eligibleSources) { acc in
+                    Text(paymentSourceLabel(for: acc)).tag(acc.id as String?)
+                }
+            }
+            .disabled(paymentSourceDisabled)
+
+            if paymentSourceDisabled {
+                Text(String(localized: "tx.paymentSource.hint.currencyMismatch"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let sourceId = selectedPaymentSourceId,
+                      let source = accounts.first(where: { $0.id == sourceId }),
+                      let target = selectedAccount {
+                // Live preview hint: "We'll create a transfer of X from A to B."
+                let cm = appViewModel.currencyManager
+                let amountValue = calculatorState.getResult() ?? 0
+                let amountStr = cm.formatAmount(amountValue)
+                let hint = String(format: String(localized: "tx.paymentSource.hint.autoTransfer"),
+                                  amountStr, source.name, target.name)
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+            }
+        }
+    }
+
+    // MARK: - Load defaults
+
+    private func loadUserDefaults() async {
+        do {
+            let rows = try await defaultsRepo.fetchAll()
+            var map: [String: String] = [:]
+            for r in rows {
+                if let src = r.defaultSourceId { map[r.accountId] = src }
+            }
+            userDefaults = map
+
+            // Re-evaluate the default for the currently selected account, if one is picked.
+            if let accId = selectedAccountId,
+               let target = accounts.first(where: { $0.id == accId }),
+               selectedPaymentSourceId == nil,
+               let def = map[accId],
+               let src = accounts.first(where: { $0.id == def }),
+               src.currency.lowercased() == target.currency.lowercased() {
+                selectedPaymentSourceId = def
+            }
+        } catch {
+            // Silent — defaults are optional UX.
+            AppLogger.data.debug("paymentDefaults load: \(error.localizedDescription)")
         }
     }
 
@@ -177,10 +318,13 @@ struct TransactionFormView: View {
         selectedType = tx.type
         selectedCategoryId = tx.categoryId
         selectedAccountId = tx.accountId
+        selectedPaymentSourceId = tx.paymentSourceAccountId
         if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
             date = txDate
         }
     }
+
+    // MARK: - Save
 
     private func save() async {
         guard let amountValue = calculatorState.getResult(), amountValue > 0 else {
@@ -206,6 +350,12 @@ struct TransactionFormView: View {
             // token refresh, and mismatch → RLS violation on INSERT.
             let userId = try await SupabaseManager.shared.currentUserId()
             if let tx = editingTransaction {
+                // Route through auto-transfer update RPC only when this is an expense
+                // with an existing auto_transfer_group_id and no transfer_group_id
+                // (i.e. it's the main expense row, not a transfer leg).
+                let useAutoUpdate = tx.type == .expense
+                    && tx.autoTransferGroupId != nil
+                    && tx.transferGroupId == nil
                 let input = UpdateTransactionInput(
                     amount: amountInBase,
                     currency: selectedCurrency.rawValue,
@@ -213,10 +363,19 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil
+                    merchant_name: nil,
+                    useAutoTransferUpdate: useAutoUpdate
                 )
                 try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
             } else {
+                // Resolve payment source — only record it when target is shared AND source != target.
+                let resolvedPaymentSource: String? = {
+                    guard selectedType == .expense,
+                          let sourceId = selectedPaymentSourceId,
+                          sourceId != selectedAccountId
+                    else { return nil }
+                    return sourceId
+                }()
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: selectedAccountId,
@@ -226,9 +385,20 @@ struct TransactionFormView: View {
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
-                    merchant_name: nil
+                    merchant_name: nil,
+                    payment_source_account_id: resolvedPaymentSource
                 )
                 _ = try await appViewModel.dataStore.addTransaction(input)
+
+                // Auto-upsert default for next time.
+                if let targetId = selectedAccountId,
+                   let resolvedPaymentSource,
+                   userDefaults[targetId] != resolvedPaymentSource {
+                    Task.detached(priority: .background) { [defaultsRepo] in
+                        try? await defaultsRepo.upsert(accountId: targetId, defaultSourceId: resolvedPaymentSource)
+                    }
+                    userDefaults[targetId] = resolvedPaymentSource
+                }
             }
             await onSave()
             dismiss()

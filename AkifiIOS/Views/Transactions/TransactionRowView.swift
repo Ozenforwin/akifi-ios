@@ -79,6 +79,17 @@ struct TransactionRowView: View {
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
+
+                // Row 4: "From {source}" badge for auto-transferred expenses
+                if let sourceName = paymentSourceName {
+                    HStack(spacing: 3) {
+                        Image(systemName: "creditcard.fill")
+                            .font(.system(size: 9))
+                        Text(String(format: String(localized: "tx.autoTransfer.badge"), sourceName))
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(.blue)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -116,6 +127,18 @@ struct TransactionRowView: View {
         if let account { return account }
         guard let accId = transaction.accountId else { return nil }
         return dataStore.accounts.first { $0.id == accId }
+    }
+
+    /// Name of the personal source account for auto-transferred expenses,
+    /// or `nil` for ordinary rows. Only surfaces on the main expense-leg
+    /// (payment_source_account_id is set exclusively there).
+    private var paymentSourceName: String? {
+        guard let sourceId = transaction.paymentSourceAccountId,
+              sourceId != transaction.accountId,
+              let source = dataStore.accounts.first(where: { $0.id == sourceId }) else {
+            return nil
+        }
+        return source.name
     }
 
     private var amountColor: Color {
