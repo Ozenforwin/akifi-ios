@@ -134,20 +134,13 @@ struct TransactionFormView: View {
                                 Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
                         }
-                        .onChange(of: selectedAccountId) { _, newValue in
-                            // When target changes, auto-pick the stored default (if any) and of matching currency.
-                            guard let newId = newValue,
-                                  let target = accounts.first(where: { $0.id == newId }) else {
-                                selectedPaymentSourceId = nil
-                                return
-                            }
-                            if let defaultId = userDefaults[newId],
-                               let src = accounts.first(where: { $0.id == defaultId }),
-                               src.currency.lowercased() == target.currency.lowercased() {
-                                selectedPaymentSourceId = defaultId
-                            } else {
-                                selectedPaymentSourceId = nil  // = target (no auto-transfer)
-                            }
+                        .onChange(of: selectedAccountId) { _, _ in
+                            // Default is always "this account (regular expense)" —
+                            // auto-transfer is an explicit opt-in. The saved
+                            // user_account_defaults value is surfaced via the
+                            // ⭐ badge in the picker so the user can pick it in
+                            // one tap, but we never pre-select it.
+                            selectedPaymentSourceId = nil
                         }
                     }
                 }
@@ -285,16 +278,9 @@ struct TransactionFormView: View {
                 if let src = r.defaultSourceId { map[r.accountId] = src }
             }
             userDefaults = map
-
-            // Re-evaluate the default for the currently selected account, if one is picked.
-            if let accId = selectedAccountId,
-               let target = accounts.first(where: { $0.id == accId }),
-               selectedPaymentSourceId == nil,
-               let def = map[accId],
-               let src = accounts.first(where: { $0.id == def }),
-               src.currency.lowercased() == target.currency.lowercased() {
-                selectedPaymentSourceId = def
-            }
+            // We intentionally do NOT pre-select the saved default here.
+            // The map is used only to decorate the picker with a ⭐ badge
+            // so the user can pick their usual source in one tap.
         } catch {
             // Silent — defaults are optional UX.
             AppLogger.data.debug("paymentDefaults load: \(error.localizedDescription)")
