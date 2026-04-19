@@ -7,11 +7,11 @@
 
 ## Текущее состояние проекта
 
-- **Версия:** 1.2.3
-- **Кодовая база:** ~25K строк Swift 6, 155+ файлов
-- **Стек:** SwiftUI, Supabase (Auth + DB + Edge Functions), Firebase (Analytics + Crashlytics + Messaging)
+- **Версия:** 1.2.6 (TestFlight)
+- **Кодовая база:** ~30K строк Swift 6, 180+ файлов
+- **Стек:** SwiftUI, Supabase (Auth + DB + Edge Functions + Storage), Firebase (Analytics + Crashlytics + Messaging + Performance)
 - **Платформа:** iOS 18.0+
-- **Языки:** ru, en, es
+- **Языки:** ru, en, es (1000+ ключей локализации)
 
 ### Уже реализовано (до этого роадмапа):
 - Счета (мульти, совместные с ролями)
@@ -105,10 +105,11 @@
 ### 3.1 Natural Language запросы
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Расширить system prompt Edge Function для NL-запросов | DEFERRED | требует деплоя Edge Function |
+| Расширить system prompt Edge Function для NL-запросов | **DONE** | `supabase/functions/assistant-query/*.ts` — деплой сделан 2026-04-18/19 |
 | Добавить в контекст AI помесячную разбивку по категориям | **DONE** | `DataStore.swift` → `buildAssistantContext()` |
 | Добавить в контекст AI список активных подписок (нормализовано по месяцам) | **DONE** | `DataStore.swift`, `AssistantModels.swift` |
 | Добавить в контекст AI список бюджетов с метриками | **DONE** | `DataStore.swift`, `AssistantModels.swift` |
+| AI всегда указывает период в ответе (нет "тратишь 23k" без контекста) | **DONE** | `nlg.ts` + `coaching-builders.ts` — правило #7 в промпте |
 
 ### 3.2 Проактивные инсайты (Nudges)
 | Задача | Статус | Файлы |
@@ -134,6 +135,9 @@
 | Confidence levels: low (<2 мес) / medium (2-3) / high (4+) | **DONE** | `CashFlowEngine.Confidence` |
 | `CashFlowForecastView` — график + summary grid | **DONE** | `Views/Analytics/CashFlowForecastView.swift` |
 | Интеграция в AnalyticsTabView | **DONE** | `Views/Analytics/AnalyticsTabView.swift` |
+| Исправлены 4 бага (confidence, today-anchor, stdDev fallback, subs dedup) | **DONE** | 2026-04-18, +7 юнит-тестов |
+| Интерактивный тултип, "when money runs out" alert, "how it works" sheet | **DONE** | commit `738273e` |
+| Временно перемещено в низ дашборда (ждёт доработки визуала) | **PARKED** | `AnalyticsTabView.swift:127` |
 
 ### 3.5 Тесты
 | Задача | Статус | Файлы |
@@ -143,27 +147,54 @@
 
 ---
 
-## ФАЗА 4: Отчёты + Геймификация (RICE 4.50 + 3.73, ~2 спринта)
+## ФАЗА 4: Отчёты + Геймификация (RICE 4.50 + 3.73, ~2 спринта) — ВЫПОЛНЕНО
 
-### 4.1 PDF-отчёты
+### 4.1 PDF-отчёты (commit `f604556`)
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| `PDFReportGenerator` (UIGraphicsPDFRenderer) | TODO | `Services/PDFReportGenerator.swift` (новый) |
-| Шаблоны: месячный, квартальный, годовой | TODO | |
-| Содержание: сводка, категории, бюджеты, подписки | TODO | |
-| Подключить ReportsView к навигации (сейчас не подключён) | TODO | `Views/Reports/ReportsView.swift` |
-| ShareLink для PDF | TODO | |
+| `PDFReportGenerator` (UIGraphicsPDFRenderer, A4 многосекционный) | **DONE** | `Services/PDFReportGenerator.swift` |
+| Шаблоны: месячный, квартальный, годовой (через фильтр ReportsView) | **DONE** | |
+| Содержание: сводка с MoM/QoQ/YoY дельтами, категории, топ-10 расходов, бюджеты, подписки | **DONE** | |
+| Подключить ReportsView к навигации (NavLink из Home) | **DONE** | `Views/Home/HomeTabView.swift` → `ReportsShortcutCard` |
+| ShareLink для PDF через `UIActivityViewController` | **DONE** | `Views/Reports/ReportsView.swift` |
+| Локализация RU/EN/ES (`pdf.*`, `reports.*`) | **DONE** | `Localizable.xcstrings` |
+| 3 smoke-теста | **DONE** | `AkifiIOSTests/PDFReportGeneratorTests.swift` |
 
-### 4.2 Глубокая геймификация
+### 4.2 Savings Challenges (commit `dae1065`)
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Модель `SavingsChallenge` (30-дневный, без кафе, округляй и копи) | TODO | `Models/SavingsChallenge.swift` (новый) |
-| UI challenges (создание, прогресс, результат) | TODO | `Views/Challenges/` (новая папка) |
-| Привязка challenges к целям накоплений | TODO | |
-| Streak milestone анимации (7, 14, 30, 60, 100 дней) | TODO | `Views/Achievements/LevelUpView.swift` |
-| Бонусные ачивки за длинные стрики | TODO | Supabase `achievements` таблица |
-| Финансовое дерево навыков (визуализация прогресса) | TODO | `Views/Achievements/SkillTreeView.swift` (новый) |
-| Уровни: Новичок → Финансовый мастер | TODO | |
+| Модель `SavingsChallenge` + 4 типа (noCafe, roundUp, weeklyAmount, categoryLimit) | **DONE** | `Models/SavingsChallenge.swift` |
+| Миграция Supabase с RLS | **DONE** | `supabase/migrations/20260419120000_savings_challenges.sql` (применена 2026-04-19) |
+| Repository Sendable CRUD | **DONE** | `Repositories/SavingsChallengeRepository.swift` |
+| ChallengeProgressEngine (pure, идемпотентная) | **DONE** | `Services/ChallengeProgressEngine.swift` + 10 тестов |
+| ViewModel `@Observable @MainActor` | **DONE** | `ViewModels/SavingsChallengesViewModel.swift` |
+| UI: list + detail + form + card | **DONE** | `Views/Challenges/` |
+| Привязка challenges к целям накоплений (linkedGoalId) | **PARTIAL** | модель + engine поддерживают; goal-picker в форме — TODO |
+| Точка входа (`ChallengesShortcutCard` в HomeTabView) | **DONE** | |
+| Push-напоминания для челленджей | TODO | `NotificationManager` — для Phase 5 |
+
+### 4.3 Streak Milestones (commit `ba41902`)
+| Задача | Статус | Файлы |
+|--------|--------|-------|
+| `StreakTracker` + milestones [7,14,30,60,100,180,365] + dedup в UserDefaults | **DONE** | `Services/StreakTracker.swift` + 12 тестов |
+| `StreakMilestoneView` celebration popup (tier-градиент, confetti, haptic) | **DONE** | `Views/Achievements/StreakMilestoneView.swift` |
+| Триггер после создания транзакции | **DONE** | `Views/Root/ContentView.swift` |
+| Защита от multi-level jumps (5→35 = один попап на 30) | **DONE** | |
+| Бонусные ачивки за стрики (bronze/silver/gold/diamond badges) | TODO | требует seed-миграции или client-side синтеза |
+
+### 4.4 Skill Tree (commit `ba41902`)
+| Задача | Статус | Файлы |
+|--------|--------|-------|
+| Модель `SkillNode` — 15 узлов в 5 треках с prerequisites | **DONE** | `Models/SkillNode.swift` |
+| `SkillTreeEngine` (pure, multi-pass evaluator) | **DONE** | `Services/SkillTreeEngine.swift` + 5 тестов |
+| `SkillTreeView` — flat grid по трекам + detail sheet (MVP) | **DONE** | `Views/Achievements/SkillTreeView.swift` |
+| Точка входа из `AchievementsView` | **DONE** | |
+| v2: canvas-визуализация с рёбрами + zoom/pan + анимация веток | TODO | Phase 5 |
+
+### 4.5 Уровни «Новичок → Финансовый мастер»
+| Задача | Статус | Файлы |
+|--------|--------|-------|
+| 10 уровней уже реализованы до этого роадмапа | **DONE** | `AchievementRepository.swift` |
 
 ---
 
@@ -192,6 +223,23 @@
 
 ---
 
+## ФАЗА 4.5: Стабильность (внеплановая, 2026-04-17 … 19) — ВЫПОЛНЕНО
+
+Баги обнаружены в TestFlight, починены с глубоким копанием в root cause:
+
+| Задача | Статус | Файлы / коммит |
+|--------|--------|-------|
+| Race condition двух рефрешей сессии (→ ложная "Сессия истекла") | **DONE** | `SupabaseManager.sessionCoordinator` actor, `c889d48` |
+| `verify_jwt = true` по умолчанию в деплое assistant-query (→ 401 за 50мс) | **DONE** | `supabase/config.toml` с verify_jwt=false, `f03d8a4` |
+| Платформенный JWT rejection блокировал grace-period токены | **DONE** | Редеплой с `--no-verify-jwt` |
+| AuthManager слишком агрессивный signOut на любую ошибку рефреша | **DONE** | `isDefinitivelyExpired()` — только на `refresh_token_not_found`, `invalid_grant` и пр. |
+| `AssistantErrorType.classify` false-positive на substring "auth" | **DONE** | Явные сигналы: `code: 401/403`, `unauthorized`, `jwt expired` |
+| Universal Links не работали (AASA не отдавался) | **DONE** | `Site Akifi` nginx + `public/.well-known/apple-app-site-association` |
+| `/invite/:token` на сайте не существовал — шаринг счёта вёл на лендинг | **DONE** | `Site Akifi/src/pages/Invite.tsx` с smart deeplink логикой |
+| Сайт рекламировал только Telegram — нет иконки App Store | **DONE** | Hero, FinalCTA, Navbar, Footer + meta-теги |
+
+---
+
 ## Роадмап по спринтам
 
 | Спринт | Фаза | Фичи | Статус |
@@ -199,10 +247,11 @@
 | **S1** (нед 1) | Fixes + Journal | Исправления + Финансовый журнал + Шаринг | **DONE** |
 | **S2** (нед 2) | Subscriptions | Подписки ↔ Бюджеты интеграция | **DONE** |
 | **S3-S5** (нед 3-5) | AI 2.0 + Cash Flow | Nudges + InsightEngine + CashFlowEngine + ForecastView + дайджест | **DONE** |
-| **S6** (нед 6) | Reports | PDF-отчёты + подключение ReportsView | TODO |
-| **S7-S8** (нед 7-8) | Gamification | Challenges + streak rewards + skill tree | TODO |
+| **S5.5** (внеплан, 2 дня) | Stability | Session refresh coordinator + verify_jwt + Universal Links + Landing update | **DONE** |
+| **S6-S8** (нед 6-8) | Reports + Gamification | PDF-отчёты + Savings Challenges + Streak milestones + Skill tree MVP | **DONE** |
 | **S9-S10** (нед 9-10) | Widgets | WidgetKit (4 виджета) | TODO |
 | **S11-S12** (нед 11-12) | Net Worth | Активы, долги, дашборд | TODO |
+| **S13** (нед 13, опционально) | Phase 4 polish | Skill tree v2 (canvas + zoom/pan) + bonus streak badges + push-напоминания челленджей | TODO |
 
 ---
 
@@ -220,8 +269,10 @@
 | **Финансовый журнал** | **Есть** | **НИ У КОГО нет** (Gap #1 рынка) |
 | **Подписки ↔ Бюджеты связь** | **Есть** | **НИ У КОГО нет** (Gap #7 рынка) |
 | Cash flow прогноз | **Есть** | На уровне Monarch/Quicken |
-| PDF-отчёты | TODO | Есть у Monarch/Rocket |
-| Savings challenges | TODO | Базовые у Cleo |
+| PDF-отчёты | **Есть** | На уровне Monarch/Rocket |
+| Savings challenges | **Есть** | Лучше Cleo (4 типа, привязка к целям) |
+| Skill tree навыков | **Есть (MVP)** | **НИ У КОГО нет** (Gap #11 рынка) |
+| Streak milestones с celebration | **Есть** | Сильнее чем у большинства |
 | iOS Виджеты | TODO | Есть у многих |
 | Net worth | TODO | Есть у Monarch/YNAB |
 
@@ -232,15 +283,28 @@
 | Задача | Приоритет | Описание |
 |--------|-----------|----------|
 | Dependency Injection | Medium | Все Repository создаются напрямую, нет протоколов, нет DI-контейнера |
-| Unit-тесты BudgetMath | High | 176 строк domain-логики без тестов |
-| Unit-тесты DataStore/ViewModels | Medium | Покрыты только SubscriptionDateEngine и SubscriptionMatcher |
+| Unit-тесты BudgetMath | **DONE** | 13 тестов, покрывают подписки + edge cases |
+| Unit-тесты CashFlowEngine | **DONE** | 14 тестов (confidence, averages, stdDev fallback, subscription dedup) |
+| Unit-тесты ChallengeProgressEngine | **DONE** | 10 тестов (noCafe, categoryLimit, transitions, range clipping) |
+| Unit-тесты StreakTracker + SkillTreeEngine | **DONE** | 12 + 5 тестов |
+| Unit-тесты DataStore/ViewModels | Medium | Покрыты: CashFlow, BudgetMath, Challenge, Streak, SkillTree, SubscriptionDate, SubscriptionMatcher. Не покрыты: DataStore.balance, displayCategories merging, JournalViewModel |
 | Декомпозиция ContentView | Low | 400+ строк, можно разбить |
 | Декомпозиция SettingsView | Low | 587 строк, 5 под-View внутри |
-| PaymentManager (StoreKit) | High | Заглушка, нет In-App Purchases |
+| PaymentManager (StoreKit) | **High** | Заглушка, нет In-App Purchases — блокирует монетизацию |
 | OfflineQueue для всех сущностей | Medium | Сейчас только транзакции |
 | NetworkMonitor → DataStore интеграция | Medium | Автосинхронизация при восстановлении сети |
+| Goal-picker в ChallengeFormView | Medium | Модель + engine поддерживают linkedGoalId, форма — нет |
+| Миграция iOS repo edge-функций на TMA config | **DONE** | `supabase/config.toml` зеркало TMA репо |
+| Синхронизация `types.ts` из TMA repo | **DONE** | Скопирован в iOS repo, закоммичен |
 
 ---
 
-*Последнее обновление: 2026-04-16*
+*Последнее обновление: 2026-04-19*
 *Анализ рынка: топ-10 конкурентов (Monarch, YNAB, Copilot, Rocket Money, PocketGuard, Cleo, EveryDollar, MoneyWiz, Goodbudget, Fina)*
+
+## Следующий шаг (рекомендация)
+
+1. **Phase 5.1 — iOS Widgets** (WidgetKit + App Groups): высокая видимость на home screen iPhone, retention-booster. ~2 спринта, требует нового Xcode target.
+2. **Phase 5.2 — Net Worth трекер**: активы/долги/дашборд, ~2 спринта, новая БД-схема.
+3. **Параллельно — Phase 4 polish** (1 неделя дополнительно): goal-picker в челленджах, push-напоминания, bonus streak badges, skill tree v2.
+4. **Блокер для релиза v1.3** — реализовать StoreKit в `PaymentManager` (сейчас заглушка).
