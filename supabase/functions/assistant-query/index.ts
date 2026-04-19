@@ -71,6 +71,7 @@ import {
 import { nlgRephrase, loadUserSettings } from './nlg.ts';
 import { buildDataContext } from './data-context-builder.ts';
 import { analyzeWithLLM } from './analysis-llm.ts';
+import { runToolAgent } from './tool-agent.ts';
 
 // ── Environment variables ──
 
@@ -1067,33 +1068,59 @@ Deno.serve(async (req) => {
     } else if (intent === 'book_recommendations') {
       computed = await buildBookRecommendationsResponse(serviceClient, userId, transactions, rawQuery, history);
     } else {
-      // Route ALL unmatched queries through LLM — it handles language detection,
-      // greetings, general questions, and responds in the user's language
+      // ADR-002: unmatched queries go through the tool-calling agent first.
+      // The agent has deterministic tools (query_transactions / aggregate /
+      // calculator / compound_interest …) so free-form computational
+      // questions don't have to map to a hard-coded intent.
       const categories = await getCategories();
       const accounts = await getAccounts();
-      const dataContext = buildDataContext({
-        intent,
-        period,
-        customDays,
-        entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant ?? undefined,
-        transactions,
-        currentWindow,
-        previousWindow,
-        categories,
-        accounts,
-      });
-      const userSettings = await loadUserSettings(anonClient, userId);
-      const llmResult = await analyzeWithLLM(dataContext, rawQuery, history, userSettings.tone, lang);
-      if (llmResult.answer) {
-        computed = llmResult;
-      } else {
-        // LLM failed — provide a friendly fallback instead of a template
+      const userSettingsForAgent = await loadUserSettings(anonClient, userId);
+      const agentResult = await runToolAgent(
+        rawQuery,
+        history,
+        {
+          transactions,
+          accounts,
+          categories,
+          today,
+          baseCurrency: accounts[0]?.currency ?? 'USD',
+        },
+        { lang, tone: userSettingsForAgent.tone },
+      );
+
+      if (agentResult?.answer) {
         computed = {
-          answer: t('llmFallbackAnswer', lang),
-          facts: [],
-          actions: [],
+          answer: agentResult.answer,
+          facts: agentResult.toolCallsMade.slice(0, 3).map((c) => `${c.name}(…)`),
+          actions: [{ type: 'open_transactions', label: t('openTransactions', lang) }],
           followUps: followUpsByLang[lang],
         };
+      } else {
+        // Tool-agent unavailable — keep the previous analyseWithLLM path as
+        // a last resort. Preserves historical behaviour for greetings /
+        // language-detection / etc.
+        const dataContext = buildDataContext({
+          intent,
+          period,
+          customDays,
+          entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant ?? undefined,
+          transactions,
+          currentWindow,
+          previousWindow,
+          categories,
+          accounts,
+        });
+        const llmResult = await analyzeWithLLM(dataContext, rawQuery, history, userSettingsForAgent.tone, lang);
+        if (llmResult.answer) {
+          computed = llmResult;
+        } else {
+          computed = {
+            answer: t('llmFallbackAnswer', lang),
+            facts: [],
+            actions: [],
+            followUps: followUpsByLang[lang],
+          };
+        }
       }
     }
 
