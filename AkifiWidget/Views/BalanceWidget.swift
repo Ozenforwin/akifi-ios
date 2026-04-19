@@ -43,7 +43,7 @@ struct BalanceWidgetView: View {
                     .lineLimit(1)
                     .foregroundStyle(.primary)
                     .accessibilityLabel(
-                        LocalizedStringResource("widget.balance.title", defaultValue: "Баланс")
+                        String(localized: "widget.balance.title", defaultValue: "Баланс")
                     )
                     .accessibilityValue(
                         WidgetFormatters.amount(entry.snapshot.totalBalance, snapshot: entry.snapshot)

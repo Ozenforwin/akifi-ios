@@ -67,7 +67,7 @@ struct DailyLimitWidgetView: View {
                         .lineLimit(1)
                         .foregroundStyle(.primary)
                         .accessibilityLabel(
-                            LocalizedStringResource("widget.dailyLimit.title", defaultValue: "На сегодня")
+                            String(localized: "widget.dailyLimit.title", defaultValue: "На сегодня")
                         )
                         .accessibilityValue(
                             WidgetFormatters.amount(limit, snapshot: entry.snapshot)

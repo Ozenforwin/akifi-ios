@@ -74,7 +74,7 @@ struct StreakWidgetView: View {
                 .frame(width: 74, height: 74)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
-                    LocalizedStringResource("widget.streak.title", defaultValue: "Стрик")
+                    String(localized: "widget.streak.title", defaultValue: "Стрик")
                 )
                 .accessibilityValue(
                     String(format: String(

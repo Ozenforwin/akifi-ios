@@ -1590,6 +1590,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = AkifiWidget/AkifiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiWidget/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1741,6 +1743,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AkifiIOS/AkifiIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1756,6 +1760,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = AkifiWidget/AkifiWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiWidget/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1776,6 +1782,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AkifiIOS/AkifiIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				INFOPLIST_FILE = AkifiIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
