@@ -64,7 +64,15 @@ struct HomeTabView: View {
                     // 6. Summary Cards
                     summarySection
 
-                    // 6. Recent Transactions
+                    // 6b. Reports shortcut (tap to open full breakdown + PDF export)
+                    if !isNewUser {
+                        NavigationLink(destination: ReportsView()) {
+                            ReportsShortcutCard()
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // 7. Recent Transactions
                     transactionsSection
                 }
                 .padding(.horizontal)
@@ -242,6 +250,45 @@ struct HomeTabView: View {
                 }
             )
         }
+    }
+}
+
+// MARK: - Reports Shortcut Card
+
+private struct ReportsShortcutCard: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accent, Color.accent.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: "chart.pie.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "home.reports.title"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(String(localized: "home.reports.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

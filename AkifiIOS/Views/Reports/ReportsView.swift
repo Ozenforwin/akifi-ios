@@ -7,6 +7,11 @@ struct ReportsView: View {
     @State private var vm = ReportsViewModel()
     @State private var sheetData: CategorySheetData?
 
+    // PDF export state
+    @State private var isGeneratingPDF = false
+    @State private var pdfURL: URL?
+    @State private var pdfError: String?
+
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
 
@@ -66,6 +71,19 @@ struct ReportsView: View {
                         .fontWeight(.medium)
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    generatePDF()
+                } label: {
+                    if isGeneratingPDF {
+                        ProgressView().scaleEffect(0.7)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(isGeneratingPDF)
+                .accessibilityLabel(String(localized: "reports.exportPDF"))
+            }
         }
         .sheet(item: $sheetData) { data in
             ReportCategoryDetailSheet(
@@ -75,6 +93,72 @@ struct ReportsView: View {
                 cm: appViewModel.currencyManager
             )
             .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(item: Binding(
+            get: { pdfURL.map { PDFShareItem(url: $0) } },
+            set: { pdfURL = $0?.url }
+        )) { item in
+            ActivityViewController(items: [item.url])
+        }
+        .alert(String(localized: "reports.pdfError"), isPresented: .init(
+            get: { pdfError != nil }, set: { _ in pdfError = nil }
+        )) {
+            Button(String(localized: "common.close"), role: .cancel) {}
+        } message: {
+            Text(pdfError ?? "")
+        }
+    }
+
+    // MARK: - PDF Export
+
+    private func generatePDF() {
+        isGeneratingPDF = true
+        let monthTxs = vm.monthTransactions(from: dataStore.transactions)
+
+        // Previous period = shift selectedMonth by one period back, re-filter
+        let prevSelected = vm.prevPeriodDate()
+        let savedSelected = vm.selectedMonth
+        vm.selectedMonth = prevSelected
+        let prevTxs = vm.monthTransactions(from: dataStore.transactions)
+        vm.selectedMonth = savedSelected
+
+        let account = vm.selectedAccountId.flatMap { id in
+            dataStore.accounts.first(where: { $0.id == id })
+        }
+        let currency = (account?.currency ?? dataStore.accounts.first?.currency ?? "RUB").uppercased()
+
+        let input = PDFReportGenerator.Input(
+            title: String(localized: "pdf.title"),
+            periodLabel: vm.periodLabel(vm.selectedMonth),
+            generatedAt: Date(),
+            userName: dataStore.profile?.fullName,
+            currencyCode: currency,
+            transactions: monthTxs,
+            previousTransactions: prevTxs,
+            categories: dataStore.categories,
+            accounts: dataStore.accounts,
+            accountFilter: account,
+            budgets: dataStore.budgets,
+            subscriptions: dataStore.subscriptions
+        )
+
+        Task.detached(priority: .userInitiated) {
+            do {
+                let url = try PDFReportGenerator.generate(input)
+                await MainActor.run {
+                    pdfURL = url
+                    isGeneratingPDF = false
+                    AnalyticsService.logEvent(
+                        "pdf_report_exported",
+                        params: ["period": input.periodLabel]
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    pdfError = error.localizedDescription
+                    isGeneratingPDF = false
+                }
+            }
         }
     }
 
@@ -262,6 +346,23 @@ struct ReportsView: View {
             }
         }
     }
+}
+
+// MARK: - PDF Share helpers
+
+private struct PDFShareItem: Identifiable {
+    let url: URL
+    var id: URL { url }
+}
+
+private struct ActivityViewController: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Donut Chart

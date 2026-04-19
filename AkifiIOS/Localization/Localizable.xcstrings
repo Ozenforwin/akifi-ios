@@ -8140,6 +8140,7 @@
       }
     },
     "error.auth.sessionExpired" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16844,6 +16845,160 @@
             "value" : "Отчёт"
           }
         }
+      }
+    },
+    "reports.exportPDF" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Export PDF" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Exportar PDF" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Экспорт PDF" } }
+      }
+    },
+    "reports.pdfError" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Report generation failed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Error al generar el informe" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ошибка создания отчёта" } }
+      }
+    },
+    "home.reports.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reports" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Informes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отчёты" } }
+      }
+    },
+    "home.reports.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Breakdown, PDF export and insights" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Desglose, exportación PDF e informes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Аналитика, экспорт PDF, разбор по категориям" } }
+      }
+    },
+    "pdf.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Financial Report" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Informe financiero" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Финансовый отчёт" } }
+      }
+    },
+    "pdf.generatedAt" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generated" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Generado" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создан" } }
+      }
+    },
+    "pdf.allAccounts" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All accounts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todas las cuentas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все счета" } }
+      }
+    },
+    "pdf.summary" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Summary" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Resumen" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сводка" } }
+      }
+    },
+    "pdf.income" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Income" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ingresos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доход" } }
+      }
+    },
+    "pdf.expense" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expenses" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gastos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расход" } }
+      }
+    },
+    "pdf.net" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Net" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Neto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Остаток" } }
+      }
+    },
+    "pdf.expensesByCategory" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expenses by category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gastos por categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расходы по категориям" } }
+      }
+    },
+    "pdf.topTransactions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top expenses" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gastos principales" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Топ расходов" } }
+      }
+    },
+    "pdf.budgets" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Budgets" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Presupuestos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Бюджеты" } }
+      }
+    },
+    "pdf.subscriptions" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscriptions" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Suscripciones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписки" } }
+      }
+    },
+    "pdf.subscriptions.total" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly total" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Total mensual" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итого в месяц" } }
+      }
+    },
+    "pdf.col.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "CATEGORY" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "CATEGORÍA" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "КАТЕГОРИЯ" } }
+      }
+    },
+    "pdf.col.amount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "AMOUNT" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "IMPORTE" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "СУММА" } }
+      }
+    },
+    "pdf.col.percent" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "%" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%" } }
+      }
+    },
+    "pdf.total" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итого" } }
+      }
+    },
+    "pdf.month" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "mo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "мес" } }
+      }
+    },
+    "pdf.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generated by Akifi · akifi.pro" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Generado con Akifi · akifi.pro" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создано с Akifi · akifi.pro" } }
       }
     },
     "report.totalBalance" : {
