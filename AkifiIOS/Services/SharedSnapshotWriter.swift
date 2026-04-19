@@ -62,15 +62,21 @@ enum SharedSnapshotWriter {
         }
 
         // ── Today income / expense / net ──
+        // ADR-001: amount is canonical in the account's currency (amountNative).
+        // The legacy `tx.currency` label was inconsistent (TMA stored USD
+        // labels on RUB values etc.) — using it for FX inflated totals by ~76×
+        // on USD-accounts. Source-of-truth is the account.currency now.
+        let accountCurrencyById: [String: String] = Dictionary(
+            uniqueKeysWithValues: dataStore.accounts.map { ($0.id, $0.currency) }
+        )
         let todayStr = Self.todayDateString()
         var todayIncome: Int64 = 0
         var todayExpense: Int64 = 0
         for tx in dataStore.transactions where tx.date == todayStr && !tx.isTransfer {
-            // Normalize tx amount from its own currency → base currency.
-            let txCcy = tx.currency?.uppercased() ?? baseCode
+            let accountCcy = tx.accountId.flatMap { accountCurrencyById[$0] }?.uppercased() ?? baseCode
             let normalized = NetWorthCalculator.convert(
-                amount: tx.amount,
-                from: txCcy,
+                amount: tx.amountNative,
+                from: accountCcy,
                 to: baseCode,
                 rates: fxRates
             )
@@ -111,9 +117,9 @@ enum SharedSnapshotWriter {
                     return tx.date == todayStr
                 }
                 .reduce(Int64(0)) { partial, tx in
-                    let txCcy = tx.currency?.uppercased() ?? baseCode
+                    let accountCcy = tx.accountId.flatMap { accountCurrencyById[$0] }?.uppercased() ?? baseCode
                     return partial + NetWorthCalculator.convert(
-                        amount: tx.amount, from: txCcy, to: baseCode, rates: fxRates
+                        amount: tx.amountNative, from: accountCcy, to: baseCode, rates: fxRates
                     )
                 }
         }

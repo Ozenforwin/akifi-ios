@@ -9,7 +9,7 @@ enum CSVExporter {
 
         for tx in transactions.sorted(by: { $0.date > $1.date }) {
             let type = tx.isTransfer ? String(localized: "transaction.transfer") : (tx.type == .income ? String(localized: "common.income") : String(localized: "common.expense"))
-            let amount = String(format: "%.2f", Double(truncating: tx.amount.displayAmount as NSDecimalNumber))
+            let amount = String(format: "%.2f", Double(truncating: tx.amountNative.displayAmount as NSDecimalNumber))
             let category = tx.categoryId.flatMap { categoryMap[$0]?.name } ?? ""
             let description = (tx.description ?? "").replacingOccurrences(of: ",", with: ";")
             let account = tx.accountId.flatMap { accountMap[$0]?.name } ?? ""

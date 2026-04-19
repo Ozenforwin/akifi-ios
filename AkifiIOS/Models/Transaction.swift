@@ -4,8 +4,28 @@ struct Transaction: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var accountId: String?
+    /// Legacy column. Until multi_currency_v2 is fully rolled out, this equals
+    /// `amountNative` on new writes and is the historical field read by legacy
+    /// code. Kept in kopecks (×100 of the DB numeric) for Int64 math.
     var amount: Int64
+    /// ADR-001 canonical amount in the owning account's currency, kopecks.
+    /// Populated server-side at migration (backfill = amount) and on every
+    /// new write. When `multi_currency_v2` is OFF, UI still reads `amount`.
+    var amountNative: Int64
+    /// Legacy label carried from TMA. Meaning is inconsistent across
+    /// historical rows — should be treated as advisory only and not used for
+    /// math. New writes keep it equal to `account.currency` for compatibility.
     var currency: String?
+    /// User-entered amount in `foreignCurrency` when entry currency differs
+    /// from the account currency. In main units (Decimal, not kopecks) since
+    /// minor-unit scale is currency-dependent (VND = 0, USD = 2).
+    var foreignAmount: Decimal?
+    /// ISO code (uppercase) of the currency the user originally entered.
+    /// NULL when entry was in account currency.
+    var foreignCurrency: String?
+    /// Frozen rate at entry time: foreignCurrency → accountCurrency.
+    /// `amountNative ≈ foreignAmount × fxRate` (in each currency's own units).
+    var fxRate: Decimal?
     var description: String?
     var categoryId: String?
     var type: TransactionType
@@ -30,7 +50,13 @@ struct Transaction: Codable, Identifiable, Sendable {
         case id
         case userId = "user_id"
         case accountId = "account_id"
-        case amount, currency, description
+        case amount
+        case amountNative = "amount_native"
+        case currency
+        case foreignAmount = "foreign_amount"
+        case foreignCurrency = "foreign_currency"
+        case fxRate = "fx_rate"
+        case description
         case categoryId = "category_id"
         case type
         case date
@@ -44,9 +70,37 @@ struct Transaction: Codable, Identifiable, Sendable {
         case updatedAt = "updated_at"
     }
 
-    init(id: String, userId: String, accountId: String?, amount: Int64, currency: String?, description: String?, categoryId: String?, type: TransactionType, date: String, rawDateTime: String? = nil, merchantName: String?, merchantFuzzy: String?, transferGroupId: String?, paymentSourceAccountId: String? = nil, autoTransferGroupId: String? = nil, status: String?, createdAt: String?, updatedAt: String?) {
+    init(
+        id: String,
+        userId: String,
+        accountId: String?,
+        amount: Int64,
+        amountNative: Int64? = nil,
+        currency: String?,
+        foreignAmount: Decimal? = nil,
+        foreignCurrency: String? = nil,
+        fxRate: Decimal? = nil,
+        description: String?,
+        categoryId: String?,
+        type: TransactionType,
+        date: String,
+        rawDateTime: String? = nil,
+        merchantName: String?,
+        merchantFuzzy: String?,
+        transferGroupId: String?,
+        paymentSourceAccountId: String? = nil,
+        autoTransferGroupId: String? = nil,
+        status: String?,
+        createdAt: String?,
+        updatedAt: String?
+    ) {
         self.id = id; self.userId = userId; self.accountId = accountId; self.amount = amount
-        self.currency = currency; self.description = description; self.categoryId = categoryId
+        self.amountNative = amountNative ?? amount
+        self.currency = currency
+        self.foreignAmount = foreignAmount
+        self.foreignCurrency = foreignCurrency?.uppercased()
+        self.fxRate = fxRate
+        self.description = description; self.categoryId = categoryId
         self.type = type; self.date = date; self.rawDateTime = rawDateTime ?? date
         self.merchantName = merchantName; self.merchantFuzzy = merchantFuzzy
         self.transferGroupId = transferGroupId
@@ -61,7 +115,14 @@ struct Transaction: Codable, Identifiable, Sendable {
         userId = try container.decode(String.self, forKey: .userId)
         accountId = try container.decodeIfPresent(String.self, forKey: .accountId)
         amount = container.decodeKopecks(forKey: .amount)
+        // Fallback = amount so legacy rows (before the Phase 1 backfill
+        // reached them, or cached snapshots from old builds) still produce a
+        // usable balance figure.
+        amountNative = container.decodeKopecksIfPresent(forKey: .amountNative) ?? amount
         currency = try container.decodeIfPresent(String.self, forKey: .currency)
+        foreignAmount = container.decodeDecimalIfPresent(forKey: .foreignAmount)
+        foreignCurrency = try container.decodeIfPresent(String.self, forKey: .foreignCurrency)?.uppercased()
+        fxRate = container.decodeDecimalIfPresent(forKey: .fxRate)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
         type = try container.decode(TransactionType.self, forKey: .type)
@@ -85,7 +146,12 @@ struct Transaction: Codable, Identifiable, Sendable {
         try container.encodeIfPresent(accountId, forKey: .accountId)
         // Store as rubles (same format as DB) so decode always does ×100
         try container.encode(Double(amount) / 100.0, forKey: .amount)
+        // Always emit amount_native — the DB has a NOT NULL check on it.
+        try container.encode(Double(amountNative) / 100.0, forKey: .amountNative)
         try container.encodeIfPresent(currency, forKey: .currency)
+        try container.encodeIfPresent(foreignAmount, forKey: .foreignAmount)
+        try container.encodeIfPresent(foreignCurrency, forKey: .foreignCurrency)
+        try container.encodeIfPresent(fxRate, forKey: .fxRate)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encodeIfPresent(categoryId, forKey: .categoryId)
         try container.encode(type, forKey: .type)
@@ -119,5 +185,11 @@ extension Transaction {
     /// usually filtered out of regular listings (they can't be deleted directly).
     var isAutoTransferLeg: Bool {
         autoTransferGroupId != nil && transferGroupId != nil
+    }
+
+    /// True when the user entered the transaction in a currency different
+    /// from the account currency; drives the "500 000 VND ≈ 1 900 ₽" UI.
+    var hasForeignCurrency: Bool {
+        foreignCurrency != nil && foreignAmount != nil
     }
 }

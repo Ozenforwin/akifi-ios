@@ -35,13 +35,32 @@ struct AccountFormView: View {
                     TextField(String(localized: "account.namePlaceholder"), text: $name)
                 }
 
-                Section(String(localized: "account.balance")) {
+                Section {
                     HStack {
                         TextField("0", text: $initialBalanceText)
                             .keyboardType(.decimalPad)
                         Text(selectedCurrency.symbol)
                             .foregroundStyle(.secondary)
                     }
+                    if shouldShowBasePreview {
+                        HStack {
+                            Text(String(localized: "account.balance.approxInBase"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(basePreview)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text(String(localized: "account.balance"))
+                } footer: {
+                    // ADR-001: amount field is always in account.currency. No
+                    // FX at save time. Display-only preview in base currency
+                    // appears above when the two differ.
+                    Text(String(localized: "account.balance.hint"))
+                        .font(.caption)
                 }
 
                 Section(String(localized: "settings.currency")) {
@@ -158,38 +177,36 @@ struct AccountFormView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Preview (base currency approx)
 
-    /// Rate for converting between account currency and base (data) currency
-    private func rateForCurrency(_ currency: CurrencyCode) -> Double {
+    /// Only show the base-currency preview when the user's base differs from
+    /// the account's currency. Avoids redundant "≈ 100 ₽" under "100 ₽".
+    private var shouldShowBasePreview: Bool {
+        let base = appViewModel.currencyManager.dataCurrency
+        return base != selectedCurrency && parsedBalance != nil
+    }
+
+    private var parsedBalance: Double? {
+        let raw = initialBalanceText.replacingOccurrences(of: ",", with: ".")
+        return Double(raw)
+    }
+
+    private var basePreview: String {
+        guard let parsed = parsedBalance else { return "" }
+        // FX: account currency → base currency.
         let cm = appViewModel.currencyManager
-        let baseRate = cm.rates[cm.dataCurrency.rawValue] ?? 1.0
-        let targetRate = cm.rates[currency.rawValue] ?? 1.0
-        guard baseRate > 0 else { return 1.0 }
-        return targetRate / baseRate
-    }
-
-    /// Convert base currency amount (RUB) to account currency using Double
-    private func baseToAccount(_ rubles: Double, currency: CurrencyCode) -> Double {
-        rubles * rateForCurrency(currency)
-    }
-
-    /// Convert account currency amount to base currency (RUB) using Double
-    private func accountToBase(_ amount: Double, currency: CurrencyCode) -> Double {
-        let rate = rateForCurrency(currency)
-        guard rate > 0 else { return amount }
-        return amount / rate
-    }
-
-    /// Net transaction amount for account (income - expense) in kopecks
-    private func accountNet(for account: Account) -> Int64 {
-        var net: Int64 = 0
-        for tx in appViewModel.dataStore.transactions {
-            guard tx.accountId == account.id else { continue }
-            if tx.type == .income { net += tx.amount }
-            else if tx.type == .expense { net -= tx.amount }
-        }
-        return net
+        let baseCode = cm.dataCurrency.rawValue.uppercased()
+        let fromCode = selectedCurrency.rawValue.uppercased()
+        let kopecks = Int64((parsed * 100).rounded())
+        let fxRates = cm.rates.mapValues { Decimal($0) }
+        let converted = NetWorthCalculator.convert(
+            amount: kopecks,
+            from: fromCode,
+            to: baseCode,
+            rates: fxRates
+        )
+        let display = Decimal(converted) / 100
+        return "≈ \(cm.formatInCurrency(display, currency: cm.dataCurrency))"
     }
 
     // MARK: - Prefill
@@ -201,14 +218,15 @@ struct AccountFormView: View {
         selectedColor = account.color
         selectedCurrency = account.currencyCode
 
-        // Current total balance in kopecks (initial + net)
-        let totalKopecks = appViewModel.dataStore.balance(for: account)
-        // Convert kopecks → rubles (Double) → account currency
-        let totalRubles = Double(totalKopecks) / 100.0
-        let inAccountCurrency = baseToAccount(totalRubles, currency: account.currencyCode)
-        // Round to 2 decimals
-        let rounded = (inAccountCurrency * 100).rounded() / 100
-        initialBalanceText = rounded == rounded.rounded() ? "\(Int(rounded))" : String(format: "%.2f", rounded)
+        // ADR-001: balance(for:) is already in account.currency (kopecks).
+        // The old implementation ran it through `baseToAccount`, which
+        // double-converted on non-RUB accounts and produced nonsense.
+        let kopecksInAccountCurrency = appViewModel.dataStore.balance(for: account)
+        let value = Double(kopecksInAccountCurrency) / 100.0
+        let rounded = (value * 100).rounded() / 100
+        initialBalanceText = rounded == rounded.rounded()
+            ? "\(Int(rounded))"
+            : String(format: "%.2f", rounded)
     }
 
     // MARK: - Save
@@ -216,24 +234,38 @@ struct AccountFormView: View {
     private func save() async {
         isSaving = true
         do {
+            // ADR-001: `initialBalanceText` is ALWAYS in `selectedCurrency`.
+            // No FX conversion — the field label already shows the account's
+            // own symbol.
             let parsed = Double(initialBalanceText.replacingOccurrences(of: ",", with: ".")) ?? 0
+            let enteredKopecks = Int64((parsed * 100).rounded())
 
             if let account = editingAccount {
-                // User entered desired total balance in account's currency
-                // Convert to base (RUB), then to kopecks
-                let desiredRubles = accountToBase(parsed, currency: selectedCurrency)
-                let desiredKopecks = Int64((desiredRubles * 100).rounded())
-                // Subtract net transactions to get new initial_balance
+                // The user typed the DESIRED total balance. We back into
+                // `initial_balance` by subtracting the net of all
+                // transactions (which are already in account currency via
+                // `amountNative` after ADR-001).
                 let net = accountNet(for: account)
-                let newInitial = desiredKopecks - net
+                let newInitial = enteredKopecks - net
                 let newBalance: Int64? = newInitial != account.initialBalance ? newInitial : nil
-                try await accountRepo.update(id: account.id, name: name, icon: selectedIcon, color: selectedColor, currency: selectedCurrency.rawValue.lowercased(), initialBalance: newBalance)
+                try await accountRepo.update(
+                    id: account.id,
+                    name: name,
+                    icon: selectedIcon,
+                    color: selectedColor,
+                    currency: selectedCurrency.rawValue.lowercased(),
+                    initialBalance: newBalance
+                )
             } else {
-                // New account: entered balance IS the initial balance in account currency
-                // Convert to base (RUB) kopecks
-                let rubles = accountToBase(parsed, currency: selectedCurrency)
-                let kopecks = Int64((rubles * 100).rounded())
-                _ = try await accountRepo.create(name: name, icon: selectedIcon, color: selectedColor, initialBalance: kopecks, currency: selectedCurrency.rawValue.lowercased())
+                // New account: entered value IS the initial balance in
+                // account currency.
+                _ = try await accountRepo.create(
+                    name: name,
+                    icon: selectedIcon,
+                    color: selectedColor,
+                    initialBalance: enteredKopecks,
+                    currency: selectedCurrency.rawValue.lowercased()
+                )
                 AnalyticsService.logCreateAccount()
             }
             await onSave()
@@ -242,5 +274,17 @@ struct AccountFormView: View {
             errorMessage = error.localizedDescription
         }
         isSaving = false
+    }
+
+    /// Net of all transactions on this account — in the account's currency
+    /// (because `amountNative` is by definition in that currency per ADR-001).
+    private func accountNet(for account: Account) -> Int64 {
+        var net: Int64 = 0
+        for tx in appViewModel.dataStore.transactions {
+            guard tx.accountId == account.id else { continue }
+            if tx.type == .income { net += tx.amountNative }
+            else if tx.type == .expense { net -= tx.amountNative }
+        }
+        return net
     }
 }

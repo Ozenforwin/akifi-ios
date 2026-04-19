@@ -208,7 +208,7 @@ final class ReportsViewModel {
         for tx in filtered {
             let cat = tx.categoryId.flatMap { categoryIndex[$0] } ?? fallbackCategory
             let key = cat.name
-            byNameAmount[key, default: 0] += tx.amount
+            byNameAmount[key, default: 0] += tx.amountNative
             byNameCount[key, default: 0] += 1
             if byNameCategory[key] == nil { byNameCategory[key] = cat }
         }
@@ -251,7 +251,7 @@ final class ReportsViewModel {
             guard let txDate = Self.txDateFormatter.date(from: tx.date) else { continue }
             let day = calendar.component(.day, from: txDate)
 
-            let signed: Int64 = tx.type == .income ? tx.amount : -tx.amount
+            let signed: Int64 = tx.type == .income ? tx.amountNative : -tx.amountNative
             dailyNet[day, default: 0] += signed
         }
 

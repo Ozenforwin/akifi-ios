@@ -203,7 +203,7 @@ final class DataStore {
         guard let txDate = SubscriptionDateEngine.parseDbDate(tx.date) else { return }
 
         do {
-            let amountDecimal = Decimal(tx.amount) / 100
+            let amountDecimal = Decimal(tx.amountNative) / 100
             let paymentDateStr = SubscriptionDateEngine.formatDbDate(txDate)
             let payment = try await subscriptionRepo.addPayment(
                 CreateSubscriptionPaymentInput(
@@ -405,17 +405,20 @@ final class DataStore {
         var totalExpenseKopecks: Int64 = 0
         var totalIncomeKopecks: Int64 = 0
         for tx in transactions {
+            // ADR-001: balance math uses amount_native (canonical, in account
+            // currency). Transaction.swift falls back to `amount` for legacy
+            // rows, so this is safe pre- and post-backfill.
             switch tx.type {
             case .expense:
-                totalExpenseKopecks += tx.amount
+                totalExpenseKopecks += tx.amountNative
                 if let catId = tx.categoryId {
                     let name = categoryNameById[catId] ?? catId
-                    byCategoryKopecks[name, default: 0] += tx.amount
+                    byCategoryKopecks[name, default: 0] += tx.amountNative
                     let monthKey = String(tx.date.prefix(7))  // yyyy-MM
-                    byMonthCategoryKopecks[monthKey, default: [:]][name, default: 0] += tx.amount
+                    byMonthCategoryKopecks[monthKey, default: [:]][name, default: 0] += tx.amountNative
                 }
             case .income:
-                totalIncomeKopecks += tx.amount
+                totalIncomeKopecks += tx.amountNative
             case .transfer:
                 break
             }
@@ -426,7 +429,7 @@ final class DataStore {
         for tx in transactions where tx.type == .expense {
             if let accId = tx.accountId {
                 let name = accountNameById[accId] ?? accId
-                byAccountKopecks[name, default: 0] += tx.amount
+                byAccountKopecks[name, default: 0] += tx.amountNative
             }
         }
 
@@ -530,17 +533,21 @@ final class DataStore {
 
         for tx in transactions {
             guard let accountId = tx.accountId else { continue }
+            // ADR-001: balance math reads amount_native. `amountNative` in
+            // the decoded struct falls back to `amount` for rows that predate
+            // the Phase 1 backfill, so this is safe regardless.
+            let value = tx.amountNative
             switch tx.type {
             case .income:
-                incomeByAccount[accountId, default: 0] += tx.amount
+                incomeByAccount[accountId, default: 0] += value
             case .expense:
-                expenseByAccount[accountId, default: 0] += tx.amount
+                expenseByAccount[accountId, default: 0] += value
             case .transfer:
                 // Legacy transfer type — treat positive as income, negative as expense
-                if tx.amount > 0 {
-                    incomeByAccount[accountId, default: 0] += tx.amount
+                if value > 0 {
+                    incomeByAccount[accountId, default: 0] += value
                 } else {
-                    expenseByAccount[accountId, default: 0] += abs(tx.amount)
+                    expenseByAccount[accountId, default: 0] += abs(value)
                 }
             }
         }

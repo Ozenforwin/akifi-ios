@@ -94,6 +94,20 @@ final class CurrencyManager {
         return "\(formatted) \(selectedCurrency.symbol)"
     }
 
+    /// Format an amount in a specific target currency without any FX
+    /// conversion. Caller is responsible for having the value in that
+    /// currency already. Used by the multi-currency preview labels
+    /// (e.g. the "≈ 1 900 ₽" hint under a foreign-currency input).
+    func formatInCurrency(_ amount: Decimal, currency: CurrencyCode) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = currency.decimals
+        formatter.minimumFractionDigits = currency.decimals
+        let absAmount = abs(amount)
+        let formatted = formatter.string(from: absAmount as NSDecimalNumber) ?? "0"
+        return "\(formatted) \(currency.symbol)"
+    }
+
     func fetchRates() async {
         rates = await exchangeRateService.fetchRates(base: "USD")
     }

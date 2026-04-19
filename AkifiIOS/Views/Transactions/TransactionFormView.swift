@@ -489,17 +489,23 @@ struct TransactionFormView: View {
             return
         }
 
-        // Amount is stored in base currency (RUB) — convert to the tx currency for display
-        let cm = appViewModel.currencyManager
-        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+        // ADR-001 prefill rules:
+        // 1. If the row has `foreignCurrency` set (new multi-currency row),
+        //    show the original user-entered value in the foreign currency.
+        // 2. Else — show `amountNative` in the account's currency (which
+        //    falls back to `amount` for pre-Phase-1 rows, by Transaction
+        //    decoder contract).
+        if let fc = tx.foreignCurrency,
+           let code = CurrencyCode(rawValue: fc.uppercased()),
+           let fa = tx.foreignAmount {
             selectedCurrency = code
-            // Convert from base (RUB) to the transaction's currency for editing
-            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: code)
-            calculatorState.setValue(displayAmount)
+            calculatorState.setValue(fa)
         } else {
-            selectedCurrency = cm.selectedCurrency
-            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: cm.selectedCurrency)
-            calculatorState.setValue(displayAmount)
+            // Account currency — look up from the live accounts list.
+            let account = accounts.first(where: { $0.id == tx.accountId })
+            let ccyCode = account?.currencyCode ?? appViewModel.currencyManager.dataCurrency
+            selectedCurrency = ccyCode
+            calculatorState.setValue(tx.amountNative.displayAmount)
         }
 
         description = tx.description ?? ""
@@ -523,14 +529,42 @@ struct TransactionFormView: View {
         isLoading = true
         let dateStr = Self.isoDateTimeFormatter.string(from: date)
 
-        // Convert entered amount from selected currency to base currency (RUB)
+        // ADR-001: the ONLY canonical amount is in the owning account's
+        // currency. Foreign entry is decomposed into:
+        //   amount_native    = amountValue * FX(selectedCurrency → account)
+        //   foreign_amount   = amountValue (original)
+        //   foreign_currency = selectedCurrency
+        //   fx_rate          = amount_native / foreign_amount
+        // When selectedCurrency == account.currency we skip foreign_* fields
+        // entirely — the row is a "native" entry.
         let cm = appViewModel.currencyManager
-        let amountInBase: Decimal
-        if selectedCurrency == cm.dataCurrency {
-            amountInBase = amountValue
+        let accountCode: CurrencyCode = selectedAccount?.currencyCode ?? cm.dataCurrency
+        let amountInAccountCurrency: Decimal
+        let foreignAmount: Decimal?
+        let foreignCurrencyCode: String?
+        let fxRate: Decimal?
+        if selectedCurrency == accountCode {
+            amountInAccountCurrency = amountValue
+            foreignAmount = nil
+            foreignCurrencyCode = nil
+            fxRate = nil
         } else {
-            amountInBase = cm.convertFromAccountCurrency(amountValue, accountCurrency: selectedCurrency)
+            amountInAccountCurrency = Self.crossConvert(
+                amount: amountValue,
+                from: selectedCurrency,
+                to: accountCode,
+                using: cm
+            )
+            foreignAmount = amountValue
+            foreignCurrencyCode = selectedCurrency.rawValue
+            fxRate = amountValue != 0
+                ? (amountInAccountCurrency / amountValue)
+                : nil
         }
+
+        // Legacy `currency` column now always mirrors account.currency on
+        // new writes. The foreign-entry currency lives in `foreign_currency`.
+        let txCurrencyLabel = accountCode.rawValue
 
         do {
             // Always source user_id from the live Supabase session.
@@ -567,7 +601,11 @@ struct TransactionFormView: View {
                 if sourceChanged && isMainExpense {
                     try await reassignExpenseSource(
                         tx: tx,
-                        amountInBase: amountInBase,
+                        amountInAccountCurrency: amountInAccountCurrency,
+                        foreignAmount: foreignAmount,
+                        foreignCurrencyCode: foreignCurrencyCode,
+                        fxRate: fxRate,
+                        currencyLabel: txCurrencyLabel,
                         userId: userId,
                         dateStr: dateStr,
                         newSource: resolvedNewSource
@@ -580,14 +618,25 @@ struct TransactionFormView: View {
                     let useAutoUpdate = tx.type == .expense
                         && tx.autoTransferGroupId != nil
                         && tx.transferGroupId == nil
+                    // Pass account_id only when it actually changed — avoids
+                    // accidentally blanking it, and matches legacy "only
+                    // update dirty fields" behavior.
+                    let accountIdForUpdate: String? = selectedAccountId != tx.accountId
+                        ? selectedAccountId
+                        : nil
                     let input = UpdateTransactionInput(
-                        amount: amountInBase,
-                        currency: selectedCurrency.rawValue,
+                        amount: amountInAccountCurrency,
+                        amount_native: amountInAccountCurrency,
+                        currency: txCurrencyLabel,
+                        foreign_amount: foreignAmount,
+                        foreign_currency: foreignCurrencyCode,
+                        fx_rate: fxRate,
                         type: selectedType.rawValue,
                         date: dateStr,
                         description: description.isEmpty ? nil : description,
                         category_id: selectedCategoryId,
                         merchant_name: nil,
+                        account_id: accountIdForUpdate,
                         useAutoTransferUpdate: useAutoUpdate
                     )
                     try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
@@ -601,28 +650,34 @@ struct TransactionFormView: View {
                     else { return nil }
                     return sourceId
                 }()
-                // Cross-currency: when the resolved source has a different
-                // currency than the target, convert the target-currency
-                // amount into the source currency and pass both to the RPC
-                // so the 10-arg overload is picked. The source-leg row is
-                // stored in its own currency; target expense + transfer-in
-                // stay in target currency.
+                // Cross-currency: when the source account uses a different
+                // currency than the TARGET account, convert the target-currency
+                // amount into the source's currency for the transfer-out leg.
+                // This is independent of the user's entry currency — ADR-001
+                // already normalized to `amountInAccountCurrency` above.
                 var sourceAmount: Decimal? = nil
                 var sourceCurrency: String? = nil
                 if let srcId = resolvedPaymentSource,
                    let src = accounts.first(where: { $0.id == srcId }),
-                   src.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
+                   src.currency.lowercased() != accountCode.rawValue.lowercased() {
                     let srcCode = src.currencyCode
-                    // amountInBase is already RUB. Use convertToAccountCurrency
-                    // to express it in the source account's currency.
-                    sourceAmount = cm.convertToAccountCurrency(amountInBase, accountCurrency: srcCode)
+                    sourceAmount = Self.crossConvert(
+                        amount: amountInAccountCurrency,
+                        from: accountCode,
+                        to: srcCode,
+                        using: cm
+                    )
                     sourceCurrency = srcCode.rawValue
                 }
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: selectedAccountId,
-                    amount: amountInBase,
-                    currency: selectedCurrency.rawValue,
+                    amount: amountInAccountCurrency,
+                    amount_native: amountInAccountCurrency,
+                    currency: txCurrencyLabel,
+                    foreign_amount: foreignAmount,
+                    foreign_currency: foreignCurrencyCode,
+                    fx_rate: fxRate,
                     type: selectedType.rawValue,
                     date: dateStr,
                     description: description.isEmpty ? nil : description,
@@ -659,7 +714,11 @@ struct TransactionFormView: View {
     /// description / merchant are preserved from the form state.
     private func reassignExpenseSource(
         tx: Transaction,
-        amountInBase: Decimal,
+        amountInAccountCurrency: Decimal,
+        foreignAmount: Decimal?,
+        foreignCurrencyCode: String?,
+        fxRate: Decimal?,
+        currencyLabel: String,
         userId: String,
         dateStr: String,
         newSource: String?
@@ -680,17 +739,24 @@ struct TransactionFormView: View {
             )
         }
 
-        // 2. Rebuild the cross-currency source amount if needed. Mirrors
-        //    the create-path branch above so the 10-arg RPC gets the
-        //    source-currency amount.
+        // 2. Rebuild the cross-currency source amount if needed. Uses the
+        //    target account's currency (ADR-001) as the reference, not the
+        //    user's entry currency — the RPC expects the transfer-out leg
+        //    expressed in the source's own currency.
         let cm = appViewModel.currencyManager
+        let targetCode: CurrencyCode = selectedAccount?.currencyCode ?? cm.dataCurrency
         var sourceAmount: Decimal? = nil
         var sourceCurrency: String? = nil
         if let srcId = newSource,
            let src = accounts.first(where: { $0.id == srcId }),
-           src.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
+           src.currency.lowercased() != targetCode.rawValue.lowercased() {
             let srcCode = src.currencyCode
-            sourceAmount = cm.convertToAccountCurrency(amountInBase, accountCurrency: srcCode)
+            sourceAmount = Self.crossConvert(
+                amount: amountInAccountCurrency,
+                from: targetCode,
+                to: srcCode,
+                using: cm
+            )
             sourceCurrency = srcCode.rawValue
         }
 
@@ -700,8 +766,12 @@ struct TransactionFormView: View {
         let input = CreateTransactionInput(
             user_id: userId,
             account_id: selectedAccountId,
-            amount: amountInBase,
-            currency: selectedCurrency.rawValue,
+            amount: amountInAccountCurrency,
+            amount_native: amountInAccountCurrency,
+            currency: currencyLabel,
+            foreign_amount: foreignAmount,
+            foreign_currency: foreignCurrencyCode,
+            fx_rate: fxRate,
             type: selectedType.rawValue,
             date: dateStr,
             description: description.isEmpty ? nil : description,

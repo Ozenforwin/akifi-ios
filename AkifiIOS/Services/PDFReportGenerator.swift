@@ -271,7 +271,7 @@ enum PDFReportGenerator {
             let name = cat?.name ?? String(localized: "transaction.noCategory")
             let icon = cat?.icon ?? "💰"
             var entry = byName[name] ?? (icon: icon, amount: 0, count: 0)
-            entry.amount += tx.amount
+            entry.amount += tx.amountNative
             entry.count += 1
             byName[name] = entry
         }
@@ -390,7 +390,7 @@ enum PDFReportGenerator {
                 at: CGPoint(x: margin, y: c.y),
                 withAttributes: [.font: rowFont, .foregroundColor: primaryText]
             )
-            let amtStr = formatAmount(tx.amount, currency: input.currencyCode)
+            let amtStr = formatAmount(tx.amountNative, currency: input.currencyCode)
             let amtW = attributedSize(amtStr, font: boldFont).width
             amtStr.draw(
                 at: CGPoint(x: margin + contentWidth - amtW, y: c.y),

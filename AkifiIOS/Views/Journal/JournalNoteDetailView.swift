@@ -475,7 +475,7 @@ enum ReflectionPeriodMath {
         var categoryTotals: [String: Int64] = [:]
         for tx in expenses {
             guard let cat = tx.categoryId else { continue }
-            categoryTotals[cat, default: 0] += abs(tx.amount)
+            categoryTotals[cat, default: 0] += abs(tx.amountNative)
         }
         let topIds = categoryTotals
             .sorted { $0.value > $1.value }

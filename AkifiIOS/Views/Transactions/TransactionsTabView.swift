@@ -72,13 +72,13 @@ struct TransactionsTabView: View {
             if let gid = tx.transferGroupId {
                 if !seenGroups.contains(gid) {
                     seenGroups.insert(gid)
-                    trf += tx.amount
+                    trf += tx.amountNative
                 }
                 continue
             }
-            if tx.isTransfer { trf += tx.amount; continue }
-            if tx.type == .income { inc += tx.amount }
-            else if tx.type == .expense { exp += tx.amount }
+            if tx.isTransfer { trf += tx.amountNative; continue }
+            if tx.type == .income { inc += tx.amountNative }
+            else if tx.type == .expense { exp += tx.amountNative }
         }
         return (inc, exp, trf)
     }

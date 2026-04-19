@@ -40,8 +40,8 @@ struct CashflowTrendView: View {
                 guard let date = df.date(from: tx.date) else { continue }
                 let txComps = cal.dateComponents([.year, .month], from: date)
                 guard txComps.year == comps.year, txComps.month == comps.month else { continue }
-                if tx.type == .income { income += tx.amount.displayAmount }
-                else if tx.type == .expense { expense += tx.amount.displayAmount }
+                if tx.type == .income { income += tx.amountNative.displayAmount }
+                else if tx.type == .expense { expense += tx.amountNative.displayAmount }
             }
 
             let label = labelFmt.string(from: monthDate).capitalized

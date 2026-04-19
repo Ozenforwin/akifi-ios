@@ -78,16 +78,24 @@ final class TransactionRepository: Sendable {
             let p_payment_source_account_id: String?
             let p_source_amount: Decimal?
             let p_source_currency: String?
+            let p_foreign_amount: Decimal?
+            let p_foreign_currency: String?
+            let p_fx_rate: Decimal?
             /// When true we emit `p_source_amount` + `p_source_currency`
             /// keys (even if null) so Postgres picks the 10-arg overload.
             /// When false we drop them entirely — 8-arg matches.
             let includeSourceKeys: Bool
+            /// When true we emit `p_foreign_amount` + `p_foreign_currency` +
+            /// `p_fx_rate` keys so Postgres picks the 13-arg multi-currency
+            /// overload (ADR-001 Phase 3). Implies `includeSourceKeys`.
+            let includeForeignKeys: Bool
 
             enum CodingKeys: String, CodingKey {
                 case p_account_id, p_category_id, p_amount, p_currency
                 case p_date, p_description, p_merchant_name
                 case p_payment_source_account_id
                 case p_source_amount, p_source_currency
+                case p_foreign_amount, p_foreign_currency, p_fx_rate
             }
 
             func encode(to encoder: Encoder) throws {
@@ -100,9 +108,14 @@ final class TransactionRepository: Sendable {
                 try c.encode(p_description, forKey: .p_description)
                 try c.encode(p_merchant_name, forKey: .p_merchant_name)
                 try c.encode(p_payment_source_account_id, forKey: .p_payment_source_account_id)
-                if includeSourceKeys {
+                if includeSourceKeys || includeForeignKeys {
                     try c.encode(p_source_amount, forKey: .p_source_amount)
                     try c.encode(p_source_currency, forKey: .p_source_currency)
+                }
+                if includeForeignKeys {
+                    try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
+                    try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
+                    try c.encode(p_fx_rate, forKey: .p_fx_rate)
                 }
             }
         }
@@ -113,6 +126,7 @@ final class TransactionRepository: Sendable {
             )
         }
         let isCrossCurrency = input.source_amount != nil && input.source_currency != nil
+        let hasForeign = input.foreign_amount != nil && input.foreign_currency != nil
         let params = Params(
             p_account_id: accountId,
             p_category_id: input.category_id,
@@ -124,7 +138,11 @@ final class TransactionRepository: Sendable {
             p_payment_source_account_id: input.payment_source_account_id,
             p_source_amount: input.source_amount,
             p_source_currency: input.source_currency,
-            includeSourceKeys: isCrossCurrency
+            p_foreign_amount: input.foreign_amount,
+            p_foreign_currency: input.foreign_currency,
+            p_fx_rate: input.fx_rate,
+            includeSourceKeys: isCrossCurrency,
+            includeForeignKeys: hasForeign
         )
 
         // RPC returns UUID as a JSON string → decode and re-fetch the row.
@@ -168,10 +186,18 @@ final class TransactionRepository: Sendable {
             let p_date: String?
             let p_description: String?
             let p_merchant_name: String?
+            let p_foreign_amount: Decimal?
+            let p_foreign_currency: String?
+            let p_fx_rate: Decimal?
+            /// When true we emit the foreign-keys (even as null) so PostgREST
+            /// picks the ADR-001 9-arg overload. Otherwise we drop them and
+            /// the original 6-arg function handles the call.
+            let includeForeignKeys: Bool
 
             enum CodingKeys: String, CodingKey {
                 case p_expense_id, p_amount, p_category_id
                 case p_date, p_description, p_merchant_name
+                case p_foreign_amount, p_foreign_currency, p_fx_rate
             }
 
             func encode(to encoder: Encoder) throws {
@@ -182,15 +208,25 @@ final class TransactionRepository: Sendable {
                 try c.encode(p_date, forKey: .p_date)
                 try c.encode(p_description, forKey: .p_description)
                 try c.encode(p_merchant_name, forKey: .p_merchant_name)
+                if includeForeignKeys {
+                    try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
+                    try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
+                    try c.encode(p_fx_rate, forKey: .p_fx_rate)
+                }
             }
         }
+        let hasForeign = input.foreign_amount != nil && input.foreign_currency != nil
         let params = Params(
             p_expense_id: id,
             p_amount: input.amount,
             p_category_id: input.category_id,
             p_date: input.date,
             p_description: input.description,
-            p_merchant_name: input.merchant_name
+            p_merchant_name: input.merchant_name,
+            p_foreign_amount: input.foreign_amount,
+            p_foreign_currency: input.foreign_currency,
+            p_fx_rate: input.fx_rate,
+            includeForeignKeys: hasForeign
         )
         try await supabase
             .rpc("update_expense_with_auto_transfer", params: params)
@@ -238,8 +274,21 @@ final class TransactionRepository: Sendable {
 struct CreateTransactionInput: Codable, Sendable {
     let user_id: String
     let account_id: String?
+    /// ADR-001: amount in the account's own currency (main units, not kopecks).
+    /// Legacy field, kept equal to `amount_native` on every new write.
     let amount: Decimal
+    /// ADR-001 canonical amount. Client sends it explicitly so the server
+    /// doesn't have to fall back to the Phase 1 compat trigger.
+    let amount_native: Decimal
+    /// The account's own currency (legacy label, matches `accounts.currency`).
+    /// Not the user's entry currency — that lives in `foreign_currency`.
     let currency: String?
+    /// Set when the user entered the amount in a currency different from the
+    /// account's. `amount_native = foreign_amount × fx_rate`. Both NULL when
+    /// the user typed in the account's own currency.
+    let foreign_amount: Decimal?
+    let foreign_currency: String?
+    let fx_rate: Decimal?
     let type: String
     let date: String
     let description: String?
@@ -255,9 +304,32 @@ struct CreateTransactionInput: Codable, Sendable {
     let source_amount: Decimal?
     let source_currency: String?
 
-    init(user_id: String, account_id: String?, amount: Decimal, currency: String?, type: String, date: String, description: String?, category_id: String?, merchant_name: String?, transfer_group_id: String? = nil, payment_source_account_id: String? = nil, source_amount: Decimal? = nil, source_currency: String? = nil) {
+    init(
+        user_id: String,
+        account_id: String?,
+        amount: Decimal,
+        amount_native: Decimal? = nil,
+        currency: String?,
+        foreign_amount: Decimal? = nil,
+        foreign_currency: String? = nil,
+        fx_rate: Decimal? = nil,
+        type: String,
+        date: String,
+        description: String?,
+        category_id: String?,
+        merchant_name: String?,
+        transfer_group_id: String? = nil,
+        payment_source_account_id: String? = nil,
+        source_amount: Decimal? = nil,
+        source_currency: String? = nil
+    ) {
         self.user_id = user_id; self.account_id = account_id; self.amount = amount
-        self.currency = currency; self.type = type; self.date = date
+        self.amount_native = amount_native ?? amount
+        self.currency = currency
+        self.foreign_amount = foreign_amount
+        self.foreign_currency = foreign_currency?.uppercased()
+        self.fx_rate = fx_rate
+        self.type = type; self.date = date
         self.description = description; self.category_id = category_id
         self.merchant_name = merchant_name; self.transfer_group_id = transfer_group_id
         self.payment_source_account_id = payment_source_account_id
@@ -272,6 +344,7 @@ struct CreateTransactionInput: Codable, Sendable {
         case user_id, account_id, amount, currency, type, date, description
         case category_id, merchant_name, transfer_group_id
         case payment_source_account_id
+        case amount_native, foreign_amount, foreign_currency, fx_rate
     }
 
     init(from decoder: Decoder) throws {
@@ -279,7 +352,11 @@ struct CreateTransactionInput: Codable, Sendable {
         user_id = try c.decode(String.self, forKey: .user_id)
         account_id = try c.decodeIfPresent(String.self, forKey: .account_id)
         amount = try c.decode(Decimal.self, forKey: .amount)
+        amount_native = try c.decodeIfPresent(Decimal.self, forKey: .amount_native) ?? amount
         currency = try c.decodeIfPresent(String.self, forKey: .currency)
+        foreign_amount = try c.decodeIfPresent(Decimal.self, forKey: .foreign_amount)
+        foreign_currency = try c.decodeIfPresent(String.self, forKey: .foreign_currency)
+        fx_rate = try c.decodeIfPresent(Decimal.self, forKey: .fx_rate)
         type = try c.decode(String.self, forKey: .type)
         date = try c.decode(String.self, forKey: .date)
         description = try c.decodeIfPresent(String.self, forKey: .description)
@@ -294,7 +371,12 @@ struct CreateTransactionInput: Codable, Sendable {
 
 struct UpdateTransactionInput: Codable, Sendable {
     let amount: Decimal?
+    /// ADR-001 canonical amount. If nil, server keeps the prior value.
+    let amount_native: Decimal?
     let currency: String?
+    let foreign_amount: Decimal?
+    let foreign_currency: String?
+    let fx_rate: Decimal?
     let type: String?
     let date: String?
     let description: String?
@@ -304,8 +386,28 @@ struct UpdateTransactionInput: Codable, Sendable {
     /// Internal, not encoded — tells the repo whether to call the auto-transfer RPC.
     let useAutoTransferUpdate: Bool
 
-    init(amount: Decimal? = nil, currency: String? = nil, type: String? = nil, date: String? = nil, description: String? = nil, category_id: String? = nil, merchant_name: String? = nil, account_id: String? = nil, useAutoTransferUpdate: Bool = false) {
-        self.amount = amount; self.currency = currency; self.type = type
+    init(
+        amount: Decimal? = nil,
+        amount_native: Decimal? = nil,
+        currency: String? = nil,
+        foreign_amount: Decimal? = nil,
+        foreign_currency: String? = nil,
+        fx_rate: Decimal? = nil,
+        type: String? = nil,
+        date: String? = nil,
+        description: String? = nil,
+        category_id: String? = nil,
+        merchant_name: String? = nil,
+        account_id: String? = nil,
+        useAutoTransferUpdate: Bool = false
+    ) {
+        self.amount = amount
+        self.amount_native = amount_native
+        self.currency = currency
+        self.foreign_amount = foreign_amount
+        self.foreign_currency = foreign_currency?.uppercased()
+        self.fx_rate = fx_rate
+        self.type = type
         self.date = date; self.description = description
         self.category_id = category_id; self.merchant_name = merchant_name
         self.account_id = account_id
@@ -315,12 +417,17 @@ struct UpdateTransactionInput: Codable, Sendable {
     // Keep `useAutoTransferUpdate` out of the encoded payload — it's a client-only flag.
     enum CodingKeys: String, CodingKey {
         case amount, currency, type, date, description, category_id, merchant_name, account_id
+        case amount_native, foreign_amount, foreign_currency, fx_rate
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         amount = try c.decodeIfPresent(Decimal.self, forKey: .amount)
+        amount_native = try c.decodeIfPresent(Decimal.self, forKey: .amount_native)
         currency = try c.decodeIfPresent(String.self, forKey: .currency)
+        foreign_amount = try c.decodeIfPresent(Decimal.self, forKey: .foreign_amount)
+        foreign_currency = try c.decodeIfPresent(String.self, forKey: .foreign_currency)
+        fx_rate = try c.decodeIfPresent(Decimal.self, forKey: .fx_rate)
         type = try c.decodeIfPresent(String.self, forKey: .type)
         date = try c.decodeIfPresent(String.self, forKey: .date)
         description = try c.decodeIfPresent(String.self, forKey: .description)

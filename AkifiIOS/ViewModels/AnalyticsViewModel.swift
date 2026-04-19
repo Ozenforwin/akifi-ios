@@ -114,9 +114,9 @@ final class AnalyticsViewModel {
 
             var entry = grouped[key, default: (income: .zero, expense: .zero)]
             if tx.type == .income {
-                entry.income += tx.amount.displayAmount
+                entry.income += tx.amountNative.displayAmount
             } else if tx.type == .expense {
-                entry.expense += tx.amount.displayAmount
+                entry.expense += tx.amountNative.displayAmount
             }
             grouped[key] = entry
         }
@@ -126,13 +126,13 @@ final class AnalyticsViewModel {
 
     func categoryBreakdown(from transactions: [Transaction], categories: [Category]) -> [CategorySpending] {
         let expenses = transactions.filter { $0.type == .expense && !$0.isTransfer }
-        let totalExpense = expenses.reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
+        let totalExpense = expenses.reduce(Decimal.zero) { $0 + $1.amountNative.displayAmount }
         guard totalExpense > 0 else { return [] }
 
         var byCategory: [String: Decimal] = [:]
         for tx in expenses {
             let catId = tx.categoryId ?? "uncategorized"
-            byCategory[catId, default: .zero] += tx.amount.displayAmount
+            byCategory[catId, default: .zero] += tx.amountNative.displayAmount
         }
 
         return byCategory.compactMap { catId, amount in

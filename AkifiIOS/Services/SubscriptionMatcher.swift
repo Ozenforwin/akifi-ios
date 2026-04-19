@@ -57,7 +57,7 @@ enum SubscriptionMatcher {
            let txCurrency = transaction.currency?.uppercased(),
            subCurrency == txCurrency,
            subscription.amount > 0 {
-            let delta = abs(Double(transaction.amount) - Double(subscription.amount))
+            let delta = abs(Double(transaction.amountNative) - Double(subscription.amount))
             let ratio = delta / Double(subscription.amount)
             amountScore = ratio <= amountTolerance ? 50 : 0
         } else {

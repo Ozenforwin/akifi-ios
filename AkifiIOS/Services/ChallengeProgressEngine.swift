@@ -127,7 +127,7 @@ enum ChallengeProgressEngine {
         // Round-up granularity: 100 minor units (1 whole currency unit).
         let granularity: Int64 = 100
         return expenses.reduce(Int64(0)) { acc, tx in
-            let remainder = tx.amount % granularity
+            let remainder = tx.amountNative % granularity
             let delta = remainder == 0 ? 0 : granularity - remainder
             return acc + delta
         }

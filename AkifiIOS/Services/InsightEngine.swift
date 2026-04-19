@@ -122,23 +122,23 @@ enum InsightEngine {
                   let d = df.date(from: tx.date) else { continue }
 
             if d >= monthStart {
-                thisMonthExp += tx.amount
+                thisMonthExp += tx.amountNative
                 thisMonthCount += 1
-                if tx.amount > biggestAmount {
-                    biggestAmount = tx.amount
+                if tx.amountNative > biggestAmount {
+                    biggestAmount = tx.amountNative
                     biggestCatId = tx.categoryId
                 }
                 if let catId = tx.categoryId {
-                    catSpending[catId, default: 0] += tx.amount
+                    catSpending[catId, default: 0] += tx.amountNative
                 }
             } else if d >= prevMonthStart && d < monthStart {
-                prevMonthExp += tx.amount
+                prevMonthExp += tx.amountNative
             }
 
             if d >= weekStart {
-                thisWeekExp += tx.amount
+                thisWeekExp += tx.amountNative
             } else if d >= prevWeekStart && d < weekStart {
-                prevWeekExp += tx.amount
+                prevWeekExp += tx.amountNative
             }
         }
 
@@ -285,8 +285,8 @@ enum InsightEngine {
         for tx in input.transactions {
             guard !tx.isTransfer, let d = df.date(from: tx.date), d >= weekStart else { continue }
             switch tx.type {
-            case .income: income += tx.amount
-            case .expense: expense += tx.amount; count += 1
+            case .income: income += tx.amountNative
+            case .expense: expense += tx.amountNative; count += 1
             case .transfer: continue
             }
         }

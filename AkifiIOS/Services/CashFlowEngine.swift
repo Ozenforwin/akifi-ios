@@ -220,7 +220,7 @@ enum CashFlowEngine {
             if let subCurrency = sub.currency?.uppercased(),
                let txCurrency = tx.currency?.uppercased(),
                subCurrency == txCurrency {
-                let delta = abs(Double(tx.amount) - Double(sub.amount))
+                let delta = abs(Double(tx.amountNative) - Double(sub.amount))
                 let ratio = delta / Double(sub.amount)
                 guard ratio <= SubscriptionMatcher.amountTolerance else { continue }
             } else {
@@ -274,9 +274,9 @@ enum CashFlowEngine {
             let current = buckets[key] ?? MonthlyBucket(income: 0, expense: 0)
             switch tx.type {
             case .income:
-                buckets[key] = MonthlyBucket(income: current.income + tx.amount, expense: current.expense)
+                buckets[key] = MonthlyBucket(income: current.income + tx.amountNative, expense: current.expense)
             case .expense:
-                buckets[key] = MonthlyBucket(income: current.income, expense: current.expense + tx.amount)
+                buckets[key] = MonthlyBucket(income: current.income, expense: current.expense + tx.amountNative)
             case .transfer:
                 continue
             }

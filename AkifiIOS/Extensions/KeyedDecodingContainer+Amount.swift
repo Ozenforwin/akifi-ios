@@ -27,4 +27,18 @@ extension KeyedDecodingContainer {
         }
         return nil
     }
+
+    /// Decode a DB numeric into Decimal in its own units (no ×100).
+    /// Used for values where the unit is currency-dependent (e.g. VND has no
+    /// minor unit, USD has cents) or where the value is a rate, not an amount.
+    func decodeDecimalIfPresent(forKey key: Key) -> Decimal? {
+        if let str = try? decode(String.self, forKey: key),
+           let decimal = Decimal(string: str) {
+            return decimal
+        }
+        if let dbl = try? decode(Double.self, forKey: key) {
+            return Decimal(dbl)
+        }
+        return nil
+    }
 }
