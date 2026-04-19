@@ -9,6 +9,11 @@ final class DataStore {
     var isLoading = false
     var error: String?
 
+    /// Optional back-reference to `CurrencyManager` — injected by
+    /// `AppViewModel` so that `rebuildCaches()` can refresh the widget
+    /// snapshot with correct FX rates.
+    var currencyManager: CurrencyManager?
+
     /// A recently-auto-matched subscription payment, surfaced as a banner in the UI.
     /// When non-nil, the root view shows an undo-banner; it auto-dismisses after 5 s.
     var pendingAutoMatch: PendingAutoMatch?
@@ -101,7 +106,16 @@ final class DataStore {
         // 3. Save fresh data to offline cache
         saveToCache()
         rebuildCaches()
+        writeWidgetSnapshot()
         isLoading = false
+    }
+
+    /// Persist a fresh `SharedSnapshot` for the widget extension and ask
+    /// WidgetKit to reload timelines. Safe no-op if `currencyManager`
+    /// hasn't been injected yet (tests, cold-start before wiring).
+    private func writeWidgetSnapshot() {
+        guard let currencyManager else { return }
+        SharedSnapshotWriter.write(dataStore: self, currencyManager: currencyManager)
     }
 
     // MARK: - Offline Cache
@@ -139,12 +153,14 @@ final class DataStore {
             )
             transactions.insert(placeholder, at: 0)
             rebuildCaches()
+            writeWidgetSnapshot()
             return placeholder
         }
 
         let tx = try await transactionRepo.create(input)
         transactions.insert(tx, at: 0)
         rebuildCaches()
+        writeWidgetSnapshot()
         AnalyticsService.logAddTransaction(
             type: input.type,
             amount: Double(truncating: input.amount as NSDecimalNumber),
@@ -287,6 +303,8 @@ final class DataStore {
         // Reload only transactions instead of all data
         do {
             transactions = try await transactionRepo.fetchAll()
+            rebuildCaches()
+            writeWidgetSnapshot()
         } catch {
             self.error = error.localizedDescription
         }
@@ -306,6 +324,7 @@ final class DataStore {
                 transactions.removeAll { $0.id == transaction.id }
             }
             rebuildCaches()
+            writeWidgetSnapshot()
             AnalyticsService.logDeleteTransaction()
         } catch {
             self.error = error.localizedDescription

@@ -14,6 +14,12 @@ final class AppViewModel {
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     private var hasLoadedData = false
 
+    init() {
+        // Inject CurrencyManager back into DataStore so widget snapshots
+        // can be written with correct FX rates.
+        dataStore.currencyManager = currencyManager
+    }
+
     func initialize() async {
         await authManager.checkSession()
         if authManager.isAuthenticated {
