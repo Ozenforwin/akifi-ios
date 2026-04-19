@@ -646,3 +646,167 @@ export async function buildHabitCheckResponse(
     ],
   };
 }
+
+// ============================================================================
+// Builder: book_recommendations
+// ============================================================================
+
+/// Curated global classics — NO Russia-specific sources (per project policy:
+/// Akifi is a global product). The LLM picks 3-5 most relevant for the user's
+/// stage and query topic; if the LLM is unavailable we surface a sensible
+/// default selection.
+const BOOK_LIBRARY = [
+  {
+    title: 'The Psychology of Money',
+    author: 'Morgan Housel',
+    year: 2020,
+    topics: ['behavior', 'mindset', 'beginner', 'general'],
+    why: 'Why behaviour matters more than spreadsheets. Short essays, no jargon.',
+  },
+  {
+    title: 'I Will Teach You To Be Rich',
+    author: 'Ramit Sethi',
+    year: 2009,
+    topics: ['automation', 'budgeting', 'beginner', 'general'],
+    why: 'A practical 6-week setup: automation, conscious spending, no guilt.',
+  },
+  {
+    title: 'Your Money or Your Life',
+    author: 'Vicki Robin & Joe Dominguez',
+    year: 1992,
+    topics: ['fire', 'lifestyle', 'mindset', 'beginner'],
+    why: 'Foundation of the FIRE movement — money as life energy, 9-step program.',
+  },
+  {
+    title: 'The Total Money Makeover',
+    author: 'Dave Ramsey',
+    year: 2003,
+    topics: ['debt', 'beginner', 'budgeting'],
+    why: 'Debt-snowball method and 7 baby steps — best when getting out of debt.',
+  },
+  {
+    title: 'The Little Book of Common Sense Investing',
+    author: 'John C. Bogle',
+    year: 2007,
+    topics: ['investing', 'index', 'saving'],
+    why: 'The case for low-cost index funds, from the founder of Vanguard.',
+  },
+  {
+    title: 'A Random Walk Down Wall Street',
+    author: 'Burton Malkiel',
+    year: 1973,
+    topics: ['investing', 'index', 'theory'],
+    why: 'Classic on efficient markets and why most active investing fails.',
+  },
+  {
+    title: 'The Simple Path to Wealth',
+    author: 'JL Collins',
+    year: 2016,
+    topics: ['investing', 'fire', 'index', 'saving'],
+    why: 'Plain-English roadmap to FIRE through total-market index funds.',
+  },
+  {
+    title: 'The Four Pillars of Investing',
+    author: 'William Bernstein',
+    year: 2002,
+    topics: ['investing', 'theory', 'history'],
+    why: 'Theory + history + psychology + business of investing — deeper than Bogle.',
+  },
+  {
+    title: 'Rich Dad Poor Dad',
+    author: 'Robert Kiyosaki',
+    year: 1997,
+    topics: ['mindset', 'beginner', 'assets'],
+    why: 'Mindset shift: assets vs liabilities. Read it for the framing, not the specifics.',
+  },
+  {
+    title: 'The Millionaire Next Door',
+    author: 'Thomas J. Stanley & William D. Danko',
+    year: 1996,
+    topics: ['lifestyle', 'mindset', 'saving'],
+    why: 'Research-based portrait of how actual millionaires live (frugally).',
+  },
+  {
+    title: 'Thinking, Fast and Slow',
+    author: 'Daniel Kahneman',
+    year: 2011,
+    topics: ['behavior', 'psychology', 'theory'],
+    why: 'Nobel-prize behavioural economics — explains the biases that wreck money decisions.',
+  },
+  {
+    title: 'Nudge',
+    author: 'Richard Thaler & Cass Sunstein',
+    year: 2008,
+    topics: ['behavior', 'psychology', 'design'],
+    why: 'How tiny choice-architecture tweaks improve outcomes — applies directly to budgets.',
+  },
+] as const;
+
+const BOOK_RECOMMENDATIONS_PERSONA = `Ты — финансовый коуч в приложении Akifi и должен порекомендовать книги по теме запроса пользователя.
+
+ПРАВИЛА:
+1. Выбери 3-5 книг ТОЛЬКО из списка "Доступные книги" ниже. Не придумывай свои.
+2. Подбирай книги, релевантные теме запроса пользователя И его текущему финансовому этапу:
+   - Этап has_debt → начни с Ramsey, потом Sethi
+   - Этап building_emergency / beginner → Sethi, Housel, Robin
+   - Этап saving / investing → Bogle, Collins, Bernstein, Malkiel
+   - Этап fire → Robin, Collins
+   - Запрос про поведение/психологию → Housel, Kahneman, Thaler
+   - Запрос про инвестиции → Bogle, Collins, Malkiel, Bernstein
+3. Формат ответа: для каждой книги — заголовок жирным, автор, год в скобках, ОДНО предложение почему она подойдёт пользователю с учётом его данных.
+4. В конце 1-2 предложения о том, в каком порядке читать.
+5. ВАЖНО: книги — международная классика. НЕ упоминай российских авторов, российские реалии, ЦБ РФ, ИИС, НДФЛ, российские банки. Аудитория глобальная.
+6. Отвечай на том же языке, на котором задан вопрос пользователя.
+7. Не более 250 слов всего.`;
+
+export async function buildBookRecommendationsResponse(
+  serviceClient: SupabaseClient,
+  userId: string,
+  transactions: TxRow[],
+  query: string,
+  history: ConversationMessage[] = [],
+): Promise<CoachingResponse> {
+  const { profile, userContext } = await loadCoachingContext(
+    serviceClient, userId, transactions, 'book_recommendations',
+  );
+
+  const libraryText = BOOK_LIBRARY.map((b, i) =>
+    `${i + 1}. "${b.title}" — ${b.author} (${b.year}). Темы: ${b.topics.join(', ')}. ${b.why}`
+  ).join('\n');
+
+  const llmAnswer = await coachingLLMCall(
+    `Подбери книги для пользователя на этапе "${profile.stage}". База:\n\nДоступные книги:\n${libraryText}`,
+    BOOK_RECOMMENDATIONS_PERSONA,
+    userContext,
+    query,
+    history,
+  );
+
+  // Static fallback — pick by stage
+  const stagePicks: Record<string, number[]> = {
+    beginner:           [0, 1, 2],         // Housel, Sethi, Robin
+    has_debt:           [3, 1, 0],         // Ramsey, Sethi, Housel
+    building_emergency: [1, 0, 2],         // Sethi, Housel, Robin
+    saving:             [4, 6, 0],         // Bogle, Collins, Housel
+    investing:          [4, 5, 7, 6],      // Bogle, Malkiel, Bernstein, Collins
+    fire:               [2, 6, 4],         // Robin, Collins, Bogle
+  };
+  const picks = stagePicks[profile.stage] ?? [0, 1, 4];
+  const fallback = picks
+    .map((i) => `**${BOOK_LIBRARY[i].title}** — ${BOOK_LIBRARY[i].author} (${BOOK_LIBRARY[i].year}). ${BOOK_LIBRARY[i].why}`)
+    .join('\n\n');
+
+  return {
+    answer: llmAnswer ?? `Подборка для вашего этапа:\n\n${fallback}`,
+    facts: [
+      `Подборка из ${BOOK_LIBRARY.length} классических книг`,
+      'Все книги — мировая классика (без региональной привязки)',
+    ],
+    actions: [],
+    followUps: [
+      'С чего начать читать?',
+      'Книги про инвестиции',
+      'Книги про привычки и психологию',
+    ],
+  };
+}

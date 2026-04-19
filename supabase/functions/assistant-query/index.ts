@@ -65,6 +65,7 @@ import {
   buildInvestmentBasicsResponse,
   buildFinancialSafetyResponse,
   buildHabitCheckResponse,
+  buildBookRecommendationsResponse,
 } from './coaching-builders.ts';
 
 import { nlgRephrase, loadUserSettings } from './nlg.ts';
@@ -1063,6 +1064,8 @@ Deno.serve(async (req) => {
       computed = await buildFinancialSafetyResponse(serviceClient);
     } else if (intent === 'habit_check') {
       computed = await buildHabitCheckResponse(serviceClient, userId, transactions, rawQuery, history);
+    } else if (intent === 'book_recommendations') {
+      computed = await buildBookRecommendationsResponse(serviceClient, userId, transactions, rawQuery, history);
     } else {
       // Route ALL unmatched queries through LLM — it handles language detection,
       // greetings, general questions, and responds in the user's language
@@ -1110,6 +1113,7 @@ Deno.serve(async (req) => {
       'create_transaction', 'edit_transaction', 'delete_transaction', 'edit_budget', 'savings_contribute', 'help',
       'financial_advice', 'impulse_check', 'debt_strategy', 'savings_plan', 'budget_optimization',
       'financial_stage', 'investment_basics', 'financial_safety', 'habit_check', 'smart_budget_create',
+      'book_recommendations',
     ]);
     if (!ACTION_INTENTS.has(intent)) {
       // spending_optimization uses a fixed 90-day window, not the parsed `period`.

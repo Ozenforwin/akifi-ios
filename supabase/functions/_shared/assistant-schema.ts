@@ -29,6 +29,7 @@ export type AssistantIntent =
   | 'habit_check'
   | 'smart_budget_create'
   | 'spending_optimization'
+  | 'book_recommendations'
   | 'help';
 
 export type AssistantPeriod = 'today' | 'week' | 'month' | 'all' | 'custom_days';
@@ -227,6 +228,7 @@ export function isIntent(value: unknown): value is AssistantIntent {
     || value === 'habit_check'
     || value === 'smart_budget_create'
     || value === 'spending_optimization'
+    || value === 'book_recommendations'
     || value === 'help';
 }
 

@@ -48,6 +48,7 @@ Intents:
 - habit_check: financial habits assessment, "привычки", "чеклист финансов", "как дела с финансами"
 - smart_budget_create: auto-create budgets based on spending history, "создай бюджеты автоматически", "умный бюджет", "бюджет на основе расходов", "спланируй бюджет"
 - spending_optimization: find ways to reduce spending, "как сэкономить", "оптимизируй расходы", "где сократить траты", "куда уходят деньги", "советы по экономии"
+- book_recommendations: user asks for books / reading material on personal finance, investing, money mindset. Triggers: "книги", "книгу", "литература", "что почитать", "посоветуй книги", "recommend books", "books on finance", "books to read", "books about money", "best finance books", "что прочитать про инвестиции", "книги по финансовой грамотности". This is DISTINCT from financial_advice — the user wants reading sources, not a personalised tip.
 - help: unrecognized or general help request
 
 Periods:
@@ -221,6 +222,14 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
   // Habit check
   if (/(привычк|чеклист финанс|как дела с финанс|финансов\S* привычк|мои привычк|оцени привычк|финансов\S* здоров)/u.test(normalized)) {
     return result('habit_check');
+  }
+
+  // Book recommendations (BEFORE financial_advice — "посоветуй книги" matches both)
+  if (/(книг|книжк|литератур|что (по)?читать|что (по)?читат|книжн)/u.test(normalized) ||
+      /(recommend|suggest)\s+(me\s+)?(some\s+|good\s+|best\s+)?(books|reading)/iu.test(normalized) ||
+      /(books|book)\s+(on|about|for|to read)/iu.test(normalized) ||
+      /(reading\s+list|reading\s+material)/iu.test(normalized)) {
+    return result('book_recommendations');
   }
 
   // Financial advice (broad — should be after specific coaching intents)
