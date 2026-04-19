@@ -52,7 +52,8 @@ Rules:
 - Respond ONLY in ${lang} — this is mandatory, ignore the language of the "answer" or "facts" fields
 - Do NOT change numbers or amounts — they are already precise
 - Do NOT invent data — only use what is given
-- Keep the answer to 1-3 sentences`;
+- Keep the answer to 1-3 sentences
+- MANDATORY: if the input JSON has a non-empty "period_label" field, your answer MUST explicitly state the time period (use the value from "period_label" verbatim, or a natural-language equivalent in ${lang}). The user needs to know WHICH time range the numbers refer to. Never output amounts without stating the period.`;
 
   if (tone === 'strict') {
     return `${base}
@@ -83,6 +84,7 @@ export async function nlgRephrase(
   computed: { answer: string; facts: string[] },
   query: string,
   tone: AiTone,
+  periodLabelText?: string,
 ): Promise<string | null> {
   if (!AI_NLG_MODE || (!OPENAI_API_KEY && !ANTHROPIC_API_KEY)) return null;
 
@@ -91,6 +93,7 @@ export async function nlgRephrase(
     const userPrompt = JSON.stringify({
       target_language: detectQueryLang(query),
       user_query: query,
+      period_label: periodLabelText ?? '',
       answer: computed.answer,
       facts: computed.facts,
     });

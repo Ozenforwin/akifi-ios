@@ -25,6 +25,7 @@ import {
   addDays,
   getWindow,
   getPreviousWindow,
+  periodLabel,
 } from './utils.ts';
 
 import { parseIntentAndPeriod, classifyIntent } from './intent-parser.ts';
@@ -1063,7 +1064,11 @@ Deno.serve(async (req) => {
       'financial_stage', 'investment_basics', 'financial_safety', 'habit_check', 'smart_budget_create',
     ]);
     if (!ACTION_INTENTS.has(intent)) {
-      const rephrased = await nlgRephrase(computed, rawQuery, userSettings.tone);
+      // spending_optimization uses a fixed 90-day window, not the parsed `period`.
+      const nlgPeriodLabel = intent === 'spending_optimization'
+        ? 'за последние 90 дней'
+        : periodLabel(period, customDays);
+      const rephrased = await nlgRephrase(computed, rawQuery, userSettings.tone, nlgPeriodLabel);
       if (rephrased) {
         payload.answer = rephrased;
         model = `nlg-${OPENAI_MODEL}`;
