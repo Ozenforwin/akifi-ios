@@ -295,7 +295,16 @@ final class DataStore {
     func deleteTransaction(_ transaction: Transaction) async {
         do {
             try await transactionRepo.delete(id: transaction.id)
-            transactions.removeAll { $0.id == transaction.id }
+            // If this row was part of an auto-transfer triplet, the RPC
+            // deleted ALL three server-side (expense + two transfer legs).
+            // Remove the sibling rows from local state too — otherwise the
+            // UI would optimistically drop only the swiped row and the other
+            // two would "come back" on the next recompute/rerender.
+            if let groupId = transaction.autoTransferGroupId {
+                transactions.removeAll { $0.autoTransferGroupId == groupId }
+            } else {
+                transactions.removeAll { $0.id == transaction.id }
+            }
             rebuildCaches()
             AnalyticsService.logDeleteTransaction()
         } catch {
