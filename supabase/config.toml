@@ -1,0 +1,28 @@
+# Supabase project config — functions deployed from this iOS repo.
+#
+# Kept in sync with the parallel TMA repo (`/Моё/Akifi/supabase/config.toml`).
+# `verify_jwt = false` is CRITICAL for functions that do their own JWT handling
+# (e.g. 2h grace-period + HMAC-SHA256 auth in assistant-query). Re-enabling
+# platform-level verification breaks these functions — the platform rejects
+# tokens with 401 at ~50ms, before the function code runs. See project memory:
+# project_shared_edge_functions.md.
+
+project_id = "fnvwfrkixjqdifitlifr"
+
+[functions.assistant-query]
+enabled = true
+verify_jwt = false
+import_map = "./functions/assistant-query/deno.json"
+entrypoint = "./functions/assistant-query/index.ts"
+
+[functions.smart-notifications]
+enabled = true
+verify_jwt = false
+import_map = "./functions/smart-notifications/deno.json"
+entrypoint = "./functions/smart-notifications/index.ts"
+
+[functions.send-weekly-digest]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-weekly-digest/deno.json"
+entrypoint = "./functions/send-weekly-digest/index.ts"
