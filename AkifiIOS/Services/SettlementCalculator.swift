@@ -85,12 +85,19 @@ enum SettlementCalculator {
     ///     peers just get 0 contribution (delta = -fairShare).
     ///   - period: `DateInterval` — only transactions whose date falls
     ///     inside this interval count toward expenses & contributions.
+    ///   - pastSettlements: settlements already marked as done for this
+    ///     account. Each one adjusts contributions: `from_user` gets
+    ///     credited (they paid the debt), `to_user` gets debited (they
+    ///     received the repayment). This collapses closed suggestions so
+    ///     they don't keep reappearing after "Отметить выполненным".
+    ///     Only settlements overlapping the current period are applied.
     static func compute(
         sharedAccountId: String,
         transactions: [Transaction],
         memberUserIds: [String],
         personalAccountsByUser: [String: Set<String>],
-        period: DateInterval
+        period: DateInterval,
+        pastSettlements: [Settlement] = []
     ) -> [MemberBalance] {
         guard !memberUserIds.isEmpty else { return [] }
 
@@ -180,7 +187,24 @@ enum SettlementCalculator {
             }
         }
 
-        // 4. Clean empty state: if there are no auto-transfer expenses in the
+        // 4. Apply past settlements — each closed debt adjusts both sides'
+        //    contributions so the greedy pass doesn't re-suggest them.
+        //    Only settlements whose period-end falls inside the current
+        //    view's period are applied (different periods are independent).
+        let periodDateFormatter = DateFormatter()
+        periodDateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        periodDateFormatter.timeZone = TimeZone(identifier: "UTC")
+        periodDateFormatter.dateFormat = "yyyy-MM-dd"
+
+        for settlement in pastSettlements {
+            guard settlement.sharedAccountId == sharedAccountId else { continue }
+            guard let endDate = periodDateFormatter.date(from: settlement.periodEnd),
+                  period.contains(endDate) else { continue }
+            contributions[settlement.fromUserId, default: 0] += settlement.amount
+            contributions[settlement.toUserId, default: 0] -= settlement.amount
+        }
+
+        // 5. Clean empty state: if there are no auto-transfer expenses in the
         //    period, return an empty array so the UI shows "no feature-scoped
         //    activity yet" instead of "everyone owes each other nothing".
         if totalExpenses == 0 {

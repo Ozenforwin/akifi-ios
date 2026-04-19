@@ -18279,6 +18279,13 @@
         }
       }
     },
+    "reports.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reports" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Informes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отчёты" } }
+      }
+    },
     "reports.exportPDF" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -20513,30 +20520,70 @@
     "settlement.empty" : {
       "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions for this period yet" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay transacciones para este período" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет транзакций за период" } }
-      }
-    },
-    "settlement.empty.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No shared expenses yet" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay gastos compartidos" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет общих расходов" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transactions for this period yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay transacciones para este período"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока нет транзакций за период"
+          }
+        }
       }
     },
     "settlement.empty.body" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settlement appears once someone records an expense using “Paid from”." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "El cálculo aparecerá cuando alguien registre un gasto con “Pagado desde”." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расчёт появится, когда кто-то запишет расход через «Оплачено с»." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settlement appears once someone records an expense using “Paid from”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cálculo aparecerá cuando alguien registre un gasto con “Pagado desde”."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расчёт появится, когда кто-то запишет расход через «Оплачено с»."
+          }
+        }
       }
     },
-    "settlement.suggestionsHeader" : {
+    "settlement.empty.title" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Suggested settlement" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Liquidación sugerida" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Предлагаем свести" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No shared expenses yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay gastos compartidos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока нет общих расходов"
+          }
+        }
       }
     },
     "settlement.markSettled" : {
@@ -20721,6 +20768,43 @@
             "value" : "%1$@ → %2$@: %3$@"
           }
         }
+      }
+    },
+    "settlement.suggestionsHeader" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested settlement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquidación sugerida"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Предлагаем свести"
+          }
+        }
+      }
+    },
+    "settlement.historyHeader" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settled this period" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Liquidado este período" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Закрыто в этом периоде" } }
+      }
+    },
+    "settlement.cancelSettled" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel settlement" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar liquidación" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отменить расчёт" } }
       }
     },
     "settlement.title" : {

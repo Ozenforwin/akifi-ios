@@ -79,30 +79,49 @@ final class SettlementViewModel {
         }
 
         let interval = selectedPeriod.dateInterval()
-        balances = SettlementCalculator.compute(
-            sharedAccountId: sharedAccountId,
-            transactions: dataStore.transactions,
-            memberUserIds: memberUserIds,
-            personalAccountsByUser: personalMap,
-            period: interval
-        )
-        suggestions = SettlementCalculator.settlements(from: balances)
 
+        // Fetch past settlements BEFORE compute so closed debts are applied
+        // to balances and don't show up again as live suggestions.
         do {
             pastSettlements = try await settlementRepo.fetchForAccount(sharedAccountId)
         } catch {
             errorMessage = error.localizedDescription
         }
 
+        balances = SettlementCalculator.compute(
+            sharedAccountId: sharedAccountId,
+            transactions: dataStore.transactions,
+            memberUserIds: memberUserIds,
+            personalAccountsByUser: personalMap,
+            period: interval,
+            pastSettlements: pastSettlements
+        )
+        suggestions = SettlementCalculator.settlements(from: balances)
+
         isLoading = false
     }
 
-    /// Records a settlement in the `settlements` table. Callers should
-    /// `load(...)` afterwards to refresh the past-settlements list.
+    /// Past settlements filtered to the currently selected period — used by
+    /// the "История расчётов" section of the card.
+    var pastSettlementsForCurrentPeriod: [Settlement] {
+        let interval = selectedPeriod.dateInterval()
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+        return pastSettlements.filter { s in
+            guard let end = parser.date(from: s.periodEnd) else { return false }
+            return interval.contains(end)
+        }
+    }
+
+    /// Records a settlement in the `settlements` table and recomputes
+    /// balances/suggestions so the closed debt collapses visually.
     func markSettled(
         suggestion: SettlementCalculator.SettlementSuggestion,
         sharedAccountId: String,
-        currency: String
+        currency: String,
+        dataStore: DataStore
     ) async {
         do {
             let user = try await SupabaseManager.shared.currentUserId()
@@ -126,11 +145,24 @@ final class SettlementViewModel {
             )
             _ = try await settlementRepo.create(input)
 
-            // Refresh past settlements list.
-            pastSettlements = try await settlementRepo.fetchForAccount(sharedAccountId)
+            // Full reload — refetch past settlements + recompute balances &
+            // suggestions with the new closure applied.
+            await load(sharedAccountId: sharedAccountId, dataStore: dataStore)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 
-            // Optimistically drop the matching suggestion.
-            suggestions.removeAll { $0.id == suggestion.id }
+    /// Undoes a past settlement (deletes the DB row) and reopens the debt
+    /// for the current period. Only the creator can delete per RLS.
+    func cancelSettlement(
+        _ settlement: Settlement,
+        sharedAccountId: String,
+        dataStore: DataStore
+    ) async {
+        do {
+            try await settlementRepo.delete(id: settlement.id)
+            await load(sharedAccountId: sharedAccountId, dataStore: dataStore)
         } catch {
             errorMessage = error.localizedDescription
         }

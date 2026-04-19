@@ -38,6 +38,11 @@ struct AccountSettlementCardView: View {
                 }
             }
 
+            if !viewModel.pastSettlementsForCurrentPeriod.isEmpty {
+                Divider().padding(.vertical, 4)
+                historyList
+            }
+
             if let err = viewModel.errorMessage {
                 Text(err)
                     .font(.caption)
@@ -157,7 +162,8 @@ struct AccountSettlementCardView: View {
                             await viewModel.markSettled(
                                 suggestion: s,
                                 sharedAccountId: sharedAccountId,
-                                currency: currency
+                                currency: currency,
+                                dataStore: dataStore
                             )
                         }
                     } label: {
@@ -174,6 +180,54 @@ struct AccountSettlementCardView: View {
                 .padding(10)
                 .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+
+    /// Closed settlements for the current period. Swipe a row → Cancel
+    /// deletes the settlement row in DB, which reopens the debt on next
+    /// load. Only the user who created the settlement can delete (RLS).
+    @ViewBuilder
+    private var historyList: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(String(localized: "settlement.historyHeader"))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            ForEach(viewModel.pastSettlementsForCurrentPeriod) { s in
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                    Text(name(for: s.fromUserId))
+                        .font(.subheadline)
+                    Image(systemName: "arrow.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(name(for: s.toUserId))
+                        .font(.subheadline)
+                    Spacer()
+                    Text(cm.formatAmount(s.amount.displayAmount))
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Button {
+                        Task {
+                            await viewModel.cancelSettlement(
+                                s,
+                                sharedAccountId: sharedAccountId,
+                                dataStore: dataStore
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward.circle")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "settlement.cancelSettled"))
+                }
+                .padding(.vertical, 4)
             }
         }
     }
