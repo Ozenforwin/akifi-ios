@@ -314,8 +314,7 @@ struct ReceiptScannerView: View {
     }
 
     private func uploadAndAnalyze(imageData: Data) async throws -> ReceiptAnalysis {
-        let supabase = SupabaseManager.shared.client
-        let session = try await supabase.auth.session
+        let session = try await SupabaseManager.shared.currentSession()
 
         let boundary = UUID().uuidString
         var body = Data()

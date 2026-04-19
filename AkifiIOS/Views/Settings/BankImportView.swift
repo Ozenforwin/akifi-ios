@@ -306,8 +306,7 @@ struct BankImportView: View {
         error = nil
 
         do {
-            let supabase = SupabaseManager.shared.client
-            let session = try await supabase.auth.session
+            let session = try await SupabaseManager.shared.currentSession()
 
             let boundary = UUID().uuidString
             var body = Data()

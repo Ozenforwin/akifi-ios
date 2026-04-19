@@ -493,6 +493,7 @@ enum AssistantErrorType: Sendable {
 
     static func classify(_ error: Error) -> AssistantErrorType {
         let message = error.localizedDescription.lowercased()
+        let full = "\(error)".lowercased()
 
         if let urlError = error as? URLError {
             switch urlError.code {
@@ -505,8 +506,12 @@ enum AssistantErrorType: Sendable {
             }
         }
 
-        if message.contains("jwt") || message.contains("auth") || message.contains("token")
-            || message.contains("401") {
+        // Auth: ONLY treat as session-expired when the signal is unambiguous.
+        // The previous heuristic matched any substring "auth" — which falsely
+        // flagged unrelated errors ("authenticate", "unauthoritative", server
+        // stack traces mentioning "author") as session expiry and showed
+        // "Перезайдите в приложение" to users whose sessions were fine.
+        if isAuthError(full: full, message: message) {
             return .auth
         }
         if message.contains("rate") || message.contains("limit") || message.contains("429")
@@ -526,6 +531,18 @@ enum AssistantErrorType: Sendable {
         }
 
         return .unknown(error.localizedDescription)
+    }
+
+    private static func isAuthError(full: String, message: String) -> Bool {
+        // Supabase FunctionsError.httpError produces a description containing
+        // "code: 401" (or 403). Also match explicit JWT / token errors.
+        if full.contains("code: 401") || full.contains("code: 403") { return true }
+        if message.contains(" 401") || message.hasSuffix("401") { return true }
+        if message.contains("unauthorized") { return true }
+        if message.contains("jwt expired") || message.contains("invalid jwt")
+            || message.contains("jwt malformed") { return true }
+        if message.contains("invalid_token") || message.contains("token_expired") { return true }
+        return false
     }
 }
 

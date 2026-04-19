@@ -114,9 +114,15 @@ final class AiRepository: Sendable {
 
     /// Build FunctionInvokeOptions with an explicit Authorization header
     /// from the current session, bypassing the SDK's potentially stale internal state.
+    ///
+    /// Crucially, waits for any in-flight session refresh (e.g. one started by
+    /// scenePhase.active) so we don't read a stale access token while a refresh
+    /// is racing. Without this, the user hits 401 → retry → race with the
+    /// ongoing refresh → `refresh_token_already_used` → misclassified as
+    /// "session expired".
     private func freshInvokeOptions(body: [String: AnyJSON]) async -> FunctionInvokeOptions {
         do {
-            let session = try await supabase.auth.session
+            let session = try await SupabaseManager.shared.currentSession()
             let token = session.accessToken
             AppLogger.ai.debug("Using access token expiring at \(session.expiresAt)")
             return .init(headers: ["Authorization": "Bearer \(token)"], body: body)
@@ -127,10 +133,12 @@ final class AiRepository: Sendable {
         }
     }
 
-    /// Refresh the session, then build options with the new token.
+    /// Refresh the session through the coordinator (dedups concurrent callers),
+    /// then build options with the new token.
     private func refreshAndBuildOptions(body: [String: AnyJSON]) async -> FunctionInvokeOptions {
         do {
-            let session = try await supabase.auth.refreshSession()
+            try await SupabaseManager.shared.refreshSession(force: true)
+            let session = try await SupabaseManager.shared.currentSession()
             let token = session.accessToken
             AppLogger.ai.info("Refreshed session OK, new token expires at \(session.expiresAt)")
             return .init(headers: ["Authorization": "Bearer \(token)"], body: body)
@@ -201,7 +209,7 @@ final class AiRepository: Sendable {
         body.append(data)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
-        let session = try await supabase.auth.session
+        let session = try await SupabaseManager.shared.currentSession()
         let url = URL(string: "\(AppConstants.supabaseURL)/functions/v1/transcribe-voice")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

@@ -46,23 +46,45 @@ final class AuthManager {
 
     /// Force-refresh the access token. Call on app foreground to avoid stale
     /// tokens after long background suspension. Silent no-op if no session.
+    ///
+    /// Goes through `SupabaseManager.sessionCoordinator` so concurrent callers
+    /// (e.g. an AI request racing with scenePhase.active) don't both try to
+    /// consume the same single-use refresh token.
     func refreshSessionIfNeeded() async {
         guard isAuthenticated else { return }
         do {
-            let client = self.supabase
-            let session = try await withTimeout(seconds: 10) {
-                try await client.auth.refreshSession()
+            try await withTimeout(seconds: 10) {
+                try await SupabaseManager.shared.refreshSession()
             }
-            currentUser = session.user
+            if let session = try? await supabase.auth.session {
+                currentUser = session.user
+            }
             AppLogger.auth.info("Session refreshed successfully")
         } catch {
             AppLogger.auth.error("Session refresh failed: \(error.localizedDescription)")
-            // Refresh token likely expired. Clear session so UI can re-route
-            // to sign-in, rather than showing "session expired" to the user.
-            isAuthenticated = false
-            currentUser = nil
-            try? await supabase.auth.signOut()
+            // Only sign out on a definitively invalid refresh token.
+            // Transient errors (network, race conditions, server hiccups) must
+            // NOT log the user out — they'd see the generic "session expired"
+            // screen while their session is actually still valid.
+            if Self.isDefinitivelyExpired(error) {
+                AppLogger.auth.warning("Refresh token invalid — signing out")
+                isAuthenticated = false
+                currentUser = nil
+                try? await supabase.auth.signOut()
+            }
         }
+    }
+
+    /// True only for errors that mean the refresh token is actually dead and
+    /// re-login is unavoidable. Excludes network errors, race conditions,
+    /// and 5xx server errors.
+    private static func isDefinitivelyExpired(_ error: Error) -> Bool {
+        let description = "\(error)".lowercased()
+        // Supabase GoTrue error codes that signal terminal state:
+        return description.contains("refresh_token_not_found")
+            || description.contains("invalid_grant")
+            || description.contains("invalid_refresh_token")
+            || description.contains("user_not_found")
     }
 
     func signInWithApple(idToken: String, nonce: String) async throws {

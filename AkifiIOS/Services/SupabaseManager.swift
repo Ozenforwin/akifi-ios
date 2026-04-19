@@ -1,10 +1,63 @@
 import Foundation
 import Supabase
 
+/// Serializes concurrent session refreshes.
+///
+/// Supabase refresh tokens are single-use: if two callers race on
+/// `supabase.auth.refreshSession()`, the first one consumes the refresh
+/// token, the second one gets `refresh_token_already_used`. That second
+/// error has historically been misclassified as "session expired" and
+/// shown to the user even though their session is actually healthy.
+///
+/// This actor guarantees at most one in-flight refresh; concurrent
+/// callers await the same Task. Also provides a short cooldown so a
+/// burst of callers (scenePhase→active plus an immediate user tap)
+/// doesn't force a second refresh.
+actor SessionCoordinator {
+    private var ongoing: Task<Void, Error>?
+    private var lastSuccessfulRefresh: Date = .distantPast
+    private let cooldown: TimeInterval = 30
+
+    func refresh(client: SupabaseClient, force: Bool = false) async throws {
+        if !force, Date().timeIntervalSince(lastSuccessfulRefresh) < cooldown {
+            return
+        }
+
+        if let task = ongoing {
+            try await task.value
+            return
+        }
+
+        let task = Task<Void, Error> {
+            _ = try await client.auth.refreshSession()
+        }
+        ongoing = task
+
+        do {
+            try await task.value
+            lastSuccessfulRefresh = Date()
+            ongoing = nil
+        } catch {
+            ongoing = nil
+            throw error
+        }
+    }
+
+    /// Block until any in-flight refresh completes; no-op if nothing pending.
+    /// Use before reading `supabase.auth.session` on a hot path that may race
+    /// with a scenePhase refresh task.
+    func waitForPendingRefresh() async {
+        if let task = ongoing {
+            _ = try? await task.value
+        }
+    }
+}
+
 final class SupabaseManager: Sendable {
     static let shared = SupabaseManager()
 
     let client: SupabaseClient
+    let sessionCoordinator = SessionCoordinator()
 
     private init() {
         client = SupabaseClient(
@@ -14,6 +67,21 @@ final class SupabaseManager: Sendable {
                 auth: .init(autoRefreshToken: true, emitLocalSessionAsInitialSession: true)
             )
         )
+    }
+
+    /// Deduplicated refresh. Safe to call concurrently from any actor/task.
+    /// Second concurrent caller awaits the first caller's Task instead of
+    /// triggering a second HTTP request (which would fail with
+    /// `refresh_token_already_used`).
+    func refreshSession(force: Bool = false) async throws {
+        try await sessionCoordinator.refresh(client: client, force: force)
+    }
+
+    /// Returns the current session, waiting for any in-flight refresh first.
+    /// Prevents reading a stale access token while a refresh is racing.
+    func currentSession() async throws -> Session {
+        await sessionCoordinator.waitForPendingRefresh()
+        return try await client.auth.session
     }
 
     // MARK: - User ID helper
