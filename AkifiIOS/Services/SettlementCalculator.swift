@@ -8,10 +8,12 @@ import Foundation
 /// All amounts are signed Int64 kopecks (minor units). The function
 /// contracts don't depend on any UI or Supabase code — trivially testable.
 ///
-/// TODO(payment-source v2): custom split weights. Add
-/// `account_members.split_weight NUMERIC` (sum-to-1 per account) and
-/// switch `fairShare(M) = totalExpenses * weight(M)` instead of equal split.
-/// Current MVP is intentionally equal.
+/// **Custom split weights.** `account_members.split_weight` (NUMERIC(6,3))
+/// drives `fairShare(M) = totalExpenses * weight(M) / sum(weights)`. If
+/// `memberWeights` is empty — or every weight is equal — the math reduces
+/// to equal split (`total / N`). Passing a weight of 0 is legal: that
+/// member has no fair-share obligation but their contributions still
+/// count (they're effectively a lender).
 ///
 /// Settlement is strictly **feature-scoped**: only expenses created via
 /// `create_expense_with_auto_transfer` (i.e. with `auto_transfer_group_id`
@@ -22,12 +24,14 @@ import Foundation
 ///
 /// Contributions are credited by walking auto-transfer groups: the peer
 /// leg of each auto-transfer on the shared account is mapped back to a
-/// member via `personalAccountsByUser`.
-///
-/// TODO(payment-source v2): cross-currency auto-transfers. Today the
-/// picker restricts source to accounts in the same currency as the target.
-/// Cross-currency (e.g. USD ByBit → RUB Семейный) needs an extra `p_source
-/// _amount` on the RPC and conversion at call time.
+/// member via `personalAccountsByUser`. Cross-currency transfer-out legs
+/// (stored in the source account's currency) are treated as contributions
+/// at face value — the settlement math operates on whatever the DB says
+/// the leg's `amount` is, without re-running FX. Today `decodeKopecks`
+/// interprets every amount as RUB kopecks, so cross-currency source
+/// legs will under-contribute a member until a future migration adds
+/// per-row FX normalization. Callers that need currency-correct
+/// contribution totals should normalize upstream.
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
@@ -37,7 +41,9 @@ enum SettlementCalculator {
         /// Net contributions to the shared account via auto-transfers from
         /// this user's personal accounts. `transfer-in` minus `transfer-out`.
         let contributed: Int64
-        /// `totalExpenses / memberCount` (equal-split). Same for all members.
+        /// This member's expected share for the period:
+        /// `totalExpenses * weight(M) / sum(weights)`. With equal weights
+        /// (the default) this collapses to `totalExpenses / memberCount`.
         let fairShare: Int64
 
         /// `contributed - fairShare`. Positive → member is owed money;
@@ -91,13 +97,18 @@ enum SettlementCalculator {
     ///     received the repayment). This collapses closed suggestions so
     ///     they don't keep reappearing after "Отметить выполненным".
     ///     Only settlements overlapping the current period are applied.
+    ///   - memberWeights: `userId → split_weight` from `account_members`.
+    ///     Default empty or all-equal collapses to equal split. Members
+    ///     missing from the map get weight 1.0 (backward-compat with
+    ///     rows that predate the `split_weight` column).
     static func compute(
         sharedAccountId: String,
         transactions: [Transaction],
         memberUserIds: [String],
         personalAccountsByUser: [String: Set<String>],
         period: DateInterval,
-        pastSettlements: [Settlement] = []
+        pastSettlements: [Settlement] = [],
+        memberWeights: [String: Decimal] = [:]
     ) -> [MemberBalance] {
         guard !memberUserIds.isEmpty else { return [] }
 
@@ -144,8 +155,32 @@ enum SettlementCalculator {
                 && $0.autoTransferGroupId != nil
         }
         let totalExpenses: Int64 = expenses.reduce(0) { $0 + $1.amount }
-        let memberCount = Int64(memberUserIds.count)
-        let fairShare = memberCount > 0 ? totalExpenses / memberCount : 0
+
+        // Resolve each member's weight, defaulting absentees to 1.0 so
+        // rows that predate the split_weight migration behave as equal
+        // split. We only consider members with weight > 0 for the divisor —
+        // a zero-weight member has no fair-share obligation.
+        let resolvedWeights: [String: Decimal] = Dictionary(
+            uniqueKeysWithValues: memberUserIds.map { uid in
+                (uid, memberWeights[uid] ?? 1.0)
+            }
+        )
+        let sumWeights: Decimal = resolvedWeights.values.reduce(0, +)
+
+        /// Fair share for a single member, in kopecks. When sumWeights is
+        /// zero (every member is weight-0 — degenerate) or total is zero,
+        /// everyone gets 0 and nothing is owed.
+        func fairShareFor(_ uid: String) -> Int64 {
+            guard totalExpenses > 0, sumWeights > 0 else { return 0 }
+            let weight = resolvedWeights[uid] ?? 1.0
+            let share = Decimal(totalExpenses) * weight / sumWeights
+            // Round half-up to the nearest kopeck. Explicit handler
+            // avoids banker's rounding drift when weights are equal.
+            var rounded = Decimal()
+            var source = share
+            NSDecimalRound(&rounded, &source, 0, .plain)
+            return Int64(truncating: rounded as NSDecimalNumber)
+        }
 
         // 3. Contributions — walk ONLY auto-transfer groups (rows with both
         //    transfer_group_id AND auto_transfer_group_id set). Manual
@@ -215,7 +250,7 @@ enum SettlementCalculator {
             MemberBalance(
                 userId: uid,
                 contributed: contributions[uid] ?? 0,
-                fairShare: fairShare
+                fairShare: fairShareFor(uid)
             )
         }
     }

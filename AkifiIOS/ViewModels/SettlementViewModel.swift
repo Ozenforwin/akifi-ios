@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+@preconcurrency import Supabase
 
 /// Periods supported by the settlement card picker.
 enum SettlementPeriod: Hashable, Sendable {
@@ -56,6 +57,7 @@ final class SettlementViewModel {
     var errorMessage: String?
 
     private let settlementRepo = SettlementRepository()
+    private let supabase = SupabaseManager.shared.client
 
     /// Recomputes balances + suggestions for `sharedAccountId` using the
     /// transactions & accounts currently in `dataStore`. Also fetches past
@@ -64,11 +66,36 @@ final class SettlementViewModel {
         isLoading = true
         errorMessage = nil
 
-        let memberUserIds = Array(
-            Set(dataStore.transactions
-                .filter { $0.accountId == sharedAccountId }
-                .map(\.userId))
-        )
+        // Pull canonical member list from `account_members` (falls back to
+        // transaction-authors if the network call fails — keeps legacy
+        // behavior for accounts without the join). Read split_weight at
+        // the same time so the settlement math can honor per-member shares.
+        var members: [AccountMember] = []
+        do {
+            members = try await supabase
+                .from("account_members")
+                .select()
+                .eq("account_id", value: sharedAccountId)
+                .execute()
+                .value
+        } catch {
+            // Non-fatal — fall back to deriving from transactions below.
+            AppLogger.data.debug("settlement members load: \(error.localizedDescription)")
+        }
+
+        let memberUserIds: [String]
+        let memberWeights: [String: Decimal]
+        if !members.isEmpty {
+            memberUserIds = members.map(\.userId)
+            memberWeights = Dictionary(uniqueKeysWithValues: members.map { ($0.userId, $0.splitWeight) })
+        } else {
+            memberUserIds = Array(
+                Set(dataStore.transactions
+                    .filter { $0.accountId == sharedAccountId }
+                    .map(\.userId))
+            )
+            memberWeights = [:]
+        }
 
         // Build personalAccountsByUser from the accounts visible to us.
         // Every account we can see that is NOT the shared one is considered
@@ -94,7 +121,8 @@ final class SettlementViewModel {
             memberUserIds: memberUserIds,
             personalAccountsByUser: personalMap,
             period: interval,
-            pastSettlements: pastSettlements
+            pastSettlements: pastSettlements,
+            memberWeights: memberWeights
         )
         suggestions = SettlementCalculator.settlements(from: balances)
 

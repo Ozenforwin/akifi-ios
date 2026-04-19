@@ -271,4 +271,83 @@ final class SettlementCalculatorTests: XCTestCase {
         XCTAssertTrue(SettlementCalculator.settlements(from: balances).isEmpty)
     }
 
+    // MARK: - Custom split weights
+
+    /// A with weight 0.6, B with weight 0.4 on 1000 kopecks → fairShare
+    /// A = 600, B = 400.
+    func test_customSplit_60_40_twoMembers() {
+        let txs = autoTransfer(user: "A", amount: 10_00, sourceAcc: "A-cash", targetAcc: sharedAccId)
+
+        let balances = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["A", "B"],
+            personalAccountsByUser: ["A": ["A-cash"], "B": ["B-cash"]],
+            period: period,
+            memberWeights: ["A": Decimal(string: "0.6")!, "B": Decimal(string: "0.4")!]
+        )
+
+        let a = balances.first { $0.userId == "A" }!
+        let b = balances.first { $0.userId == "B" }!
+        XCTAssertEqual(a.fairShare, 6_00)
+        XCTAssertEqual(b.fairShare, 4_00)
+        // A contributed 1000, fair 600 → +400. B contributed 0, fair 400 → -400.
+        XCTAssertEqual(a.delta, 4_00)
+        XCTAssertEqual(b.delta, -4_00)
+    }
+
+    /// Weights 2 and 1 (sum 3) on 900 kopecks → fairShare A=600, B=300.
+    /// Verifies normalization handles non-unit sums.
+    func test_customSplit_unequalWeights_sumNot1() {
+        let txs = autoTransfer(user: "A", amount: 9_00, sourceAcc: "A-cash", targetAcc: sharedAccId)
+
+        let balances = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["A", "B"],
+            personalAccountsByUser: ["A": ["A-cash"], "B": ["B-cash"]],
+            period: period,
+            memberWeights: ["A": 2, "B": 1]
+        )
+
+        let a = balances.first { $0.userId == "A" }!
+        let b = balances.first { $0.userId == "B" }!
+        XCTAssertEqual(a.fairShare, 6_00)
+        XCTAssertEqual(b.fairShare, 3_00)
+    }
+
+    /// All weights equal to 1.0 must reproduce the equal-split behavior
+    /// bit-for-bit with the no-weights call — verifies backward compat.
+    func test_defaultWeights_equivalentToEqualSplit() {
+        let txs =
+            autoTransfer(user: "A", amount: 90_00, sourceAcc: "A-cash", targetAcc: sharedAccId) +
+            autoTransfer(user: "B", amount: 30_00, sourceAcc: "B-cash", targetAcc: sharedAccId)
+
+        let equalSplit = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["A", "B", "C"],
+            personalAccountsByUser: [
+                "A": ["A-cash"],
+                "B": ["B-cash"],
+                "C": ["C-cash"]
+            ],
+            period: period
+        )
+        let withExplicitOnes = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["A", "B", "C"],
+            personalAccountsByUser: [
+                "A": ["A-cash"],
+                "B": ["B-cash"],
+                "C": ["C-cash"]
+            ],
+            period: period,
+            memberWeights: ["A": 1.0, "B": 1.0, "C": 1.0]
+        )
+
+        XCTAssertEqual(equalSplit, withExplicitOnes)
+    }
+
 }

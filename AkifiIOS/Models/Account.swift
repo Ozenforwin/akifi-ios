@@ -67,6 +67,11 @@ struct AccountMember: Codable, Identifiable, Sendable {
     var role: AccountRole
     let invitedBy: String?
     let createdAt: String?
+    /// Relative share for settlement fairShare math. Default 1.0 = equal
+    /// split. `SettlementCalculator` normalizes per-account at compute
+    /// time: `fairShare(M) = total * weight(M) / sum(weights)`.
+    /// NUMERIC(6,3) in DB, backed by `account_members.split_weight`.
+    var splitWeight: Decimal
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -75,6 +80,45 @@ struct AccountMember: Codable, Identifiable, Sendable {
         case role
         case invitedBy = "invited_by"
         case createdAt = "created_at"
+        case splitWeight = "split_weight"
+    }
+
+    init(id: String, accountId: String, userId: String, role: AccountRole, invitedBy: String? = nil, createdAt: String? = nil, splitWeight: Decimal = 1.0) {
+        self.id = id; self.accountId = accountId; self.userId = userId; self.role = role
+        self.invitedBy = invitedBy; self.createdAt = createdAt
+        self.splitWeight = splitWeight
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        accountId = try c.decode(String.self, forKey: .accountId)
+        userId = try c.decode(String.self, forKey: .userId)
+        role = try c.decode(AccountRole.self, forKey: .role)
+        invitedBy = try c.decodeIfPresent(String.self, forKey: .invitedBy)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        // PostgREST serializes NUMERIC as a string (to preserve precision)
+        // most of the time, but can also emit a JSON number depending on
+        // version. Handle both + fall back to 1.0 for pre-migration rows.
+        if let str = try? c.decode(String.self, forKey: .splitWeight),
+           let d = Decimal(string: str) {
+            splitWeight = d
+        } else if let dbl = try? c.decode(Double.self, forKey: .splitWeight) {
+            splitWeight = Decimal(dbl)
+        } else {
+            splitWeight = 1.0
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(accountId, forKey: .accountId)
+        try c.encode(userId, forKey: .userId)
+        try c.encode(role, forKey: .role)
+        try c.encodeIfPresent(invitedBy, forKey: .invitedBy)
+        try c.encodeIfPresent(createdAt, forKey: .createdAt)
+        try c.encode(splitWeight, forKey: .splitWeight)
     }
 }
 
