@@ -23,6 +23,15 @@ struct HomeTabView: View {
         viewModel.selectedAccount(from: dataStore.accounts)
     }
 
+    /// True if the given account has transactions from more than one user
+    /// — same heuristic used inside `AccountCarouselView` to render the
+    /// "shared" badge.
+    private func isSharedAccount(_ account: Account) -> Bool {
+        let uid = dataStore.profile?.id
+        return dataStore.profilesMap.count > 1
+            && dataStore.transactions.contains { $0.accountId == account.id && $0.userId != uid }
+    }
+
     private var recentTransactionsForAccount: [Transaction] {
         let txs: [Transaction]
         if let account = selectedAccount {
@@ -50,6 +59,14 @@ struct HomeTabView: View {
 
                     // 1. Account Carousel
                     accountSection
+
+                    // 1b. Shared account detail shortcut (surfaces settlement card)
+                    if !isNewUser, let acc = selectedAccount, isSharedAccount(acc) {
+                        NavigationLink(destination: SharedAccountDetailView(account: acc)) {
+                            SharedAccountShortcutCard(account: acc)
+                        }
+                        .buttonStyle(.plain)
+                    }
 
                     // 2. Streak
                     StreakBadgeView()
@@ -285,6 +302,47 @@ private struct ReportsShortcutCard: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(String(localized: "home.reports.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Shared Account Shortcut Card
+
+private struct SharedAccountShortcutCard: View {
+    let account: Account
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: account.color), Color(hex: account.color).opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "sharedAccount.openDetail"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(String(localized: "settlement.title"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
