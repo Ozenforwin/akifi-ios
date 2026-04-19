@@ -154,7 +154,7 @@ struct SettingsView: View {
                     NavigationLink {
                         NetWorthDashboardView()
                     } label: {
-                        SettingsRow(icon: "chart.line.uptrend.xyaxis", color: .green, title: String(localized: "netWorth.title"))
+                        SettingsRow(icon: "chart.line.uptrend.xyaxis", color: .green, title: String(localized: "netWorth.title"), badge: "BETA")
                     }
 
                     NavigationLink {

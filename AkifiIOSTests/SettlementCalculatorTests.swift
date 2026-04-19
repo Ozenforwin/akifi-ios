@@ -316,13 +316,14 @@ final class SettlementCalculatorTests: XCTestCase {
         XCTAssertEqual(b.fairShare, 3_00)
     }
 
-    // MARK: - Direct expense attribution
+    // MARK: - Direct expense ignored
 
-    /// Direct expense on shared account (no auto-transfer) credits its
-    /// creator. A spends 1000 directly, 2 members → total 1000, fair 500.
-    /// A contributed 1000 → delta +500. B contributed 0 → delta -500.
-    /// Suggestion: B → A 500.
-    func test_directExpense_creditsCreator() {
+    /// Direct expenses on the shared account (no auto_transfer_group_id)
+    /// are deliberately excluded from settlement math — pulling them in
+    /// would silently surface huge historical debts the user never opted
+    /// into. To participate in settlement, expenses must be created via
+    /// the explicit payment-source auto-transfer flow.
+    func test_directExpense_ignored() {
         let txs = [expense(id: "d1", user: "A", amount: 10_00, date: "2026-04-10")]
 
         let balances = SettlementCalculator.compute(
@@ -333,30 +334,14 @@ final class SettlementCalculatorTests: XCTestCase {
             period: period
         )
 
-        let a = balances.first { $0.userId == "A" }!
-        let b = balances.first { $0.userId == "B" }!
-        XCTAssertEqual(a.contributed, 10_00)
-        XCTAssertEqual(a.fairShare, 5_00)
-        XCTAssertEqual(a.delta, 5_00)
-        XCTAssertEqual(b.contributed, 0)
-        XCTAssertEqual(b.fairShare, 5_00)
-        XCTAssertEqual(b.delta, -5_00)
-
-        // Sum of deltas must be 0 (invariant preserved).
-        XCTAssertEqual(a.delta + b.delta, 0)
-
-        let suggestions = SettlementCalculator.settlements(from: balances)
-        XCTAssertEqual(suggestions.count, 1)
-        XCTAssertEqual(suggestions[0].fromUserId, "B")
-        XCTAssertEqual(suggestions[0].toUserId, "A")
-        XCTAssertEqual(suggestions[0].amount, 5_00)
+        XCTAssertTrue(balances.isEmpty)
+        XCTAssertTrue(SettlementCalculator.settlements(from: balances).isEmpty)
     }
 
-    /// Mixed: A contributes 500 via auto-transfer + 200 direct expense;
-    /// B contributes 300 via auto-transfer. Total 1000, fair 500.
-    /// A.contributed = 500 + 200 = 700 → delta +200.
-    /// B.contributed = 300 → delta -200. Suggestion: B → A 200.
-    func test_directExpense_mixedWithAutoTransfer() {
+    /// Mixed: direct expenses are ignored; only auto-transfer legs count.
+    /// A auto-transfer 500, B auto-transfer 300, A direct 200 → total 800
+    /// (direct ignored), fair 400 each. A: +100, B: -100.
+    func test_directExpense_ignoredWithAutoTransferPresent() {
         var txs: [Transaction] = []
         txs += autoTransfer(user: "A", amount: 5_00, sourceAcc: "A-cash", targetAcc: sharedAccId, date: "2026-04-10")
         txs += autoTransfer(user: "B", amount: 3_00, sourceAcc: "B-cash", targetAcc: sharedAccId, date: "2026-04-11")
@@ -372,20 +357,12 @@ final class SettlementCalculatorTests: XCTestCase {
 
         let a = balances.first { $0.userId == "A" }!
         let b = balances.first { $0.userId == "B" }!
-        XCTAssertEqual(a.contributed, 7_00)
+        XCTAssertEqual(a.contributed, 5_00)
         XCTAssertEqual(b.contributed, 3_00)
-        XCTAssertEqual(a.fairShare, 5_00)
-        XCTAssertEqual(b.fairShare, 5_00)
-        XCTAssertEqual(a.delta, 2_00)
-        XCTAssertEqual(b.delta, -2_00)
-        // Invariant: sum of deltas = 0.
-        XCTAssertEqual(a.delta + b.delta, 0)
-
-        let suggestions = SettlementCalculator.settlements(from: balances)
-        XCTAssertEqual(suggestions.count, 1)
-        XCTAssertEqual(suggestions[0].fromUserId, "B")
-        XCTAssertEqual(suggestions[0].toUserId, "A")
-        XCTAssertEqual(suggestions[0].amount, 2_00)
+        XCTAssertEqual(a.fairShare, 4_00)
+        XCTAssertEqual(b.fairShare, 4_00)
+        XCTAssertEqual(a.delta, 1_00)
+        XCTAssertEqual(b.delta, -1_00)
     }
 
     // MARK: - FX-correct settlement

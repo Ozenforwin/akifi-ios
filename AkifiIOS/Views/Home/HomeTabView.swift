@@ -78,15 +78,10 @@ struct HomeTabView: View {
                     // 4. Savings
                     HomeSavingsSnapshotView()
 
-                    // 4b. Net Worth shortcut — gradient card routing to the
-                    //     dashboard. Subtitle pulls the latest snapshot (or
-                    //     shows a zero state if none yet).
-                    if !isNewUser {
-                        NavigationLink(destination: NetWorthDashboardView()) {
-                            NetWorthShortcutCard()
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    // NOTE: Net Worth shortcut moved to Settings with a BETA
+                    // badge — data quality is still rough (sums look
+                    // duplicative when user has no assets/liabilities) and
+                    // it doesn't deserve prime Home real estate yet.
 
                     // 4c. Deposits shortcut — aggregate principal+accrued
                     //     and nearest maturity countdown. Hidden until
@@ -406,67 +401,6 @@ private struct ChallengesShortcutCard: View {
 }
 
 // MARK: - Net Worth Shortcut Card
-
-/// Home-tab shortcut leading to `NetWorthDashboardView`. Subtitle shows the
-/// most recent snapshot's net worth (fetched locally) or a call-to-action
-/// if no data exists yet. Uses the same row layout as SharedAccountShortcut
-/// so the Home page keeps a consistent visual rhythm.
-private struct NetWorthShortcutCard: View {
-    @Environment(AppViewModel.self) private var appViewModel
-    @State private var latestSnapshot: NetWorthSnapshot?
-    @State private var hasLoaded = false
-
-    private let repo = NetWorthSnapshotRepository()
-
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#16A34A"), Color(hex: "#059669")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "netWorth.title"))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(subtitleText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .task {
-            guard !hasLoaded else { return }
-            hasLoaded = true
-            latestSnapshot = try? await repo.fetchForUser(limit: 1).first
-        }
-    }
-
-    private var subtitleText: String {
-        if let snap = latestSnapshot {
-            let formatted = appViewModel.currencyManager.formatAmount(snap.netWorth.displayAmount)
-            return snap.netWorth < 0 ? "-\(formatted)" : formatted
-        }
-        return String(localized: "netWorth.home.cta")
-    }
-}
 
 // MARK: - Journal Shortcut Card
 

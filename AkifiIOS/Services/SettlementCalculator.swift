@@ -15,24 +15,17 @@ import Foundation
 /// member has no fair-share obligation but their contributions still
 /// count (they're effectively a lender).
 ///
-/// Settlement counts two buckets of shared-account expenses:
+/// Settlement counts **only** expenses created via the payment-source
+/// auto-transfer flow (`create_expense_with_auto_transfer`): the main
+/// expense row has `auto_transfer_group_id != nil` and
+/// `transfer_group_id == nil`. The paying user is credited via their
+/// personal-account source leg.
 ///
-/// 1. **Auto-transfer expenses** — the main expense leg of a triplet
-///    produced by `create_expense_with_auto_transfer` (expense row with
-///    `auto_transfer_group_id != nil`, `transfer_group_id == nil`). The
-///    paying user is credited via their personal-account source leg.
-/// 2. **Direct expenses** — rows on the shared account with
-///    `autoTransferGroupId == nil` AND `transferGroupId == nil`. We treat
-///    these as "paid directly from the shared-account kitty by the
-///    creator": `contributions[userId] += amount`. Effect: `totalExpenses`
-///    grows by `amount` (raising everyone's `fairShare`), and the
-///    creator's contributed also grows by `amount`. Their delta stays
-///    zero iff their direct-expense sum equals their fair share; if they
-///    paid more than their share, `delta > 0` and they're owed the rest.
-///
-/// Legacy manual transfer pairs (those without `auto_transfer_group_id`)
-/// are still ignored — they predate the feature and pulling them in
-/// would silently surface large historical debts.
+/// Direct expenses on the shared account (no auto_transfer_group_id) and
+/// legacy manual transfer pairs are **ignored**. This is intentional:
+/// pulling them in would silently surface large historical debts the user
+/// never opted into. To participate in settlement, the expense must be
+/// created via the explicit "paid from my card" payment-source flow.
 ///
 /// Contributions are credited by walking auto-transfer groups: the peer
 /// leg of each auto-transfer on the shared account is mapped back to a
@@ -164,20 +157,16 @@ enum SettlementCalculator {
         }
 
         // 2. Total shared-account expenses = main expense leg of each
-        //    auto-transfer triplet + direct expenses (no transfer_group_id
-        //    AND no auto_transfer_group_id). Legacy manual transfers skipped.
+        //    auto-transfer triplet ONLY. Direct expenses (no transfer_group_id
+        //    AND no auto_transfer_group_id) and legacy manual transfer pairs
+        //    are deliberately excluded — pulling them in would surface huge
+        //    historical debts the user never opted into.
         let autoTransferExpenses = accountRows.filter {
             $0.type == .expense
                 && $0.transferGroupId == nil
                 && $0.autoTransferGroupId != nil
         }
-        let directExpenses = accountRows.filter {
-            $0.type == .expense
-                && $0.transferGroupId == nil
-                && $0.autoTransferGroupId == nil
-        }
         let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amount }
-            + directExpenses.reduce(0) { $0 + $1.amount }
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
@@ -206,15 +195,13 @@ enum SettlementCalculator {
         }
 
         // 3. Contributions.
-        //    (a) Walk auto-transfer triplets (transfer_group_id AND
-        //        auto_transfer_group_id both set). The peer leg on the
-        //        user's personal account tells us who to credit. Source
-        //        legs on a different-currency account are normalized
-        //        into the shared account's base currency via `fxRates`.
-        //    (b) Direct expenses on the shared account are credited to
-        //        their creator, since they paid "out of the common kitty"
-        //        — economically equivalent to paying their fair share.
-        //    Manual transfer pairs that predate the feature are ignored.
+        //    Walk auto-transfer triplets (transfer_group_id AND
+        //    auto_transfer_group_id both set). The peer leg on the
+        //    user's personal account tells us who to credit. Source
+        //    legs on a different-currency account are normalized
+        //    into the shared account's base currency via `fxRates`.
+        //    Direct expenses on the shared account and manual transfer
+        //    pairs that predate the feature are ignored.
         var contributions: [String: Int64] = Dictionary(uniqueKeysWithValues: memberUserIds.map { ($0, 0) })
 
         let autoTransferLegsOnShared = accountRows.filter {
@@ -270,17 +257,6 @@ enum SettlementCalculator {
             } else if row.type == .expense {
                 contributions[attributedUser, default: 0] -= normalized
             }
-        }
-
-        // (b) Direct expenses — credit the creator.
-        for tx in directExpenses {
-            let normalized = normalizeToBase(
-                amount: tx.amount,
-                rowCurrency: tx.currency,
-                baseCurrency: baseCurrency,
-                fxRates: fxRates
-            )
-            contributions[tx.userId, default: 0] += normalized
         }
 
         // 4. Apply past settlements — each closed debt adjusts both sides'
