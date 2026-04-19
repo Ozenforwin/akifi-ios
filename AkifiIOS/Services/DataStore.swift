@@ -526,37 +526,66 @@ final class DataStore {
 
     // MARK: - Cache
 
-    /// Rebuild all caches in one pass — call after any data change
+    /// Rebuild all caches in one pass — call after any data change.
+    ///
+    /// ADR-001 + legacy-UI contract: balance_cache and per-account sums are
+    /// kept in **base currency** (kopecks) because `AccountCarouselView` and
+    /// friends assume `formatAmount(balance)` takes a base-currency number
+    /// and FX-converts into the display currency. Math itself is done in the
+    /// account's own currency (via `tx.amountNative`) and then normalized to
+    /// base just before caching. Without the FX step a USD account's
+    /// balance got interpreted as RUB and divided by the rate again, which
+    /// is why ByBit showed "$8.42" instead of "$640".
     func rebuildCaches() {
+        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
+            .mapValues { Decimal($0) }
+        let accountCurrencyById: [String: String] = Dictionary(
+            uniqueKeysWithValues: accounts.map { ($0.id, $0.currency.uppercased()) }
+        )
+
         var incomeByAccount: [String: Int64] = [:]
         var expenseByAccount: [String: Int64] = [:]
 
         for tx in transactions {
             guard let accountId = tx.accountId else { continue }
-            // ADR-001: balance math reads amount_native. `amountNative` in
-            // the decoded struct falls back to `amount` for rows that predate
-            // the Phase 1 backfill, so this is safe regardless.
-            let value = tx.amountNative
+            let accountCcy = accountCurrencyById[accountId] ?? baseCode
+            // ADR-001: amount_native is canonical, always in account currency.
+            // Normalize into base before caching so the legacy UI contract
+            // (balance stored in base kopecks, FX-converted at render time)
+            // keeps working.
+            let amountInBase = NetWorthCalculator.convert(
+                amount: tx.amountNative,
+                from: accountCcy,
+                to: baseCode,
+                rates: fxRates
+            )
             switch tx.type {
             case .income:
-                incomeByAccount[accountId, default: 0] += value
+                incomeByAccount[accountId, default: 0] += amountInBase
             case .expense:
-                expenseByAccount[accountId, default: 0] += value
+                expenseByAccount[accountId, default: 0] += amountInBase
             case .transfer:
                 // Legacy transfer type — treat positive as income, negative as expense
-                if value > 0 {
-                    incomeByAccount[accountId, default: 0] += value
+                if amountInBase > 0 {
+                    incomeByAccount[accountId, default: 0] += amountInBase
                 } else {
-                    expenseByAccount[accountId, default: 0] += abs(value)
+                    expenseByAccount[accountId, default: 0] += abs(amountInBase)
                 }
             }
         }
 
         var cache: [String: Int64] = [:]
         for account in accounts {
+            let initialInBase = NetWorthCalculator.convert(
+                amount: account.initialBalance,
+                from: account.currency.uppercased(),
+                to: baseCode,
+                rates: fxRates
+            )
             let income = incomeByAccount[account.id] ?? 0
             let expense = expenseByAccount[account.id] ?? 0
-            cache[account.id] = account.initialBalance + income - expense
+            cache[account.id] = initialInBase + income - expense
         }
         balanceCache = cache
         accountIncome = incomeByAccount
