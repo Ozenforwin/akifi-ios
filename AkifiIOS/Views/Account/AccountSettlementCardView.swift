@@ -29,6 +29,11 @@ struct AccountSettlementCardView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
             } else if viewModel.balances.isEmpty {
+                // Nothing to settle in this period — skip history too,
+                // since past settlements without their source transactions
+                // are orphans (e.g. user marked a debt done, then deleted
+                // all the expenses). Showing them with no context is just
+                // noise.
                 emptyState
             } else {
                 balancesList
@@ -36,11 +41,10 @@ struct AccountSettlementCardView: View {
                     Divider().padding(.vertical, 4)
                     suggestionsList
                 }
-            }
-
-            if !viewModel.pastSettlementsForCurrentPeriod.isEmpty {
-                Divider().padding(.vertical, 4)
-                historyList
+                if !viewModel.pastSettlementsForCurrentPeriod.isEmpty {
+                    Divider().padding(.vertical, 4)
+                    historyList
+                }
             }
 
             if let err = viewModel.errorMessage {
