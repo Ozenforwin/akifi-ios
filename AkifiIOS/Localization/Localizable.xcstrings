@@ -11089,6 +11089,52 @@
         }
       }
     },
+    "import.duplicate.badge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-transfer duplicate"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duplicado auto-transferencia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Возможный дубль авто-перевода"
+          }
+        }
+      }
+    },
+    "import.duplicate.summary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped %lld rows as possible auto-transfer duplicates"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se omitieron %lld filas como posibles duplicados de auto-transferencia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пропущено %lld строк как возможные дубли авто-перевода"
+          }
+        }
+      }
+    },
     "import.instruction" : {
       "extractionState" : "stale",
       "localizations" : {

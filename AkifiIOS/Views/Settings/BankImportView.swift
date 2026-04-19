@@ -1,13 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// TODO(payment-source v2): when importing bank statements, skip rows that
-// match an existing auto-transfer leg. Candidate matcher: (account_id,
-// date ± 1 day, amount) with `transactions.auto_transfer_group_id != null`.
-// Without this, a real bank-card expense that already backs an auto-
-// transfer will be double-counted. Tracked in .claude/prd/payment-source
-// -and-settlement.md "Bank import reconciliation" (v2).
-
+/// PDF bank statement import. The parser (hosted on the Supabase edge
+/// function `parse-bank-statement`) can already flag cross-statement
+/// duplicates via `isDuplicate`; on top of that we run a second pass
+/// locally that matches each candidate row against existing auto-transfer
+/// legs (rows with `auto_transfer_group_id != nil`) on the target account.
+/// Those rows were already created by `create_expense_with_auto_transfer`,
+/// so importing the same debit from the bank PDF would double-count the
+/// expense. Matched rows surface an amber "auto-transfer dup" badge and
+/// start unselected by default.
 struct BankImportView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +22,10 @@ struct BankImportView: View {
     @State private var isImporting = false
     @State private var importResult: ImportResult?
     @State private var error: String?
+    /// Indices inside `parseResult.transactions` that collided with an
+    /// existing auto-transfer leg. Rendered as warning badges, excluded
+    /// from the default selection.
+    @State private var autoTransferDupIndices: Set<Int> = []
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -164,6 +170,24 @@ struct BankImportView: View {
                                 .foregroundStyle(Color.expense)
                         }
                     }
+
+                    // Summary for the auto-transfer dedup pass. Surfaces only
+                    // when we actually found collisions so the card stays
+                    // compact for users who aren't paying shared-account
+                    // expenses from the imported card.
+                    if !autoTransferDupIndices.isEmpty {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                            Text(String(format: String(localized: "import.duplicate.summary"),
+                                        autoTransferDupIndices.count))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.top, 2)
+                    }
                 }
             }
 
@@ -214,6 +238,18 @@ struct BankImportView: View {
 
                                 if tx.isDuplicate {
                                     Text(String(localized: "import.duplicate"))
+                                        .font(.system(size: 9, weight: .medium))
+                                        .foregroundStyle(.orange)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.12))
+                                        .clipShape(Capsule())
+                                } else if autoTransferDupIndices.contains(index) {
+                                    // Narrower match set than `isDuplicate`:
+                                    // specifically "already backed by an auto-
+                                    // transfer" so the user understands why
+                                    // the row is unselected by default.
+                                    Text(String(localized: "import.duplicate.badge"))
                                         .font(.system(size: 9, weight: .medium))
                                         .foregroundStyle(.orange)
                                         .padding(.horizontal, 6)
@@ -367,12 +403,73 @@ struct BankImportView: View {
                 totalExpense: Decimal(info?.totalExpense ?? 0),
                 transactions: txs
             )
-            selectedIndices = Set((0..<txs.count).filter { !txs[$0].isDuplicate })
+
+            // Second-pass duplicate detection against local auto-transfer legs.
+            // The backend parser already flags within-statement dups via
+            // `isDuplicate`; we additionally flag rows that match an existing
+            // row in `dataStore.transactions` whose `auto_transfer_group_id`
+            // is set — those are legs that an auto-transfer wrote to the
+            // user's personal account, and re-importing them from the bank
+            // PDF would double-count the expense on the settlement side.
+            let targetAccountId = selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id
+            autoTransferDupIndices = computeAutoTransferDupIndices(
+                txs: txs,
+                targetAccountId: targetAccountId
+            )
+            // Pre-select: skip statement-level dups AND auto-transfer legs.
+            selectedIndices = Set(
+                (0..<txs.count).filter { idx in
+                    !txs[idx].isDuplicate && !autoTransferDupIndices.contains(idx)
+                }
+            )
         } catch {
             self.error = error.localizedDescription
         }
 
         isParsing = false
+    }
+
+    /// Computes the set of indices inside `txs` that match an existing
+    /// auto-transfer leg in `dataStore.transactions`. Matching rule:
+    /// - same target account id (`accountId == targetAccountId`),
+    /// - `|amount - txAmount| <= 1 kopeck` (tolerance for rounding drift
+    ///   when banks publish cents but we store kopecks),
+    /// - `|date - txDate| <= 1 day`.
+    /// Works on absolute kopeck amounts; the parser publishes amounts in
+    /// major-currency units so we compare via a shared kopeck scale.
+    private func computeAutoTransferDupIndices(
+        txs: [ParsedTransaction],
+        targetAccountId: String?
+    ) -> Set<Int> {
+        guard let targetAccountId else { return [] }
+        let autoTransferLegs = dataStore.transactions.filter {
+            $0.accountId == targetAccountId && $0.autoTransferGroupId != nil
+        }
+        guard !autoTransferLegs.isEmpty else { return [] }
+
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+
+        var matched: Set<Int> = []
+        let oneDay: TimeInterval = 86_400
+        for (idx, parsed) in txs.enumerated() {
+            guard let parsedDate = parser.date(from: String(parsed.date.prefix(10))) else { continue }
+            // Parser amount is in major units (rubles). Convert to kopecks
+            // for a unit-consistent comparison with `Transaction.amount`.
+            let parsedKopecks = Int64((parsed.amount * 100).rounded())
+            for leg in autoTransferLegs {
+                let legDateStr = String((leg.rawDateTime.isEmpty ? leg.date : leg.rawDateTime).prefix(10))
+                guard let legDate = parser.date(from: legDateStr) else { continue }
+                if abs(legDate.timeIntervalSince(parsedDate)) <= oneDay,
+                   abs(leg.amount - parsedKopecks) <= 1 {
+                    matched.insert(idx)
+                    break
+                }
+            }
+        }
+        return matched
     }
 
     private func importSelected(_ result: ParseResult) async {
