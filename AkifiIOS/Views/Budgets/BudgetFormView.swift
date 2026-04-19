@@ -253,7 +253,12 @@ struct BudgetFormView: View {
         guard let budget = editingBudget else { return }
         budgetName = budget.budgetName ?? ""
         budgetDescription = budget.budgetDescription ?? ""
-        calculatorState.setValue(budget.amount.displayAmount)
+        // Budget.amount is stored in BASE currency (kopecks). Convert to the
+        // user's display currency so the calculator pre-fills a value the
+        // user can recognize (e.g. VND when they originally entered VND).
+        let cm = appViewModel.currencyManager
+        let inDisplay = cm.convert(budget.amount.displayAmount)
+        calculatorState.setValue(inDisplay)
         period = budget.billingPeriod
         budgetType = budget.budgetTypeEnum
         selectedCategories = Set(budget.categoryIds ?? [])
@@ -279,7 +284,12 @@ struct BudgetFormView: View {
         }
 
         isSaving = true
-        let amountForDB = decimalAmount // CalculatorState returns display amount, convert to rubles for DB
+        // CalculatorState returns the amount in the user's DISPLAY currency.
+        // Budgets live in base currency in the DB, so convert before saving —
+        // otherwise 20M VND gets stored as 20M RUB, then re-rendered as
+        // ~6.9 billion VND on next open.
+        let cm = appViewModel.currencyManager
+        let amountForDB = cm.toBase(decimalAmount)
         let cats = selectedCategories.isEmpty ? nil : Array(selectedCategories)
         let accountIds = selectedAccountId.map { [$0] }
 
