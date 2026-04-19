@@ -128,13 +128,13 @@ struct DailyLimitWidget: Widget {
                 }
         }
         .configurationDisplayName(
-            LocalizedStringResource("widget.dailyLimit.displayName", defaultValue: "Лимит на сегодня")
+            Text(LocalizedStringResource("widget.dailyLimit.displayName", defaultValue: "Лимит на сегодня"))
         )
         .description(
-            LocalizedStringResource(
+            Text(LocalizedStringResource(
                 "widget.dailyLimit.description",
                 defaultValue: "Сколько можно потратить сегодня, чтобы уложиться в бюджет"
-            )
+            ))
         )
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()

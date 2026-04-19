@@ -80,13 +80,13 @@ struct BalanceWidget: Widget {
                 }
         }
         .configurationDisplayName(
-            LocalizedStringResource("widget.balance.displayName", defaultValue: "Баланс")
+            Text(LocalizedStringResource("widget.balance.displayName", defaultValue: "Баланс"))
         )
         .description(
-            LocalizedStringResource(
+            Text(LocalizedStringResource(
                 "widget.balance.description",
                 defaultValue: "Сумма по всем счетам в базовой валюте"
-            )
+            ))
         )
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()

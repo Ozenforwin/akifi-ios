@@ -102,13 +102,13 @@ struct DaySummaryWidget: Widget {
                 }
         }
         .configurationDisplayName(
-            LocalizedStringResource("widget.daySummary.displayName", defaultValue: "День в цифрах")
+            Text(LocalizedStringResource("widget.daySummary.displayName", defaultValue: "День в цифрах"))
         )
         .description(
-            LocalizedStringResource(
+            Text(LocalizedStringResource(
                 "widget.daySummary.description",
                 defaultValue: "Доходы и расходы за сегодня"
-            )
+            ))
         )
         .supportedFamilies([.systemMedium])
         .contentMarginsDisabled()

@@ -139,13 +139,13 @@ struct StreakWidget: Widget {
                 }
         }
         .configurationDisplayName(
-            LocalizedStringResource("widget.streak.displayName", defaultValue: "Стрик")
+            Text(LocalizedStringResource("widget.streak.displayName", defaultValue: "Стрик"))
         )
         .description(
-            LocalizedStringResource(
+            Text(LocalizedStringResource(
                 "widget.streak.description",
                 defaultValue: "Сколько дней подряд ты записываешь транзакции"
-            )
+            ))
         )
         .supportedFamilies([.systemSmall, .accessoryCircular])
         .contentMarginsDisabled()
