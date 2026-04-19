@@ -168,6 +168,32 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "trophy.fill", color: .yellow, title: String(localized: "achievements.title"))
                     }
+
+                    // BETA: shipped MVP scaffolds, visual polish still pending.
+                    // Hidden from Home to avoid putting unfinished features in
+                    // premium real estate; only discoverable here until they
+                    // graduate.
+                    NavigationLink {
+                        ChallengesListView()
+                    } label: {
+                        SettingsRow(
+                            icon: "flag.checkered",
+                            color: .orange,
+                            title: String(localized: "challenges.title"),
+                            badge: "BETA"
+                        )
+                    }
+
+                    NavigationLink {
+                        ReportsView()
+                    } label: {
+                        SettingsRow(
+                            icon: "doc.text.fill",
+                            color: .purple,
+                            title: String(localized: "reports.title"),
+                            badge: "BETA"
+                        )
+                    }
                 }
 
                 Section(header: Text(String(localized: "settings.section.data"))) {
@@ -288,6 +314,7 @@ struct SettingsRow: View {
     let color: Color
     let title: String
     var value: String? = nil
+    var badge: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -299,6 +326,16 @@ struct SettingsRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
             Text(title)
+
+            if let badge {
+                Text(badge)
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.18))
+                    .foregroundStyle(Color.orange)
+                    .clipShape(Capsule())
+            }
 
             if let value {
                 Spacer()

@@ -81,21 +81,10 @@ struct HomeTabView: View {
                     // 6. Summary Cards
                     summarySection
 
-                    // 6b. Reports shortcut (tap to open full breakdown + PDF export)
-                    if !isNewUser {
-                        NavigationLink(destination: ReportsView()) {
-                            ReportsShortcutCard()
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // 6c. Challenges shortcut
-                    if !isNewUser {
-                        NavigationLink(destination: ChallengesListView()) {
-                            ChallengesShortcutCard()
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    // NOTE: "Отчёты" (Reports, PDF export) and "Челленджи"
+                    // (Savings Challenges) have been moved to Settings with a
+                    // BETA badge — functionality is still rough around the
+                    // edges and doesn't deserve premium Home real estate yet.
 
                     // 7. Recent Transactions
                     transactionsSection
