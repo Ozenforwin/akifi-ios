@@ -20,6 +20,15 @@ tags: [shared-accounts, payment-flow, settlement, rls]
 > 💡 Обычно оплачиваешь с личной карты? Выбери её ниже — создадим перевод автоматически.
 Однократный показ, флаг в UserDefaults по account_id. Не должен появляться если дефолт уже настроен.
 
+### 🔥 Приоритет P1.5 — Cross-currency auto-transfers (~1 день)
+Сейчас picker «Оплачено с» фильтрует источники по совпадению валюты с целевым счётом. Реальный кейс: у юзера ByBit в USD, он пополняет Семейный (RUB) — ByBit не виден в пикере.
+
+**Что нужно:**
+1. DB: `ALTER FUNCTION create_expense_with_auto_transfer` — добавить `p_source_amount NUMERIC DEFAULT NULL` и `p_source_currency TEXT DEFAULT NULL`. Если оба = NULL → текущее поведение. Иначе transfer-out на source использует `p_source_amount` + `p_source_currency`.
+2. iOS: снять same-currency фильтр в `eligibleSources`. Добавить display-hint «ByBit (USD ≈ 2,63 $)» рядом с именем счёта разной валюты.
+3. Client-side: на save через `CurrencyManager.convert(...)` получить source amount, передать в RPC.
+4. Risk: курсы могут скакать, source-leg сумма фиксируется в момент записи. Нужна ли «переоценка» — продуктовое решение v3.
+
 ### ⚠️ Приоритет P2 — Bank import dedup (~20 мин)
 В `BankImportView`: когда импортится банковская выписка из счёта, для которого существует `auto_transfer_group_id != null` в том же дне ±1 и той же сумме — помечать импортируемую строку как «возможный дубликат авто-перевода», дефолтом снимать галочку. TODO-коммент уже в файле.
 

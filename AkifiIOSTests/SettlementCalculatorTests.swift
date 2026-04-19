@@ -264,12 +264,10 @@ final class SettlementCalculatorTests: XCTestCase {
             personalAccountsByUser: ["V": ["V-cash"], "O": ["O-cash"]],
             period: period
         )
-        XCTAssertEqual(balances.count, 2)
-        for b in balances {
-            XCTAssertEqual(b.contributed, 0)
-            XCTAssertEqual(b.fairShare, 0)
-            XCTAssertEqual(b.delta, 0)
-        }
+        // With no auto-transfer expenses in the period, we return an empty
+        // array so the UI shows the "nothing to settle yet" empty state
+        // instead of displaying every member with zero delta.
+        XCTAssertTrue(balances.isEmpty)
         XCTAssertTrue(SettlementCalculator.settlements(from: balances).isEmpty)
     }
 

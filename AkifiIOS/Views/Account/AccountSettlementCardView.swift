@@ -29,11 +29,7 @@ struct AccountSettlementCardView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
             } else if viewModel.balances.isEmpty {
-                Text(String(localized: "settlement.empty"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
+                emptyState
             } else {
                 balancesList
                 if !viewModel.suggestions.isEmpty {
@@ -57,6 +53,23 @@ struct AccountSettlementCardView: View {
     }
 
     // MARK: - Subviews
+
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text(String(localized: "settlement.empty.title"))
+                .font(.subheadline.weight(.medium))
+            Text(String(localized: "settlement.empty.body"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+    }
 
     @ViewBuilder
     private var periodMenu: some View {
@@ -118,15 +131,27 @@ struct AccountSettlementCardView: View {
 
     @ViewBuilder
     private var suggestionsList: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(String(localized: "settlement.suggestionsHeader"))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
             ForEach(viewModel.suggestions) { s in
-                HStack(alignment: .center) {
-                    let from = name(for: s.fromUserId)
-                    let to = name(for: s.toUserId)
-                    let amount = cm.formatAmount(s.amount.displayAmount)
-                    Text(String(format: String(localized: "settlement.suggestion"), from, to, amount))
-                        .font(.subheadline)
-                    Spacer()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(name(for: s.fromUserId))
+                            .font(.subheadline.weight(.medium))
+                        Image(systemName: "arrow.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(name(for: s.toUserId))
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        Text(cm.formatAmount(s.amount.displayAmount))
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                    }
+
                     Button {
                         Task {
                             await viewModel.markSettled(
@@ -138,14 +163,17 @@ struct AccountSettlementCardView: View {
                     } label: {
                         Text(String(localized: "settlement.markSettled"))
                             .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
                             .background(Color.accent.opacity(0.15))
                             .foregroundStyle(Color.accent)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(10)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
@@ -162,15 +190,17 @@ struct AccountSettlementCardView: View {
         return String(userId.prefix(6))
     }
 
+    /// Compact signed amount — "+1 346,29 ₽" or "−1 346,29 ₽".
+    /// Long explainer text ("вложил больше доли") was cramping the card
+    /// at member-name-widths; color-coded signed amount + header
+    /// "Предлагаем свести" conveys the same info without wrapping.
     private func deltaLabel(for b: SettlementCalculator.MemberBalance) -> String {
         let amount = cm.formatAmount(abs(b.delta).displayAmount)
         if b.delta == 0 {
             return String(localized: "settlement.balance.even")
         }
-        if b.delta > 0 {
-            return String(format: String(localized: "settlement.balance.positive"), amount)
-        }
-        return String(format: String(localized: "settlement.balance.negative"), amount)
+        let sign = b.delta > 0 ? "+" : "−"
+        return "\(sign)\(amount)"
     }
 
     private func deltaColor(for b: SettlementCalculator.MemberBalance) -> Color {

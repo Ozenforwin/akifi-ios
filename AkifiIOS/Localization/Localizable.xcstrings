@@ -8306,6 +8306,29 @@
         }
       }
     },
+    "common.you" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вы"
+          }
+        }
+      }
+    },
     "contribution.currentProgress" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -20050,6 +20073,75 @@
         }
       }
     },
+    "settings.paymentDefaults" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment sources"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuentes de pago"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Способы оплаты"
+          }
+        }
+      }
+    },
+    "settings.paymentDefaults.hint" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick the card you usually pay from for each shared account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige la tarjeta con la que sueles pagar para cada cuenta compartida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для каждого общего счёта выберите, с какой карты обычно оплачиваете."
+          }
+        }
+      }
+    },
+    "settings.paymentDefaults.noShared" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You don't have any shared accounts yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no tienes cuentas compartidas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У вас пока нет общих счетов."
+          }
+        }
+      }
+    },
     "settings.privacy" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -20345,6 +20437,311 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Тема"
+          }
+        }
+      }
+    },
+    "settlement.balance.even" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Even"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al día"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В расчёте"
+          }
+        }
+      }
+    },
+    "settlement.balance.negative" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owes %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debe %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Должен доплатить %@"
+          }
+        }
+      }
+    },
+    "settlement.balance.positive" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contributed %@ above share"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aportó %@ de más"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вложил больше доли на %@"
+          }
+        }
+      }
+    },
+    "settlement.empty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions for this period yet" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay transacciones para este período" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет транзакций за период" } }
+      }
+    },
+    "settlement.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No shared expenses yet" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay gastos compartidos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет общих расходов" } }
+      }
+    },
+    "settlement.empty.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settlement appears once someone records an expense using “Paid from”." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "El cálculo aparecerá cuando alguien registre un gasto con “Pagado desde”." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расчёт появится, когда кто-то запишет расход через «Оплачено с»." } }
+      }
+    },
+    "settlement.suggestionsHeader" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Suggested settlement" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Liquidación sugerida" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Предлагаем свести" } }
+      }
+    },
+    "settlement.markSettled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as settled"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcar como pagado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отметить выполненным"
+          }
+        }
+      }
+    },
+    "settlement.period" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Período"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Период"
+          }
+        }
+      }
+    },
+    "settlement.period.custom" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personalizado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свой"
+          }
+        }
+      }
+    },
+    "settlement.period.lastMonth" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last month"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mes pasado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прошлый месяц"
+          }
+        }
+      }
+    },
+    "settlement.period.quarter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trimestre"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Квартал"
+          }
+        }
+      }
+    },
+    "settlement.period.thisMonth" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This month"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este mes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот месяц"
+          }
+        }
+      }
+    },
+    "settlement.period.ytd" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Year to date"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Año hasta la fecha"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "С начала года"
+          }
+        }
+      }
+    },
+    "settlement.suggestion" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@: %3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@: %3$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@: %3$@"
+          }
+        }
+      }
+    },
+    "settlement.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settlement between members"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuentas entre participantes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расчёт между участниками"
           }
         }
       }
@@ -20713,6 +21110,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Наблюдатель"
+          }
+        }
+      }
+    },
+    "sharedAccount.inviteMember" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite a member"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitar participante"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пригласить участника"
+          }
+        }
+      }
+    },
+    "sharedAccount.openDetail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared account overview"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumen de cuenta compartida"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обзор общего счёта"
           }
         }
       }
@@ -24469,6 +24912,52 @@
         }
       }
     },
+    "transaction.deleteConfirm" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete transaction?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar operación?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить операцию?"
+          }
+        }
+      }
+    },
+    "transaction.deleteConfirmMessage" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This cannot be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta acción no se puede deshacer."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это действие нельзя отменить."
+          }
+        }
+      }
+    },
     "transaction.description" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -24559,223 +25048,6 @@
             "value" : "Новая операция"
           }
         }
-      }
-    },
-    "transaction.deleteConfirm" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete transaction?" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar operación?" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить операцию?" } }
-      }
-    },
-    "transaction.deleteConfirmMessage" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This cannot be undone." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esta acción no se puede deshacer." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Это действие нельзя отменить." } }
-      }
-    },
-    "transactions.recent" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent transactions" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Operaciones recientes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Последние операции" } }
-      }
-    },
-    "common.you" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "You" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tú" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вы" } }
-      }
-    },
-    "tx.paymentSource" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paid from" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Pagado desde" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Оплачено с" } }
-      }
-    },
-    "tx.paymentSource.self" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This account (regular expense)" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esta cuenta (gasto normal)" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Этот счёт (обычный расход)" } }
-      }
-    },
-    "tx.paymentSource.default" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "default" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "predeterminado" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "дефолт" } }
-      }
-    },
-    "tx.paymentSource.none" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not set" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No establecido" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не задан" } }
-      }
-    },
-    "tx.paymentSource.hint.autoTransfer" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "We'll create a transfer of %1$@ from %2$@ to %3$@." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Crearemos una transferencia de %1$@ de %2$@ a %3$@." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создадим перевод %1$@ с %2$@ на %3$@." } }
-      }
-    },
-    "tx.paymentSource.hint.currencyMismatch" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Available only for accounts in the same currency." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Disponible solo para cuentas en la misma moneda." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доступна только для счетов в одной валюте." } }
-      }
-    },
-    "tx.autoTransfer.badge" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "From %@" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "De %@" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Из %@" } }
-      }
-    },
-    "tx.autoTransfer.deleteWarning.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cannot delete directly" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se puede eliminar directamente" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нельзя удалить напрямую" } }
-      }
-    },
-    "tx.autoTransfer.deleteWarning.body" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This transfer is linked to expense «%@». Delete the expense to remove the pair." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Esta transferencia está vinculada al gasto «%@». Eliminar el gasto elimina el par." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Этот перевод связан с расходом «%@». Чтобы удалить, удалите сам расход." } }
-      }
-    },
-    "settings.paymentDefaults" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment sources" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fuentes de pago" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Способы оплаты" } }
-      }
-    },
-    "settings.paymentDefaults.hint" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pick the card you usually pay from for each shared account." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige la tarjeta con la que sueles pagar para cada cuenta compartida." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Для каждого общего счёта выберите, с какой карты обычно оплачиваете." } }
-      }
-    },
-    "settings.paymentDefaults.noShared" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "You don't have any shared accounts yet." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no tienes cuentas compartidas." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "У вас пока нет общих счетов." } }
-      }
-    },
-    "sharedAccount.inviteMember" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invite a member" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Invitar participante" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пригласить участника" } }
-      }
-    },
-    "sharedAccount.openDetail" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shared account overview" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Resumen de cuenta compartida" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Обзор общего счёта" } }
-      }
-    },
-    "settlement.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settlement between members" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cuentas entre participantes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расчёт между участниками" } }
-      }
-    },
-    "settlement.period" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Period" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Período" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Период" } }
-      }
-    },
-    "settlement.period.thisMonth" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This month" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Este mes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Этот месяц" } }
-      }
-    },
-    "settlement.period.lastMonth" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Last month" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mes pasado" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Прошлый месяц" } }
-      }
-    },
-    "settlement.period.quarter" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Quarter" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Trimestre" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Квартал" } }
-      }
-    },
-    "settlement.period.ytd" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Year to date" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Año hasta la fecha" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "С начала года" } }
-      }
-    },
-    "settlement.period.custom" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Custom" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Personalizado" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Свой" } }
-      }
-    },
-    "settlement.balance.positive" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Contributed %@ above share" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aportó %@ de más" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вложил больше доли на %@" } }
-      }
-    },
-    "settlement.balance.negative" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Owes %@" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Debe %@" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Должен доплатить %@" } }
-      }
-    },
-    "settlement.balance.even" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Even" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Al día" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "В расчёте" } }
-      }
-    },
-    "settlement.suggestion" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ → %2$@: %3$@" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ → %2$@: %3$@" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ → %2$@: %3$@" } }
-      }
-    },
-    "settlement.markSettled" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mark as settled" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Marcar como pagado" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отметить выполненным" } }
-      }
-    },
-    "settlement.empty" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No transactions for this period yet" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay transacciones para este período" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пока нет транзакций за период" } }
       }
     },
     "transaction.noAccount" : {
@@ -25307,6 +25579,29 @@
         }
       }
     },
+    "transactions.recent" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent transactions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operaciones recientes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Последние операции"
+          }
+        }
+      }
+    },
     "transactions.reset" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -25721,6 +26016,75 @@
         }
       }
     },
+    "tx.autoTransfer.badge" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Из %@"
+          }
+        }
+      }
+    },
+    "tx.autoTransfer.deleteWarning.body" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This transfer is linked to expense «%@». Delete the expense to remove the pair."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta transferencia está vinculada al gasto «%@». Eliminar el gasto elimina el par."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот перевод связан с расходом «%@». Чтобы удалить, удалите сам расход."
+          }
+        }
+      }
+    },
+    "tx.autoTransfer.deleteWarning.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot delete directly"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede eliminar directamente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нельзя удалить напрямую"
+          }
+        }
+      }
+    },
     "tx.category" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -25993,6 +26357,144 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Нет операций"
+          }
+        }
+      }
+    },
+    "tx.paymentSource" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid from"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pagado desde"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Оплачено с"
+          }
+        }
+      }
+    },
+    "tx.paymentSource.default" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "default"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "predeterminado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "дефолт"
+          }
+        }
+      }
+    },
+    "tx.paymentSource.hint.autoTransfer" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We'll create a transfer of %1$@ from %2$@ to %3$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crearemos una transferencia de %1$@ de %2$@ a %3$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создадим перевод %1$@ с %2$@ на %3$@."
+          }
+        }
+      }
+    },
+    "tx.paymentSource.hint.currencyMismatch" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available only for accounts in the same currency."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disponible solo para cuentas en la misma moneda."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доступна только для счетов в одной валюте."
+          }
+        }
+      }
+    },
+    "tx.paymentSource.none" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No establecido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не задан"
+          }
+        }
+      }
+    },
+    "tx.paymentSource.self" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This account (regular expense)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta cuenta (gasto normal)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот счёт (обычный расход)"
           }
         }
       }

@@ -13,16 +13,21 @@ import Foundation
 /// switch `fairShare(M) = totalExpenses * weight(M)` instead of equal split.
 /// Current MVP is intentionally equal.
 ///
-/// Contributions are credited via `transferGroupId` (both auto-transfers
-/// and manual transfer pairs touching the shared account). The peer leg's
-/// account is mapped back to a member via `personalAccountsByUser`.
+/// Settlement is strictly **feature-scoped**: only expenses created via
+/// `create_expense_with_auto_transfer` (i.e. with `auto_transfer_group_id`
+/// set) are counted. Direct expenses on the shared account and legacy
+/// manual transfer pairs that predate the feature are intentionally
+/// ignored — surfacing them as "debts" would confuse users who recorded
+/// those rows before the feature existed.
 ///
-/// TODO(payment-source v2): attribution of "direct" expenses on the shared
-/// account (no transfer pair at all — paid straight with the shared card).
-/// Today they inflate `totalExpenses` but don't credit anyone. Options to
-/// decide when production data shows the pattern:
-/// (a) credit the creator, (b) prompt user to retroactively attach source,
-/// (c) document it as an out-of-pocket shared spend.
+/// Contributions are credited by walking auto-transfer groups: the peer
+/// leg of each auto-transfer on the shared account is mapped back to a
+/// member via `personalAccountsByUser`.
+///
+/// TODO(payment-source v2): cross-currency auto-transfers. Today the
+/// picker restricts source to accounts in the same currency as the target.
+/// Cross-currency (e.g. USD ByBit → RUB Семейный) needs an extra `p_source
+/// _amount` on the RPC and conversion at call time.
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
@@ -111,37 +116,40 @@ enum SettlementCalculator {
         }
 
         // 1. Gather in-period rows scoped to this account.
+        //    Settlement only reasons about transactions created via the
+        //    payment-source feature (expenses with auto_transfer_group_id).
+        //    Legacy manual transfers and direct expenses on the shared
+        //    account are INTENTIONALLY IGNORED — they were recorded before
+        //    the feature existed, and pulling them into settlement would
+        //    silently surface huge historical debts the user never opted
+        //    into. Feature-scoped settlement starts clean.
         let accountRows = transactions.filter {
             $0.accountId == sharedAccountId && inPeriod($0.rawDateTime.isEmpty ? $0.date : $0.rawDateTime)
         }
 
-        // 2. Total shared-account expenses (exclude transfer legs).
+        // 2. Total shared-account expenses — ONLY expense rows that are part
+        //    of an auto-transfer triplet (transfer_group_id == nil and
+        //    auto_transfer_group_id != nil = the main expense leg). Direct
+        //    expenses and legacy expenses don't count.
         let expenses = accountRows.filter {
-            $0.type == .expense && $0.transferGroupId == nil
+            $0.type == .expense
+                && $0.transferGroupId == nil
+                && $0.autoTransferGroupId != nil
         }
         let totalExpenses: Int64 = expenses.reduce(0) { $0 + $1.amount }
         let memberCount = Int64(memberUserIds.count)
         let fairShare = memberCount > 0 ? totalExpenses / memberCount : 0
 
-        // 3. Build contribution per user by walking ALL transfer groups that
-        //    touch the shared account — both auto-transfer groups (created via
-        //    create_expense_with_auto_transfer) AND manual transfer pairs (the
-        //    legacy flow where users manually recorded a transfer from their
-        //    personal card to the shared account). Both are legitimate
-        //    contributions; the distinction matters only for UI (badge) but
-        //    not for settlement math.
-        //
-        //    For each transfer-leg on sharedAccountId:
-        //      - find the sibling leg on a different account
-        //      - if that account belongs to user U's personal set → credit U
-        //    Direction: income-leg on shared = U contributed; expense-leg on
-        //    shared = U withdrew (rare — someone used the shared account to
-        //    fund their personal account).
+        // 3. Contributions — walk ONLY auto-transfer groups (rows with both
+        //    transfer_group_id AND auto_transfer_group_id set). Manual
+        //    transfer pairs that predate the feature are ignored on purpose.
         var contributions: [String: Int64] = Dictionary(uniqueKeysWithValues: memberUserIds.map { ($0, 0) })
 
-        let transferRowsOnShared = accountRows.filter { $0.transferGroupId != nil }
+        let autoTransferLegsOnShared = accountRows.filter {
+            $0.transferGroupId != nil && $0.autoTransferGroupId != nil
+        }
 
-        for row in transferRowsOnShared {
+        for row in autoTransferLegsOnShared {
             guard let groupId = row.transferGroupId else { continue }
 
             // Peer leg: same transfer_group_id, different account.
@@ -170,6 +178,13 @@ enum SettlementCalculator {
             } else if row.type == .expense {
                 contributions[attributedUser, default: 0] -= row.amount
             }
+        }
+
+        // 4. Clean empty state: if there are no auto-transfer expenses in the
+        //    period, return an empty array so the UI shows "no feature-scoped
+        //    activity yet" instead of "everyone owes each other nothing".
+        if totalExpenses == 0 {
+            return []
         }
 
         return memberUserIds.map { uid in
