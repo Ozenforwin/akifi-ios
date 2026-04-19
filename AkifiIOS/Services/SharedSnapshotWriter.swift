@@ -50,15 +50,11 @@ enum SharedSnapshotWriter {
             .mapValues { Decimal($0) }
 
         // ── Balance ──
+        // `dataStore.balance(for:)` is already in base currency (see
+        // DataStore.rebuildCaches). Sum directly — no per-account FX.
         var totalBalance: Int64 = 0
         for account in dataStore.accounts {
-            let bal = dataStore.balance(for: account)
-            totalBalance += NetWorthCalculator.convert(
-                amount: bal,
-                from: account.currency,
-                to: baseCode,
-                rates: fxRates
-            )
+            totalBalance += dataStore.balance(for: account)
         }
 
         // ── Today income / expense / net ──

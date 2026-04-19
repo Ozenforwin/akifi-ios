@@ -183,8 +183,13 @@ final class NetWorthViewModel {
     /// account balances in `dataStore`. Called after every mutation so
     /// the dashboard re-renders without a network round-trip.
     private func recomputeBreakdown(dataStore: DataStore, currencyManager: CurrencyManager) {
+        // `dataStore.balance(for:)` already returns the balance normalized
+        // into base currency (see DataStore.rebuildCaches). Pass the base
+        // currency as the "from" side so the calculator's per-account FX
+        // step becomes a no-op and doesn't double-convert.
+        let baseCode = currencyManager.dataCurrency.rawValue
         let accountBalances: [(accountCurrency: String, amount: Int64)] = dataStore.accounts.map {
-            ($0.currency, dataStore.balance(for: $0))
+            (baseCode, dataStore.balance(for: $0))
         }
 
         // CurrencyManager.rates uses Double for historical reasons; convert
