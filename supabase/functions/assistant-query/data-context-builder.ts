@@ -316,7 +316,10 @@ function buildAccountContext(
       .reduce((s, tx) => s + safeNumber(tx.amount), 0);
     const txCount = accTxs.length;
 
-    const parts: string[] = [`${i + 1}. ${acc.name} (id: ${acc.id})`];
+    const sharedTag = acc.is_shared
+      ? acc.member_role === 'viewer' ? ' [ОБЩИЙ, только просмотр]' : ' [ОБЩИЙ]'
+      : '';
+    const parts: string[] = [`${i + 1}. ${acc.name}${sharedTag} (id: ${acc.id})`];
     if (acc.balance !== undefined) {
       parts.push(`баланс: ${formatMoney(acc.balance)}`);
     }
@@ -326,7 +329,7 @@ function buildAccountContext(
     return parts.join(', ');
   });
 
-  return `Счета пользователя:\n${lines.join('\n')}`;
+  return `Счета пользователя (включая общие):\n${lines.join('\n')}`;
 }
 
 // ── Helpers ──

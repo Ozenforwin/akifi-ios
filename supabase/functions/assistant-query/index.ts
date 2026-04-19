@@ -736,12 +736,30 @@ Deno.serve(async (req) => {
           ? addDays(currentWindow.end, -90)
           : addDays(currentWindow.end, -180);
 
-    // Load account IDs the user has access to (own + shared accounts)
+    // Load account IDs the user has access to (own + shared accounts).
+    // Also remember each account's role so we can mark shared accounts in LLM context.
     const { data: memberRows } = await anonClient
       .from('account_members')
-      .select('account_id')
+      .select('account_id,role')
       .eq('user_id', userId);
-    const accessibleAccountIds = (memberRows ?? []).map((r: { account_id: string }) => r.account_id);
+    const memberRoleByAccount = new Map<string, 'owner' | 'editor' | 'viewer'>();
+    for (const row of (memberRows ?? []) as Array<{ account_id: string; role: 'owner' | 'editor' | 'viewer' }>) {
+      memberRoleByAccount.set(row.account_id, row.role);
+    }
+    const accessibleAccountIds = Array.from(memberRoleByAccount.keys());
+
+    // Load all member user_ids of accessible accounts (used to fetch categories
+    // owned by co-members of shared accounts — each user has their own categories).
+    const allMemberUserIds = new Set<string>([userId]);
+    if (accessibleAccountIds.length > 0) {
+      const { data: coMemberRows } = await anonClient
+        .from('account_members')
+        .select('user_id')
+        .in('account_id', accessibleAccountIds);
+      for (const row of (coMemberRows ?? []) as Array<{ user_id: string }>) {
+        if (row.user_id) allMemberUserIds.add(row.user_id);
+      }
+    }
 
     // Fetch transactions from all accessible accounts
     let txQuery = anonClient
@@ -802,20 +820,50 @@ Deno.serve(async (req) => {
 
     async function getCategories(): Promise<CategoryRow[]> {
       if (allCategories !== null) return allCategories;
-      const { data } = await anonClient.from('categories').select('id,name,type').eq('user_id', userId).limit(500);
+      // Load categories owned by ALL members of accessible accounts.
+      // Reason: shared accounts have transactions tagged with categories owned by
+      // either user — without co-member categories, names won't resolve and the
+      // LLM sees "Другое" instead of "Coffee", breaking by-category answers.
+      const memberIds = Array.from(allMemberUserIds);
+      const { data } = await anonClient
+        .from('categories')
+        .select('id,name,type')
+        .in('user_id', memberIds.length > 0 ? memberIds : [userId])
+        .limit(2000);
       allCategories = (data ?? []) as CategoryRow[];
       return allCategories;
     }
 
     async function getAccounts(): Promise<AccountRow[]> {
       if (allAccounts !== null) return allAccounts;
-      const { data } = await anonClient.from('accounts').select('id,name,initial_balance,currency').eq('user_id', userId).limit(100);
-      allAccounts = ((data ?? []) as Array<AccountRow & { initial_balance?: number }>).map((row) => ({
-        id: row.id,
-        name: row.name,
-        currency: row.currency,
-        balance: row.initial_balance ?? row.balance,
-      }));
+      // Load ALL accessible accounts (own + shared via account_members).
+      // Previously this filtered by user_id only, so a member like Olya never saw
+      // the "Family" account that Vladimir owns and silently got "account not found".
+      const idsToFetch = accessibleAccountIds.length > 0 ? accessibleAccountIds : null;
+      let accQuery = anonClient
+        .from('accounts')
+        .select('id,name,initial_balance,currency,user_id')
+        .limit(200);
+      if (idsToFetch) {
+        accQuery = accQuery.in('id', idsToFetch);
+      } else {
+        accQuery = accQuery.eq('user_id', userId);
+      }
+      const { data } = await accQuery;
+      allAccounts = ((data ?? []) as Array<AccountRow & { initial_balance?: number; user_id?: string }>).map((row) => {
+        const role = memberRoleByAccount.get(row.id);
+        const ownerUserId = row.user_id;
+        const isShared = ownerUserId !== undefined && ownerUserId !== userId;
+        return {
+          id: row.id,
+          name: row.name,
+          currency: row.currency,
+          balance: row.initial_balance ?? row.balance,
+          is_shared: isShared,
+          owner_user_id: ownerUserId,
+          member_role: role,
+        };
+      });
 
       // Merge balance/currency from client context if provided (iOS sends computed balances)
       if (body.context?.accounts?.length) {
@@ -915,7 +963,7 @@ Deno.serve(async (req) => {
         intent,
         period,
         customDays,
-        entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant,
+        entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant ?? undefined,
         transactions,
         currentWindow,
         previousWindow,
@@ -1024,7 +1072,7 @@ Deno.serve(async (req) => {
         intent,
         period,
         customDays,
-        entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant,
+        entity: entity ?? classification.llmEntities?.category ?? classification.llmEntities?.merchant ?? undefined,
         transactions,
         currentWindow,
         previousWindow,

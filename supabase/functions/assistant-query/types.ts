@@ -53,6 +53,9 @@ export interface AccountRow {
   name: string;
   balance?: number;
   currency?: string;
+  is_shared?: boolean;
+  owner_user_id?: string;
+  member_role?: 'owner' | 'editor' | 'viewer';
 }
 
 export interface PeriodWindow {
