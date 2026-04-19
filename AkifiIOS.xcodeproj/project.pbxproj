@@ -1226,6 +1226,18 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					299973BA75F89C0ACB62164C = {
+						DevelopmentTeam = 8GPVB9MQ58;
+						ProvisioningStyle = Automatic;
+					};
+					548F9CB4E086ADC5DFB26945 = {
+						DevelopmentTeam = 8GPVB9MQ58;
+						ProvisioningStyle = Automatic;
+					};
+					7275B9CBA8A216E8B6B73894 = {
+						DevelopmentTeam = 8GPVB9MQ58;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = E35C80D2BD703F2A252320B5 /* Build configuration list for PBXProject "AkifiIOS" */;
@@ -1626,9 +1638,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1686,9 +1700,11 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 8GPVB9MQ58;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;

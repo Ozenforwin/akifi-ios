@@ -446,7 +446,13 @@ final class DepositsViewModel {
 
     // MARK: - Date helpers
 
-    static func formatDate(_ date: Date) -> String {
+    // Pure helpers — no access to instance state. Marked `nonisolated` so
+    // they can be passed as `.map(Self.formatDate)` from a nonisolated
+    // closure context. Without this marker Swift 6 Release treats them
+    // as MainActor-isolated (because the enclosing class is `@MainActor`)
+    // and the closure context becomes invalid (Codemagic build failure,
+    // 2026-04-19).
+    nonisolated static func formatDate(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         df.timeZone = TimeZone(identifier: "UTC")
@@ -454,7 +460,7 @@ final class DepositsViewModel {
         return df.string(from: date)
     }
 
-    static func parseDate(_ str: String) -> Date? {
+    nonisolated static func parseDate(_ str: String) -> Date? {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         df.timeZone = TimeZone(identifier: "UTC")
@@ -462,7 +468,7 @@ final class DepositsViewModel {
         return df.date(from: str)
     }
 
-    static func formatDateTime(_ date: Date) -> String {
+    nonisolated static func formatDateTime(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
         df.timeZone = TimeZone(identifier: "UTC")

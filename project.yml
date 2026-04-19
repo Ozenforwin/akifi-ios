@@ -20,6 +20,8 @@ settings:
     CURRENT_PROJECT_VERSION: 1
     MARKETING_VERSION: 1.2.7
     VERSIONING_SYSTEM: apple-generic
+    DEVELOPMENT_TEAM: 8GPVB9MQ58
+    CODE_SIGN_STYLE: Automatic
 
 packages:
   Supabase:
@@ -92,6 +94,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.akifi.app
         CODE_SIGN_ENTITLEMENTS: AkifiIOS/AkifiIOS.entitlements
+        DEVELOPMENT_TEAM: 8GPVB9MQ58
+        CODE_SIGN_STYLE: Automatic
 
   AkifiWidgetExtension:
     type: app-extension
@@ -119,6 +123,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: AkifiWidget/AkifiWidget.entitlements
         INFOPLIST_KEY_NSSupportsLiveActivities: NO
         SKIP_INSTALL: NO
+        DEVELOPMENT_TEAM: 8GPVB9MQ58
+        CODE_SIGN_STYLE: Automatic
 
   AkifiIOSTests:
     type: bundle.unit-test
