@@ -62,6 +62,21 @@ enum BudgetMath {
             let end = cal.date(byAdding: .day, value: 6, to: start)!
             return (start, end)
         case .monthly:
+            // 30-day rolling window anchored to the budget's created_at.
+            // A user creating a monthly budget on the 19th expects a full
+            // 30-day cycle, not "10 days until the calendar month flips".
+            // Falls back to calendar-month for legacy budgets without a
+            // parseable created_at.
+            let periodLen = 30
+            if let created = Self.parseCreatedAt(budget.createdAt) {
+                let startOfDayCreated = cal.startOfDay(for: created)
+                let startOfDayNow = cal.startOfDay(for: now)
+                let daysSince = cal.dateComponents([.day], from: startOfDayCreated, to: startOfDayNow).day ?? 0
+                let periodIndex = max(0, daysSince) / periodLen
+                let start = cal.date(byAdding: .day, value: periodIndex * periodLen, to: startOfDayCreated)!
+                let end = cal.date(byAdding: .day, value: periodLen - 1, to: start)!
+                return (start, end)
+            }
             let start = cal.date(from: cal.dateComponents([.year, .month], from: now))!
             let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
             return (start, end)
@@ -159,6 +174,18 @@ enum BudgetMath {
         case .yearly: return Int64(monthly * 12.0)
         case .custom: return Int64(monthly)
         }
+    }
+
+    /// Supabase stores `created_at` as ISO-8601 with fractional seconds.
+    /// Accept both the fractional + plain variants.
+    static func parseCreatedAt(_ raw: String?) -> Date? {
+        guard let raw else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = fractional.date(from: raw) { return d }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        return plain.date(from: raw)
     }
 
     // MARK: - Progress (0–999 %)
