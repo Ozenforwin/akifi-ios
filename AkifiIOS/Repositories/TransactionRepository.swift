@@ -30,8 +30,22 @@ final class TransactionRepository: Sendable {
         try await SupabaseManager.shared.currentUserId()
     }
 
+    /// Creates a transaction. If this is an expense with a different
+    /// `payment_source_account_id` than `account_id`, routes through the
+    /// `create_expense_with_auto_transfer` RPC — atomic creation of the
+    /// expense + matching transfer pair. Income/transfer/simple-expense
+    /// flows fall back to a plain INSERT.
     func create(_ input: CreateTransactionInput) async throws -> Transaction {
-        try await supabase
+        let shouldUseRPC = input.type == TransactionType.expense.rawValue
+            && input.payment_source_account_id != nil
+            && input.payment_source_account_id != input.account_id
+            && input.transfer_group_id == nil
+
+        if shouldUseRPC {
+            return try await createExpenseWithAutoTransfer(input)
+        }
+
+        return try await supabase
             .from("transactions")
             .insert(input)
             .select()
@@ -40,7 +54,52 @@ final class TransactionRepository: Sendable {
             .value
     }
 
+    private func createExpenseWithAutoTransfer(_ input: CreateTransactionInput) async throws -> Transaction {
+        struct Params: Encodable {
+            let p_account_id: String?
+            let p_category_id: String?
+            let p_amount: Decimal
+            let p_currency: String?
+            let p_date: String
+            let p_description: String?
+            let p_merchant_name: String?
+            let p_payment_source_account_id: String?
+        }
+        let params = Params(
+            p_account_id: input.account_id,
+            p_category_id: input.category_id,
+            p_amount: input.amount,
+            p_currency: input.currency,
+            p_date: input.date,
+            p_description: input.description,
+            p_merchant_name: input.merchant_name,
+            p_payment_source_account_id: input.payment_source_account_id
+        )
+
+        // RPC returns UUID as a JSON string → decode and re-fetch the row.
+        let newId: String = try await supabase
+            .rpc("create_expense_with_auto_transfer", params: params)
+            .execute()
+            .value
+
+        return try await supabase
+            .from("transactions")
+            .select()
+            .eq("id", value: newId)
+            .single()
+            .execute()
+            .value
+    }
+
+    /// Updates a transaction. Expense-with-auto-transfer routes through the
+    /// `update_expense_with_auto_transfer` RPC so the transfer pair stays
+    /// synchronised. Plain transactions hit the table directly.
     func update(id: String, _ input: UpdateTransactionInput) async throws {
+        if input.useAutoTransferUpdate {
+            try await updateExpenseWithAutoTransfer(id: id, input)
+            return
+        }
+
         try await supabase
             .from("transactions")
             .update(input)
@@ -48,7 +107,58 @@ final class TransactionRepository: Sendable {
             .execute()
     }
 
+    private func updateExpenseWithAutoTransfer(id: String, _ input: UpdateTransactionInput) async throws {
+        struct Params: Encodable {
+            let p_expense_id: String
+            let p_amount: Decimal?
+            let p_category_id: String?
+            let p_date: String?
+            let p_description: String?
+            let p_merchant_name: String?
+        }
+        let params = Params(
+            p_expense_id: id,
+            p_amount: input.amount,
+            p_category_id: input.category_id,
+            p_date: input.date,
+            p_description: input.description,
+            p_merchant_name: input.merchant_name
+        )
+        try await supabase
+            .rpc("update_expense_with_auto_transfer", params: params)
+            .execute()
+    }
+
+    /// Deletes a transaction. If it's an expense with an auto-transfer
+    /// group, routes through `delete_expense_with_auto_transfer` to remove
+    /// all three rows atomically.
     func delete(id: String) async throws {
+        // Inspect the row first so we know whether it's part of an auto-transfer triple.
+        let row = try await supabase
+            .from("transactions")
+            .select("id, auto_transfer_group_id, type")
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .data
+
+        struct Meta: Decodable {
+            let id: String
+            let auto_transfer_group_id: String?
+            let type: String
+        }
+        let meta = try JSONDecoder().decode(Meta.self, from: row)
+
+        // Auto-transfer triplet — always delete via RPC, which removes all
+        // three rows (expense + pair).
+        if meta.auto_transfer_group_id != nil {
+            struct Params: Encodable { let p_expense_id: String }
+            try await supabase
+                .rpc("delete_expense_with_auto_transfer", params: Params(p_expense_id: id))
+                .execute()
+            return
+        }
+
         try await supabase
             .from("transactions")
             .delete()
@@ -68,12 +178,16 @@ struct CreateTransactionInput: Codable, Sendable {
     let category_id: String?
     let merchant_name: String?
     let transfer_group_id: String?
+    /// When non-nil and different from `account_id`, routes through the
+    /// auto-transfer RPC on the server.
+    let payment_source_account_id: String?
 
-    init(user_id: String, account_id: String?, amount: Decimal, currency: String?, type: String, date: String, description: String?, category_id: String?, merchant_name: String?, transfer_group_id: String? = nil) {
+    init(user_id: String, account_id: String?, amount: Decimal, currency: String?, type: String, date: String, description: String?, category_id: String?, merchant_name: String?, transfer_group_id: String? = nil, payment_source_account_id: String? = nil) {
         self.user_id = user_id; self.account_id = account_id; self.amount = amount
         self.currency = currency; self.type = type; self.date = date
         self.description = description; self.category_id = category_id
         self.merchant_name = merchant_name; self.transfer_group_id = transfer_group_id
+        self.payment_source_account_id = payment_source_account_id
     }
 }
 
@@ -86,11 +200,33 @@ struct UpdateTransactionInput: Codable, Sendable {
     let category_id: String?
     let merchant_name: String?
     let account_id: String?
+    /// Internal, not encoded — tells the repo whether to call the auto-transfer RPC.
+    let useAutoTransferUpdate: Bool
 
-    init(amount: Decimal? = nil, currency: String? = nil, type: String? = nil, date: String? = nil, description: String? = nil, category_id: String? = nil, merchant_name: String? = nil, account_id: String? = nil) {
+    init(amount: Decimal? = nil, currency: String? = nil, type: String? = nil, date: String? = nil, description: String? = nil, category_id: String? = nil, merchant_name: String? = nil, account_id: String? = nil, useAutoTransferUpdate: Bool = false) {
         self.amount = amount; self.currency = currency; self.type = type
         self.date = date; self.description = description
         self.category_id = category_id; self.merchant_name = merchant_name
         self.account_id = account_id
+        self.useAutoTransferUpdate = useAutoTransferUpdate
+    }
+
+    // Keep `useAutoTransferUpdate` out of the encoded payload — it's a client-only flag.
+    enum CodingKeys: String, CodingKey {
+        case amount, currency, type, date, description, category_id, merchant_name, account_id
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        amount = try c.decodeIfPresent(Decimal.self, forKey: .amount)
+        currency = try c.decodeIfPresent(String.self, forKey: .currency)
+        type = try c.decodeIfPresent(String.self, forKey: .type)
+        date = try c.decodeIfPresent(String.self, forKey: .date)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        category_id = try c.decodeIfPresent(String.self, forKey: .category_id)
+        merchant_name = try c.decodeIfPresent(String.self, forKey: .merchant_name)
+        account_id = try c.decodeIfPresent(String.self, forKey: .account_id)
+        // Flag is never persisted — default to false when decoding.
+        useAutoTransferUpdate = false
     }
 }
