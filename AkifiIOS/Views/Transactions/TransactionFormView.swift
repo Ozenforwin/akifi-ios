@@ -94,11 +94,24 @@ struct TransactionFormView: View {
         }
     }
 
-    /// True if the payment-source picker should be shown at all. Only
-    /// surfaces for expenses on a shared target account that has at least
-    /// one eligible personal source.
+    /// True if the payment-source picker should be shown at all. Surfaces
+    /// for expenses on a shared target account with at least one eligible
+    /// personal source. In edit mode we still show it — the save path
+    /// detects a source change and re-creates the auto-transfer triplet
+    /// (delete old + create new) so the DB stays consistent.
+    ///
+    /// Edge case: when editing a transfer-leg (not the main expense row)
+    /// we hide the picker — the user can't meaningfully "change the
+    /// source" of a transfer leg, and reassigning requires the main
+    /// expense id.
     private var shouldShowPaymentSource: Bool {
-        selectedType == .expense && !isEditing && targetIsShared && !eligibleSources.isEmpty
+        guard selectedType == .expense && targetIsShared && !eligibleSources.isEmpty else {
+            return false
+        }
+        if let tx = editingTransaction, tx.isAutoTransferLeg {
+            return false
+        }
+        return true
     }
 
     /// Currency mismatch is no longer a reason to disable the picker —
@@ -525,23 +538,60 @@ struct TransactionFormView: View {
             // token refresh, and mismatch → RLS violation on INSERT.
             let userId = try await SupabaseManager.shared.currentUserId()
             if let tx = editingTransaction {
-                // Route through auto-transfer update RPC only when this is an expense
-                // with an existing auto_transfer_group_id and no transfer_group_id
-                // (i.e. it's the main expense row, not a transfer leg).
-                let useAutoUpdate = tx.type == .expense
-                    && tx.autoTransferGroupId != nil
-                    && tx.transferGroupId == nil
-                let input = UpdateTransactionInput(
-                    amount: amountInBase,
-                    currency: selectedCurrency.rawValue,
-                    type: selectedType.rawValue,
-                    date: dateStr,
-                    description: description.isEmpty ? nil : description,
-                    category_id: selectedCategoryId,
-                    merchant_name: nil,
-                    useAutoTransferUpdate: useAutoUpdate
-                )
-                try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
+                // Determine whether the payment source has changed relative
+                // to what the DB row currently stores. The picker emits nil
+                // for "this account" and a source id otherwise.
+                let previousSource = tx.paymentSourceAccountId
+                let resolvedNewSource: String? = {
+                    guard selectedType == .expense,
+                          let sourceId = selectedPaymentSourceId,
+                          sourceId != selectedAccountId
+                    else { return nil }
+                    return sourceId
+                }()
+                let sourceChanged = previousSource != resolvedNewSource
+                let isMainExpense = tx.type == .expense && tx.transferGroupId == nil
+
+                // Reassignment path: only fires for the main expense row when
+                // the user actually changed the source. Covers the four
+                // scenarios from the spec:
+                //   A. auto-transfer → simple expense (newSource = nil)
+                //   B. simple expense → auto-transfer (oldSource = nil)
+                //   C. auto-transfer source A → B (both non-nil, differ)
+                //   D. unchanged → fall through to the plain update RPC
+                // Implementation is client-side delete + recreate; not
+                // atomic, but the window is < ~300ms and the failure mode
+                // (delete succeeds, create fails) leaves the user without
+                // the expense — recoverable by retry. An RPC-level wrapper
+                // is tracked for a future migration.
+                if sourceChanged && isMainExpense {
+                    try await reassignExpenseSource(
+                        tx: tx,
+                        amountInBase: amountInBase,
+                        userId: userId,
+                        dateStr: dateStr,
+                        newSource: resolvedNewSource
+                    )
+                } else {
+                    // Route through auto-transfer update RPC only when this is
+                    // an expense with an existing auto_transfer_group_id and no
+                    // transfer_group_id (i.e. it's the main expense row, not a
+                    // transfer leg) AND the source hasn't changed.
+                    let useAutoUpdate = tx.type == .expense
+                        && tx.autoTransferGroupId != nil
+                        && tx.transferGroupId == nil
+                    let input = UpdateTransactionInput(
+                        amount: amountInBase,
+                        currency: selectedCurrency.rawValue,
+                        type: selectedType.rawValue,
+                        date: dateStr,
+                        description: description.isEmpty ? nil : description,
+                        category_id: selectedCategoryId,
+                        merchant_name: nil,
+                        useAutoTransferUpdate: useAutoUpdate
+                    )
+                    try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
+                }
             } else {
                 // Resolve payment source — only record it when target is shared AND source != target.
                 let resolvedPaymentSource: String? = {
@@ -601,6 +651,77 @@ struct TransactionFormView: View {
         }
 
         isLoading = false
+    }
+
+    /// Client-side payment-source reassignment when editing an existing
+    /// expense. Drops the old triplet (or plain expense row) and recreates
+    /// the new shape. Not atomic — see the call site note. Category /
+    /// description / merchant are preserved from the form state.
+    private func reassignExpenseSource(
+        tx: Transaction,
+        amountInBase: Decimal,
+        userId: String,
+        dateStr: String,
+        newSource: String?
+    ) async throws {
+        // 1. Delete the old row. `DataStore.deleteTransaction` routes
+        //    through `delete_expense_with_auto_transfer` when the row has
+        //    `auto_transfer_group_id` set, removing all three rows
+        //    atomically. For a plain expense it's a single delete.
+        //    The method swallows its own errors and reports them through
+        //    `dataStore.error`; we re-throw upstream if that field
+        //    surfaces a fresh message.
+        let priorError = appViewModel.dataStore.error
+        await appViewModel.dataStore.deleteTransaction(tx)
+        if let err = appViewModel.dataStore.error, err != priorError {
+            throw NSError(
+                domain: "TransactionFormView.reassign", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: err]
+            )
+        }
+
+        // 2. Rebuild the cross-currency source amount if needed. Mirrors
+        //    the create-path branch above so the 10-arg RPC gets the
+        //    source-currency amount.
+        let cm = appViewModel.currencyManager
+        var sourceAmount: Decimal? = nil
+        var sourceCurrency: String? = nil
+        if let srcId = newSource,
+           let src = accounts.first(where: { $0.id == srcId }),
+           src.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
+            let srcCode = src.currencyCode
+            sourceAmount = cm.convertToAccountCurrency(amountInBase, accountCurrency: srcCode)
+            sourceCurrency = srcCode.rawValue
+        }
+
+        // 3. Recreate with the new shape. `addTransaction` will route to
+        //    `create_expense_with_auto_transfer` when `newSource != nil`
+        //    and `newSource != accountId`, or to a plain INSERT otherwise.
+        let input = CreateTransactionInput(
+            user_id: userId,
+            account_id: selectedAccountId,
+            amount: amountInBase,
+            currency: selectedCurrency.rawValue,
+            type: selectedType.rawValue,
+            date: dateStr,
+            description: description.isEmpty ? nil : description,
+            category_id: selectedCategoryId,
+            merchant_name: nil,
+            payment_source_account_id: newSource,
+            source_amount: sourceAmount,
+            source_currency: sourceCurrency
+        )
+        _ = try await appViewModel.dataStore.addTransaction(input)
+
+        // 4. Update saved default to reflect the user's new preference.
+        if let targetId = selectedAccountId,
+           let newSource,
+           userDefaults[targetId] != newSource {
+            Task.detached(priority: .background) { [defaultsRepo] in
+                try? await defaultsRepo.upsert(accountId: targetId, defaultSourceId: newSource)
+            }
+            userDefaults[targetId] = newSource
+        }
     }
 
     /// Formats an amount already expressed in the transaction's currency
