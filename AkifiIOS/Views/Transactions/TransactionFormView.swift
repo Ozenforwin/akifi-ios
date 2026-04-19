@@ -20,6 +20,9 @@ struct TransactionFormView: View {
     @State private var showCategoryPicker = false
     @State private var showCalculator = true
     @State private var selectedCurrency: CurrencyCode = .rub
+    /// True once the user manually picked a currency in the form's picker.
+    /// Prevents account-change auto-sync from overriding their explicit choice.
+    @State private var userPickedCurrency = false
 
     // Payment source state
     /// Selected source account. `nil` means "same as target" (regular expense, no auto-transfer).
@@ -213,13 +216,22 @@ struct TransactionFormView: View {
                                 Text("\(account.icon) \(account.name)").tag(account.id as String?)
                             }
                         }
-                        .onChange(of: selectedAccountId) { _, _ in
+                        .onChange(of: selectedAccountId) { _, newId in
                             // Default is always "this account (regular expense)" —
                             // auto-transfer is an explicit opt-in. The saved
                             // user_account_defaults value is surfaced via the
                             // ⭐ badge in the picker so the user can pick it in
                             // one tap, but we never pre-select it.
                             selectedPaymentSourceId = nil
+                            // Auto-sync entry currency to the account's currency
+                            // unless the user has manually picked a currency.
+                            // Without this, a default selectedCurrency=.rub on a
+                            // VND account caused 2M VND → 26277 USD save bugs.
+                            if !userPickedCurrency, !isEditing,
+                               let id = newId,
+                               let acc = accounts.first(where: { $0.id == id }) {
+                                selectedCurrency = acc.currencyCode
+                            }
                         }
                     }
                 }
@@ -273,6 +285,12 @@ struct TransactionFormView: View {
                         ForEach(CurrencyCode.allCases, id: \.self) { currency in
                             Text("\(currency.symbol) \(currency.name)").tag(currency)
                         }
+                    }
+                    .onChange(of: selectedCurrency) { _, _ in
+                        // Mark the choice as explicit so onChange(selectedAccountId)
+                        // stops overriding it. Only matters for new transactions —
+                        // editing flows route through prefillIfEditing.
+                        if !isEditing { userPickedCurrency = true }
                     }
                 }
 
@@ -485,7 +503,17 @@ struct TransactionFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
-            selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            // New transaction: prefer the currency of the pre-selected account
+            // (e.g. when opened from a specific account screen) so the user
+            // doesn't accidentally enter a VND amount as RUB on a VND account.
+            // Falls back to the user's display preference only when no account
+            // is selected yet.
+            if let accId = selectedAccountId,
+               let acc = accounts.first(where: { $0.id == accId }) {
+                selectedCurrency = acc.currencyCode
+            } else {
+                selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            }
             return
         }
 
@@ -813,6 +841,12 @@ struct TransactionFormView: View {
     /// `amount_to = amount_from / rate[from] * rate[to]`. Used for the
     /// cross-currency picker hint and for the RPC `p_source_amount` leg.
     @MainActor
+    /// Cross-currency conversion. Returns the input unchanged when either
+    /// rate is missing — coercing to 1.0 is what produced the 2 000 000 VND
+    /// → 26 315 USD save bug (rates["VND"] was absent from fallbackRates,
+    /// fixed in 2026-04-19). The form's UI has a separate FX-preview that
+    /// flags missing rates; the Save action is now a no-op rather than a
+    /// silent corruption.
     static func crossConvert(
         amount: Decimal,
         from: CurrencyCode,
@@ -820,10 +854,11 @@ struct TransactionFormView: View {
         using cm: CurrencyManager
     ) -> Decimal {
         guard from != to else { return amount }
-        let fromRate = Decimal(cm.rates[from.rawValue] ?? 1.0)
-        let toRate = Decimal(cm.rates[to.rawValue] ?? 1.0)
-        guard fromRate != 0 else { return amount }
-        return amount / fromRate * toRate
+        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
+              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+            return amount
+        }
+        return amount / Decimal(fromRate) * Decimal(toRate)
     }
 }
 

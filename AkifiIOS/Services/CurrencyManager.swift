@@ -50,36 +50,48 @@ final class CurrencyManager {
         decimalFormatter.minimumFractionDigits = selectedCurrency.decimals
     }
 
-    /// Convert amount from data currency to selected display currency
+    /// Convert amount from data currency to selected display currency.
+    /// Returns the input unchanged when either rate is missing — a missing
+    /// entry coerced to 1.0 produces catastrophic results (see ADR-001 and
+    /// the 2 000 000 VND → 26 315 USD incident, 2026-04-19).
     func convert(_ amount: Decimal) -> Decimal {
-        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
-        let toRate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
-        guard fromRate != 0 else { return amount }
-        return amount / fromRate * toRate
+        guard dataCurrency != selectedCurrency else { return amount }
+        guard let from = rates[dataCurrency.rawValue], from > 0,
+              let to   = rates[selectedCurrency.rawValue], to > 0 else {
+            return amount
+        }
+        return amount / Decimal(from) * Decimal(to)
     }
 
-    /// Convert amount from display currency back to data (base) currency
+    /// Convert amount from display currency back to data (base) currency.
+    /// Same fail-safe contract as `convert(_:)`.
     func toBase(_ amountInDisplayCurrency: Decimal) -> Decimal {
-        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
-        let toRate = Decimal(rates[selectedCurrency.rawValue] ?? 1.0)
-        guard toRate != 0 else { return amountInDisplayCurrency }
-        return amountInDisplayCurrency / toRate * fromRate
+        guard dataCurrency != selectedCurrency else { return amountInDisplayCurrency }
+        guard let from = rates[dataCurrency.rawValue], from > 0,
+              let to   = rates[selectedCurrency.rawValue], to > 0 else {
+            return amountInDisplayCurrency
+        }
+        return amountInDisplayCurrency / Decimal(to) * Decimal(from)
     }
 
-    /// Convert amount from base (data) currency to a specific account currency
+    /// Convert amount from base (data) currency to a specific account currency.
     func convertToAccountCurrency(_ amountInBase: Decimal, accountCurrency: CurrencyCode) -> Decimal {
-        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
-        let toRate = Decimal(rates[accountCurrency.rawValue] ?? 1.0)
-        guard fromRate != 0 else { return amountInBase }
-        return amountInBase / fromRate * toRate
+        guard dataCurrency != accountCurrency else { return amountInBase }
+        guard let from = rates[dataCurrency.rawValue], from > 0,
+              let to   = rates[accountCurrency.rawValue], to > 0 else {
+            return amountInBase
+        }
+        return amountInBase / Decimal(from) * Decimal(to)
     }
 
-    /// Convert amount from a specific account currency back to base (data) currency
+    /// Convert amount from a specific account currency back to base (data) currency.
     func convertFromAccountCurrency(_ amount: Decimal, accountCurrency: CurrencyCode) -> Decimal {
-        let fromRate = Decimal(rates[dataCurrency.rawValue] ?? 1.0)
-        let toRate = Decimal(rates[accountCurrency.rawValue] ?? 1.0)
-        guard toRate != 0 else { return amount }
-        return amount / toRate * fromRate
+        guard dataCurrency != accountCurrency else { return amount }
+        guard let from = rates[dataCurrency.rawValue], from > 0,
+              let to   = rates[accountCurrency.rawValue], to > 0 else {
+            return amount
+        }
+        return amount / Decimal(to) * Decimal(from)
     }
 
     func format(_ amount: Decimal) -> String {

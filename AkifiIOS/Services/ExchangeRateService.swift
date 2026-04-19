@@ -10,13 +10,24 @@ actor ExchangeRateService {
     private let cacheTimestampKey = "exchange_rates_timestamp"
     private let cacheDuration: TimeInterval = 3600 // 1 hour
 
+    /// Hard-coded fallback rates against USD (1 USD = X currency).
+    /// Used when the public FX API is unreachable AND the on-disk cache is
+    /// empty. MUST cover every CurrencyCode in the app — a missing entry
+    /// silently coerces to 1.0 in CurrencyManager.crossConvert and produces
+    /// catastrophic conversions (e.g. 2 000 000 VND → 26 315 USD when
+    /// rates["VND"] defaults to 1.0).
+    /// Approximate rates as of 2026-04 — they only matter as a last resort;
+    /// the API refreshes hourly via fetchRates().
     private let fallbackRates: [String: Double] = [
         "USD": 1.0,
         "RUB": 92.5,
         "EUR": 0.92,
         "GBP": 0.79,
         "CNY": 7.24,
-        "JPY": 154.5
+        "JPY": 154.5,
+        "VND": 25_400,
+        "THB": 36.5,
+        "IDR": 16_300
     ]
 
     func fetchRates(base: String = "USD") async -> [String: Double] {

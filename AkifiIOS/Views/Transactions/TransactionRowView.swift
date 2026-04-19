@@ -184,18 +184,36 @@ struct TransactionRowView: View {
         }
     }
 
+    /// ADR-001 display rule: surface what the user actually entered.
+    ///   1. If `foreignAmount` + `foreignCurrency` are set, the user typed in
+    ///      a non-account currency — show that original value with the entry
+    ///      currency's symbol.
+    ///   2. Otherwise the entry was native — show `amountNative` with the
+    ///      account's currency symbol.
+    /// We never run this through `currencyManager.formatAmount` because that
+    /// converts to the user's display preference and slaps the global symbol
+    /// on top, which made VND/USD entries appear as RUB and triggered the
+    /// 2 000 000 VND → 26 277 USD report (2026-04-19).
     private var formattedAmount: String {
-        if isTransfer {
-            let amount = abs(transaction.amount).displayAmount
-            return appViewModel.currencyManager.formatAmount(amount)
-        }
+        let cm = appViewModel.currencyManager
         let sign: String
         switch transaction.type {
-        case .income: sign = "+"
-        case .expense: sign = "-"
+        case .income:   sign = isTransfer ? "" : "+"
+        case .expense:  sign = isTransfer ? "" : "-"
         case .transfer: sign = ""
         }
-        return "\(sign)\(appViewModel.currencyManager.formatAmount(transaction.amount.displayAmount))"
+
+        if let fAmount = transaction.foreignAmount,
+           let fCcyRaw = transaction.foreignCurrency,
+           let fCode = CurrencyCode(rawValue: fCcyRaw.uppercased()) {
+            return "\(sign)\(cm.formatInCurrency(abs(fAmount), currency: fCode))"
+        }
+
+        let nativeAmount = abs(transaction.amountNative.displayAmount)
+        let accountCcy = resolvedAccount?.currencyCode
+            ?? transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
+            ?? cm.dataCurrency
+        return "\(sign)\(cm.formatInCurrency(nativeAmount, currency: accountCcy))"
     }
 
     private var formattedDate: String {
