@@ -28,6 +28,10 @@ struct TransactionFormView: View {
     @State private var userDefaults: [String: String] = [:]
     private let defaultsRepo = UserAccountDefaultsRepository()
 
+    /// Per-target-account flag: was the onboarding banner acknowledged?
+    /// Keyed by `paymentSource.onboardingSeen.<accountId>` in UserDefaults.
+    @State private var onboardingDismissedAccounts: Set<String> = []
+
     private static let isoDateTimeFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -78,12 +82,15 @@ struct TransactionFormView: View {
             || acc.userId != uid
     }
 
-    /// Eligible source accounts for the picker — own accounts in the same
-    /// currency as the target. Always includes the target itself as "this account".
+    /// Eligible source accounts for the picker — own accounts, regardless
+    /// of currency. Always includes the target itself as "this account".
+    /// Cross-currency sources are fine — the `create_expense_with_auto_transfer`
+    /// 10-arg RPC overload handles FX by recording the transfer-out leg in
+    /// the source's currency while the expense + transfer-in stay in target's.
     private var eligibleSources: [Account] {
         guard let target = selectedAccount, let uid = currentUserId else { return [] }
         return accounts.filter { acc in
-            acc.userId == uid && acc.id != target.id && acc.currency.lowercased() == target.currency.lowercased()
+            acc.userId == uid && acc.id != target.id
         }
     }
 
@@ -94,15 +101,78 @@ struct TransactionFormView: View {
         selectedType == .expense && !isEditing && targetIsShared && !eligibleSources.isEmpty
     }
 
-    /// True iff we should disable the picker entirely (e.g. currency mismatch
-    /// with every own account — already filtered out, so this is effectively
-    /// "no eligible sources"). Kept as separate flag for extension.
-    private var paymentSourceDisabled: Bool { eligibleSources.isEmpty }
+    /// Currency mismatch is no longer a reason to disable the picker —
+    /// the RPC accepts cross-currency sources. Kept as `false` so the
+    /// rest of the UI code can stay structurally identical; we may reuse
+    /// this flag if we add future restrictions.
+    private var paymentSourceDisabled: Bool { false }
 
+    /// Decorates the source-account row in the picker. For cross-currency
+    /// sources we append a parenthetical FX preview — "(USD ≈ 13 500 ₽)" —
+    /// so the user can sanity-check the conversion before saving.
     private func paymentSourceLabel(for acc: Account) -> String {
         let starred = userDefaults[selectedAccountId ?? ""] == acc.id
         let starSuffix = starred ? " ⭐" : ""
-        return "\(acc.icon) \(acc.name)\(starSuffix)"
+        guard let target = selectedAccount else {
+            return "\(acc.icon) \(acc.name)\(starSuffix)"
+        }
+        // Currency match — no extra hint.
+        if acc.currency.lowercased() == target.currency.lowercased() {
+            return "\(acc.icon) \(acc.name)\(starSuffix)"
+        }
+        // Cross-currency — compute source amount + show both sides.
+        let amountValue = calculatorState.getResult() ?? 0
+        let sourceCurrency = acc.currencyCode
+        let targetCurrency = selectedCurrency
+        // We have the entered amount in `targetCurrency`; convert it to
+        // source for display.
+        let sourceAmount = Self.crossConvert(
+            amount: amountValue,
+            from: targetCurrency,
+            to: sourceCurrency,
+            using: appViewModel.currencyManager
+        )
+        let sourceStr = Self.formatRawAmount(sourceAmount, currency: sourceCurrency)
+        let targetStr = Self.formatRawAmount(amountValue, currency: targetCurrency)
+        return "\(acc.icon) \(acc.name) (\(sourceStr) ≈ \(targetStr))\(starSuffix)"
+    }
+
+    /// True iff the currently-selected source has a different currency
+    /// than the target. Drives the two-line hint and the RPC routing.
+    private var isCrossCurrencySelection: Bool {
+        guard let sourceId = selectedPaymentSourceId,
+              let source = accounts.first(where: { $0.id == sourceId }),
+              let target = selectedAccount
+        else { return false }
+        return source.currency.lowercased() != target.currency.lowercased()
+    }
+
+    /// Whether to surface the first-time onboarding banner. Fires only
+    /// when every stronger signal is absent:
+    /// - we're creating (not editing) an expense,
+    /// - target is shared,
+    /// - there's at least one own personal account available as source,
+    /// - the user has NOT already saved a default for this target,
+    /// - they haven't already dismissed this banner for this target.
+    private var shouldShowOnboardingBanner: Bool {
+        guard shouldShowPaymentSource else { return false }
+        guard let targetId = selectedAccountId else { return false }
+        if userDefaults[targetId] != nil { return false }
+        if onboardingDismissedAccounts.contains(targetId) { return false }
+        return true
+    }
+
+    private static func onboardingKey(_ accountId: String) -> String {
+        "paymentSource.onboardingSeen.\(accountId)"
+    }
+
+    /// Persist "dismissed" for this account so the banner doesn't come
+    /// back next time the user opens the form on the same target.
+    private func dismissOnboarding() {
+        guard let targetId = selectedAccountId else { return }
+        UserDefaults.standard.set(true, forKey: Self.onboardingKey(targetId))
+        onboardingDismissedAccounts.insert(targetId)
+        HapticManager.light()
     }
 
     private var selfPaymentLabel: String {
@@ -143,6 +213,10 @@ struct TransactionFormView: View {
                             selectedPaymentSourceId = nil
                         }
                     }
+                }
+
+                if shouldShowOnboardingBanner {
+                    onboardingBannerSection
                 }
 
                 if shouldShowPaymentSource {
@@ -215,6 +289,14 @@ struct TransactionFormView: View {
                 }
             }
             .onAppear { prefillIfEditing() }
+            .onChange(of: selectedPaymentSourceId) { _, newValue in
+                // First time the user explicitly picks a source counts as
+                // "onboarded" — no need to keep nagging. `nil` = "this account"
+                // default and doesn't count as explicit engagement.
+                if newValue != nil {
+                    dismissOnboarding()
+                }
+            }
             .task {
                 await loadUserDefaults()
             }
@@ -227,6 +309,66 @@ struct TransactionFormView: View {
                 .presentationDetents([.medium])
             }
         }
+    }
+
+    // MARK: - Onboarding banner (first-time Payment-Source discovery)
+
+    /// Light teaching moment for users who land on a shared-account expense
+    /// form and haven't yet discovered the "Paid from" feature. Self-
+    /// dismissing on first interaction — either Understood tap, or first
+    /// explicit source pick via the picker itself.
+    @ViewBuilder
+    private var onboardingBannerSection: some View {
+        Section {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accent.opacity(0.25), Color.accent.opacity(0.12)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.accent)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "tx.paymentSource.onboarding.title"))
+                        .font(.subheadline.weight(.semibold))
+                    Text(String(localized: "tx.paymentSource.onboarding.body"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 4)
+
+                Button {
+                    dismissOnboarding()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "tx.paymentSource.onboarding.dismiss"))
+            }
+            .padding(.vertical, 4)
+        }
+        .listRowBackground(
+            LinearGradient(
+                colors: [Color.accent.opacity(0.09), Color.accent.opacity(0.04)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
     }
 
     // MARK: - Payment source section
@@ -246,26 +388,57 @@ struct TransactionFormView: View {
             .pickerStyle(.menu)
             .disabled(paymentSourceDisabled)
 
-            if paymentSourceDisabled {
-                Text(String(localized: "tx.paymentSource.hint.currencyMismatch"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if let sourceId = selectedPaymentSourceId,
-                      let source = accounts.first(where: { $0.id == sourceId }),
-                      let target = selectedAccount {
-                // Live preview hint: "We'll create a transfer of X from A to B."
-                // Format the raw entered amount in the transaction's currency —
-                // do NOT run through CurrencyManager.formatAmount, which would
-                // convert between user's display currency and assume RUB input.
-                let amountValue = calculatorState.getResult() ?? 0
-                let amountStr = Self.formatRawAmount(amountValue, currency: selectedCurrency)
-                let hint = String(format: String(localized: "tx.paymentSource.hint.autoTransfer"),
-                                  amountStr, source.name, target.name)
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.blue)
+            if let sourceId = selectedPaymentSourceId,
+               let source = accounts.first(where: { $0.id == sourceId }),
+               let target = selectedAccount {
+                hintBubble(source: source, target: target)
             }
         }
+    }
+
+    /// Live preview text rendered as an accent-tinted bubble. Split out so
+    /// the parent `@ViewBuilder` doesn't have to host imperative `let`
+    /// bindings alongside View statements.
+    @ViewBuilder
+    private func hintBubble(source: Account, target: Account) -> some View {
+        let amountValue = calculatorState.getResult() ?? 0
+        let targetStr = Self.formatRawAmount(amountValue, currency: selectedCurrency)
+        let hint = buildHint(source: source, target: target, amount: amountValue, targetStr: targetStr)
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "arrow.left.arrow.right.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.accent)
+            Text(hint)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.accent.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accent.opacity(0.22), lineWidth: 0.5)
+        )
+    }
+
+    private func buildHint(source: Account, target: Account, amount: Decimal, targetStr: String) -> String {
+        if source.currency.lowercased() != target.currency.lowercased() {
+            let sourceAmount = Self.crossConvert(
+                amount: amount,
+                from: selectedCurrency,
+                to: source.currencyCode,
+                using: appViewModel.currencyManager
+            )
+            let sourceStr = Self.formatRawAmount(sourceAmount, currency: source.currencyCode)
+            return String(format: String(localized: "tx.paymentSource.hint.autoTransfer.crossCurrency"),
+                          sourceStr, source.name, targetStr, target.name)
+        }
+        return String(format: String(localized: "tx.paymentSource.hint.autoTransfer"),
+                      targetStr, source.name, target.name)
     }
 
     // MARK: - Load defaults
@@ -285,6 +458,17 @@ struct TransactionFormView: View {
             // Silent — defaults are optional UX.
             AppLogger.data.debug("paymentDefaults load: \(error.localizedDescription)")
         }
+
+        // Hydrate onboarding-dismissed flags from UserDefaults. We only
+        // care about the accounts the user is likely to see this session,
+        // so we scan every account and check the per-id key.
+        var seen: Set<String> = []
+        for acc in accounts {
+            if UserDefaults.standard.bool(forKey: Self.onboardingKey(acc.id)) {
+                seen.insert(acc.id)
+            }
+        }
+        onboardingDismissedAccounts = seen
     }
 
     private func prefillIfEditing() {
@@ -368,6 +552,23 @@ struct TransactionFormView: View {
                     else { return nil }
                     return sourceId
                 }()
+                // Cross-currency: when the resolved source has a different
+                // currency than the target, convert the target-currency
+                // amount into the source currency and pass both to the RPC
+                // so the 10-arg overload is picked. The source-leg row is
+                // stored in its own currency; target expense + transfer-in
+                // stay in target currency.
+                var sourceAmount: Decimal? = nil
+                var sourceCurrency: String? = nil
+                if let srcId = resolvedPaymentSource,
+                   let src = accounts.first(where: { $0.id == srcId }),
+                   src.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
+                    let srcCode = src.currencyCode
+                    // amountInBase is already RUB. Use convertToAccountCurrency
+                    // to express it in the source account's currency.
+                    sourceAmount = cm.convertToAccountCurrency(amountInBase, accountCurrency: srcCode)
+                    sourceCurrency = srcCode.rawValue
+                }
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: selectedAccountId,
@@ -378,7 +579,9 @@ struct TransactionFormView: View {
                     description: description.isEmpty ? nil : description,
                     category_id: selectedCategoryId,
                     merchant_name: nil,
-                    payment_source_account_id: resolvedPaymentSource
+                    payment_source_account_id: resolvedPaymentSource,
+                    source_amount: sourceAmount,
+                    source_currency: sourceCurrency
                 )
                 _ = try await appViewModel.dataStore.addTransaction(input)
 
@@ -413,6 +616,24 @@ struct TransactionFormView: View {
         formatter.groupingSeparator = " "
         let formatted = formatter.string(from: abs(amount) as NSDecimalNumber) ?? "0"
         return "\(formatted) \(currency.symbol)"
+    }
+
+    /// Convert an amount between two arbitrary currencies using the rate
+    /// table inside `CurrencyManager`. The rates are USD-based, so
+    /// `amount_to = amount_from / rate[from] * rate[to]`. Used for the
+    /// cross-currency picker hint and for the RPC `p_source_amount` leg.
+    @MainActor
+    static func crossConvert(
+        amount: Decimal,
+        from: CurrencyCode,
+        to: CurrencyCode,
+        using cm: CurrencyManager
+    ) -> Decimal {
+        guard from != to else { return amount }
+        let fromRate = Decimal(cm.rates[from.rawValue] ?? 1.0)
+        let toRate = Decimal(cm.rates[to.rawValue] ?? 1.0)
+        guard fromRate != 0 else { return amount }
+        return amount / fromRate * toRate
     }
 }
 

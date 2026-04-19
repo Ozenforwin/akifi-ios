@@ -22,11 +22,11 @@ struct PaymentDefaultsView: View {
     }
 
     /// Own personal accounts (excluding the currently-iterated target).
+    /// Currency mismatch is no longer a filter — cross-currency sources
+    /// are valid now (RPC 10-arg overload handles FX per-leg).
     private func personalSources(for target: Account) -> [Account] {
         dataStore.accounts.filter { acc in
-            acc.userId == currentUserId
-            && acc.id != target.id
-            && acc.currency.lowercased() == target.currency.lowercased()
+            acc.userId == currentUserId && acc.id != target.id
         }
     }
 
