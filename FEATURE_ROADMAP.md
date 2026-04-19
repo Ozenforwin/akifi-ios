@@ -246,17 +246,24 @@
 | Orphan settlement скрывается когда нет транзакций в периоде | **DONE** | `79339f3` |
 | Дефолт picker'а = «Этот счёт», auto-transfer только по явному выбору | **DONE** | `6ece83a` |
 
-### TODO v2 (детали в PRD `.claude/prd/payment-source-and-settlement.md`)
+### v2 (2026-04-19, commits `550a57f`…`33e2201`)
+
+| Пункт | Статус | Коммит |
+|---|---|---|
+| Discovery-онбординг (баннер для новых юзеров) | **DONE** | `33e2201` |
+| Cross-currency auto-transfers (ByBit USD → Семейный RUB) | **DONE** | `1b548ec` |
+| Custom split weights (60/40 и т.п.) | **DONE** | `21ff449` |
+| Design pass (settlement card, hero, участники, бейджи) | **DONE** | `33e2201` |
+
+### TODO v3
 
 | Пункт | Приоритет | Оценка |
 |---|---|---|
-| Discovery-онбординг (баннер для новых юзеров) | P1 | ~30 мин |
-| Cross-currency auto-transfers (ByBit USD → Семейный RUB) | P1.5 | ~1 день |
 | Bank import dedup против auto-transfer | P2 | ~20 мин |
-| Custom split weights (60/40) | P3 | ~1 день |
 | Direct-expense attribution (прямые расходы на общий счёт) | P4 | продуктовое решение |
 | Orphan settlements auto-cleanup | P5 | ~2 часа |
 | Edit-existing-expense source reassignment | — | ~2 часа |
+| FX-correct settlement math (cross-currency contribution normalization) | — | ~1 день (architect + migration) |
 
 ### Осознанно НЕ делаем
 - Retroactive attach к старым ручным переводам
