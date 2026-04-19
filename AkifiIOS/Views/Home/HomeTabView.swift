@@ -72,6 +72,14 @@ struct HomeTabView: View {
                         .buttonStyle(.plain)
                     }
 
+                    // 6c. Challenges shortcut
+                    if !isNewUser {
+                        NavigationLink(destination: ChallengesListView()) {
+                            ChallengesShortcutCard()
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     // 7. Recent Transactions
                     transactionsSection
                 }
@@ -277,6 +285,44 @@ private struct ReportsShortcutCard: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(String(localized: "home.reports.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+// MARK: - Challenges Shortcut Card
+
+private struct ChallengesShortcutCard: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "#F59E0B"), Color(hex: "#EF4444")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "challenges.title"))
+                    .font(.subheadline.weight(.semibold))
+                Text(String(localized: "challenges.home.subtitle"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

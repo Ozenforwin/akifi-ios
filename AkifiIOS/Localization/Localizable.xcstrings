@@ -17358,6 +17358,272 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Экспортируй финансовый PDF-отчёт." } }
       }
     },
+    "challenges.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Challenges" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Retos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Челленджи" } }
+      }
+    },
+    "challenges.home.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Small habits, big savings" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Pequeños hábitos, grandes ahorros" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Маленькие привычки, большая экономия" } }
+      }
+    },
+    "challenges.active" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Active" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Activos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активные" } }
+      }
+    },
+    "challenges.completed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Completed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Completados" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Завершённые" } }
+      }
+    },
+    "challenges.abandoned" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Abandoned" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Abandonados" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Прерванные" } }
+      }
+    },
+    "challenges.addNew" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New challenge" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nuevo reto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый челлендж" } }
+      }
+    },
+    "challenges.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ready for a challenge?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Listo para un reto?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готов к вызову?" } }
+      }
+    },
+    "challenges.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create a savings challenge and build habits that move you toward your goals." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Crea un reto de ahorro y forma hábitos que te acerquen a tus metas." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Создай челлендж и формируй привычки, которые приблизят тебя к целям." } }
+      }
+    },
+    "challenges.form.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New challenge" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nuevo reto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый челлендж" } }
+      }
+    },
+    "challenges.form.type" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Type" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tipo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Тип" } }
+      }
+    },
+    "challenges.form.details" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Details" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Detalles" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Детали" } }
+      }
+    },
+    "challenges.form.title.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Challenge title" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Título del reto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название" } }
+      }
+    },
+    "challenges.form.target" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Target amount" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cantidad objetivo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Целевая сумма" } }
+      }
+    },
+    "challenges.form.target.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "e.g. 500" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "ej. 500" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "например, 500" } }
+      }
+    },
+    "challenges.form.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категория" } }
+      }
+    },
+    "challenges.form.category.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pick a category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige una categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выбери категорию" } }
+      }
+    },
+    "challenges.form.duration" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duration" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Duración" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Длительность" } }
+      }
+    },
+    "challenges.duration.7" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "7d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "7d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "7д" } }
+      }
+    },
+    "challenges.duration.14" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "14d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "14d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "14д" } }
+      }
+    },
+    "challenges.duration.30" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "30d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "30d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "30д" } }
+      }
+    },
+    "challenges.duration.60" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "60d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "60d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "60д" } }
+      }
+    },
+    "challenges.duration.90" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "90d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "90d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "90д" } }
+      }
+    },
+    "challenge.type.noCafe" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No cafe" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sin café" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без кафе" } }
+      }
+    },
+    "challenge.type.noCafe.desc" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Don't spend anything in the selected category." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No gastes nada en la categoría seleccionada." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не тратить ничего в выбранной категории." } }
+      }
+    },
+    "challenge.type.roundUp" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Round up" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Redondeo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Округление" } }
+      }
+    },
+    "challenge.type.roundUp.desc" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Round up each expense and stash the difference." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Redondea cada gasto y guarda la diferencia." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Округляй каждую покупку и копи сдачу." } }
+      }
+    },
+    "challenge.type.weeklyAmount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly savings" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ahorro semanal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Еженедельно" } }
+      }
+    },
+    "challenge.type.weeklyAmount.desc" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save a fixed amount every week." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Ahorra una cantidad fija cada semana." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Откладывай фиксированную сумму каждую неделю." } }
+      }
+    },
+    "challenge.type.categoryLimit" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Spending limit" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Límite de gasto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Лимит расходов" } }
+      }
+    },
+    "challenge.type.categoryLimit.desc" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep category spending under a target." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mantén el gasto de una categoría bajo un objetivo." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удерживай расходы по категории под лимитом." } }
+      }
+    },
+    "challenge.daysLeft" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "days left" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "días restantes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "дней осталось" } }
+      }
+    },
+    "challenge.progress.clean" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Streak clean ✨" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Racha limpia ✨" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Без нарушений ✨" } }
+      }
+    },
+    "challenge.progress.spent" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Spent %@" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Gastado %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Потрачено %@" } }
+      }
+    },
+    "challenge.progressTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Progress" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Progreso" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Прогресс" } }
+      }
+    },
+    "challenge.timeTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Time" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tiempo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Время" } }
+      }
+    },
+    "challenge.abandon" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Abandon challenge" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Abandonar reto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отказаться от челленджа" } }
+      }
+    },
+    "challenge.confirmAbandon" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Abandon this challenge?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Abandonar este reto?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отказаться от этого челленджа?" } }
+      }
+    },
+    "challenge.confirmDelete" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete this challenge?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar este reto?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить этот челлендж?" } }
+      }
+    },
     "report.totalBalance" : {
       "extractionState" : "stale",
       "localizations" : {
