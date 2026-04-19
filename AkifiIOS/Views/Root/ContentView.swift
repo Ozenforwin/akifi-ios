@@ -125,6 +125,7 @@ struct MainTabView: View {
     @State private var activeSheet: SheetDestination?
     @State private var fabSelectedCategoryId: String?
     @State private var unlockedAchievement: Achievement?
+    @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
     @State private var pendingInviteCode: String?
 
@@ -172,6 +173,15 @@ struct MainTabView: View {
                     unlockedAchievement = nil
                 }
                 .transition(.opacity)
+            }
+
+            // Streak milestone overlay
+            if let milestone = pendingStreakMilestone {
+                StreakMilestoneView(info: milestone) {
+                    pendingStreakMilestone = nil
+                }
+                .transition(.opacity)
+                .zIndex(4)
             }
 
             // Offline indicator
@@ -239,6 +249,8 @@ struct MainTabView: View {
                     try? await Task.sleep(for: .seconds(1.0))
                     spotlightManager.start()
                 }
+                // Streak milestone check (piggy-backs on transaction change).
+                checkStreakMilestone()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pushNotificationTapped)) { notification in
@@ -332,6 +344,20 @@ struct MainTabView: View {
             activeSheet = .expense(categoryId: nil)
         case .addIncome:
             activeSheet = .income(categoryId: nil)
+        }
+    }
+
+    private func checkStreakMilestone() {
+        let streak = StreakTracker.currentStreak(from: appViewModel.dataStore.transactions)
+        guard streak > 0 else { return }
+        if let milestone = StreakTracker.detectNewMilestone(currentStreak: streak) {
+            withAnimation {
+                pendingStreakMilestone = StreakTracker.info(for: milestone)
+            }
+            AnalyticsService.logEvent(
+                "streak_milestone_reached",
+                params: ["days": milestone]
+            )
         }
     }
 

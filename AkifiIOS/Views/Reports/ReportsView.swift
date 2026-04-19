@@ -152,6 +152,8 @@ struct ReportsView: View {
                         "pdf_report_exported",
                         params: ["period": input.periodLabel]
                     )
+                    // Skill-tree: mark "expert reporter" node unlockable.
+                    SkillTreeFlags.hasExportedPDF = true
                 }
             } catch {
                 await MainActor.run {

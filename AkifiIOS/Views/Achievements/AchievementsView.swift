@@ -21,6 +21,14 @@ struct AchievementsView: View {
                 // Level card
                 levelCard
 
+                // Skill tree entry point
+                NavigationLink {
+                    SkillTreeView()
+                } label: {
+                    skillTreeCard
+                }
+                .buttonStyle(.plain)
+
                 // Category filter
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -65,6 +73,41 @@ struct AchievementsView: View {
         .refreshable {
             await viewModel.load()
         }
+    }
+
+    // MARK: - Skill Tree Card
+
+    private var skillTreeCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accent, Color.aiGradientStart],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                Image(systemName: "tree.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "skills.entry.title"))
+                    .font(.subheadline.weight(.semibold))
+                Text(String(localized: "skills.entry.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - Level Card
