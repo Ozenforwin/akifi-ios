@@ -2,7 +2,7 @@
 
 Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase и Firebase. Работает параллельно с Telegram Mini App версией Akifi.
 
-**Актуальная версия:** 1.2.7 (TestFlight) · **Тесты:** 137/137 green
+**Актуальная версия:** 1.2.7 (TestFlight) · **Тесты:** 150/150 green
 
 ## Tech Stack
 
@@ -66,6 +66,8 @@
 - **SessionCoordinator** — actor в `SupabaseManager` дедуплицирует concurrent refresh'ы (single-use refresh_token protection)
 - **RPC encode(to:)** — custom encoder emit'ит JSON null для optional ключей чтобы PostgREST матчил сигнатуру функции (иначе argument-name dropping ломает routing)
 - **Postgres functions для атомарных multi-row операций** — `create/update/delete_expense_with_auto_transfer` (payment source → auto-transfer triplet), edge functions только для LLM/внешних API
+- **Multi-currency (ADR-001)** — `transactions.amount_native` в валюте счёта как single source of truth; `foreign_amount`/`foreign_currency`/`fx_rate` для оригинального ввода; trigger `transactions_fill_amount_native` обеспечивает обратную совместимость с legacy клиентами
+- **TransactionMath.amountInBase** — единая утилита FX-нормализации для cross-account aggregations (InsightEngine / CashFlowEngine / Analytics / Reports), чтобы USD и RUB суммы не складывались сырыми
 
 ## Структура проекта
 
@@ -106,7 +108,9 @@ AkifiIOS/
 │   ├── AuthManager.swift             # Auth: Apple/Google/Email/Telegram + refreshSessionIfNeeded()
 │   ├── SupabaseManager.swift         # Singleton + SessionCoordinator actor (dedup refresh)
 │   ├── DataStore.swift               # Shared state + параллельная загрузка + displayCategories
-│   ├── CurrencyManager.swift         # Мультивалюта, курсы, форматирование
+│   ├── CurrencyManager.swift         # Мультивалюта, курсы, форматирование, formatInCurrency
+│   ├── TransactionMath.swift         # ADR-001 FX-нормализация в base (cross-account aggregations)
+│   ├── FeatureFlags.swift            # Local feature flags (UserDefaults) + multi_currency_v2 toggle
 │   ├── PaymentManager.swift          # Premium-подписка (заглушка, StoreKit отключён)
 │   ├── ThemeManager.swift            # Тема (light/dark)
 │   ├── BudgetMath.swift              # Вычисление метрик бюджетов
@@ -252,6 +256,7 @@ AkifiIOS/
 │   │   ├── NotificationSettingsView.swift # Настройки уведомлений
 │   │   ├── BankImportView.swift       # Импорт PDF + dedup vs auto-transfer
 │   │   ├── ExportView.swift           # CSV экспорт
+│   │   ├── CurrencyReconciliationView.swift # ADR-001 Phase 4: audit legacy cross-currency rows
 │   │   └── PremiumPaywallView.swift   # Paywall
 │   ├── Subscriptions/
 │   │   ├── SubscriptionListView.swift # Список подписок
@@ -326,7 +331,29 @@ AkifiIOS/
 - **Транзакции** — CRUD с категориями, описанием, датой+временем, мультивалютой
 - **Переводы** между счетами с group tracking
 - **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer), корректный merge категорий в отчётах
-- **Мультивалюта** — курсы в реальном времени, конвертация отображения
+- **Мультивалюта (ADR-001)** — `amount_native` в валюте счёта как канон, `foreign_amount`/`foreign_currency`/`fx_rate` для оригинального ввода; FX-нормализация только на финальной агрегации
+
+### Multi-currency архитектура (ADR-001)
+
+Core invariant: для каждой транзакции `amount_native` хранится **в валюте её счёта**. Аккумулирование по нескольким счетам с разными валютами (ByBit USD + Семейный RUB) проходит через `TransactionMath.amountInBase(tx, accountsById, fxRates, baseCode)`. Это единственный способ сравнивать USD-транзакции с рублёвыми в едином виде.
+
+Ввод в чужой валюте:
+- Юзер выбирает счёт Семейный (RUB), вводит 500 000 и переключает currency picker на VND
+- `amount_native = 500 000 × FX(VND→RUB) = 1 900₽` (в валюте счёта)
+- `foreign_amount = 500 000`, `foreign_currency = VND`, `fx_rate = 0.0038`
+- Баланс счёта считается через `amount_native`; UI показывает оригинальный ввод через `foreign_*`
+
+Отображение в формах:
+- **Edit Account** — поле баланса всегда в валюте счёта, справа preview «≈ X base»
+- **Transaction Form** — currency picker рядом с amount; при валюте ≠ account.currency создаётся foreign_* triplet
+- **Reconciliation UI** (Settings → Проверка валют) — для легaсy TMA-rows где стояла кривая `currency` label; три действия: keep as account ccy / reinterpret as label / delete
+
+DB layer:
+- `transactions.amount_native` NUMERIC NOT NULL (CHECK)
+- `transactions.foreign_amount` / `foreign_currency` / `fx_rate` NULLABLE
+- Trigger `transactions_fill_amount_native` BEFORE INSERT/UPDATE — legacy клиенты без поля пишут amount_native = amount
+- RPC overloads: `create_expense_with_auto_transfer` (8/10/13-arg), `update_expense_with_auto_transfer` (6/9-arg)
+- Feature flag `multi_currency_v2` в UserDefaults + DEBUG toggle в Settings → Developer
 
 ### Общие счета — Payment Source + Settlement (Phase 4.6)
 - **«Оплачено с»** в форме транзакции — выбрать личную карту-источник при расходе на общем счёте. Система автоматически создаёт триплет (expense + transfer-out + transfer-in) через атомарную Postgres RPC
@@ -486,7 +513,15 @@ AkifiIOS/
 ## Supabase
 
 ### Таблицы
-`profiles`, `accounts`, `account_members`, `transactions`, `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`
+`profiles`, `accounts`, `account_members`, `transactions` (+ ADR-001: `amount_native`/`foreign_amount`/`foreign_currency`/`fx_rate`), `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `savings_challenges`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`, `assets`, `liabilities`, `net_worth_snapshots`, `deposits`, `deposit_contributions`, `settlements`, `user_account_defaults`
+
+### RPC функции
+- `create_expense_with_auto_transfer` (8/10/13-arg overloads) — атомарное создание expense + transfer triplet, с cross-currency source и foreign-entry поддержкой
+- `update_expense_with_auto_transfer` (6/9-arg overloads) — синхронизированный update триплета + foreign_* fields
+- `delete_expense_with_auto_transfer` — atomic delete всех трёх row'ов триплета
+
+### Triggers
+- `transactions_fill_amount_native` BEFORE INSERT/UPDATE — ADR-001 compat для legacy клиентов
 
 ### Storage Buckets
 - `avatars` — аватары пользователей (public)
