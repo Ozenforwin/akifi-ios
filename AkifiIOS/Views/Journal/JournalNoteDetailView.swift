@@ -294,7 +294,8 @@ struct ReflectionPeriodCard: View {
             note: note,
             transactions: dataStore.transactions,
             categories: dataStore.categories,
-            currencyManager: currencyManager
+            currencyManager: currencyManager,
+            accounts: dataStore.accounts
         )
     }
 
@@ -413,14 +414,16 @@ enum ReflectionPeriodMath {
         note: FinancialNote,
         transactions: [Transaction],
         categories: [Category],
-        currencyManager: CurrencyManager
+        currencyManager: CurrencyManager,
+        accounts: [Account] = []
     ) -> ReflectionPeriodSummary {
         compute(
             periodStart: note.periodStart,
             periodEnd: note.periodEnd,
             transactions: transactions,
             categories: categories,
-            currencyManager: currencyManager
+            currencyManager: currencyManager,
+            accountsById: Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
         )
     }
 
@@ -429,7 +432,8 @@ enum ReflectionPeriodMath {
         periodEnd: String?,
         transactions: [Transaction],
         categories: [Category],
-        currencyManager: CurrencyManager
+        currencyManager: CurrencyManager,
+        accountsById: [String: Account] = [:]
     ) -> ReflectionPeriodSummary {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -468,14 +472,22 @@ enum ReflectionPeriodMath {
         let expenses = inPeriod.filter { $0.type == .expense }
         let incomes = inPeriod.filter { $0.type == .income }
 
-        let expenseTotal = expenses.reduce(Int64(0)) { $0 + abs($1.amount) }
-        let incomeTotal = incomes.reduce(Int64(0)) { $0 + abs($1.amount) }
+        // ADR-001: normalize each tx into base currency. rates come from the
+        // provided currencyManager (USD-pivoted). Falls back to 1:1 when
+        // accountsById is empty (legacy callers).
+        let fxRates: [String: Decimal] = currencyManager.rates.mapValues { Decimal($0) }
+        let baseCode = currencyManager.dataCurrency.rawValue.uppercased()
+        let toBase: (Transaction) -> Int64 = { tx in
+            TransactionMath.amountInBase(tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode)
+        }
+        let expenseTotal = expenses.reduce(Int64(0)) { $0 + abs(toBase($1)) }
+        let incomeTotal = incomes.reduce(Int64(0)) { $0 + abs(toBase($1)) }
         let net = incomeTotal - expenseTotal
 
         var categoryTotals: [String: Int64] = [:]
         for tx in expenses {
             guard let cat = tx.categoryId else { continue }
-            categoryTotals[cat, default: 0] += abs(tx.amountNative)
+            categoryTotals[cat, default: 0] += abs(toBase(tx))
         }
         let topIds = categoryTotals
             .sorted { $0.value > $1.value }

@@ -99,7 +99,7 @@ struct AnalyticsTabView: View {
                         // 6. Cashflow Chart
                         if isNewUser {
                             CashflowChartView(
-                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
+                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod), dataStore: dataStore)
                             )
                             .demoBlur(
                                 hint: String(localized: "analytics.cashflowHint"),
@@ -107,7 +107,7 @@ struct AnalyticsTabView: View {
                             ) { showAddTransaction = true }
                         } else {
                             CashflowChartView(
-                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod))
+                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod), dataStore: dataStore)
                             )
                         }
 

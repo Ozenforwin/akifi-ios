@@ -364,6 +364,41 @@ final class DataStore {
         Array(transactions.prefix(10))
     }
 
+    // MARK: - Transaction math helpers
+
+    /// Returns `tx.amountNative` FX-normalized to the user's base currency
+    /// (kopecks). Use whenever you aggregate transactions across multiple
+    /// accounts — `amountNative` is in each account's own currency and
+    /// cannot be summed directly.
+    func amountInBase(_ tx: Transaction) -> Int64 {
+        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
+            .mapValues { Decimal($0) }
+        let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        return TransactionMath.amountInBase(
+            tx,
+            accountsById: accountsById,
+            fxRates: fxRates,
+            baseCode: baseCode
+        )
+    }
+
+    /// Decimal variant in main units (not kopecks).
+    func amountInBaseDisplay(_ tx: Transaction) -> Decimal {
+        Decimal(amountInBase(tx)) / 100
+    }
+
+    /// Bundled FX context — handy when you need to pass it into a pure
+    /// engine (InsightEngine, CashFlowEngine, PDFReportGenerator) that
+    /// otherwise has no reference to `DataStore`.
+    var currencyContext: (accountsById: [String: Account], fxRates: [String: Decimal], baseCode: String) {
+        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
+            .mapValues { Decimal($0) }
+        let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        return (accountsById, fxRates, baseCode)
+    }
+
     // MARK: - Assistant Context
 
     /// Convert internal kopeck value (Int64) to whole currency units (Double).
@@ -404,21 +439,34 @@ final class DataStore {
         var byMonthCategoryKopecks: [String: [String: Int64]] = [:]
         var totalExpenseKopecks: Int64 = 0
         var totalIncomeKopecks: Int64 = 0
+
+        // ADR-001: balance math uses amount_native (in account currency).
+        // To aggregate across multiple accounts with different currencies
+        // (e.g. RUB Семейный + USD ByBit) we FX-normalize into base first,
+        // otherwise $5 gets summed into rubles as "5 ₽" — off by ~76×.
+        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
+            .mapValues { Decimal($0) }
+        let accountsById: [String: Account] = Dictionary(
+            uniqueKeysWithValues: accounts.map { ($0.id, $0) }
+        )
+        let inBase: (Transaction) -> Int64 = { tx in
+            TransactionMath.amountInBase(tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode)
+        }
+
         for tx in transactions {
-            // ADR-001: balance math uses amount_native (canonical, in account
-            // currency). Transaction.swift falls back to `amount` for legacy
-            // rows, so this is safe pre- and post-backfill.
+            let amount = inBase(tx)
             switch tx.type {
             case .expense:
-                totalExpenseKopecks += tx.amountNative
+                totalExpenseKopecks += amount
                 if let catId = tx.categoryId {
                     let name = categoryNameById[catId] ?? catId
-                    byCategoryKopecks[name, default: 0] += tx.amountNative
+                    byCategoryKopecks[name, default: 0] += amount
                     let monthKey = String(tx.date.prefix(7))  // yyyy-MM
-                    byMonthCategoryKopecks[monthKey, default: [:]][name, default: 0] += tx.amountNative
+                    byMonthCategoryKopecks[monthKey, default: [:]][name, default: 0] += amount
                 }
             case .income:
-                totalIncomeKopecks += tx.amountNative
+                totalIncomeKopecks += amount
             case .transfer:
                 break
             }
@@ -429,7 +477,7 @@ final class DataStore {
         for tx in transactions where tx.type == .expense {
             if let accId = tx.accountId {
                 let name = accountNameById[accId] ?? accId
-                byAccountKopecks[name, default: 0] += tx.amountNative
+                byAccountKopecks[name, default: 0] += inBase(tx)
             }
         }
 

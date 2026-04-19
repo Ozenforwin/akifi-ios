@@ -173,7 +173,8 @@ final class ReportsViewModel {
 
     func categoryBreakdown(
         from transactions: [Transaction],
-        categories: [Category]
+        categories: [Category],
+        dataStore: DataStore
     ) -> [CategoryBreakdownItem] {
         let monthTxs = monthTransactions(from: transactions)
         let filtered = monthTxs.filter { tx in
@@ -183,7 +184,7 @@ final class ReportsViewModel {
             )
         }
 
-        let total = filtered.reduce(Int64(0)) { $0 + $1.amount }
+        let total = filtered.reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
         guard total > 0 else { return [] }
 
         let categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
@@ -208,7 +209,7 @@ final class ReportsViewModel {
         for tx in filtered {
             let cat = tx.categoryId.flatMap { categoryIndex[$0] } ?? fallbackCategory
             let key = cat.name
-            byNameAmount[key, default: 0] += tx.amountNative
+            byNameAmount[key, default: 0] += dataStore.amountInBase(tx)
             byNameCount[key, default: 0] += 1
             if byNameCategory[key] == nil { byNameCategory[key] = cat }
         }
@@ -235,7 +236,7 @@ final class ReportsViewModel {
         let balance: Double
     }
 
-    func dailyBalanceTrend(from transactions: [Transaction]) -> [DailyBalancePoint] {
+    func dailyBalanceTrend(from transactions: [Transaction], dataStore: DataStore) -> [DailyBalancePoint] {
         let calendar = Calendar.current
 
         let comps = calendar.dateComponents([.year, .month], from: selectedMonth)
@@ -251,7 +252,8 @@ final class ReportsViewModel {
             guard let txDate = Self.txDateFormatter.date(from: tx.date) else { continue }
             let day = calendar.component(.day, from: txDate)
 
-            let signed: Int64 = tx.type == .income ? tx.amountNative : -tx.amountNative
+            let amount = dataStore.amountInBase(tx)
+            let signed: Int64 = tx.type == .income ? amount : -amount
             dailyNet[day, default: 0] += signed
         }
 

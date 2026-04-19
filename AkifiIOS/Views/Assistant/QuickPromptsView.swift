@@ -25,7 +25,7 @@ struct QuickPromptsView: View {
             var categoryTotals: [String: Int64] = [:]
             for tx in ds.transactions where tx.type == .expense {
                 if let catId = tx.categoryId {
-                    categoryTotals[catId, default: 0] += tx.amountNative
+                    categoryTotals[catId, default: 0] += ds.amountInBase(tx)
                 }
             }
             if let topCatId = categoryTotals.max(by: { $0.value < $1.value })?.key,

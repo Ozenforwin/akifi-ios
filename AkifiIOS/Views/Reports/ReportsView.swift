@@ -23,7 +23,7 @@ struct ReportsView: View {
     }
 
     var body: some View {
-        let items = vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories)
+        let items = vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories, dataStore: dataStore)
 
         VStack(spacing: 0) {
             // Swipeable header (not inside ScrollView — safe for gestures)

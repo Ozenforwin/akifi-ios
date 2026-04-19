@@ -62,19 +62,19 @@ final class AnalyticsViewModel {
         }
     }
 
-    func totalIncome(from transactions: [Transaction]) -> Decimal {
+    func totalIncome(from transactions: [Transaction], dataStore: DataStore) -> Decimal {
         transactions
             .filter { $0.type == .income && !$0.isTransfer }
-            .reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
+            .reduce(Decimal.zero) { $0 + dataStore.amountInBaseDisplay($1) }
     }
 
-    func totalExpense(from transactions: [Transaction]) -> Decimal {
+    func totalExpense(from transactions: [Transaction], dataStore: DataStore) -> Decimal {
         transactions
             .filter { $0.type == .expense && !$0.isTransfer }
-            .reduce(Decimal.zero) { $0 + $1.amount.displayAmount }
+            .reduce(Decimal.zero) { $0 + dataStore.amountInBaseDisplay($1) }
     }
 
-    func cashflowData(from transactions: [Transaction]) -> [CashflowPoint] {
+    func cashflowData(from transactions: [Transaction], dataStore: DataStore) -> [CashflowPoint] {
         let calendar = Calendar.current
         var grouped: [String: (income: Decimal, expense: Decimal)] = [:]
 
@@ -113,10 +113,11 @@ final class AnalyticsViewModel {
             }
 
             var entry = grouped[key, default: (income: .zero, expense: .zero)]
+            let amount = dataStore.amountInBaseDisplay(tx)
             if tx.type == .income {
-                entry.income += tx.amountNative.displayAmount
+                entry.income += amount
             } else if tx.type == .expense {
-                entry.expense += tx.amountNative.displayAmount
+                entry.expense += amount
             }
             grouped[key] = entry
         }
@@ -124,15 +125,15 @@ final class AnalyticsViewModel {
         return grouped.map { CashflowPoint(label: $0.key, income: $0.value.income, expense: $0.value.expense) }
     }
 
-    func categoryBreakdown(from transactions: [Transaction], categories: [Category]) -> [CategorySpending] {
+    func categoryBreakdown(from transactions: [Transaction], categories: [Category], dataStore: DataStore) -> [CategorySpending] {
         let expenses = transactions.filter { $0.type == .expense && !$0.isTransfer }
-        let totalExpense = expenses.reduce(Decimal.zero) { $0 + $1.amountNative.displayAmount }
+        let totalExpense = expenses.reduce(Decimal.zero) { $0 + dataStore.amountInBaseDisplay($1) }
         guard totalExpense > 0 else { return [] }
 
         var byCategory: [String: Decimal] = [:]
         for tx in expenses {
             let catId = tx.categoryId ?? "uncategorized"
-            byCategory[catId, default: .zero] += tx.amountNative.displayAmount
+            byCategory[catId, default: .zero] += dataStore.amountInBaseDisplay(tx)
         }
 
         return byCategory.compactMap { catId, amount in

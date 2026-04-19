@@ -97,6 +97,7 @@ struct ContentView: View {
         let categories = dataStore.categories
         let budgets = dataStore.budgets
         let subscriptions = dataStore.subscriptions
+        let ctx = dataStore.currencyContext
         let body = InsightEngine.weeklyDigest(
             InsightEngine.Input(
                 transactions: transactions,
@@ -108,7 +109,10 @@ struct ContentView: View {
                 },
                 formatAmountInCurrency: { amount, currency in
                     InsightCardsView.formatInCurrency(amount: amount, currency: currency)
-                }
+                },
+                accountsById: ctx.accountsById,
+                fxRates: ctx.fxRates,
+                baseCode: ctx.baseCode
             )
         )
         await NotificationManager.scheduleWeeklyDigest(body: body)

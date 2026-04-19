@@ -70,6 +70,13 @@ enum InsightEngine {
         /// Defaults to `formatAmount` when the caller doesn't supply a formatter.
         let formatAmountInCurrency: @Sendable (Int64, String?) -> String
         let now: Date
+        /// ADR-001: needed to normalize multi-currency transactions into a
+        /// single comparable number. `accountsById`/`fxRates`/`baseCode` are
+        /// fed into `TransactionMath.amountInBase`. Pre-ADR-001 callers pass
+        /// `[:]`/`[:]`/`"RUB"` which yields the legacy 1:1 behaviour.
+        let accountsById: [String: Account]
+        let fxRates: [String: Decimal]
+        let baseCode: String
 
         init(
             transactions: [Transaction],
@@ -78,7 +85,10 @@ enum InsightEngine {
             subscriptions: [SubscriptionTracker],
             formatAmount: @escaping @Sendable (Int64) -> String,
             formatAmountInCurrency: (@Sendable (Int64, String?) -> String)? = nil,
-            now: Date = Date()
+            now: Date = Date(),
+            accountsById: [String: Account] = [:],
+            fxRates: [String: Decimal] = [:],
+            baseCode: String = "RUB"
         ) {
             self.transactions = transactions
             self.categories = categories
@@ -87,6 +97,13 @@ enum InsightEngine {
             self.formatAmount = formatAmount
             self.formatAmountInCurrency = formatAmountInCurrency ?? { amount, _ in formatAmount(amount) }
             self.now = now
+            self.accountsById = accountsById
+            self.fxRates = fxRates
+            self.baseCode = baseCode
+        }
+
+        func amountInBase(_ tx: Transaction) -> Int64 {
+            TransactionMath.amountInBase(tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode)
         }
     }
 
@@ -120,25 +137,26 @@ enum InsightEngine {
         for tx in input.transactions {
             guard tx.type == .expense, !tx.isTransfer,
                   let d = df.date(from: tx.date) else { continue }
+            let amount = input.amountInBase(tx)
 
             if d >= monthStart {
-                thisMonthExp += tx.amountNative
+                thisMonthExp += amount
                 thisMonthCount += 1
-                if tx.amountNative > biggestAmount {
-                    biggestAmount = tx.amountNative
+                if amount > biggestAmount {
+                    biggestAmount = amount
                     biggestCatId = tx.categoryId
                 }
                 if let catId = tx.categoryId {
-                    catSpending[catId, default: 0] += tx.amountNative
+                    catSpending[catId, default: 0] += amount
                 }
             } else if d >= prevMonthStart && d < monthStart {
-                prevMonthExp += tx.amountNative
+                prevMonthExp += amount
             }
 
             if d >= weekStart {
-                thisWeekExp += tx.amountNative
+                thisWeekExp += amount
             } else if d >= prevWeekStart && d < weekStart {
-                prevWeekExp += tx.amountNative
+                prevWeekExp += amount
             }
         }
 
@@ -284,9 +302,10 @@ enum InsightEngine {
         var count = 0
         for tx in input.transactions {
             guard !tx.isTransfer, let d = df.date(from: tx.date), d >= weekStart else { continue }
+            let amount = input.amountInBase(tx)
             switch tx.type {
-            case .income: income += tx.amountNative
-            case .expense: expense += tx.amountNative; count += 1
+            case .income: income += amount
+            case .expense: expense += amount; count += 1
             case .transfer: continue
             }
         }

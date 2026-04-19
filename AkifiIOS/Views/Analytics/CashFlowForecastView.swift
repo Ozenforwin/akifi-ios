@@ -27,11 +27,15 @@ struct CashFlowForecastView: View {
     }
 
     private var forecast: CashFlowEngine.Forecast {
-        CashFlowEngine.forecast(
+        let ctx = dataStore.currencyContext
+        return CashFlowEngine.forecast(
             startingBalance: startingBalance,
             transactions: dataStore.transactions,
             subscriptions: dataStore.subscriptions,
-            monthsAhead: horizon.rawValue
+            monthsAhead: horizon.rawValue,
+            accountsById: ctx.accountsById,
+            fxRates: ctx.fxRates,
+            baseCode: ctx.baseCode
         )
     }
 

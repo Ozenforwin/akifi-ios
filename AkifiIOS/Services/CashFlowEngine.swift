@@ -86,7 +86,10 @@ enum CashFlowEngine {
         monthsAhead: Int = 3,
         historyMonths: Int = 3,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        accountsById: [String: Account] = [:],
+        fxRates: [String: Decimal] = [:],
+        baseCode: String = "RUB"
     ) -> Forecast {
         let horizon = max(1, min(12, monthsAhead))
         let history = max(1, min(12, historyMonths))
@@ -108,7 +111,10 @@ enum CashFlowEngine {
             transactions: filteredTransactions,
             months: history,
             now: now,
-            calendar: calendar
+            calendar: calendar,
+            accountsById: accountsById,
+            fxRates: fxRates,
+            baseCode: baseCode
         )
         let nonEmptyBuckets = buckets.filter { $0.income > 0 || $0.expense > 0 }
         let sampleMonths = nonEmptyBuckets.count
@@ -248,7 +254,10 @@ enum CashFlowEngine {
         transactions: [Transaction],
         months: Int,
         now: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        accountsById: [String: Account] = [:],
+        fxRates: [String: Decimal] = [:],
+        baseCode: String = "RUB"
     ) -> [MonthlyBucket] {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -272,11 +281,16 @@ enum CashFlowEngine {
             let key = String(format: "%04d-%02d", comps.year ?? 0, comps.month ?? 0)
             guard buckets[key] != nil else { continue }
             let current = buckets[key] ?? MonthlyBucket(income: 0, expense: 0)
+            // ADR-001: normalize into base currency so USD + RUB transactions
+            // can be summed into the same bucket.
+            let amount = TransactionMath.amountInBase(
+                tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode
+            )
             switch tx.type {
             case .income:
-                buckets[key] = MonthlyBucket(income: current.income + tx.amountNative, expense: current.expense)
+                buckets[key] = MonthlyBucket(income: current.income + amount, expense: current.expense)
             case .expense:
-                buckets[key] = MonthlyBucket(income: current.income, expense: current.expense + tx.amountNative)
+                buckets[key] = MonthlyBucket(income: current.income, expense: current.expense + amount)
             case .transfer:
                 continue
             }

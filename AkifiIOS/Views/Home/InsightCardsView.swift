@@ -15,6 +15,7 @@ struct InsightCardsView: View {
 
     private var insights: [InsightEngine.Insight] {
         let fmt = appViewModel.currencyManager
+        let ctx = dataStore.currencyContext
         let all = InsightEngine.generate(
             InsightEngine.Input(
                 transactions: dataStore.transactions,
@@ -24,7 +25,10 @@ struct InsightCardsView: View {
                 formatAmount: { amount in MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) } },
                 formatAmountInCurrency: { amount, currency in
                     Self.formatInCurrency(amount: amount, currency: currency)
-                }
+                },
+                accountsById: ctx.accountsById,
+                fxRates: ctx.fxRates,
+                baseCode: ctx.baseCode
             )
         )
         let skip = dismissedSet

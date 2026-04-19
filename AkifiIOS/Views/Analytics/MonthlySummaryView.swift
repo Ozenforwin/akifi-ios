@@ -35,8 +35,9 @@ struct MonthlySummaryView: View {
             guard let date = df.date(from: tx.date) else { continue }
             let txComps = cal.dateComponents([.year, .month], from: date)
             guard txComps.year == comps.year, txComps.month == comps.month else { continue }
-            if tx.type == .income { income += tx.amountNative.displayAmount }
-            else if tx.type == .expense { expense += tx.amountNative.displayAmount }
+            let amount = appViewModel.dataStore.amountInBaseDisplay(tx)
+            if tx.type == .income { income += amount }
+            else if tx.type == .expense { expense += amount }
         }
         return (income, expense)
     }

@@ -42,7 +42,7 @@ struct CategoryBreakdownView: View {
         var byCategory: [String: Decimal] = [:]
         for tx in txs {
             let catId = tx.categoryId ?? "uncategorized"
-            byCategory[catId, default: 0] += tx.amountNative.displayAmount
+            byCategory[catId, default: 0] += appViewModel.dataStore.amountInBaseDisplay(tx)
         }
 
         return byCategory.compactMap { catId, amount in
