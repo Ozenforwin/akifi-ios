@@ -15,23 +15,33 @@ import Foundation
 /// member has no fair-share obligation but their contributions still
 /// count (they're effectively a lender).
 ///
-/// Settlement is strictly **feature-scoped**: only expenses created via
-/// `create_expense_with_auto_transfer` (i.e. with `auto_transfer_group_id`
-/// set) are counted. Direct expenses on the shared account and legacy
-/// manual transfer pairs that predate the feature are intentionally
-/// ignored — surfacing them as "debts" would confuse users who recorded
-/// those rows before the feature existed.
+/// Settlement counts two buckets of shared-account expenses:
+///
+/// 1. **Auto-transfer expenses** — the main expense leg of a triplet
+///    produced by `create_expense_with_auto_transfer` (expense row with
+///    `auto_transfer_group_id != nil`, `transfer_group_id == nil`). The
+///    paying user is credited via their personal-account source leg.
+/// 2. **Direct expenses** — rows on the shared account with
+///    `autoTransferGroupId == nil` AND `transferGroupId == nil`. We treat
+///    these as "paid directly from the shared-account kitty by the
+///    creator": `contributions[userId] += amount`. Effect: `totalExpenses`
+///    grows by `amount` (raising everyone's `fairShare`), and the
+///    creator's contributed also grows by `amount`. Their delta stays
+///    zero iff their direct-expense sum equals their fair share; if they
+///    paid more than their share, `delta > 0` and they're owed the rest.
+///
+/// Legacy manual transfer pairs (those without `auto_transfer_group_id`)
+/// are still ignored — they predate the feature and pulling them in
+/// would silently surface large historical debts.
 ///
 /// Contributions are credited by walking auto-transfer groups: the peer
 /// leg of each auto-transfer on the shared account is mapped back to a
-/// member via `personalAccountsByUser`. Cross-currency transfer-out legs
-/// (stored in the source account's currency) are treated as contributions
-/// at face value — the settlement math operates on whatever the DB says
-/// the leg's `amount` is, without re-running FX. Today `decodeKopecks`
-/// interprets every amount as RUB kopecks, so cross-currency source
-/// legs will under-contribute a member until a future migration adds
-/// per-row FX normalization. Callers that need currency-correct
-/// contribution totals should normalize upstream.
+/// member via `personalAccountsByUser`. Cross-currency source legs are
+/// normalized to the shared-account's base currency at read time when
+/// the caller supplies `fxRates` + `baseCurrency`. Missing FX data falls
+/// back to face-value — the old behavior, documented historically. A
+/// follow-up migration will move to per-row stored FX to avoid snapshot
+/// drift; for now we accept a small live-rate dependency.
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
@@ -101,6 +111,14 @@ enum SettlementCalculator {
     ///     Default empty or all-equal collapses to equal split. Members
     ///     missing from the map get weight 1.0 (backward-compat with
     ///     rows that predate the `split_weight` column).
+    ///   - fxRates: USD-based currency rates (`["USD": 1.0, "RUB": 92.5, …]`)
+    ///     used to normalize cross-currency source legs into the base
+    ///     currency. Source: `CurrencyManager.rates`. Empty or missing
+    ///     rates fall back to face-value math (legacy behavior).
+    ///   - baseCurrency: ISO 4217 of the shared account. All cross-
+    ///     currency contributions are converted TO this currency before
+    ///     being added into `contributions`. `nil` / unknown → fall back
+    ///     to face-value.
     static func compute(
         sharedAccountId: String,
         transactions: [Transaction],
@@ -108,7 +126,9 @@ enum SettlementCalculator {
         personalAccountsByUser: [String: Set<String>],
         period: DateInterval,
         pastSettlements: [Settlement] = [],
-        memberWeights: [String: Decimal] = [:]
+        memberWeights: [String: Decimal] = [:],
+        fxRates: [String: Double] = [:],
+        baseCurrency: String? = nil
     ) -> [MemberBalance] {
         guard !memberUserIds.isEmpty else { return [] }
 
@@ -134,27 +154,30 @@ enum SettlementCalculator {
         }
 
         // 1. Gather in-period rows scoped to this account.
-        //    Settlement only reasons about transactions created via the
-        //    payment-source feature (expenses with auto_transfer_group_id).
-        //    Legacy manual transfers and direct expenses on the shared
-        //    account are INTENTIONALLY IGNORED — they were recorded before
-        //    the feature existed, and pulling them into settlement would
-        //    silently surface huge historical debts the user never opted
-        //    into. Feature-scoped settlement starts clean.
+        //    Auto-transfer expenses AND direct expenses both count toward
+        //    totalExpenses. Legacy manual transfer legs (transferGroupId set
+        //    but autoTransferGroupId == nil) remain ignored — they pre-
+        //    date the feature and pulling them in would surface huge
+        //    historical debts the user never opted into.
         let accountRows = transactions.filter {
             $0.accountId == sharedAccountId && inPeriod($0.rawDateTime.isEmpty ? $0.date : $0.rawDateTime)
         }
 
-        // 2. Total shared-account expenses — ONLY expense rows that are part
-        //    of an auto-transfer triplet (transfer_group_id == nil and
-        //    auto_transfer_group_id != nil = the main expense leg). Direct
-        //    expenses and legacy expenses don't count.
-        let expenses = accountRows.filter {
+        // 2. Total shared-account expenses = main expense leg of each
+        //    auto-transfer triplet + direct expenses (no transfer_group_id
+        //    AND no auto_transfer_group_id). Legacy manual transfers skipped.
+        let autoTransferExpenses = accountRows.filter {
             $0.type == .expense
                 && $0.transferGroupId == nil
                 && $0.autoTransferGroupId != nil
         }
-        let totalExpenses: Int64 = expenses.reduce(0) { $0 + $1.amount }
+        let directExpenses = accountRows.filter {
+            $0.type == .expense
+                && $0.transferGroupId == nil
+                && $0.autoTransferGroupId == nil
+        }
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amount }
+            + directExpenses.reduce(0) { $0 + $1.amount }
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
@@ -182,9 +205,16 @@ enum SettlementCalculator {
             return Int64(truncating: rounded as NSDecimalNumber)
         }
 
-        // 3. Contributions — walk ONLY auto-transfer groups (rows with both
-        //    transfer_group_id AND auto_transfer_group_id set). Manual
-        //    transfer pairs that predate the feature are ignored on purpose.
+        // 3. Contributions.
+        //    (a) Walk auto-transfer triplets (transfer_group_id AND
+        //        auto_transfer_group_id both set). The peer leg on the
+        //        user's personal account tells us who to credit. Source
+        //        legs on a different-currency account are normalized
+        //        into the shared account's base currency via `fxRates`.
+        //    (b) Direct expenses on the shared account are credited to
+        //        their creator, since they paid "out of the common kitty"
+        //        — economically equivalent to paying their fair share.
+        //    Manual transfer pairs that predate the feature are ignored.
         var contributions: [String: Int64] = Dictionary(uniqueKeysWithValues: memberUserIds.map { ($0, 0) })
 
         let autoTransferLegsOnShared = accountRows.filter {
@@ -200,10 +230,16 @@ enum SettlementCalculator {
             guard let peer, let peerAccountId = peer.accountId else {
                 // Peer hidden by RLS — attribute to the row creator as best-effort.
                 let uid = row.userId
+                let normalized = normalizeToBase(
+                    amount: row.amount,
+                    rowCurrency: row.currency,
+                    baseCurrency: baseCurrency,
+                    fxRates: fxRates
+                )
                 if row.type == .income {
-                    contributions[uid, default: 0] += row.amount
+                    contributions[uid, default: 0] += normalized
                 } else if row.type == .expense {
-                    contributions[uid, default: 0] -= row.amount
+                    contributions[uid, default: 0] -= normalized
                 }
                 continue
             }
@@ -215,11 +251,36 @@ enum SettlementCalculator {
                 accounts.contains(peerAccountId)
             }?.key ?? row.userId
 
+            // Normalize the row amount from its source currency back to
+            // base. `row` here is the leg on the shared account (target
+            // currency) OR the source leg (personal currency); peer legs
+            // inside the triplet live on two different currencies when
+            // cross-currency. We always normalize using the row's own
+            // `currency` field so the transfer-out leg (in source ccy)
+            // converts correctly.
+            let normalized = normalizeToBase(
+                amount: row.amount,
+                rowCurrency: row.currency,
+                baseCurrency: baseCurrency,
+                fxRates: fxRates
+            )
+
             if row.type == .income {
-                contributions[attributedUser, default: 0] += row.amount
+                contributions[attributedUser, default: 0] += normalized
             } else if row.type == .expense {
-                contributions[attributedUser, default: 0] -= row.amount
+                contributions[attributedUser, default: 0] -= normalized
             }
+        }
+
+        // (b) Direct expenses — credit the creator.
+        for tx in directExpenses {
+            let normalized = normalizeToBase(
+                amount: tx.amount,
+                rowCurrency: tx.currency,
+                baseCurrency: baseCurrency,
+                fxRates: fxRates
+            )
+            contributions[tx.userId, default: 0] += normalized
         }
 
         // 4. Apply past settlements — each closed debt adjusts both sides'
@@ -253,6 +314,40 @@ enum SettlementCalculator {
                 fairShare: fairShareFor(uid)
             )
         }
+    }
+
+    /// Converts an `amount` (kopecks, interpreted as whatever `rowCurrency`
+    /// says the row was recorded in) into `baseCurrency` kopecks using
+    /// `fxRates` (USD-based). Falls back to the face-value amount when:
+    /// - `rowCurrency` or `baseCurrency` is nil/unknown,
+    /// - they match (no conversion needed),
+    /// - any of the required rates is missing/zero.
+    /// This keeps the engine robust when `CurrencyManager` hasn't loaded
+    /// rates yet (cold start, offline, etc) — a small currency drift is
+    /// preferable to a crash or wildly wrong settlement.
+    static func normalizeToBase(
+        amount: Int64,
+        rowCurrency: String?,
+        baseCurrency: String?,
+        fxRates: [String: Double]
+    ) -> Int64 {
+        guard let rowCurrency, let baseCurrency else { return amount }
+        let row = rowCurrency.uppercased()
+        let base = baseCurrency.uppercased()
+        if row == base { return amount }
+        guard let fromRate = fxRates[row], fromRate != 0,
+              let toRate = fxRates[base], toRate != 0
+        else { return amount }
+        // USD-based rates: rate[row] = rows-per-USD. To convert rows → base:
+        //   base_amount = amount / fromRate * toRate.
+        let decAmount = Decimal(amount)
+        let decFrom = Decimal(fromRate)
+        let decTo = Decimal(toRate)
+        let converted = decAmount / decFrom * decTo
+        var rounded = Decimal()
+        var src = converted
+        NSDecimalRound(&rounded, &src, 0, .plain)
+        return Int64(truncating: rounded as NSDecimalNumber)
     }
 
     /// Greedy min-cash-flow settlement. O(N log N) where N = member count.
