@@ -1,0 +1,30 @@
+/* Balance widget */
+"widget.balance.title" = "Saldo";
+"widget.balance.displayName" = "Saldo";
+"widget.balance.description" = "Suma de todas las cuentas en tu moneda base";
+"widget.balance.accounts" = "En %d cuentas";
+
+/* Daily limit widget */
+"widget.dailyLimit.title" = "Para hoy";
+"widget.dailyLimit.displayName" = "Límite diario";
+"widget.dailyLimit.description" = "Cuánto puedes gastar hoy sin salirte del presupuesto";
+"widget.dailyLimit.spent" = "Hoy: %@";
+"widget.dailyLimit.empty" = "Sin presupuestos activos";
+"widget.dailyLimit.cta" = "Crea un presupuesto en la app";
+
+/* Streak widget */
+"widget.streak.title" = "Racha";
+"widget.streak.displayName" = "Racha";
+"widget.streak.description" = "Días consecutivos registrando transacciones";
+"widget.streak.daysShort" = "d.";
+"widget.streak.nextMilestone" = "Hasta %d";
+"widget.streak.valueA11y" = "%d días, siguiente meta %d";
+"widget.streak.lockLabel" = "Racha: %d d.";
+
+/* Day summary widget */
+"widget.daySummary.title" = "Hoy";
+"widget.daySummary.displayName" = "Día en cifras";
+"widget.daySummary.description" = "Ingresos y gastos de hoy";
+"widget.daySummary.income" = "Ingreso";
+"widget.daySummary.expense" = "Gasto";
+"widget.daySummary.net" = "Neto";

@@ -309,6 +309,33 @@ struct MainTabView: View {
         }
         .task { await checkNewAchievements() }
         .onOpenURL { url in
+            // 1) Widget deep links: akifi://home | akifi://budgets | akifi://transactions
+            if url.scheme == "akifi" {
+                if let host = url.host {
+                    switch host {
+                    case "home":
+                        withAnimation { selectedTab = .home }
+                        AnalyticsService.logEvent("widget_tap", params: ["target": "home"])
+                        return
+                    case "budgets":
+                        withAnimation { selectedTab = .budgets }
+                        AnalyticsService.logEvent("widget_tap", params: ["target": "budgets"])
+                        return
+                    case "transactions":
+                        withAnimation { selectedTab = .transactions }
+                        AnalyticsService.logEvent("widget_tap", params: ["target": "transactions"])
+                        return
+                    case "analytics":
+                        withAnimation { selectedTab = .analytics }
+                        AnalyticsService.logEvent("widget_tap", params: ["target": "analytics"])
+                        return
+                    default:
+                        break
+                    }
+                }
+            }
+
+            // 2) Invite links: akifi://invite/<code> or https://akifi.pro/invite/<code>
             let code: String?
             if url.scheme == "akifi", url.host == "invite" {
                 code = url.pathComponents.last
