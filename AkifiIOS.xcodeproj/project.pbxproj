@@ -231,6 +231,20 @@
 		FB2231D5EACFC1E2F0FECDC0 /* CurrencyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */; };
 		FB67AC32B5F6324937EC7AC3 /* AssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 701F2C962DC5005DED548E16 /* AssistantModels.swift */; };
 		FF3DBC614FB5FA67D7FAA590 /* LiabilityListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FF356789EFABE383A71A6D /* LiabilityListView.swift */; };
+		D812CA9F75BC97590F75658B /* AccountType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE04AF1F604E58A1B25FD31 /* AccountType.swift */; };
+		3F7C6958549B6F94F67337AE /* Deposit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC487D9505DE48EB2DD29AEA /* Deposit.swift */; };
+		7464D7380EF7827F48CB202D /* DepositContribution.swift in Sources */ = {isa = PBXBuildFile; fileRef = E310BFAAA9A4656BDBAC1EB8 /* DepositContribution.swift */; };
+		EC4C5711A68691A8206C40B3 /* InterestCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 811FCCAD2430FCF0A2FA75AF /* InterestCalculator.swift */; };
+		C85657D5A65DB59DF05C6A03 /* DepositRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754E3B8C539AE6DA199C3700 /* DepositRepository.swift */; };
+		DBFF2B59E685192B0E0F24C9 /* DepositContributionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A45428A0797EAD9E139D1FF /* DepositContributionRepository.swift */; };
+		072E0D36EBD08DA08C8F8BDB /* DepositsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AB2AF6D8EE96D05EAB554F /* DepositsViewModel.swift */; };
+		B9D377694EEBD7554D5BDE86 /* DepositCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CBB1545601FFA8B3ACFA38 /* DepositCardView.swift */; };
+		F927190E7614798FC56D80A4 /* DepositListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAABF95A5D46D5032247291 /* DepositListView.swift */; };
+		17FD2EF7CC52A0227BECDFF9 /* DepositDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555E69AEA52F7BD3D57B82A /* DepositDetailView.swift */; };
+		79CE612D21AB78AF71DE7E60 /* DepositFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 019F1E7CAD332330DCAD356B /* DepositFormView.swift */; };
+		ED94812DDB9B07355F81FE37 /* DepositContributeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F91B53D3675F9BC7448B26 /* DepositContributeSheet.swift */; };
+		5A793B952871BF30A2CDFA49 /* DepositsShortcutCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B76499C830093F2320FA1BA /* DepositsShortcutCard.swift */; };
+		4010565DBE88D540DFDD725E /* InterestCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEDE00422C75DF042697EA3 /* InterestCalculatorTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -468,6 +482,20 @@
 		FED43B92B56D99F955B20ECD /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		FEF54246AA8846CFBFDE7C2B /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
 		FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyManager.swift; sourceTree = "<group>"; };
+		8AE04AF1F604E58A1B25FD31 /* AccountType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountType.swift; sourceTree = "<group>"; };
+		FC487D9505DE48EB2DD29AEA /* Deposit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deposit.swift; sourceTree = "<group>"; };
+		E310BFAAA9A4656BDBAC1EB8 /* DepositContribution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositContribution.swift; sourceTree = "<group>"; };
+		811FCCAD2430FCF0A2FA75AF /* InterestCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterestCalculator.swift; sourceTree = "<group>"; };
+		754E3B8C539AE6DA199C3700 /* DepositRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositRepository.swift; sourceTree = "<group>"; };
+		8A45428A0797EAD9E139D1FF /* DepositContributionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositContributionRepository.swift; sourceTree = "<group>"; };
+		80AB2AF6D8EE96D05EAB554F /* DepositsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositsViewModel.swift; sourceTree = "<group>"; };
+		63CBB1545601FFA8B3ACFA38 /* DepositCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositCardView.swift; sourceTree = "<group>"; };
+		5DAABF95A5D46D5032247291 /* DepositListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositListView.swift; sourceTree = "<group>"; };
+		7555E69AEA52F7BD3D57B82A /* DepositDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositDetailView.swift; sourceTree = "<group>"; };
+		019F1E7CAD332330DCAD356B /* DepositFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositFormView.swift; sourceTree = "<group>"; };
+		F8F91B53D3675F9BC7448B26 /* DepositContributeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositContributeSheet.swift; sourceTree = "<group>"; };
+		7B76499C830093F2320FA1BA /* DepositsShortcutCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositsShortcutCard.swift; sourceTree = "<group>"; };
+		0CEDE00422C75DF042697EA3 /* InterestCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterestCalculatorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -624,6 +652,7 @@
 		61C73AB8B4463DBB1BE8B223 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DFB50692F6F77A90EE5B8930 /* Deposits */,
 				0300DBBBE4F76E49F2CE1436 /* Account */,
 				5E8FAFE209AAF135E3A5AF01 /* Achievements */,
 				240A3EF4B7D2C3B7D5F1A041 /* Analytics */,
@@ -660,6 +689,7 @@
 		78B856A8965CBB5BF143264B /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				80AB2AF6D8EE96D05EAB554F /* DepositsViewModel.swift */,
 				01B140AC1B112CBFC6D9195C /* AchievementsViewModel.swift */,
 				77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */,
 				31AA3877A2A8E8EE321BC019 /* AppViewModel.swift */,
@@ -743,6 +773,7 @@
 		B8785A758EA2B99D504FD259 /* AkifiIOSTests */ = {
 			isa = PBXGroup;
 			children = (
+				0CEDE00422C75DF042697EA3 /* InterestCalculatorTests.swift */,
 				E6E1D4FADBE00F9F5ECE64E7 /* BudgetMathTests.swift */,
 				0F00EDE42A92AC27E3CF2ED2 /* CashFlowEngineTests.swift */,
 				49D407DC94F842983B18DCCD /* ChallengeProgressEngineTests.swift */,
@@ -772,6 +803,9 @@
 		BDA9CB0517B0EF1B92E67DD3 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				8AE04AF1F604E58A1B25FD31 /* AccountType.swift */,
+				FC487D9505DE48EB2DD29AEA /* Deposit.swift */,
+				E310BFAAA9A4656BDBAC1EB8 /* DepositContribution.swift */,
 				E2075D79E0839CC0130C2C3D /* Account.swift */,
 				ED77D67825DE06280BE5DFAA /* Achievement.swift */,
 				00A6F860A62BF06C599A8AFD /* AiConversation.swift */,
@@ -836,6 +870,8 @@
 		D45B8944CB8FFC37CB769DFD /* Repositories */ = {
 			isa = PBXGroup;
 			children = (
+				754E3B8C539AE6DA199C3700 /* DepositRepository.swift */,
+				8A45428A0797EAD9E139D1FF /* DepositContributionRepository.swift */,
 				63C07ED176280108B620D58C /* AccountRepository.swift */,
 				46150F6E1E8857A9291AA5C9 /* AchievementRepository.swift */,
 				DC0F925C8D01829EEFAB0374 /* AiRepository.swift */,
@@ -861,6 +897,7 @@
 		DB2554E46BD1ED54965B714C /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				811FCCAD2430FCF0A2FA75AF /* InterestCalculator.swift */,
 				A3A9B0A98C8755FBF0D63C69 /* AnalyticsService.swift */,
 				81816EE24C0CD8CB770E5FD4 /* AppDelegate.swift */,
 				3CEE73B6B6EE928AEDAD360A /* AppLogger.swift */,
@@ -963,6 +1000,19 @@
 				E66DD3DED8AB88DA009D848E /* BudgetsTabView.swift */,
 			);
 			path = Budgets;
+			sourceTree = "<group>";
+		};
+		DFB50692F6F77A90EE5B8930 /* Deposits */ = {
+			isa = PBXGroup;
+			children = (
+				63CBB1545601FFA8B3ACFA38 /* DepositCardView.swift */,
+				5DAABF95A5D46D5032247291 /* DepositListView.swift */,
+				7555E69AEA52F7BD3D57B82A /* DepositDetailView.swift */,
+				019F1E7CAD332330DCAD356B /* DepositFormView.swift */,
+				F8F91B53D3675F9BC7448B26 /* DepositContributeSheet.swift */,
+				7B76499C830093F2320FA1BA /* DepositsShortcutCard.swift */,
+			);
+			path = Deposits;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1070,6 +1120,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4010565DBE88D540DFDD725E /* InterestCalculatorTests.swift in Sources */,
 				7F3AF5B7BCB77B12D0704A63 /* BudgetMathTests.swift in Sources */,
 				D0F9C3A3F879C2DF6086F02C /* CashFlowEngineTests.swift in Sources */,
 				78A33B5B05B8821C9864D7DE /* ChallengeProgressEngineTests.swift in Sources */,
@@ -1087,6 +1138,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D812CA9F75BC97590F75658B /* AccountType.swift in Sources */,
+				3F7C6958549B6F94F67337AE /* Deposit.swift in Sources */,
+				7464D7380EF7827F48CB202D /* DepositContribution.swift in Sources */,
+				EC4C5711A68691A8206C40B3 /* InterestCalculator.swift in Sources */,
+				C85657D5A65DB59DF05C6A03 /* DepositRepository.swift in Sources */,
+				DBFF2B59E685192B0E0F24C9 /* DepositContributionRepository.swift in Sources */,
+				072E0D36EBD08DA08C8F8BDB /* DepositsViewModel.swift in Sources */,
+				B9D377694EEBD7554D5BDE86 /* DepositCardView.swift in Sources */,
+				F927190E7614798FC56D80A4 /* DepositListView.swift in Sources */,
+				17FD2EF7CC52A0227BECDFF9 /* DepositDetailView.swift in Sources */,
+				79CE612D21AB78AF71DE7E60 /* DepositFormView.swift in Sources */,
+				ED94812DDB9B07355F81FE37 /* DepositContributeSheet.swift in Sources */,
+				5A793B952871BF30A2CDFA49 /* DepositsShortcutCard.swift in Sources */,
 				DF46766C21FC5B46B9335070 /* AISettingsView.swift in Sources */,
 				E1A7BB737C6BDB410DA975D5 /* Account.swift in Sources */,
 				46BB4A88B6171524048E702F /* AccountCarouselView.swift in Sources */,

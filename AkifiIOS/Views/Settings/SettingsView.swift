@@ -176,6 +176,12 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        DepositListView()
+                    } label: {
+                        SettingsRow(icon: "percent", color: .purple, title: String(localized: "deposit.title"))
+                    }
+
+                    NavigationLink {
                         SubscriptionListView()
                     } label: {
                         SettingsRow(icon: "repeat.circle.fill", color: .accent, title: String(localized: "subscriptions.title"))

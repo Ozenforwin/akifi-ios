@@ -88,6 +88,16 @@ struct HomeTabView: View {
                         .buttonStyle(.plain)
                     }
 
+                    // 4c. Deposits shortcut — aggregate principal+accrued
+                    //     and nearest maturity countdown. Hidden until
+                    //     the user has at least one deposit.
+                    if !isNewUser && dataStore.accounts.contains(where: { $0.accountType == .deposit }) {
+                        NavigationLink(destination: DepositListView()) {
+                            DepositsShortcutCard()
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     // 6. Summary Cards
                     summarySection
 
