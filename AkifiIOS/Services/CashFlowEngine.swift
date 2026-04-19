@@ -30,13 +30,27 @@ enum CashFlowEngine {
         let avgMonthlyIncome: Int64
         let avgMonthlyExpense: Int64
         let monthlySubscriptionCost: Int64
-        let sampleMonths: Int          // how many months of history we used
+        let sampleMonths: Int          // how many *non-empty* months of history we used
         let confidence: Confidence
         let points: [MonthPoint]
 
         /// Net monthly savings rate (income - expense - subscriptions).
+        ///
+        /// Note: `avgMonthlyExpense` already excludes subscription-linked
+        /// transactions (see `filterOutSubscriptionLinked`), so subscriptions
+        /// only contribute via `monthlySubscriptionCost`.
         var netMonthly: Int64 {
             avgMonthlyIncome - avgMonthlyExpense - monthlySubscriptionCost
+        }
+
+        /// If `netMonthly < 0`, how many full months the `startingBalance`
+        /// will last at the current burn rate. `nil` if the user is net-positive
+        /// or starting balance is already non-positive.
+        var monthsUntilEmpty: Int? {
+            guard netMonthly < 0, startingBalance > 0 else { return nil }
+            let burn = -netMonthly
+            // Integer floor division — e.g. balance 400, burn 100 → 4 months.
+            return Int(startingBalance / burn)
         }
     }
 
@@ -77,30 +91,58 @@ enum CashFlowEngine {
         let horizon = max(1, min(12, monthsAhead))
         let history = max(1, min(12, historyMonths))
 
-        // 1. Build monthly buckets for income/expense.
-        let buckets = monthlyBuckets(transactions: transactions, months: history, now: now, calendar: calendar)
-        let sampleMonths = buckets.count
+        // 1. Filter out expense transactions that plausibly correspond to
+        //    active subscriptions — we bill those separately via
+        //    `monthlySubscriptionCost` to avoid double-counting.
+        let filteredTransactions = filterOutSubscriptionLinked(
+            transactions: transactions,
+            subscriptions: subscriptions,
+            calendar: calendar
+        )
 
-        let totalIncome = buckets.reduce(Int64(0)) { $0 + $1.income }
-        let totalExpense = buckets.reduce(Int64(0)) { $0 + $1.expense }
-        let avgIncome = sampleMonths > 0 ? totalIncome / Int64(sampleMonths) : 0
-        let avgExpense = sampleMonths > 0 ? totalExpense / Int64(sampleMonths) : 0
+        // 2. Build monthly buckets for income/expense.
+        //    `nonEmpty` counts only months that had at least one non-transfer
+        //    transaction — this is the *real* sample size, unaffected by
+        //    the fixed `historyMonths` window.
+        let buckets = monthlyBuckets(
+            transactions: filteredTransactions,
+            months: history,
+            now: now,
+            calendar: calendar
+        )
+        let nonEmptyBuckets = buckets.filter { $0.income > 0 || $0.expense > 0 }
+        let sampleMonths = nonEmptyBuckets.count
 
-        // 2. Monthly subscription cost (active only, normalized to monthly).
+        let totalIncome = nonEmptyBuckets.reduce(Int64(0)) { $0 + $1.income }
+        let totalExpense = nonEmptyBuckets.reduce(Int64(0)) { $0 + $1.expense }
+        let divisor = Int64(max(1, sampleMonths))
+        let avgIncome = totalIncome / divisor
+        let avgExpense = totalExpense / divisor
+
+        // 3. Monthly subscription cost (active only, normalized to monthly).
         let monthlySubs = subscriptions
             .filter { $0.status == .active }
             .reduce(Int64(0)) { acc, sub in
                 acc + normalizeToMonthly(amount: sub.amount, period: sub.billingPeriod)
             }
 
-        // 3. Variance on expense for confidence band.
-        let expenseVariance = variance(
-            values: buckets.map(\.expense),
-            mean: avgExpense
-        )
-        let expenseStdDev = Int64(Double(expenseVariance).squareRoot())
+        // 4. Variance on expense for confidence band.
+        //    With <2 sample months variance is mathematically zero, which
+        //    produces a visually-collapsed band exactly when uncertainty
+        //    is *highest*. Substitute a heuristic (~15% of avgExpense) so
+        //    the band communicates genuine uncertainty.
+        let expenseStdDev: Int64
+        if sampleMonths >= 2 {
+            let expenseVariance = variance(
+                values: nonEmptyBuckets.map(\.expense),
+                mean: avgExpense
+            )
+            expenseStdDev = Int64(Double(expenseVariance).squareRoot())
+        } else {
+            expenseStdDev = Int64(Double(avgExpense) * 0.15)
+        }
 
-        // 4. Build forward month points.
+        // 5. Build forward month points.
         var points: [MonthPoint] = []
         var runningBalance = startingBalance
         var runningOptimistic = startingBalance
@@ -142,6 +184,64 @@ enum CashFlowEngine {
     struct MonthlyBucket: Sendable, Equatable {
         let income: Int64
         let expense: Int64
+    }
+
+    /// Drops expense transactions that look like payments for an active
+    /// subscription, using `SubscriptionMatcher` heuristics on amount +
+    /// merchant name. Income and transfers pass through unchanged.
+    ///
+    /// We deliberately ignore the matcher's date component here: `bestMatch`
+    /// compares against `nextPaymentDate`, but for a *historical* expense we
+    /// care about whether it structurally *looks like* a sub charge, not
+    /// whether it aligns with the upcoming invoice. So we apply a simplified
+    /// "amount within ±5% AND merchant name matches" rule.
+    static func filterOutSubscriptionLinked(
+        transactions: [Transaction],
+        subscriptions: [SubscriptionTracker],
+        calendar: Calendar
+    ) -> [Transaction] {
+        let activeSubs = subscriptions.filter { $0.status == .active }
+        guard !activeSubs.isEmpty else { return transactions }
+
+        return transactions.filter { tx in
+            guard tx.type == .expense else { return true }
+            return !matchesAnySubscription(tx, in: activeSubs)
+        }
+    }
+
+    /// Structural match (amount + merchant), no date constraint.
+    private static func matchesAnySubscription(
+        _ tx: Transaction,
+        in subs: [SubscriptionTracker]
+    ) -> Bool {
+        for sub in subs {
+            // Amount: both in minor units; require currency + ±5%.
+            guard sub.amount > 0 else { continue }
+            if let subCurrency = sub.currency?.uppercased(),
+               let txCurrency = tx.currency?.uppercased(),
+               subCurrency == txCurrency {
+                let delta = abs(Double(tx.amount) - Double(sub.amount))
+                let ratio = delta / Double(sub.amount)
+                guard ratio <= SubscriptionMatcher.amountTolerance else { continue }
+            } else {
+                continue
+            }
+
+            // Merchant: case-insensitive substring either direction.
+            let needle = sub.serviceName.lowercased().trimmingCharacters(in: .whitespaces)
+            guard !needle.isEmpty else { continue }
+            let haystacks: [String] = [
+                tx.merchantName ?? "",
+                tx.merchantFuzzy ?? "",
+                tx.description ?? ""
+            ].map { $0.lowercased() }
+            let matched = haystacks.contains { h in
+                guard !h.isEmpty else { return false }
+                return h.contains(needle) || needle.contains(h)
+            }
+            if matched { return true }
+        }
+        return false
     }
 
     static func monthlyBuckets(
