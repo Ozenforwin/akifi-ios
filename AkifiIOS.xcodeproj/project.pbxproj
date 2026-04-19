@@ -239,6 +239,7 @@
 		E22BB9091A5326C6EBA09738 /* BankImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07EB6E35A24CA838F4D2F29 /* BankImportView.swift */; };
 		E2C1E5CDFF2E178FCBF3A27F /* AnalyticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */; };
 		E3B4E9D76D72DBB97EA82A43 /* EvidenceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD55F50CC21E0102EDCD83BC /* EvidenceCardView.swift */; };
+		02063469509326E9C9D7DECE /* ShareConversationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29020B1E405A85796FCBD01F /* ShareConversationSheet.swift */; };
 		E45A0B3830B992820C3B6BAF /* AnalyticsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DFF0BEC556EF5A7CE6DD4C /* AnalyticsTabView.swift */; };
 		E5ECA93D0008ACF196626792 /* JournalNoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A37DDFABF48E62D8F235BCB0 /* JournalNoteDetailView.swift */; };
 		E6E02C1A73EFE9D9C0BD0849 /* LevelUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AF2D37ED5C32336B1C3554 /* LevelUpView.swift */; };
@@ -475,6 +476,7 @@
 		ACE82857554961F1B3DA77A9 /* SubscriptionMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionMatcher.swift; sourceTree = "<group>"; };
 		AD01A6497180AB4B83249087 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		AD55F50CC21E0102EDCD83BC /* EvidenceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceCardView.swift; sourceTree = "<group>"; };
+		29020B1E405A85796FCBD01F /* ShareConversationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareConversationSheet.swift; sourceTree = "<group>"; };
 		ADAD671AF57504D6FE12B0AF /* SpotlightOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightOverlayView.swift; sourceTree = "<group>"; };
 		AE0890C3925BD64853C4FD23 /* BudgetFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetFormView.swift; sourceTree = "<group>"; };
 		AEE752DC97115463EBA144B9 /* ReceiptScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScan.swift; sourceTree = "<group>"; };
@@ -900,6 +902,7 @@
 				806E97C784D40A84056083B6 /* ActionPreviewSheet.swift */,
 				596E30134A0FA5750FF736B6 /* AssistantView.swift */,
 				AD55F50CC21E0102EDCD83BC /* EvidenceCardView.swift */,
+				29020B1E405A85796FCBD01F /* ShareConversationSheet.swift */,
 				9A6B71036B8CED417D4AA4C8 /* MarkdownBlockView.swift */,
 				B4DE0EF0D2695DE0D29B4E09 /* MessageBubbleView.swift */,
 				BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */,
@@ -1433,6 +1436,7 @@
 				7E0FE0C2D78061A598DF4265 /* EmailAuthView.swift in Sources */,
 				600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */,
 				E3B4E9D76D72DBB97EA82A43 /* EvidenceCardView.swift in Sources */,
+				02063469509326E9C9D7DECE /* ShareConversationSheet.swift in Sources */,
 				7ABC2332BB3F18D92D077446 /* ExchangeRateService.swift in Sources */,
 				B73A0C4EB55B3FD8657DA23C /* ExchangeRates.swift in Sources */,
 				1EF6DE5CC7267C6B89E3A96C /* ExportView.swift in Sources */,

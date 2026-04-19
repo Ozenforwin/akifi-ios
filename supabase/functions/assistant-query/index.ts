@@ -72,6 +72,7 @@ import { nlgRephrase, loadUserSettings } from './nlg.ts';
 import { buildDataContext } from './data-context-builder.ts';
 import { analyzeWithLLM } from './analysis-llm.ts';
 import { runToolAgent } from './tool-agent.ts';
+import { getOrRefreshSummary } from './conversation-summary.ts';
 
 // ── Environment variables ──
 
@@ -663,10 +664,26 @@ Deno.serve(async (req) => {
       conversationId = newConv?.id ?? null;
     }
 
-    // Load conversation history BEFORE saving user message
-    const history = (conversationId && incomingConversationId)
+    // Load conversation history BEFORE saving user message.
+    // `liveHistory` = the last few raw turns. The intent classifier uses
+    // these only — they're enough to resolve pronouns / period follow-ups.
+    const liveHistory = (conversationId && incomingConversationId)
       ? await loadConversationHistory(serviceClient, conversationId, userId)
       : [];
+
+    // Rolling summary memory — folded older transcript so long chats keep
+    // context past the live window. Refreshed lazily inside the helper.
+    // Builders / NLG / tool-agent get `history` (summary + live), so they
+    // remember decisions and stated goals from earlier in the chat.
+    const conversationSummary: string | null = (conversationId && incomingConversationId)
+      ? await getOrRefreshSummary(serviceClient, conversationId, userId)
+      : null;
+    const history: ConversationMessage[] = conversationSummary
+      ? [
+          { role: 'assistant', content: `Сводка предыдущей части диалога:\n${conversationSummary}` },
+          ...liveHistory,
+        ]
+      : liveHistory;
 
     // Save user message
     if (conversationId) {
@@ -683,7 +700,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Intent classification (LLM primary + regex fallback) ──
-    const classification = await classifyIntent(rawQuery, history, userId);
+    const classification = await classifyIntent(rawQuery, liveHistory, userId);
     const { intent, period, entity, customDays } = classification;
 
     // Low-confidence fallback: ask clarifying question instead of generic help

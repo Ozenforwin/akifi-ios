@@ -7,6 +7,7 @@ struct AssistantView: View {
     @State private var feedbackMessage: ChatMessage?
     @State private var feedbackReason: FeedbackReason = .notHelpful
     @State private var feedbackCustomText = ""
+    @State private var showShareSheet = false
 
     /// Callback for navigation actions from the assistant
     var onNavigate: ((NavigationTarget) -> Void)?
@@ -23,9 +24,14 @@ struct AssistantView: View {
                                     onPromptSelected: { prompt in
                                         Task { await viewModel.sendFollowUp(prompt) }
                                     },
-                                    dataStore: viewModel.dataStore
+                                    dataStore: viewModel.dataStore,
+                                    lastConversation: viewModel.lastConversationPreview,
+                                    onResume: {
+                                        Task { await viewModel.resumeLastConversation() }
+                                    }
                                 )
                                 .padding(.top, 40)
+                                .task { await viewModel.loadLastConversationPreview() }
                             }
 
                             ForEach(viewModel.chatMessages) { message in
@@ -152,9 +158,22 @@ struct AssistantView: View {
                         } label: {
                             Label(String(localized: "assistant.history"), systemImage: "clock")
                         }
+                        if viewModel.currentConversation != nil {
+                            Button {
+                                showShareSheet = true
+                            } label: {
+                                Label(String(localized: "assistant.share"), systemImage: "square.and.arrow.up")
+                            }
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                if let conv = viewModel.currentConversation {
+                    ShareConversationSheet(conversation: conv)
+                        .presentationBackground(.ultraThinMaterial)
                 }
             }
             .sheet(isPresented: $viewModel.showConversations) {
@@ -303,6 +322,8 @@ struct FeedbackSheet: View {
 struct AssistantWelcomeView: View {
     let onPromptSelected: (String) -> Void
     var dataStore: DataStore?
+    var lastConversation: ConversationPreview?
+    var onResume: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -321,8 +342,79 @@ struct AssistantWelcomeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
+            if let preview = lastConversation, let onResume {
+                ContinueLastChatCard(preview: preview, onTap: onResume)
+                    .padding(.horizontal, 16)
+            }
+
             QuickPromptsView(onSelect: onPromptSelected, dataStore: dataStore)
         }
+    }
+}
+
+/// Surfaces the most recent unfinished chat at the top of the welcome
+/// screen so the user can pick up where they left off without scrolling
+/// through the conversations sheet.
+struct ContinueLastChatCard: View {
+    let preview: ConversationPreview
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "arrow.uturn.backward.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.aiGradientStart, .aiGradientEnd],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(String(localized: "assistant.continueLast"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let updated = preview.conversation.updatedAt,
+                           let date = ISO8601DateFormatter.shared.date(from: updated) {
+                            Text(date, style: .relative)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    if let title = preview.conversation.title, !title.isEmpty {
+                        Text(title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let answer = preview.lastAnswer, !answer.isEmpty {
+                        Text(answer)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.aiGradientEnd.opacity(0.2), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

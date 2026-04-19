@@ -6,6 +6,9 @@ final class AssistantViewModel {
     var conversations: [AiConversation] = []
     var currentConversation: AiConversation?
     var chatMessages: [ChatMessage] = []
+    /// Set when the welcome screen should offer to resume the last chat.
+    /// Loaded lazily on appear; cleared when the user resumes or starts new.
+    var lastConversationPreview: ConversationPreview?
     var inputText = ""
     var isProcessing = false
     var error: String?
@@ -163,7 +166,26 @@ final class AssistantViewModel {
         lastEvidence = nil
         lastConfidence = nil
         lastRecommendedActions = nil
+        lastConversationPreview = nil
         error = nil
+    }
+
+    /// Lazy-load the most recent chat so the welcome screen can offer to
+    /// resume it. Silently no-ops on error — this is a UX hint, not a
+    /// blocking requirement.
+    func loadLastConversationPreview() async {
+        guard chatMessages.isEmpty, currentConversation == nil else { return }
+        do {
+            lastConversationPreview = try await repo.fetchLastConversationPreview()
+        } catch {
+            lastConversationPreview = nil
+        }
+    }
+
+    func resumeLastConversation() async {
+        guard let preview = lastConversationPreview else { return }
+        lastConversationPreview = nil
+        await selectConversation(preview.conversation)
     }
 
     func selectConversation(_ conversation: AiConversation) async {

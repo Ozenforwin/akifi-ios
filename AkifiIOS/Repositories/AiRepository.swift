@@ -30,11 +30,109 @@ final class AiRepository: Sendable {
             .value
     }
 
+    /// Returns the most recently updated non-archived conversation together
+    /// with a one-line preview of its last assistant answer. Used by the
+    /// "Continue last chat" card on the assistant welcome screen.
+    /// Returns nil when there is no recent conversation or it is older
+    /// than `maxAgeHours`.
+    func fetchLastConversationPreview(maxAgeHours: Int = 24 * 7) async throws -> ConversationPreview? {
+        let conversations: [AiConversation] = try await supabase
+            .from("ai_conversations")
+            .select()
+            .eq("is_archived", value: false)
+            .order("updated_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        guard let conv = conversations.first else { return nil }
+
+        if let updated = conv.updatedAt,
+           let updatedDate = ISO8601DateFormatter.shared.date(from: updated),
+           Date().timeIntervalSince(updatedDate) > Double(maxAgeHours) * 3600 {
+            return nil
+        }
+
+        let messages: [AiMessage] = try await supabase
+            .from("ai_messages")
+            .select()
+            .eq("conversation_id", value: conv.id)
+            .eq("role", value: MessageRole.assistant.rawValue)
+            .order("created_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        return ConversationPreview(conversation: conv, lastAnswer: messages.first?.content)
+    }
+
     func archiveConversation(id: String) async throws {
         try await supabase
             .from("ai_conversations")
             .update(["is_archived": true])
             .eq("id", value: id)
+            .execute()
+    }
+
+    // MARK: - Sharing
+
+    /// Lists shares for a conversation. RLS makes this readable for both
+    /// the sharer and the recipient(s).
+    func listShares(conversationId: String) async throws -> [AiConversationShare] {
+        try await supabase
+            .from("ai_conversation_shares")
+            .select()
+            .eq("conversation_id", value: conversationId)
+            .execute()
+            .value
+    }
+
+    /// Looks up another Akifi user by email (exact match) and returns their
+    /// public profile id. Returns nil when no profile exists for the email.
+    func findUserByEmail(_ email: String) async throws -> String? {
+        struct Row: Decodable { let id: String }
+        let rows: [Row] = try await supabase
+            .from("profiles")
+            .select("id")
+            .eq("email", value: email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.id
+    }
+
+    /// Grants access. Requires the caller to own the conversation
+    /// (enforced by the RLS INSERT policy).
+    func shareConversation(
+        conversationId: String,
+        withUserId: String,
+        permission: SharePermission
+    ) async throws -> AiConversationShare {
+        let userId = try await SupabaseManager.shared.currentUserId()
+        struct Input: Encodable {
+            let conversation_id: String
+            let shared_by_user_id: String
+            let shared_with_user_id: String
+            let permission: String
+        }
+        return try await supabase
+            .from("ai_conversation_shares")
+            .insert(Input(
+                conversation_id: conversationId,
+                shared_by_user_id: userId,
+                shared_with_user_id: withUserId,
+                permission: permission.rawValue
+            ))
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    /// Revokes access. Either the sharer or the recipient may revoke.
+    func revokeShare(_ shareId: String) async throws {
+        try await supabase
+            .from("ai_conversation_shares")
+            .delete()
+            .eq("id", value: shareId)
             .execute()
     }
 
