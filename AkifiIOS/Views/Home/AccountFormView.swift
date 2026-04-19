@@ -14,6 +14,7 @@ struct AccountFormView: View {
     @State private var initialBalanceText = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showShareSheet = false
 
     private let accountRepo = AccountRepository()
 
@@ -92,6 +93,42 @@ struct AccountFormView: View {
                                     }
                                 }
                                 .onTapGesture { selectedColor = color }
+                        }
+                    }
+                }
+
+                // Shared-account management — only for existing accounts.
+                // Routes into ShareAccountView which exposes invite flow +
+                // per-member split weights (used by settlement). We show it
+                // unconditionally for edit mode; ShareAccountView itself
+                // handles the "no members yet" case gracefully.
+                if isEditing, let acc = editingAccount {
+                    Section(String(localized: "account.sharing.section")) {
+                        Button {
+                            showShareSheet = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.2.fill")
+                                    .foregroundStyle(Color.accent)
+                                    .frame(width: 28, height: 28)
+                                    .background(Color.accent.opacity(0.12))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(String(localized: "account.sharing.membersAndSplits"))
+                                        .foregroundStyle(.primary)
+                                    Text(String(localized: "account.sharing.membersAndSplits.subtitle"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showShareSheet) {
+                            ShareAccountView(account: acc)
                         }
                     }
                 }

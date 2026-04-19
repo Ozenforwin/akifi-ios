@@ -190,6 +190,27 @@
         }
       }
     },
+    "account.sharing.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sharing" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Compartido" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Совместный доступ" } }
+      }
+    },
+    "account.sharing.membersAndSplits" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Members & splits" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Participantes y porcentajes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Участники и доли" } }
+      }
+    },
+    "account.sharing.membersAndSplits.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invite people and set each share percentage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Invita a otros y define cada porcentaje" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пригласи людей и задай процент каждому" } }
+      }
+    },
     "account.edit" : {
       "extractionState" : "stale",
       "localizations" : {
