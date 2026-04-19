@@ -47,6 +47,12 @@ enum PDFReportGenerator {
     private static let expenseColor = UIColor(red: 0.93, green: 0.33, blue: 0.33, alpha: 1)
     private static let divider = UIColor(white: 0.85, alpha: 1)
     private static let secondary = UIColor(white: 0.45, alpha: 1)
+    /// Primary text color on PDF paper. Intentionally NOT `primaryText`
+    /// — that's a dynamic color which resolves to white in dark-mode trait
+    /// collections and disappears against the always-white PDF background.
+    /// Incident: 2026-04-19, all category names + amounts blanked out in
+    /// a dark-mode user's exported PDF.
+    private static let primaryText = UIColor(white: 0.0, alpha: 1)
 
     // MARK: - Public
 
@@ -153,7 +159,7 @@ enum PDFReportGenerator {
         input.title.draw(at: CGPoint(x: margin, y: c.y),
                          withAttributes: [
                             .font: UIFont.systemFont(ofSize: 20, weight: .bold),
-                            .foregroundColor: UIColor.label
+                            .foregroundColor: primaryText
                          ])
         c.y += 26
 
@@ -223,7 +229,21 @@ enum PDFReportGenerator {
             delta: percentDelta(now: net, prev: prevNet),
             color: net >= 0 ? incomeColor : expenseColor
         )
-        c.y += tileHeight + 24
+        c.y += tileHeight + 8
+
+        // Footnote under the three tiles clarifying what "Net" actually is.
+        // Users saw "Остаток = -552k" and read it as "account balance" when
+        // it's really the cash-flow delta for the period (excludes transfers
+        // between own accounts).
+        let footnote = String(localized: "pdf.summary.footnote")
+        footnote.draw(
+            at: CGPoint(x: margin, y: c.y),
+            withAttributes: [
+                .font: UIFont.systemFont(ofSize: 9, weight: .regular),
+                .foregroundColor: secondary
+            ]
+        )
+        c.y += 20
         return c
     }
 
@@ -297,13 +317,13 @@ enum PDFReportGenerator {
             row.icon.draw(at: CGPoint(x: margin, y: c.y),
                           withAttributes: [.font: UIFont.systemFont(ofSize: 12)])
             row.name.draw(at: CGPoint(x: margin + iconColW, y: c.y + 1),
-                          withAttributes: [.font: rowFont, .foregroundColor: UIColor.label])
+                          withAttributes: [.font: rowFont, .foregroundColor: primaryText])
 
             let amtStr = formatAmount(row.amount, currency: input.currencyCode)
             let amtW = attributedSize(amtStr, font: rowBoldFont).width
             amtStr.draw(
                 at: CGPoint(x: margin + iconColW + nameColW + amountColW - amtW, y: c.y + 1),
-                withAttributes: [.font: rowBoldFont, .foregroundColor: UIColor.label]
+                withAttributes: [.font: rowBoldFont, .foregroundColor: primaryText]
             )
 
             let pct = grand > 0 ? Double(row.amount) / Double(grand) * 100.0 : 0.0
@@ -322,13 +342,13 @@ enum PDFReportGenerator {
         c.y += 6
         String(localized: "pdf.total").draw(
             at: CGPoint(x: margin + iconColW, y: c.y + 1),
-            withAttributes: [.font: rowBoldFont, .foregroundColor: UIColor.label]
+            withAttributes: [.font: rowBoldFont, .foregroundColor: primaryText]
         )
         let totalStr = formatAmount(grand, currency: input.currencyCode)
         let totalW = attributedSize(totalStr, font: rowBoldFont).width
         totalStr.draw(
             at: CGPoint(x: margin + iconColW + nameColW + amountColW - totalW, y: c.y + 1),
-            withAttributes: [.font: rowBoldFont, .foregroundColor: UIColor.label]
+            withAttributes: [.font: rowBoldFont, .foregroundColor: primaryText]
         )
         c.y += 26
         return c
@@ -368,7 +388,7 @@ enum PDFReportGenerator {
 
             "\(icon) \(descr)".draw(
                 at: CGPoint(x: margin, y: c.y),
-                withAttributes: [.font: rowFont, .foregroundColor: UIColor.label]
+                withAttributes: [.font: rowFont, .foregroundColor: primaryText]
             )
             let amtStr = formatAmount(tx.amount, currency: input.currencyCode)
             let amtW = attributedSize(amtStr, font: boldFont).width
@@ -414,7 +434,7 @@ enum PDFReportGenerator {
 
             let name = budget.name
             name.draw(at: CGPoint(x: margin, y: c.y),
-                      withAttributes: [.font: boldFont, .foregroundColor: UIColor.label])
+                      withAttributes: [.font: boldFont, .foregroundColor: primaryText])
 
             let spent = formatAmount(metrics.spent, currency: input.currencyCode)
             let limit = formatAmount(metrics.effectiveLimit, currency: input.currencyCode)
@@ -470,14 +490,14 @@ enum PDFReportGenerator {
 
             sub.serviceName.draw(
                 at: CGPoint(x: margin, y: c.y),
-                withAttributes: [.font: rowFont, .foregroundColor: UIColor.label]
+                withAttributes: [.font: rowFont, .foregroundColor: primaryText]
             )
             let amt = formatAmount(monthly, currency: input.currencyCode) + "/" +
                 String(localized: "pdf.month")
             let amtW = attributedSize(amt, font: boldFont).width
             amt.draw(
                 at: CGPoint(x: margin + contentWidth - amtW, y: c.y),
-                withAttributes: [.font: boldFont, .foregroundColor: UIColor.label]
+                withAttributes: [.font: boldFont, .foregroundColor: primaryText]
             )
             c.y += 18
         }
@@ -487,13 +507,13 @@ enum PDFReportGenerator {
         c.y += 6
         String(localized: "pdf.subscriptions.total")
             .draw(at: CGPoint(x: margin, y: c.y),
-                  withAttributes: [.font: boldFont, .foregroundColor: UIColor.label])
+                  withAttributes: [.font: boldFont, .foregroundColor: primaryText])
         let total = formatAmount(monthlyTotal, currency: input.currencyCode) + "/" +
             String(localized: "pdf.month")
         let totalW = attributedSize(total, font: boldFont).width
         total.draw(
             at: CGPoint(x: margin + contentWidth - totalW, y: c.y),
-            withAttributes: [.font: boldFont, .foregroundColor: UIColor.label]
+            withAttributes: [.font: boldFont, .foregroundColor: primaryText]
         )
         c.y += 24
         return c
@@ -528,7 +548,7 @@ enum PDFReportGenerator {
         title.draw(at: CGPoint(x: margin, y: y),
                    withAttributes: [
                     .font: UIFont.systemFont(ofSize: 14, weight: .bold),
-                    .foregroundColor: UIColor.label
+                    .foregroundColor: primaryText
                    ])
         y += 22
     }

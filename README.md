@@ -2,6 +2,8 @@
 
 Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase и Firebase. Работает параллельно с Telegram Mini App версией Akifi.
 
+**Актуальная версия:** 1.2.7 (TestFlight) · **Тесты:** 137/137 green
+
 ## Tech Stack
 
 | Компонент | Технология |
@@ -14,7 +16,7 @@
 | Analytics & Push | Firebase (Analytics, Crashlytics, FCM, Performance) |
 | Графики | Swift Charts (нативный) |
 | Auth | Sign in with Apple, Google Sign-In, Email/Password, Telegram migration |
-| Локализация | 3 языка: Русский, English, Español (1000+ ключей) |
+| Локализация | 3 языка: Русский, English, Español (1100+ ключей) |
 | Project Gen | XcodeGen (project.yml) |
 | CI/CD | Codemagic (TestFlight) |
 
@@ -61,6 +63,9 @@
 - **Структурированное логирование** — `AppLogger` через `os.Logger` с категориями (data, ai, auth, network)
 - **Concurrency** — Task-based таймеры, async/await повсюду, Sendable репозитории
 - **Shared account category merging** — ID-based dedup в DataStore, name-based grouping в Reports
+- **SessionCoordinator** — actor в `SupabaseManager` дедуплицирует concurrent refresh'ы (single-use refresh_token protection)
+- **RPC encode(to:)** — custom encoder emit'ит JSON null для optional ключей чтобы PostgREST матчил сигнатуру функции (иначе argument-name dropping ломает routing)
+- **Postgres functions для атомарных multi-row операций** — `create/update/delete_expense_with_auto_transfer` (payment source → auto-transfer triplet), edge functions только для LLM/внешних API
 
 ## Структура проекта
 
@@ -73,15 +78,22 @@ AkifiIOS/
 ├── PrivacyInfo.xcprivacy             # Privacy manifest
 │
 ├── Models/
-│   ├── Transaction.swift             # Транзакции (income/expense/transfer)
-│   ├── Account.swift                 # Банковские счета
+│   ├── Transaction.swift             # Транзакции + paymentSourceAccountId + autoTransferGroupId
+│   ├── Account.swift                 # Банковские счета + AccountMember.splitWeight
 │   ├── Budget.swift                  # Бюджеты (weekly/monthly/custom)
 │   ├── Category.swift                # Категории расходов/доходов
 │   ├── SavingsGoal.swift             # Цели накоплений + проценты
+│   ├── SavingsChallenge.swift        # Челленджи (30-day, no-cafe, round-up, category-limit)
 │   ├── Subscription.swift            # Трекер подписок
 │   ├── SubscriptionPayment.swift     # Платежи подписок
 │   ├── FinancialNote.swift           # Журнал: заметки + рефлексии (NoteType, NoteMood)
 │   ├── Achievement.swift             # Достижения (9 категорий, 4 тира)
+│   ├── SkillNode.swift               # Дерево навыков (15 узлов в 5 треках)
+│   ├── Asset.swift                   # Активы (real_estate/vehicle/crypto/investment/...)
+│   ├── Liability.swift               # Долги (mortgage/loan/credit_card/...)
+│   ├── NetWorthSnapshot.swift        # Дневные snapshots чистой стоимости
+│   ├── Settlement.swift              # Закрытые расчёты между участниками shared-счёта
+│   ├── UserAccountDefault.swift      # Per-user дефолтный source для каждого счёта
 │   ├── AssistantModels.swift         # AI request/response + AnyCodableValue + error classification
 │   ├── AiConversation.swift          # AI чат-сессии
 │   ├── Profile.swift                 # Профиль пользователя
@@ -92,17 +104,23 @@ AkifiIOS/
 │
 ├── Services/
 │   ├── AuthManager.swift             # Auth: Apple/Google/Email/Telegram + refreshSessionIfNeeded()
-│   ├── SupabaseManager.swift         # Singleton Supabase client, lowercased currentUserId()
+│   ├── SupabaseManager.swift         # Singleton + SessionCoordinator actor (dedup refresh)
 │   ├── DataStore.swift               # Shared state + параллельная загрузка + displayCategories
 │   ├── CurrencyManager.swift         # Мультивалюта, курсы, форматирование
-│   ├── PaymentManager.swift          # Premium-подписка
+│   ├── PaymentManager.swift          # Premium-подписка (заглушка, StoreKit отключён)
 │   ├── ThemeManager.swift            # Тема (light/dark)
 │   ├── BudgetMath.swift              # Вычисление метрик бюджетов
 │   ├── CashFlowEngine.swift          # Прогноз денежного потока
 │   ├── InsightEngine.swift           # Умные финансовые инсайты + weekly digest
+│   ├── SettlementCalculator.swift    # «Кто кому должен» для shared-счетов (weighted split + FX)
+│   ├── ChallengeProgressEngine.swift # Расчёт прогресса челленджей (pure, idempotent)
+│   ├── NetWorthCalculator.swift      # sum(accounts) + sum(assets) − sum(liabilities) с FX
+│   ├── StreakTracker.swift           # Streak + milestone-dedup в UserDefaults
+│   ├── SkillTreeEngine.swift         # Multi-pass evaluator для дерева навыков
+│   ├── PDFReportGenerator.swift      # A4 многосекционный PDF через UIGraphicsPDFRenderer
 │   ├── CalculatorState.swift         # Калькулятор (locale-aware)
 │   ├── ExchangeRateService.swift     # API курсов с retry + fallback
-│   ├── AnalyticsService.swift        # Firebase Analytics (18 типов событий)
+│   ├── AnalyticsService.swift        # Firebase Analytics (20+ типов событий)
 │   ├── NotificationManager.swift     # Push-уведомления + weekly digest scheduling
 │   ├── HapticManager.swift           # Тактильная обратная связь
 │   ├── CSVExporter.swift             # Экспорт в CSV
@@ -118,13 +136,19 @@ AkifiIOS/
 │   └── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
 │
 ├── Repositories/                     # Data access (все Sendable)
-│   ├── TransactionRepository.swift
+│   ├── TransactionRepository.swift   # CRUD + RPC роутинг для auto-transfer триплетов
 │   ├── AccountRepository.swift
 │   ├── BudgetRepository.swift
 │   ├── CategoryRepository.swift
 │   ├── SavingsGoalRepository.swift
+│   ├── SavingsChallengeRepository.swift
 │   ├── SubscriptionTrackerRepository.swift
 │   ├── AchievementRepository.swift
+│   ├── AssetRepository.swift         # Активы
+│   ├── LiabilityRepository.swift     # Долги
+│   ├── NetWorthSnapshotRepository.swift # История net worth (UNIQUE по дате)
+│   ├── SettlementRepository.swift    # Закрытые расчёты
+│   ├── UserAccountDefaultsRepository.swift # Дефолтный source per account
 │   ├── AiRepository.swift            # AI edge functions + invokeWithAuthRetry
 │   ├── FinancialNoteRepository.swift # Журнал CRUD + fetchAllTags
 │   ├── ProfileRepository.swift
@@ -137,11 +161,15 @@ AkifiIOS/
 │   ├── AnalyticsViewModel.swift      # Аналитика по периодам
 │   ├── BudgetsViewModel.swift        # Управление бюджетами
 │   ├── SavingsViewModel.swift        # Цели накоплений
+│   ├── SavingsChallengesViewModel.swift # Челленджи
 │   ├── SubscriptionsViewModel.swift  # Подписки
 │   ├── AchievementsViewModel.swift   # Достижения и уровни
 │   ├── ReportsViewModel.swift        # Отчёты (name-based category merge для shared accounts)
 │   ├── TransactionsViewModel.swift   # Фильтры, поиск
 │   ├── JournalViewModel.swift        # Журнал: CRUD, tags, caching, hiddenTags
+│   ├── SettlementViewModel.swift     # Facade над SettlementCalculator
+│   ├── PaymentDefaultsViewModel.swift # Per-shared-account дефолтный source
+│   ├── NetWorthViewModel.swift       # Net worth + snapshot auto-capture
 │   └── HomeViewModel.swift           # Home tab
 │
 ├── Views/
@@ -161,8 +189,9 @@ AkifiIOS/
 │   │   └── StreakBadgeView.swift      # Streak активности
 │   ├── Transactions/
 │   │   ├── TransactionsTabView.swift  # Список транзакций + фильтры
-│   │   ├── TransactionFormView.swift  # Создание с калькулятором
-│   │   ├── TransactionRowView.swift
+│   │   ├── TransactionFormView.swift  # Форма + «Оплачено с» picker + onboarding banner + cross-currency FX hint
+│   │   ├── TransactionDetailView.swift # Детали + auto-transfer бейдж + edit/delete
+│   │   ├── TransactionRowView.swift   # Capsule «Из X» badge для auto-transfer
 │   │   ├── TransferFormView.swift     # Переводы между счетами
 │   │   ├── CategoryPickerView.swift
 │   │   ├── SearchView.swift           # Глобальный поиск
@@ -214,13 +243,14 @@ AkifiIOS/
 │   │   ├── AuthComponents.swift       # Shared auth UI components
 │   │   └── MigrationCodeView.swift    # Миграция из Telegram
 │   ├── Settings/
-│   │   ├── SettingsView.swift         # Все настройки
+│   │   ├── SettingsView.swift         # Все настройки + BETA-бейджи для Reports/Challenges
 │   │   ├── ProfileEditView.swift      # Редактирование профиля + аватар
 │   │   ├── CategoriesManagementView.swift
 │   │   ├── TagManagementView.swift    # Управление тегами журнала
+│   │   ├── PaymentDefaultsView.swift  # Дефолт source per shared-account
 │   │   ├── AISettingsView.swift       # Настройки AI ассистента
 │   │   ├── NotificationSettingsView.swift # Настройки уведомлений
-│   │   ├── BankImportView.swift       # Импорт PDF выписок
+│   │   ├── BankImportView.swift       # Импорт PDF + dedup vs auto-transfer
 │   │   ├── ExportView.swift           # CSV экспорт
 │   │   └── PremiumPaywallView.swift   # Paywall
 │   ├── Subscriptions/
@@ -247,10 +277,26 @@ AkifiIOS/
 │   │   ├── SpotlightOverlayView.swift
 │   │   ├── SpotlightModifier.swift    # .spotlight() ViewModifier
 │   │   └── SpotlightManager.swift
-│   └── Achievements/
-│       ├── AchievementsView.swift     # Уровни и достижения
-│       ├── AchievementBadgeView.swift # Бейдж с прогресс-кольцом
-│       └── LevelUpView.swift          # Celebration popup
+│   ├── Achievements/
+│   │   ├── AchievementsView.swift     # Уровни и достижения
+│   │   ├── AchievementBadgeView.swift # Бейдж с прогресс-кольцом
+│   │   ├── StreakMilestoneView.swift  # Celebration на 7/14/30/60/100/180/365 дней
+│   │   ├── SkillTreeView.swift        # Дерево навыков (MVP grid)
+│   │   └── LevelUpView.swift          # Celebration popup
+│   ├── Account/
+│   │   ├── SharedAccountDetailView.swift     # Hero + settlement + transactions
+│   │   └── AccountSettlementCardView.swift   # Карточка «Кто кому должен» с weights
+│   ├── NetWorth/
+│   │   ├── NetWorthDashboardView.swift # Hero + breakdown + history chart
+│   │   ├── AssetListView.swift         # Sectioned by category, swipe-to-delete
+│   │   ├── AssetFormView.swift         # Create/edit актива
+│   │   ├── LiabilityListView.swift     # Sectioned by category
+│   │   └── LiabilityFormView.swift     # Create/edit долга
+│   └── Challenges/ (BETA, в Settings)
+│       ├── ChallengesListView.swift    # Active/completed секции
+│       ├── ChallengeDetailView.swift   # Прогресс + abandon/delete
+│       ├── ChallengeFormView.swift     # 4 типа + target + duration
+│       └── ChallengeCardView.swift     # Компакт-карточка
 │
 ├── Extensions/
 │   ├── Color+Hex.swift               # Hex → Color
@@ -281,6 +327,26 @@ AkifiIOS/
 - **Переводы** между счетами с group tracking
 - **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer), корректный merge категорий в отчётах
 - **Мультивалюта** — курсы в реальном времени, конвертация отображения
+
+### Общие счета — Payment Source + Settlement (Phase 4.6)
+- **«Оплачено с»** в форме транзакции — выбрать личную карту-источник при расходе на общем счёте. Система автоматически создаёт триплет (expense + transfer-out + transfer-in) через атомарную Postgres RPC
+- **Cross-currency** — ByBit (USD) может быть источником для Семейный (RUB). Picker показывает FX-preview «(≈ 2,63 $)», transfer-out записывается в валюте source, expense + transfer-in в target
+- **Per-user дефолты** — запоминаем выбранный source для каждого shared-счёта (`user_account_defaults`), ⭐ в picker'е для one-tap
+- **Custom split weights** — `account_members.split_weight` задаёт долю каждого участника (60/40 вместо 50/50). Редактируется в экране редактирования счёта → «Участники и доли»
+- **Settlement card** на детальной странице shared-счёта — «кто кому должен» с greedy min-cash-flow, period picker (этот месяц/прошлый/квартал/YTD), кнопка «Отметить выполненным» реально закрывает долг через `settlements` таблицу, история с undo
+- **Direct-expense attribution** — прямой расход с общего счёта (без auto-transfer) кредитует создателя
+- **Orphan cleanup** — кнопка «Очистить историю» когда balances пусты + есть закрытые settlements
+- **Onboarding банн­ер** — gradient-подсказка при первом открытии формы с shared-счётом
+- **Edit source reassignment** — при редактировании expense можно сменить source, триплет пересоздаётся client-side
+- **Bank import dedup** — импорт выписки автоматически помечает коллизии с auto-transfer легами
+
+### Net Worth трекер (Phase 5.2)
+- **Активы** — real_estate / vehicle / crypto / investment / collectible / cash / other с иконкой, цветом, notes, acquired_date
+- **Долги** — mortgage / loan / credit_card / personal_debt / other с interest_rate, monthly_payment, end_date
+- **Dashboard** — hero 32pt (net worth цвет зелёный/красный), breakdown (счета / активы / долги), Swift Charts история за 30/90/180/365 дней
+- **Multi-currency** — `NetWorthCalculator` нормализует активы/долги в валюту через FX rates
+- **Snapshots** — ежедневный авто-capture net worth в `net_worth_snapshots`, UNIQUE по (user, date)
+- **Shortcut на Home** — gradient-карточка с текущим net worth
 
 ### Бюджеты
 - **Гибкие периоды** — недельные, месячные, квартальные, годовые, произвольные

@@ -17466,26 +17466,17 @@
       }
     },
     "pdf.net" : {
-      "extractionState" : "stale",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Net"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neto"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Остаток"
-          }
-        }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Net (income − expense)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Neto (ingresos − gastos)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итого за период" } }
+      }
+    },
+    "pdf.summary.footnote" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cash-flow for the period across selected accounts. Does not include transfers between own accounts." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Flujo de efectivo del período en las cuentas seleccionadas. No incluye transferencias entre cuentas propias." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Движение за период по выбранным счетам. Переводы между своими счетами не учтены." } }
       }
     },
     "pdf.subscriptions" : {
