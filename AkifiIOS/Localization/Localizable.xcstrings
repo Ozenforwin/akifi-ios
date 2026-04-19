@@ -190,27 +190,6 @@
         }
       }
     },
-    "account.sharing.section" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sharing" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Compartido" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Совместный доступ" } }
-      }
-    },
-    "account.sharing.membersAndSplits" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Members & splits" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Participantes y porcentajes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Участники и доли" } }
-      }
-    },
-    "account.sharing.membersAndSplits.subtitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invite people and set each share percentage" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Invita a otros y define cada porcentaje" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пригласи людей и задай процент каждому" } }
-      }
-    },
     "account.edit" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -391,6 +370,75 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Общая"
+          }
+        }
+      }
+    },
+    "account.sharing.membersAndSplits" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Members & splits"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Participantes y porcentajes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Участники и доли"
+          }
+        }
+      }
+    },
+    "account.sharing.membersAndSplits.subtitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite people and set each share percentage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invita a otros y define cada porcentaje"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пригласи людей и задай процент каждому"
+          }
+        }
+      }
+    },
+    "account.sharing.section" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Совместный доступ"
           }
         }
       }
@@ -20509,49 +20557,17 @@
       }
     },
     "settlement.balance.negative" : {
-      "extractionState" : "stale",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Owes %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Debe %@"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Должен доплатить %@"
-          }
-        }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Owes the group" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Debe al grupo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Должен доплатить" } }
       }
     },
     "settlement.balance.positive" : {
-      "extractionState" : "stale",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contributed %@ above share"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aportó %@ de más"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вложил больше доли на %@"
-          }
-        }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Above fair share" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aportó de más" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вложил больше доли" } }
       }
     },
     "settlement.cancelSettled" : {
@@ -21175,46 +21191,6 @@
         }
       }
     },
-    "share.split.save" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save split" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardar división" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранить доли" } }
-      }
-    },
-    "share.split.saved" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Saved" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardado" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранено" } }
-      }
-    },
-    "share.split.share" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Parte" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доля" } }
-      }
-    },
-    "share.split.total" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итого" } }
-      }
-    },
-    "share.split.willNormalize" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "We'll normalize to 100% on save." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Normalizaremos al 100 % al guardar." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "При сохранении нормализуем до 100%." } }
-      }
-    },
     "share.role" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -21257,6 +21233,121 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Отправить"
+          }
+        }
+      }
+    },
+    "share.split.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save split"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar división"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить доли"
+          }
+        }
+      }
+    },
+    "share.split.saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранено"
+          }
+        }
+      }
+    },
+    "share.split.share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parte"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доля"
+          }
+        }
+      }
+    },
+    "share.split.total" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Итого"
+          }
+        }
+      }
+    },
+    "share.split.willNormalize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We'll normalize to 100% on save."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normalizaremos al 100 % al guardar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "При сохранении нормализуем до 100%."
           }
         }
       }
@@ -26669,6 +26760,29 @@
         }
       }
     },
+    "tx.paymentSource.none" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No establecido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не задан"
+          }
+        }
+      }
+    },
     "tx.paymentSource.onboarding.body" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -26695,38 +26809,45 @@
     "tx.paymentSource.onboarding.dismiss" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Got it" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Entendido" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Понятно" } }
-      }
-    },
-    "tx.paymentSource.onboarding.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tip: auto-transfer on shared accounts" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sugerencia: transferencia automática en cuentas compartidas" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подсказка: авто-перевод на общем счёте" } }
-      }
-    },
-    "tx.paymentSource.none" : {
-      "extractionState" : "stale",
-      "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not set"
+            "value" : "Got it"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No establecido"
+            "value" : "Entendido"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Не задан"
+            "value" : "Понятно"
+          }
+        }
+      }
+    },
+    "tx.paymentSource.onboarding.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tip: auto-transfer on shared accounts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sugerencia: transferencia automática en cuentas compartidas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подсказка: авто-перевод на общем счёте"
           }
         }
       }

@@ -107,44 +107,40 @@ struct TransactionFormView: View {
     /// this flag if we add future restrictions.
     private var paymentSourceDisabled: Bool { false }
 
-    /// Decorates the source-account row in the picker. For cross-currency
-    /// sources we append a parenthetical FX preview — "(USD ≈ 13 500 ₽)" —
-    /// so the user can sanity-check the conversion before saving.
+    /// Decorates the source-account row in the picker. Cross-currency is
+    /// relative to what the user actually *entered* (`selectedCurrency`) —
+    /// not the target account's default currency. Otherwise picking a USD
+    /// source while the user entered the transaction in USD would trigger
+    /// a pointless "(100 $ ≈ 100 $)" FX preview just because the target
+    /// account happens to be RUB.
     private func paymentSourceLabel(for acc: Account) -> String {
         let starred = userDefaults[selectedAccountId ?? ""] == acc.id
         let starSuffix = starred ? " ⭐" : ""
-        guard let target = selectedAccount else {
+        // Source matches what the user typed in → no conversion, clean label.
+        if acc.currency.lowercased() == selectedCurrency.rawValue.lowercased() {
             return "\(acc.icon) \(acc.name)\(starSuffix)"
         }
-        // Currency match — no extra hint.
-        if acc.currency.lowercased() == target.currency.lowercased() {
-            return "\(acc.icon) \(acc.name)\(starSuffix)"
-        }
-        // Cross-currency — compute source amount + show both sides.
+        // Cross-currency — source account uses a different currency than
+        // what the user entered. Show the converted amount in brackets.
         let amountValue = calculatorState.getResult() ?? 0
-        let sourceCurrency = acc.currencyCode
-        let targetCurrency = selectedCurrency
-        // We have the entered amount in `targetCurrency`; convert it to
-        // source for display.
         let sourceAmount = Self.crossConvert(
             amount: amountValue,
-            from: targetCurrency,
-            to: sourceCurrency,
+            from: selectedCurrency,
+            to: acc.currencyCode,
             using: appViewModel.currencyManager
         )
-        let sourceStr = Self.formatRawAmount(sourceAmount, currency: sourceCurrency)
-        let targetStr = Self.formatRawAmount(amountValue, currency: targetCurrency)
-        return "\(acc.icon) \(acc.name) (\(sourceStr) ≈ \(targetStr))\(starSuffix)"
+        let sourceStr = Self.formatRawAmount(sourceAmount, currency: acc.currencyCode)
+        return "\(acc.icon) \(acc.name) (≈ \(sourceStr))\(starSuffix)"
     }
 
-    /// True iff the currently-selected source has a different currency
-    /// than the target. Drives the two-line hint and the RPC routing.
+    /// True iff the currently-selected source uses a different currency
+    /// than the user-entered amount. Drives the two-line hint and the
+    /// RPC routing (10-arg overload vs 8-arg).
     private var isCrossCurrencySelection: Bool {
         guard let sourceId = selectedPaymentSourceId,
-              let source = accounts.first(where: { $0.id == sourceId }),
-              let target = selectedAccount
+              let source = accounts.first(where: { $0.id == sourceId })
         else { return false }
-        return source.currency.lowercased() != target.currency.lowercased()
+        return source.currency.lowercased() != selectedCurrency.rawValue.lowercased()
     }
 
     /// Whether to surface the first-time onboarding banner. Fires only
@@ -426,7 +422,10 @@ struct TransactionFormView: View {
     }
 
     private func buildHint(source: Account, target: Account, amount: Decimal, targetStr: String) -> String {
-        if source.currency.lowercased() != target.currency.lowercased() {
+        // "Cross-currency" is relative to what the user entered, not the
+        // target's native currency. Keeps the hint quiet when source +
+        // entered currency match (e.g. entered 100 $, picked USD source).
+        if source.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
             let sourceAmount = Self.crossConvert(
                 amount: amount,
                 from: selectedCurrency,
