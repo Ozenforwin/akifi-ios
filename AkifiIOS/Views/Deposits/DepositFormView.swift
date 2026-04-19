@@ -178,16 +178,15 @@ struct DepositFormView: View {
 
     @ViewBuilder
     private var sourcePicker: some View {
+        // SwiftUI's menu-style Picker only renders the first Text child of
+        // each row — an HStack with separate icon/name/currency Texts
+        // collapses to icon-only in the dropdown. Keep the whole row as
+        // a single Text so all three parts are visible.
         Picker(String(localized: "deposit.form.source"), selection: $sourceAccountId) {
             Text(String(localized: "deposit.form.pickSource")).tag(String?.none)
             ForEach(personalSourceAccounts) { acc in
-                HStack {
-                    Text(acc.icon)
-                    Text(acc.name)
-                    Text("(\(acc.currency.uppercased()))")
-                        .foregroundStyle(.secondary)
-                }
-                .tag(Optional(acc.id))
+                Text("\(acc.icon) \(acc.name) (\(acc.currency.uppercased()))")
+                    .tag(Optional(acc.id))
             }
         }
         .onChange(of: sourceAccountId) { _, newValue in
@@ -203,11 +202,8 @@ struct DepositFormView: View {
         Picker(String(localized: "deposit.form.returnTo"), selection: $returnAccountId) {
             Text(String(localized: "deposit.form.pickReturn")).tag(String?.none)
             ForEach(personalSourceAccounts) { acc in
-                HStack {
-                    Text(acc.icon)
-                    Text(acc.name)
-                }
-                .tag(Optional(acc.id))
+                Text("\(acc.icon) \(acc.name)")
+                    .tag(Optional(acc.id))
             }
         }
     }

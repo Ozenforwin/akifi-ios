@@ -70,13 +70,8 @@ struct DepositContributeSheet: View {
                     Picker(String(localized: "deposit.form.source"), selection: $sourceAccountId) {
                         Text(String(localized: "deposit.form.pickSource")).tag(String?.none)
                         ForEach(personalSourceAccounts) { acc in
-                            HStack {
-                                Text(acc.icon)
-                                Text(acc.name)
-                                Text("(\(acc.currency.uppercased()))")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .tag(Optional(acc.id))
+                            Text("\(acc.icon) \(acc.name) (\(acc.currency.uppercased()))")
+                                .tag(Optional(acc.id))
                         }
                     }
                     if let info = crossCurrencyInfo, let src = sourceAccount, info.sourceKopecks > 0 {
