@@ -142,6 +142,12 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "person.badge.plus", color: .blue, title: String(localized: "invite.title"))
                     }
+
+                    NavigationLink {
+                        PaymentDefaultsView()
+                    } label: {
+                        SettingsRow(icon: "creditcard.fill", color: .blue, title: String(localized: "settings.paymentDefaults"))
+                    }
                 }
 
                 Section(header: Text(String(localized: "settings.section.finance"))) {
