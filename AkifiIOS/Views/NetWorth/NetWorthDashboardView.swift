@@ -78,7 +78,8 @@ struct NetWorthDashboardView: View {
 
     @ViewBuilder
     private var heroCard: some View {
-        let netWorth = viewModel.breakdown?.netWorth ?? 0
+        let breakdown = viewModel.breakdown ?? .zero
+        let netWorth = breakdown.netWorth
         let isPositive = netWorth >= 0
         let tint: Color = isPositive ? Color(hex: "#16A34A") : Color(hex: "#DC2626")
         let subtitleKey: String = isPositive ? "netWorth.hero.subtitle.positive" : "netWorth.hero.subtitle.negative"
@@ -98,6 +99,15 @@ struct NetWorthDashboardView: View {
             Text(String(localized: String.LocalizationValue(subtitleKey)))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            // Formula strip: makes the source of the number obvious so users
+            // don't wonder "откуда эта сумма". Composition = accounts + assets
+            // − liabilities, matching the breakdown card below.
+            Text(formulaText(for: breakdown))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
@@ -490,6 +500,21 @@ struct NetWorthDashboardView: View {
         let absAmount = abs(amount)
         let formatted = cm.formatAmount(absAmount.displayAmount)
         return amount < 0 ? "-\(formatted)" : formatted
+    }
+
+    /// Literal composition of the net-worth number. Example RU:
+    /// "Счета 2 631 940 ₽ + Активы 0 ₽ − Долги 0 ₽".
+    /// Shown under the hero subtitle so users immediately see where the
+    /// value comes from (most common question when assets/liabilities
+    /// are empty and net worth equals account balance).
+    private func formulaText(for breakdown: NetWorthCalculator.Breakdown) -> String {
+        let accounts = cm.formatAmount(breakdown.accountsTotal.displayAmount)
+        let assets = cm.formatAmount(breakdown.assetsTotal.displayAmount)
+        let liabilities = cm.formatAmount(breakdown.liabilitiesTotal.displayAmount)
+        let accountsLabel = String(localized: "netWorth.breakdown.accounts")
+        let assetsLabel = String(localized: "netWorth.breakdown.assets")
+        let liabilitiesLabel = String(localized: "netWorth.breakdown.liabilities")
+        return "\(accountsLabel) \(accounts) + \(assetsLabel) \(assets) − \(liabilitiesLabel) \(liabilities)"
     }
 }
 
