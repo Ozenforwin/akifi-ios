@@ -152,6 +152,24 @@ struct SettingsView: View {
 
                 Section(header: Text(String(localized: "settings.section.finance"))) {
                     NavigationLink {
+                        NetWorthDashboardView()
+                    } label: {
+                        SettingsRow(icon: "chart.line.uptrend.xyaxis", color: .green, title: String(localized: "netWorth.title"))
+                    }
+
+                    NavigationLink {
+                        NetWorthAssetsSettingsEntry()
+                    } label: {
+                        SettingsRow(icon: "building.2.fill", color: .green, title: String(localized: "netWorth.assets.title"))
+                    }
+
+                    NavigationLink {
+                        NetWorthLiabilitiesSettingsEntry()
+                    } label: {
+                        SettingsRow(icon: "creditcard.fill", color: .red, title: String(localized: "netWorth.liabilities.title"))
+                    }
+
+                    NavigationLink {
                         SavingsGoalListView()
                     } label: {
                         SettingsRow(icon: "target", color: .green, title: String(localized: "home.savings"))
@@ -306,6 +324,39 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+}
+
+/// Wrapper that gives the asset list its own NetWorthViewModel when
+/// navigated to from Settings (no parent VM to share). The VM loads on
+/// appear, same as the dashboard.
+private struct NetWorthAssetsSettingsEntry: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    @State private var viewModel = NetWorthViewModel()
+
+    var body: some View {
+        AssetListView(viewModel: viewModel)
+            .task {
+                await viewModel.load(
+                    dataStore: appViewModel.dataStore,
+                    currencyManager: appViewModel.currencyManager
+                )
+            }
+    }
+}
+
+private struct NetWorthLiabilitiesSettingsEntry: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    @State private var viewModel = NetWorthViewModel()
+
+    var body: some View {
+        LiabilityListView(viewModel: viewModel)
+            .task {
+                await viewModel.load(
+                    dataStore: appViewModel.dataStore,
+                    currencyManager: appViewModel.currencyManager
+                )
+            }
     }
 }
 

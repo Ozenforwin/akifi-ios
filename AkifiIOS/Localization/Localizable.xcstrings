@@ -15904,6 +15904,440 @@
         }
       }
     },
+    "asset.category.cash" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cash" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Efectivo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Наличные" } }
+      }
+    },
+    "asset.category.collectible" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Collectibles" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Coleccionables" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Коллекции" } }
+      }
+    },
+    "asset.category.crypto" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Crypto" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cripto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Крипта" } }
+      }
+    },
+    "asset.category.investment" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Investments" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Inversiones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Инвестиции" } }
+      }
+    },
+    "asset.category.other" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Otros" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Другое" } }
+      }
+    },
+    "asset.category.realEstate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Real Estate" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Inmuebles" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Недвижимость" } }
+      }
+    },
+    "asset.category.vehicle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicles" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Vehículos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транспорт" } }
+      }
+    },
+    "asset.form.acquiredDate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Acquired on" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fecha de adquisición" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дата приобретения" } }
+      }
+    },
+    "asset.form.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категория" } }
+      }
+    },
+    "asset.form.hasAcquiredDate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set acquisition date" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fijar fecha de adquisición" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Указать дату покупки" } }
+      }
+    },
+    "asset.form.name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nombre" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название" } }
+      }
+    },
+    "asset.form.notes" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Notas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заметки" } }
+      }
+    },
+    "asset.form.notes.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Anything worth remembering" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cualquier cosa para recordar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что важно запомнить" } }
+      }
+    },
+    "asset.form.section.info" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Asset info" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Información del activo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Информация об активе" } }
+      }
+    },
+    "asset.form.section.value" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current value" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Valor actual" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Текущая стоимость" } }
+      }
+    },
+    "asset.form.title.edit" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit asset" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Editar activo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Изменить актив" } }
+      }
+    },
+    "asset.form.title.new" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New asset" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nuevo activo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый актив" } }
+      }
+    },
+    "asset.form.value" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Value" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Valor" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Стоимость" } }
+      }
+    },
+    "liability.category.creditCard" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Credit card" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tarjeta de crédito" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Кредитная карта" } }
+      }
+    },
+    "liability.category.loan" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loan" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Préstamo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Кредит" } }
+      }
+    },
+    "liability.category.mortgage" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mortgage" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Hipoteca" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ипотека" } }
+      }
+    },
+    "liability.category.other" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Otros" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Другое" } }
+      }
+    },
+    "liability.category.personalDebt" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Personal debt" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Deuda personal" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Личный долг" } }
+      }
+    },
+    "liability.form.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Categoría" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Категория" } }
+      }
+    },
+    "liability.form.currentBalance" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current balance" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Saldo actual" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Текущий остаток" } }
+      }
+    },
+    "liability.form.endDate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "End date" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fecha de término" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дата окончания" } }
+      }
+    },
+    "liability.form.hasEndDate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set end date" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Fijar fecha de término" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Указать дату окончания" } }
+      }
+    },
+    "liability.form.interestRate" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Interest rate (%)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tasa de interés (%)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ставка (%)" } }
+      }
+    },
+    "liability.form.monthlyPayment" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly payment" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Pago mensual" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ежемесячный платёж" } }
+      }
+    },
+    "liability.form.name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nombre" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Название" } }
+      }
+    },
+    "liability.form.notes" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notes" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Notas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Заметки" } }
+      }
+    },
+    "liability.form.notes.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Anything worth remembering" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cualquier cosa para recordar" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что важно запомнить" } }
+      }
+    },
+    "liability.form.originalAmount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Original amount (optional)" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Importe original (opcional)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Исходная сумма (необязательно)" } }
+      }
+    },
+    "liability.form.section.balance" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Balance" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Saldo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Баланс" } }
+      }
+    },
+    "liability.form.section.info" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debt info" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Información de la deuda" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Информация о долге" } }
+      }
+    },
+    "liability.form.section.terms" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terms" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Condiciones" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Условия" } }
+      }
+    },
+    "liability.form.title.edit" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit debt" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Editar deuda" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Изменить долг" } }
+      }
+    },
+    "liability.form.title.new" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New debt" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Nueva deuda" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Новый долг" } }
+      }
+    },
+    "liability.perMonth" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "mo" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "mes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "мес" } }
+      }
+    },
+    "netWorth.assets.add" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add asset" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añadir activo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить актив" } }
+      }
+    },
+    "netWorth.assets.empty.cta" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first asset" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añade tu primer activo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первый актив" } }
+      }
+    },
+    "netWorth.assets.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Track real estate, vehicles, investments, crypto and collectibles in one place." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Registra inmuebles, vehículos, inversiones, cripto y coleccionables en un solo lugar." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Учитывайте недвижимость, авто, инвестиции, крипту и коллекции в одном месте." } }
+      }
+    },
+    "netWorth.assets.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No assets yet" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay activos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активов пока нет" } }
+      }
+    },
+    "netWorth.assets.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Assets" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Activos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активы" } }
+      }
+    },
+    "netWorth.breakdown.accounts" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accounts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cuentas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Счета" } }
+      }
+    },
+    "netWorth.breakdown.assets" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Assets" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Activos" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Активы" } }
+      }
+    },
+    "netWorth.breakdown.liabilities" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Deudas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Долги" } }
+      }
+    },
+    "netWorth.hero.subtitle.negative" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debts exceed your assets — let's plan a path forward." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tus deudas superan los activos — planifiquemos el siguiente paso." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Долги пока больше активов — самое время составить план." } }
+      }
+    },
+    "netWorth.hero.subtitle.positive" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Everything you own minus everything you owe." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Todo lo que tienes menos todo lo que debes." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Всё, что у вас есть, минус всё, что вы должны." } }
+      }
+    },
+    "netWorth.hero.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Net worth" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Patrimonio neto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чистая стоимость" } }
+      }
+    },
+    "netWorth.history.period.180d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "180 d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "180 d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "180 д" } }
+      }
+    },
+    "netWorth.history.period.30d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "30 d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "30 d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "30 д" } }
+      }
+    },
+    "netWorth.history.period.365d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1 year" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "1 año" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "1 год" } }
+      }
+    },
+    "netWorth.history.period.90d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "90 d" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "90 d" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "90 д" } }
+      }
+    },
+    "netWorth.history.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "History" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Historial" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "История" } }
+      }
+    },
+    "netWorth.home.cta" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Track assets and debts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Registra activos y deudas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Учёт активов и долгов" } }
+      }
+    },
+    "netWorth.liabilities.add" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add debt" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añadir deuda" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить долг" } }
+      }
+    },
+    "netWorth.liabilities.empty.cta" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first debt" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Añade tu primera deuda" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первый долг" } }
+      }
+    },
+    "netWorth.liabilities.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mortgages, loans, credit cards — see the full picture." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Hipotecas, préstamos, tarjetas — ve el cuadro completo." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ипотеки, кредиты, карты — увидите полную картину." } }
+      }
+    },
+    "netWorth.liabilities.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No debts yet" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no hay deudas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Долгов пока нет" } }
+      }
+    },
+    "netWorth.liabilities.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Deudas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Долги" } }
+      }
+    },
+    "netWorth.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Net worth" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Patrimonio neto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чистая стоимость" } }
+      }
+    },
     "onboarding.account.createAndContinue" : {
       "extractionState" : "stale",
       "localizations" : {
