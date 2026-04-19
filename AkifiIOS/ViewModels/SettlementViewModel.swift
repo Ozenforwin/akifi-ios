@@ -61,8 +61,15 @@ final class SettlementViewModel {
 
     /// Recomputes balances + suggestions for `sharedAccountId` using the
     /// transactions & accounts currently in `dataStore`. Also fetches past
-    /// settlements for display.
-    func load(sharedAccountId: String, dataStore: DataStore) async {
+    /// settlements for display. Pass `currencyManager` to enable
+    /// FX-correct settlement math for cross-currency auto-transfer legs;
+    /// omitting it (or passing one with empty `rates`) falls back to
+    /// face-value math (legacy behavior).
+    func load(
+        sharedAccountId: String,
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
         isLoading = true
         errorMessage = nil
 
@@ -115,6 +122,15 @@ final class SettlementViewModel {
             errorMessage = error.localizedDescription
         }
 
+        // Shared account's native currency drives the FX base. `Account.currency`
+        // returns uppercase ISO 4217; `CurrencyManager.rates` also keyed by
+        // uppercase so they align. When the shared account row is missing
+        // (rare but possible during reload) we leave baseCurrency = nil and
+        // the calculator falls back to face-value math.
+        let sharedAccount = dataStore.accounts.first { $0.id == sharedAccountId }
+        let fxRates = currencyManager?.rates ?? [:]
+        let baseCurrency = sharedAccount?.currency
+
         balances = SettlementCalculator.compute(
             sharedAccountId: sharedAccountId,
             transactions: dataStore.transactions,
@@ -122,7 +138,9 @@ final class SettlementViewModel {
             personalAccountsByUser: personalMap,
             period: interval,
             pastSettlements: pastSettlements,
-            memberWeights: memberWeights
+            memberWeights: memberWeights,
+            fxRates: fxRates,
+            baseCurrency: baseCurrency
         )
         suggestions = SettlementCalculator.settlements(from: balances)
 
@@ -149,7 +167,8 @@ final class SettlementViewModel {
         suggestion: SettlementCalculator.SettlementSuggestion,
         sharedAccountId: String,
         currency: String,
-        dataStore: DataStore
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
     ) async {
         do {
             let user = try await SupabaseManager.shared.currentUserId()
