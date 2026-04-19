@@ -223,25 +223,44 @@
 
 ---
 
-## ФАЗА 4.6: Payment Source + Shared Account Settlement (2026-04-19) — MVP ВЫПОЛНЕНО
+## ФАЗА 4.6: Payment Source + Shared Account Settlement (2026-04-19) — MVP ВЫПОЛНЕНО + stability pass
 
 Закрывает боль с общим счётом Вова/Оля: оплаты общих трат с личных карт теперь 1 тап, без ручного балансирования.
 
-| Задача | Статус | Файлы / коммит |
+### Отгружено
+
+| Задача | Статус | Коммит |
 |--------|--------|-------|
-| 3 миграции (payment_source_columns, user_account_defaults, settlements) | **DONE** | `1efe5af` |
-| 3 RPC функции атомарной тройки (create/update/delete) | **DONE** | `supabase/migrations/20260419130300_*.sql` |
+| 3 миграции + 3 RPC функции (create/update/delete_expense_with_auto_transfer) | **DONE** | `1efe5af` |
 | iOS data layer: модели, репозитории, PaymentDefaultsVM | **DONE** | `7448300` |
-| Picker «Оплачено с» в TransactionFormView + валютная блокировка | **DONE** | `7a53d47` |
-| Бейдж «Из X» + deletion guard в TransactionDetailView | **DONE** | `7a53d47` |
+| Picker «Оплачено с», валютная блокировка, ⭐ для сохранённого дефолта | **DONE** | `7a53d47` |
+| Бейдж «Из X» в TransactionRowView/DetailView, guard на удаление transfer-leg | **DONE** | `7a53d47` |
 | Settings → «Способы оплаты» per-account | **DONE** | `6aeb850` |
 | SettlementCalculator (equal split + greedy min-cash-flow) + 7 тестов | **DONE** | `58991a9` |
-| SharedAccountDetailView с settlement card | **DONE** | `0fdbb88` |
-| Discovery-онбординг для новых юзеров (P1, ~30 мин) | TODO v2 | PRD секция `План v2 → P1` |
-| Bank import dedup против auto-transfer (P2, ~20 мин) | TODO v2 | TODO-коммент в `BankImportView.swift` |
-| Custom split weights 60/40 (P3) | TODO v2 | TODO-коммент в `SettlementCalculator.swift` |
-| Direct-expense attribution (P4, продуктовое решение) | TODO v2 | TODO-коммент в `SettlementCalculator.swift` |
-| Edit existing expense source reassignment | TODO v2 | PRD секция `Edit-existing-expense change of source` |
+| SharedAccountDetailView + settlement card | **DONE** | `0fdbb88` |
+| **Stability pass** — 5 багов с first-device test (RPC 404, scale, attribution, dup label, segmented) | **DONE** | `9731d4c` |
+| **Feature-scoped settlement** — игнорим legacy-transfer'ы и прямые расходы | **DONE** | `b53cf72` |
+| **Closure flow** — «Отметить выполненным» реально закрывает долг, история + отмена ⟲ | **DONE** | `2eada24` |
+| Reports + Challenges перенесены в Settings с BETA-бейджем | **DONE** | `c9085b7` |
+| Swipe-delete auto-transfer синкает локальное состояние с триплетом | **DONE** | `2978474` |
+| Orphan settlement скрывается когда нет транзакций в периоде | **DONE** | `79339f3` |
+| Дефолт picker'а = «Этот счёт», auto-transfer только по явному выбору | **DONE** | `6ece83a` |
+
+### TODO v2 (детали в PRD `.claude/prd/payment-source-and-settlement.md`)
+
+| Пункт | Приоритет | Оценка |
+|---|---|---|
+| Discovery-онбординг (баннер для новых юзеров) | P1 | ~30 мин |
+| Cross-currency auto-transfers (ByBit USD → Семейный RUB) | P1.5 | ~1 день |
+| Bank import dedup против auto-transfer | P2 | ~20 мин |
+| Custom split weights (60/40) | P3 | ~1 день |
+| Direct-expense attribution (прямые расходы на общий счёт) | P4 | продуктовое решение |
+| Orphan settlements auto-cleanup | P5 | ~2 часа |
+| Edit-existing-expense source reassignment | — | ~2 часа |
+
+### Осознанно НЕ делаем
+- Retroactive attach к старым ручным переводам
+- Multi-level settlement (A→B→C)
 
 ---
 

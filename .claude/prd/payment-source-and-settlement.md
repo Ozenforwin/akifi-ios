@@ -8,10 +8,26 @@ tags: [shared-accounts, payment-flow, settlement, rls]
 
 ## Статус реализации (2026-04-19)
 
-**MVP отгружен** в commits `1efe5af` … `0fdbb88`:
-- DB: 3 миграции + 3 RPC (применены в прод)
-- iOS: модели / репозитории / picker в форме / бейдж / deletion guard / Settings → Payment defaults / SettlementCalculator + 7 тестов / SharedAccountDetailView
-- Build clean, 125/125 тестов проходят
+**MVP отгружен** в commits `1efe5af` … `0fdbb88`, затем серия fix-пассов на реальном устройстве:
+
+| Коммит | Правка |
+|---|---|
+| `9731d4c` | 5 багов first-device: RPC 404 (null-keys), scale (200→2.63$), settlement attribution, dup label, обрезанный segmented |
+| `b53cf72` | Settlement feature-scoped: игнорирует старые ручные переводы и прямые расходы, компактный UI карточки |
+| `2eada24` | Closure flow: «Отметить выполненным» реально закрывает долг, секция «Закрыто в этом периоде», кнопка отмены ⟲ |
+| `c9085b7` | Reports + Challenges перенесены из Home в Settings с BETA-бейджем |
+| `2978474` | Swipe-delete auto-transfer: локальное состояние синкается с триплетом (не «возвращаются») |
+| `79339f3` | Orphan settlement не показывается когда нет транзакций в периоде |
+| `6ece83a` | Дефолт picker'а «Оплачено с» = «Этот счёт», auto-transfer только по явному выбору |
+
+**Текущее поведение:**
+- По умолчанию picker показывает «Этот счёт (обычный расход)» — авто-перевод создаётся только при явном выборе другого источника
+- ⭐ рядом с сохранённым в `user_account_defaults` источником — one-tap к привычной карте, но не pre-select
+- Settlement считает только транзакции с `auto_transfer_group_id != null` (новая фича). Старые ручные переводы игнорятся
+- Закрытые settlements уменьшают suggestions через применение delta (from += amount, to −= amount)
+- Свайп-delete auto-transfer → триплет убирается и из DB (через RPC), и из локального DataStore
+
+Build clean, 125/125 тестов проходят.
 
 ## План v2 (deferred, в порядке приоритета)
 
@@ -42,6 +58,16 @@ tags: [shared-accounts, payment-flow, settlement, rls]
 - (c) считать как есть, но показывать warning в settlement
 
 Решить когда увидим реальный паттерн в данных.
+
+### 💤 Приоритет P5 — Orphan settlements auto-cleanup
+Если юзер отметил долг закрытым, потом удалил все транзакции периода — запись в `settlements` остаётся. Сейчас UI скрывает секцию «Закрыто в этом периоде» когда `balances` пуст, но запись живая и при новых транзакциях в том же периоде применится к их расчёту (может выдать некорректную suggestion).
+
+Решение в будущем:
+- (a) Кнопка «Очистить закрытые расчёты этого периода» когда нет активности
+- (b) Автоматическое удаление при `balances.isEmpty && pastSettlements.isEmpty == false` — рискованно, можно потерять историю
+- (c) Предупреждающий баннер «Записи о закрытиях есть, но нет транзакций — игнорируем их при расчёте»
+
+Вариант (c) безопаснее всего. Нужен тогда флаг в compute: `applyOrphanSettlements = balances.isEmpty ? false : true`.
 
 ### ❌ НЕ делаем (осознанно)
 - **Retroactive attach** к старым ручным переводам — может сломать уже выверенную историю
