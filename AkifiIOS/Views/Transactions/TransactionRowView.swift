@@ -82,13 +82,21 @@ struct TransactionRowView: View {
 
                 // Row 4: "From {source}" badge for auto-transferred expenses
                 if let sourceName = paymentSourceName {
-                    HStack(spacing: 3) {
-                        Image(systemName: "creditcard.fill")
-                            .font(.system(size: 9))
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.forward.circle.fill")
+                            .font(.system(size: 10))
                         Text(String(format: String(localized: "tx.autoTransfer.badge"), sourceName))
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 10, weight: .semibold))
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.accent)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.accent.opacity(0.12))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.accent.opacity(0.24), lineWidth: 0.5)
+                    )
                 }
             }
         }

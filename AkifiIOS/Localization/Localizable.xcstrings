@@ -18279,13 +18279,6 @@
         }
       }
     },
-    "reports.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reports" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Informes" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отчёты" } }
-      }
-    },
     "reports.exportPDF" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -18328,6 +18321,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ошибка создания отчёта"
+          }
+        }
+      }
+    },
+    "reports.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reports"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отчёты"
           }
         }
       }
@@ -20517,6 +20533,29 @@
         }
       }
     },
+    "settlement.cancelSettled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel settlement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar liquidación"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменить расчёт"
+          }
+        }
+      }
+    },
     "settlement.empty" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -20582,6 +20621,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Пока нет общих расходов"
+          }
+        }
+      }
+    },
+    "settlement.historyHeader" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settled this period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquidado este período"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрыто в этом периоде"
           }
         }
       }
@@ -20791,20 +20853,6 @@
             "value" : "Предлагаем свести"
           }
         }
-      }
-    },
-    "settlement.historyHeader" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settled this period" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Liquidado este período" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Закрыто в этом периоде" } }
-      }
-    },
-    "settlement.cancelSettled" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel settlement" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Cancelar liquidación" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отменить расчёт" } }
       }
     },
     "settlement.title" : {
@@ -21104,6 +21152,46 @@
             "value" : "Только вы"
           }
         }
+      }
+    },
+    "share.split.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save split" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardar división" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранить доли" } }
+      }
+    },
+    "share.split.saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Saved" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Guardado" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сохранено" } }
+      }
+    },
+    "share.split.share" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Parte" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доля" } }
+      }
+    },
+    "share.split.total" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Total" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Итого" } }
+      }
+    },
+    "share.split.willNormalize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "We'll normalize to 100% on save." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Normalizaremos al 100 % al guardar." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "При сохранении нормализуем до 100%." } }
       }
     },
     "share.role" : {
@@ -26514,6 +26602,29 @@
         }
       }
     },
+    "tx.paymentSource.hint.autoTransfer.crossCurrency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We'll create a transfer of %1$@ from %2$@ (≈ %3$@) to %4$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crearemos una transferencia de %1$@ desde %2$@ (≈ %3$@) a %4$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создадим перевод %1$@ с %2$@ (≈ %3$@) на %4$@."
+          }
+        }
+      }
+    },
     "tx.paymentSource.hint.currencyMismatch" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -26535,6 +26646,45 @@
             "value" : "Доступна только для счетов в одной валюте."
           }
         }
+      }
+    },
+    "tx.paymentSource.onboarding.body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usually paying with a personal card? Pick it in \"Paid from\" below — we'll create the transfer automatically."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Sueles pagar con tu tarjeta personal? Elígela en «Pagado desde» — crearemos la transferencia automáticamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обычно оплачиваешь с личной карты? Выбери её ниже в «Оплачено с» — создадим перевод автоматически."
+          }
+        }
+      }
+    },
+    "tx.paymentSource.onboarding.dismiss" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Got it" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Entendido" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Понятно" } }
+      }
+    },
+    "tx.paymentSource.onboarding.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tip: auto-transfer on shared accounts" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sugerencia: transferencia automática en cuentas compartidas" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подсказка: авто-перевод на общем счёте" } }
       }
     },
     "tx.paymentSource.none" : {
