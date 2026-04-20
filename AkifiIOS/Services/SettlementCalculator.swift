@@ -166,7 +166,21 @@ enum SettlementCalculator {
                 && $0.transferGroupId == nil
                 && $0.autoTransferGroupId != nil
         }
-        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amount }
+        // Normalize each row to the caller's `baseCurrency` before summing.
+        // Without this step a mixed-currency shared account (e.g. some
+        // transfer-in legs in VND, the account itself in RUB) would feed
+        // raw VND numbers into `totalExpenses`, while `contributions` are
+        // already FX-converted — yielding a fairshare wildly out of scale
+        // with what each member actually put in. (Symptom: «Olya должна
+        // 78 000 ₽» when she'd actually owe ~280 ₽.)
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) {
+            $0 + normalizeToBase(
+                amount: $1.amount,
+                rowCurrency: $1.currency,
+                baseCurrency: baseCurrency,
+                fxRates: fxRates
+            )
+        }
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
