@@ -125,8 +125,14 @@ final class TransactionRepository: Sendable {
                 userInfo: [NSLocalizedDescriptionKey: "account_id is required for expense with auto-transfer"]
             )
         }
-        let isCrossCurrency = input.source_amount != nil && input.source_currency != nil
-        let hasForeign = input.foreign_amount != nil && input.foreign_currency != nil
+        // The DB has 8/10/13-arg overloads of create_expense_with_auto_transfer
+        // (kept around by the ADR-001 Phase-3 migration "for older clients").
+        // PostgREST cannot disambiguate when the request is a subset of any
+        // of them — a 10-key call matches both the 10-arg AND the 13-arg
+        // overload (the extra params default to NULL in the 13-arg) and we
+        // get "Could not choose the best candidate function". Always emit
+        // ALL 13 keys; only the 13-arg overload has those names so routing
+        // is unambiguous.
         let params = Params(
             p_account_id: accountId,
             p_category_id: input.category_id,
@@ -141,8 +147,8 @@ final class TransactionRepository: Sendable {
             p_foreign_amount: input.foreign_amount,
             p_foreign_currency: input.foreign_currency,
             p_fx_rate: input.fx_rate,
-            includeSourceKeys: isCrossCurrency,
-            includeForeignKeys: hasForeign
+            includeSourceKeys: true,
+            includeForeignKeys: true
         )
 
         // RPC returns UUID as a JSON string → decode and re-fetch the row.
