@@ -597,20 +597,14 @@ final class DataStore {
 
         for tx in transactions {
             guard let accountId = tx.accountId else { continue }
-            // Native-currency priority:
-            //   1. tx.currency  — TMA-imported rows store the real currency
-            //      here even when account.currency drifted (the Семейный
-            //      case: account=VND but most rows are RUB).
-            //   2. account.currency — fresh ADR-001 rows.
-            // Without this priority a 261 ₽ row on a VND-tagged account
-            // got read as 261 ₫ and converted to ≈ 1 ₽ in the balance,
-            // which silently destroyed Семейный's totals.
-            let nativeCcy = tx.currency?.uppercased()
-                ?? accountCurrencyById[accountId]
-                ?? baseCode
+            let accountCcy = accountCurrencyById[accountId] ?? baseCode
+            // ADR-001: amount_native is canonical, always in account currency.
+            // Normalize into base before caching so the legacy UI contract
+            // (balance stored in base kopecks, FX-converted at render time)
+            // keeps working.
             let amountInBase = NetWorthCalculator.convert(
                 amount: tx.amountNative,
-                from: nativeCcy,
+                from: accountCcy,
                 to: baseCode,
                 rates: fxRates
             )

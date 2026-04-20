@@ -122,16 +122,14 @@ final class SettlementViewModel {
             errorMessage = error.localizedDescription
         }
 
-        // Settlement balances are surfaced in the user's selected display
-        // currency, NOT the shared account's stored currency. Otherwise a
-        // mixed-currency account (e.g. «Семейный» tagged VND but full of
-        // RUB rows) yields totals in VND that the UI then prints with a ₽
-        // symbol — exactly the "78 000 ₽" / 156 000 ₫ confusion the user
-        // reported. By telling the calculator that the base IS the display
-        // currency, every contribution is FX-normalized to RUB at compute
-        // time and the rendered numbers match the symbol.
+        // Shared account's native currency drives the FX base. `Account.currency`
+        // returns uppercase ISO 4217; `CurrencyManager.rates` also keyed by
+        // uppercase so they align. When the shared account row is missing
+        // (rare but possible during reload) we leave baseCurrency = nil and
+        // the calculator falls back to face-value math.
+        let sharedAccount = dataStore.accounts.first { $0.id == sharedAccountId }
         let fxRates = currencyManager?.rates ?? [:]
-        let baseCurrency = currencyManager?.dataCurrency.rawValue ?? "RUB"
+        let baseCurrency = sharedAccount?.currency
 
         balances = SettlementCalculator.compute(
             sharedAccountId: sharedAccountId,

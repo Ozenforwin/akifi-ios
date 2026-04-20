@@ -166,17 +166,7 @@ enum SettlementCalculator {
                 && $0.transferGroupId == nil
                 && $0.autoTransferGroupId != nil
         }
-        // Normalize each row to the caller's base currency before summing —
-        // a mixed-currency shared account (e.g. some rows tagged RUB, some
-        // VND) would otherwise give a meaningless total of mixed units.
-        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) {
-            $0 + normalizeToBase(
-                amount: $1.amount,
-                rowCurrency: $1.currency,
-                baseCurrency: baseCurrency,
-                fxRates: fxRates
-            )
-        }
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amount }
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
