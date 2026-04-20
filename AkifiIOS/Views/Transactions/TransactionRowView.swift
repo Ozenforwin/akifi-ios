@@ -41,18 +41,10 @@ struct TransactionRowView: View {
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(formattedAmount)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(amountColor)
-                            .monospacedDigit()
-                        if let preview = displayCurrencyPreview {
-                            Text(preview)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .monospacedDigit()
-                        }
-                    }
+                    Text(formattedAmount)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(amountColor)
+                        .monospacedDigit()
                 }
 
                 // Row 2: Date + account badge
@@ -192,16 +184,20 @@ struct TransactionRowView: View {
         }
     }
 
-    /// ADR-001 display rule: surface what the user actually entered.
-    ///   1. If `foreignAmount` + `foreignCurrency` are set, the user typed in
-    ///      a non-account currency — show that original value with the entry
-    ///      currency's symbol.
-    ///   2. Otherwise the entry was native — show `amountNative` with the
-    ///      account's currency symbol.
-    /// We never run this through `currencyManager.formatAmount` because that
-    /// converts to the user's display preference and slaps the global symbol
-    /// on top, which made VND/USD entries appear as RUB and triggered the
-    /// 2 000 000 VND → 26 277 USD report (2026-04-19).
+    /// Display rule (multi-currency aware):
+    ///
+    /// All rows are shown in the user's selected display currency. We
+    /// figure out the row's native (amount, currency) pair first, then
+    /// convert into the display currency.
+    ///
+    /// Native pair priority:
+    ///   1. `foreignAmount` + `foreignCurrency` — what the user typed.
+    ///   2. `amountNative` in `transaction.currency` — the legacy label
+    ///      column reflects the currency the number was actually stored
+    ///      in for TMA-imported rows (where `account.currency` may have
+    ///      drifted).
+    ///   3. `amountNative` in `account.currency` — fallback for rows
+    ///      created post-ADR-001 with no label.
     private var formattedAmount: String {
         let cm = appViewModel.currencyManager
         let sign: String
@@ -211,53 +207,38 @@ struct TransactionRowView: View {
         case .transfer: sign = ""
         }
 
+        let (nativeAmount, nativeCcy) = nativeEntry()
+        let displayCcy = cm.selectedCurrency
+        let valueInDisplay = convert(nativeAmount, from: nativeCcy, to: displayCcy)
+        return "\(sign)\(cm.formatInCurrency(valueInDisplay, currency: displayCcy))"
+    }
+
+    private func nativeEntry() -> (Decimal, CurrencyCode) {
+        let cm = appViewModel.currencyManager
         if let fAmount = transaction.foreignAmount,
            let fCcyRaw = transaction.foreignCurrency,
            let fCode = CurrencyCode(rawValue: fCcyRaw.uppercased()) {
-            return "\(sign)\(cm.formatInCurrency(abs(fAmount), currency: fCode))"
+            return (abs(fAmount), fCode)
         }
-
-        let nativeAmount = abs(transaction.amountNative.displayAmount)
-        let accountCcy = resolvedAccount?.currencyCode
-            ?? transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
+        let amount = abs(transaction.amountNative.displayAmount)
+        let ccy = transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
+            ?? resolvedAccount?.currencyCode
             ?? cm.dataCurrency
-        return "\(sign)\(cm.formatInCurrency(nativeAmount, currency: accountCcy))"
+        return (amount, ccy)
+    }
+
+    private func convert(_ amount: Decimal, from: CurrencyCode, to: CurrencyCode) -> Decimal {
+        if from == to { return amount }
+        let cm = appViewModel.currencyManager
+        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
+              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+            return amount
+        }
+        return amount / Decimal(fromRate) * Decimal(toRate)
     }
 
     private var formattedDate: String {
         transaction.formattedDateTime
-    }
-
-    /// Secondary line under the main amount: the same value converted into
-    /// the user's selected display currency. Returns nil when the entry is
-    /// already in the display currency or when FX rates are missing — in
-    /// the latter case lying with `1.0` would be worse than no preview.
-    private var displayCurrencyPreview: String? {
-        let cm = appViewModel.currencyManager
-
-        let nativeCcy: CurrencyCode
-        let nativeAmount: Decimal
-        if let fAmount = transaction.foreignAmount,
-           let fCcyRaw = transaction.foreignCurrency,
-           let fCode = CurrencyCode(rawValue: fCcyRaw.uppercased()) {
-            nativeCcy = fCode
-            nativeAmount = abs(fAmount)
-        } else {
-            nativeCcy = resolvedAccount?.currencyCode
-                ?? transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
-                ?? cm.dataCurrency
-            nativeAmount = abs(transaction.amountNative.displayAmount)
-        }
-
-        let displayCcy = cm.selectedCurrency
-        guard displayCcy != nativeCcy else { return nil }
-        guard let fromRate = cm.rates[nativeCcy.rawValue], fromRate > 0,
-              let toRate   = cm.rates[displayCcy.rawValue], toRate > 0 else {
-            return nil
-        }
-
-        let amountInDisplay = nativeAmount / Decimal(fromRate) * Decimal(toRate)
-        return "≈ \(cm.formatInCurrency(amountInDisplay, currency: displayCcy))"
     }
 
     // MARK: - Subviews
