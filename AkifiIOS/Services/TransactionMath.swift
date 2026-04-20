@@ -30,12 +30,20 @@ enum TransactionMath {
         fxRates: [String: Decimal],
         baseCode: String
     ) -> Int64 {
-        let accountCcy = tx.accountId
-            .flatMap { accountsById[$0]?.currency.uppercased() }
+        // Priority for the row's native currency:
+        //   1. tx.currency  — legacy label that, on TMA-imported rows, is
+        //      the currency the number was actually stored in even when
+        //      account.currency drifted (the «Семейный» case where the
+        //      account is set to VND but most rows are RUB).
+        //   2. account.currency — for fresh ADR-001 rows where the label
+        //      and the account currency match by construction.
+        //   3. baseCode — accountless rows (rare).
+        let nativeCcy = tx.currency?.uppercased()
+            ?? tx.accountId.flatMap { accountsById[$0]?.currency.uppercased() }
             ?? baseCode
         return NetWorthCalculator.convert(
             amount: tx.amountNative,
-            from: accountCcy,
+            from: nativeCcy,
             to: baseCode,
             rates: fxRates
         )
