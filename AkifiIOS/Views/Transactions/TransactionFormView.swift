@@ -665,7 +665,11 @@ struct TransactionFormView: View {
                         category_id: selectedCategoryId,
                         merchant_name: nil,
                         account_id: accountIdForUpdate,
-                        useAutoTransferUpdate: useAutoUpdate
+                        useAutoTransferUpdate: useAutoUpdate,
+                        // Form save replaces ALL currency-related columns —
+                        // switching from VND back to the account currency
+                        // must clear foreign_*, not silently leave them.
+                        replaceCurrencyFields: true
                     )
                     try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
                 }

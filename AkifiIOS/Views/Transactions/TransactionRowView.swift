@@ -41,10 +41,18 @@ struct TransactionRowView: View {
 
                     Spacer()
 
-                    Text(formattedAmount)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(amountColor)
-                        .monospacedDigit()
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(formattedAmount)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(amountColor)
+                            .monospacedDigit()
+                        if let preview = displayCurrencyPreview {
+                            Text(preview)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .monospacedDigit()
+                        }
+                    }
                 }
 
                 // Row 2: Date + account badge
@@ -218,6 +226,38 @@ struct TransactionRowView: View {
 
     private var formattedDate: String {
         transaction.formattedDateTime
+    }
+
+    /// Secondary line under the main amount: the same value converted into
+    /// the user's selected display currency. Returns nil when the entry is
+    /// already in the display currency or when FX rates are missing — in
+    /// the latter case lying with `1.0` would be worse than no preview.
+    private var displayCurrencyPreview: String? {
+        let cm = appViewModel.currencyManager
+
+        let nativeCcy: CurrencyCode
+        let nativeAmount: Decimal
+        if let fAmount = transaction.foreignAmount,
+           let fCcyRaw = transaction.foreignCurrency,
+           let fCode = CurrencyCode(rawValue: fCcyRaw.uppercased()) {
+            nativeCcy = fCode
+            nativeAmount = abs(fAmount)
+        } else {
+            nativeCcy = resolvedAccount?.currencyCode
+                ?? transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
+                ?? cm.dataCurrency
+            nativeAmount = abs(transaction.amountNative.displayAmount)
+        }
+
+        let displayCcy = cm.selectedCurrency
+        guard displayCcy != nativeCcy else { return nil }
+        guard let fromRate = cm.rates[nativeCcy.rawValue], fromRate > 0,
+              let toRate   = cm.rates[displayCcy.rawValue], toRate > 0 else {
+            return nil
+        }
+
+        let amountInDisplay = nativeAmount / Decimal(fromRate) * Decimal(toRate)
+        return "≈ \(cm.formatInCurrency(amountInDisplay, currency: displayCcy))"
     }
 
     // MARK: - Subviews

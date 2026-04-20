@@ -215,7 +215,13 @@ final class TransactionRepository: Sendable {
                 }
             }
         }
+        // Route to the 9-arg overload whenever foreign-* might need to be
+        // SET (any non-nil value) OR explicitly CLEARED (the form is
+        // replacing currency fields, e.g. user switched the entry currency
+        // back to the account currency). The 6-arg overload preserves
+        // existing foreign columns and would silently keep a stale entry.
         let hasForeign = input.foreign_amount != nil && input.foreign_currency != nil
+        let includeForeign = hasForeign || input.replaceCurrencyFields
         let params = Params(
             p_expense_id: id,
             p_amount: input.amount,
@@ -226,7 +232,7 @@ final class TransactionRepository: Sendable {
             p_foreign_amount: input.foreign_amount,
             p_foreign_currency: input.foreign_currency,
             p_fx_rate: input.fx_rate,
-            includeForeignKeys: hasForeign
+            includeForeignKeys: includeForeign
         )
         try await supabase
             .rpc("update_expense_with_auto_transfer", params: params)
@@ -371,7 +377,9 @@ struct CreateTransactionInput: Codable, Sendable {
 
 struct UpdateTransactionInput: Codable, Sendable {
     let amount: Decimal?
-    /// ADR-001 canonical amount. If nil, server keeps the prior value.
+    /// ADR-001 canonical amount. If nil and `replaceCurrencyFields` is
+    /// false, the server keeps the prior value. If `replaceCurrencyFields`
+    /// is true, nil is sent as JSON null and the column is overwritten.
     let amount_native: Decimal?
     let currency: String?
     let foreign_amount: Decimal?
@@ -385,6 +393,16 @@ struct UpdateTransactionInput: Codable, Sendable {
     let account_id: String?
     /// Internal, not encoded — tells the repo whether to call the auto-transfer RPC.
     let useAutoTransferUpdate: Bool
+    /// When true, the encoder emits ALL multi-currency columns
+    /// (amount, amount_native, currency, foreign_amount, foreign_currency,
+    /// fx_rate) even when nil — JSON null instead of dropping the key.
+    /// This is required when the user changes the entry currency in the
+    /// form: switching from a foreign-currency entry back to the account
+    /// currency must NULL out foreign_amount/foreign_currency/fx_rate, not
+    /// leave them as their previous values. Default false preserves the
+    /// "patch only what's set" behaviour for callers that touch a single
+    /// field (e.g. updating just the description).
+    let replaceCurrencyFields: Bool
 
     init(
         amount: Decimal? = nil,
@@ -399,7 +417,8 @@ struct UpdateTransactionInput: Codable, Sendable {
         category_id: String? = nil,
         merchant_name: String? = nil,
         account_id: String? = nil,
-        useAutoTransferUpdate: Bool = false
+        useAutoTransferUpdate: Bool = false,
+        replaceCurrencyFields: Bool = false
     ) {
         self.amount = amount
         self.amount_native = amount_native
@@ -412,9 +431,11 @@ struct UpdateTransactionInput: Codable, Sendable {
         self.category_id = category_id; self.merchant_name = merchant_name
         self.account_id = account_id
         self.useAutoTransferUpdate = useAutoTransferUpdate
+        self.replaceCurrencyFields = replaceCurrencyFields
     }
 
-    // Keep `useAutoTransferUpdate` out of the encoded payload — it's a client-only flag.
+    // Keep `useAutoTransferUpdate` and `replaceCurrencyFields` out of the
+    // encoded payload — they're client-only routing flags.
     enum CodingKeys: String, CodingKey {
         case amount, currency, type, date, description, category_id, merchant_name, account_id
         case amount_native, foreign_amount, foreign_currency, fx_rate
@@ -434,7 +455,34 @@ struct UpdateTransactionInput: Codable, Sendable {
         category_id = try c.decodeIfPresent(String.self, forKey: .category_id)
         merchant_name = try c.decodeIfPresent(String.self, forKey: .merchant_name)
         account_id = try c.decodeIfPresent(String.self, forKey: .account_id)
-        // Flag is never persisted — default to false when decoding.
+        // Flags never round-trip through the decoder.
         useAutoTransferUpdate = false
+        replaceCurrencyFields = false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if replaceCurrencyFields {
+            // Always emit — nil → JSON null → DB column cleared.
+            try c.encode(amount, forKey: .amount)
+            try c.encode(amount_native, forKey: .amount_native)
+            try c.encode(currency, forKey: .currency)
+            try c.encode(foreign_amount, forKey: .foreign_amount)
+            try c.encode(foreign_currency, forKey: .foreign_currency)
+            try c.encode(fx_rate, forKey: .fx_rate)
+        } else {
+            try c.encodeIfPresent(amount, forKey: .amount)
+            try c.encodeIfPresent(amount_native, forKey: .amount_native)
+            try c.encodeIfPresent(currency, forKey: .currency)
+            try c.encodeIfPresent(foreign_amount, forKey: .foreign_amount)
+            try c.encodeIfPresent(foreign_currency, forKey: .foreign_currency)
+            try c.encodeIfPresent(fx_rate, forKey: .fx_rate)
+        }
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encodeIfPresent(date, forKey: .date)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(category_id, forKey: .category_id)
+        try c.encodeIfPresent(merchant_name, forKey: .merchant_name)
+        try c.encodeIfPresent(account_id, forKey: .account_id)
     }
 }
