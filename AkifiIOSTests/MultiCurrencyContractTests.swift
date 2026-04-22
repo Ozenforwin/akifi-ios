@@ -412,6 +412,109 @@ final class MultiCurrencyContractTests: XCTestCase {
         XCTAssertEqual(handRolled, 3_627_00)
     }
 
+    // MARK: - Subscription FX (SUB-06 regression)
+
+    /// A USD subscription on a RUB budget must be FX-converted before
+    /// being added to `subscriptionCommitted`. Without the conversion
+    /// $9.99/mo Spotify becomes 9.99 roubles on a RUB-denominated
+    /// budget, silently understating the committed total by 80×.
+    func testSubscriptionCommitted_UsdSubscription_ConvertedToRubBudget() {
+        let ctx: BudgetMath.CurrencyContext = (
+            accountsById: accountsById,
+            fxRates: usdPivotRates,
+            baseCode: "RUB"
+        )
+        let budget = Budget(
+            id: "b-subs",
+            userId: "u1",
+            amount: 10_000_00,
+            billingPeriod: .monthly,
+            categoryIds: nil
+        )
+        let usdSub = SubscriptionTracker(
+            id: "sub-claude-code",
+            userId: "u1",
+            serviceName: "Claude Code",
+            amount: 100_00,                // $100.00
+            currency: "USD",
+            billingPeriod: .monthly,
+            startDate: "2026-04-01",
+            lastPaymentDate: nil,
+            nextPaymentDate: "2026-05-01",
+            categoryId: nil,
+            reminderDays: 1,
+            iconColor: "#60A5FA",
+            isActive: true,
+            status: .active
+        )
+
+        let committed = BudgetMath.subscriptionCommitted(
+            budget: budget,
+            subscriptions: [usdSub],
+            currencyContext: ctx
+        )
+
+        // 100 USD × (92.5 RUB / 1 USD) = 9 250 ₽ → 9_250_00 in minor units.
+        XCTAssertEqual(committed, 9_250_00, "USD subscription must be FX-normalized to the RUB budget's currency")
+    }
+
+    /// Mixed currencies — RUB + USD subscriptions on a RUB budget.
+    func testSubscriptionCommitted_MixedCurrencies_SumsInBudgetCurrency() {
+        let ctx: BudgetMath.CurrencyContext = (
+            accountsById: accountsById,
+            fxRates: usdPivotRates,
+            baseCode: "RUB"
+        )
+        let budget = Budget(
+            id: "b-subs",
+            userId: "u1",
+            amount: 20_000_00,
+            billingPeriod: .monthly,
+            categoryIds: nil
+        )
+        let rubSub = SubscriptionTracker(
+            id: "sub-yandex",
+            userId: "u1",
+            serviceName: "Яндекс диск",
+            amount: 249_00,                // 249 ₽
+            currency: "RUB",
+            billingPeriod: .monthly,
+            startDate: "2026-04-01",
+            lastPaymentDate: nil,
+            nextPaymentDate: "2026-05-01",
+            categoryId: nil,
+            reminderDays: 1,
+            iconColor: "#FFF",
+            isActive: true,
+            status: .active
+        )
+        let usdSub = SubscriptionTracker(
+            id: "sub-railway",
+            userId: "u1",
+            serviceName: "Railway",
+            amount: 9_00,                  // $9.00
+            currency: "USD",
+            billingPeriod: .monthly,
+            startDate: "2026-04-01",
+            lastPaymentDate: nil,
+            nextPaymentDate: "2026-05-01",
+            categoryId: nil,
+            reminderDays: 1,
+            iconColor: "#FFF",
+            isActive: true,
+            status: .active
+        )
+
+        let committed = BudgetMath.subscriptionCommitted(
+            budget: budget,
+            subscriptions: [rubSub, usdSub],
+            currencyContext: ctx
+        )
+
+        // 249 ₽ + (9 × 92.5 ₽) = 249 + 832.50 = 1081.50 ₽ → 1_081_50 kopecks.
+        XCTAssertEqual(committed, 1_081_50)
+    }
+
     // MARK: - Helpers
 
     private func withChangedId(_ tx: Transaction, to newId: String) -> Transaction {

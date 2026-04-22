@@ -38,7 +38,9 @@ enum BudgetMath {
         let limit = budget.amount
         let remaining = max(0, limit - spent)
 
-        let subCommitted = subscriptionCommitted(budget: budget, subscriptions: subscriptions)
+        let subCommitted = subscriptionCommitted(
+            budget: budget, subscriptions: subscriptions, currencyContext: currencyContext
+        )
         let freeRemaining = max(0, remaining - subCommitted)
 
         let utilization = computeProgress(spent: spent, limit: limit)
@@ -170,16 +172,43 @@ enum BudgetMath {
 
     // MARK: - Subscription Committed
 
-    static func subscriptionCommitted(budget: Budget, subscriptions: [SubscriptionTracker]) -> Int64 {
+    /// Sum of the user's active subscriptions committed against this
+    /// budget's period, FX-normalized into the budget's currency.
+    /// Without the FX step a $9.99/mo subscription on a RUB budget gets
+    /// added as 9.99 roubles instead of ~925 — silently understating the
+    /// committed total by two orders of magnitude.
+    static func subscriptionCommitted(
+        budget: Budget,
+        subscriptions: [SubscriptionTracker],
+        currencyContext: CurrencyContext
+    ) -> Int64 {
         let activeSubs = subscriptions.filter { $0.status == .active }
         guard !activeSubs.isEmpty else { return 0 }
+
+        let budgetCurrency: String = {
+            if let accId = budget.accountId,
+               let acc = currencyContext.accountsById[accId] {
+                return acc.currency.uppercased()
+            }
+            return currencyContext.baseCode
+        }()
 
         var total: Int64 = 0
         for sub in activeSubs {
             if let cats = budget.categoryIds, !cats.isEmpty {
                 guard let catId = sub.categoryId, cats.contains(catId) else { continue }
             }
-            total += normalizedAmount(sub.amount, from: sub.billingPeriod, to: budget.billingPeriod)
+            let periodNormalized = normalizedAmount(
+                sub.amount, from: sub.billingPeriod, to: budget.billingPeriod
+            )
+            let subCurrency = (sub.currency ?? currencyContext.baseCode).uppercased()
+            let fxNormalized = NetWorthCalculator.convert(
+                amount: periodNormalized,
+                from: subCurrency,
+                to: budgetCurrency,
+                rates: currencyContext.fxRates
+            )
+            total += fxNormalized
         }
         return total
     }
