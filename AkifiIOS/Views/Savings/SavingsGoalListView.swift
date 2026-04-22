@@ -32,11 +32,15 @@ struct SavingsGoalListView: View {
                                             progress: viewModel.progress(for: goal),
                                             daysRemaining: viewModel.daysRemaining(for: goal)
                                         ) { amount, type, note in
+                                            let accountCurrency = goal.accountId.flatMap { accId in
+                                                appViewModel.dataStore.accounts.first(where: { $0.id == accId })?.currency
+                                            }
                                             await viewModel.addContribution(
                                                 goalId: goal.id,
                                                 amount: amount,
                                                 type: type,
-                                                note: note
+                                                note: note,
+                                                accountCurrency: accountCurrency
                                             )
                                         }
                                         .task(id: goal.id) {

@@ -139,12 +139,20 @@ final class DepositsViewModel {
         let sourceAmountDecimal = Decimal(sourceAmountKopecks) / 100
         let destAmountDecimal = Decimal(initialAmount) / 100
 
+        // ADR-001: each transfer leg lives on its own account, so
+        // `amount_native == amount` (in the leg's own currency) and
+        // `currency = account.currency`. No foreign_* fields — the user
+        // entered each side in that side's native currency (the split
+        // between source/destination IS the cross-currency conversion,
+        // captured in the `DepositContribution` row's fx_rate).
+
         // Expense leg on source account (in source currency).
         _ = try await transactionRepo.create(CreateTransactionInput(
             user_id: userId,
             account_id: sourceAccount.id,
             amount: sourceAmountDecimal,
-            currency: sourceAccount.currency,
+            amount_native: sourceAmountDecimal,
+            currency: sourceAccount.currency.uppercased(),
             type: TransactionType.expense.rawValue,
             date: dateStr,
             description: String(localized: "deposit.transfer.contribute"),
@@ -157,7 +165,8 @@ final class DepositsViewModel {
             user_id: userId,
             account_id: account.id,
             amount: destAmountDecimal,
-            currency: currency.rawValue,
+            amount_native: destAmountDecimal,
+            currency: currency.rawValue.uppercased(),
             type: TransactionType.income.rawValue,
             date: dateStr,
             description: String(localized: "deposit.transfer.contribute"),
@@ -211,11 +220,14 @@ final class DepositsViewModel {
         let sourceAmountDecimal = Decimal(sourceAmountKopecks) / 100
         let destAmountDecimal = Decimal(amountInDeposit) / 100
 
+        // ADR-001 (see `create()` above for the same rationale): each leg
+        // is already in its own account's currency, so `amount_native = amount`.
         _ = try await transactionRepo.create(CreateTransactionInput(
             user_id: userId,
             account_id: sourceAccount.id,
             amount: sourceAmountDecimal,
-            currency: sourceAccount.currency,
+            amount_native: sourceAmountDecimal,
+            currency: sourceAccount.currency.uppercased(),
             type: TransactionType.expense.rawValue,
             date: dateStr,
             description: String(localized: "deposit.transfer.contribute"),
@@ -227,7 +239,8 @@ final class DepositsViewModel {
             user_id: userId,
             account_id: depositAccount.id,
             amount: destAmountDecimal,
-            currency: depositAccount.currency,
+            amount_native: destAmountDecimal,
+            currency: depositAccount.currency.uppercased(),
             type: TransactionType.income.rawValue,
             date: dateStr,
             description: String(localized: "deposit.transfer.contribute"),

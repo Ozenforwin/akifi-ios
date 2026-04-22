@@ -486,12 +486,23 @@ struct BankImportView: View {
             let userId = try await txRepo.currentUserId()
             var imported = 0
 
+            // ADR-001: bank statements come pre-denominated in the account's
+            // currency (the bank can't send a RUB statement for a USD card),
+            // so `amount == amount_native` and `currency = account.currency`.
+            // No `foreign_*` because there's no user-entry-currency mismatch.
+            let targetAccountId = selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id
+            let targetAccountCurrency = dataStore.accounts
+                .first(where: { $0.id == targetAccountId })?
+                .currency
+                .uppercased()
+
             for tx in txToImport {
                 let input = CreateTransactionInput(
                     user_id: userId,
-                    account_id: selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id,
+                    account_id: targetAccountId,
                     amount: Decimal(tx.amount),
-                    currency: nil,
+                    amount_native: Decimal(tx.amount),
+                    currency: targetAccountCurrency,
                     type: tx.type == "income" ? "income" : "expense",
                     date: tx.date,
                     description: tx.description,

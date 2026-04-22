@@ -89,7 +89,7 @@ final class SavingsViewModel {
         }
     }
 
-    func addContribution(goalId: String, amount: Int64, type: ContributionType, note: String?) async {
+    func addContribution(goalId: String, amount: Int64, type: ContributionType, note: String?, accountCurrency: String? = nil) async {
         do {
             let userId = try await repo.currentUserId()
             let input = CreateContributionInput(
@@ -106,11 +106,16 @@ final class SavingsViewModel {
             let goal = goals.first { $0.id == goalId }
             let desc = "\(goal?.name ?? String(localized: "home.savings")): \(type == .withdrawal ? String(localized: "contribution.withdrawal") : String(localized: "contribution.deposit"))\(note != nil ? " — \(note!)" : "")"
             let txRepo = TransactionRepository()
+            // ADR-001: contribution flows into the goal's linked account, so
+            // the tx currency is the account's own currency. No foreign_*
+            // because the user entered the amount in that same currency.
+            let amountDecimal = Decimal(amount) / 100
             let txInput = CreateTransactionInput(
                 user_id: userId,
                 account_id: goal?.accountId,
-                amount: Decimal(amount) / 100,
-                currency: nil,
+                amount: amountDecimal,
+                amount_native: amountDecimal,
+                currency: accountCurrency?.uppercased(),
                 type: "transfer",
                 date: isoDateFormatter.string(from: Date()),
                 description: desc,
