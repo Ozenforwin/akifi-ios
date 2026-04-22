@@ -15,6 +15,8 @@ struct AccountFormView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showShareSheet = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
 
     private let accountRepo = AccountRepository()
 
@@ -63,7 +65,7 @@ struct AccountFormView: View {
                         .font(.caption)
                 }
 
-                Section(String(localized: "settings.currency")) {
+                Section {
                     ForEach(CurrencyCode.allCases, id: \.self) { currency in
                         Button {
                             selectedCurrency = currency
@@ -73,7 +75,7 @@ struct AccountFormView: View {
                                     .font(.title3)
                                     .frame(width: 30)
                                 Text(currency.name)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(isCurrencyLocked ? .secondary : .primary)
                                 Spacer()
                                 if selectedCurrency == currency {
                                     Image(systemName: "checkmark")
@@ -81,6 +83,20 @@ struct AccountFormView: View {
                                 }
                             }
                         }
+                        .disabled(isCurrencyLocked)
+                    }
+                } header: {
+                    Text(String(localized: "settings.currency"))
+                } footer: {
+                    if isCurrencyLocked {
+                        // ADR-001: changing `account.currency` while the
+                        // account still has rows would leave every
+                        // `tx.amount_native` in the OLD currency while the
+                        // account is now in a new one — producing the
+                        // VND-as-RUB phantom on history. Block at the UI.
+                        Text(String(localized: "account.currency.locked.hint"))
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
                 }
 
@@ -159,6 +175,36 @@ struct AccountFormView: View {
                             .font(.caption)
                     }
                 }
+
+                if let acc = editingAccount {
+                    // Destructive action — separate section at the bottom so
+                    // it's visually far from Save. `DELETE FROM accounts`
+                    // cascades into transactions (migration 20260422160000),
+                    // which is exactly what the confirmation text promises.
+                    Section {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text(String(localized: "account.deleteAccount"))
+                            }
+                        }
+                        .disabled(isDeleting || isSaving)
+                    }
+                    .confirmationDialog(
+                        String(localized: "account.deleteConfirm.title"),
+                        isPresented: $showDeleteConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button(String(localized: "account.deleteConfirm.action"), role: .destructive) {
+                            Task { await deleteAccount(acc) }
+                        }
+                        Button(String(localized: "common.cancel"), role: .cancel) { }
+                    } message: {
+                        Text(deleteConfirmationMessage(for: acc))
+                    }
+                }
             }
             .navigationTitle(isEditing ? String(localized: "account.edit") : String(localized: "account.new"))
             .navigationBarTitleDisplayMode(.inline)
@@ -178,6 +224,16 @@ struct AccountFormView: View {
     }
 
     // MARK: - Preview (base currency approx)
+
+    /// Currency picker is locked in edit mode whenever the account has
+    /// at least one transaction. Changing `account.currency` under a
+    /// populated account silently mis-denominates the entire history —
+    /// see Scenario 7 in `project_multi_currency_plan.md`. Fresh accounts
+    /// and account creation are unaffected.
+    private var isCurrencyLocked: Bool {
+        guard let account = editingAccount else { return false }
+        return appViewModel.dataStore.transactions.contains { $0.accountId == account.id }
+    }
 
     /// Only show the base-currency preview when the user's base differs from
     /// the account's currency. Avoids redundant "≈ 100 ₽" under "100 ₽".
@@ -286,5 +342,43 @@ struct AccountFormView: View {
             else if tx.type == .expense { net -= tx.amountNative }
         }
         return net
+    }
+
+    // MARK: - Delete
+
+    /// Number of transactions that will be removed by the CASCADE FK
+    /// when this account is deleted.
+    private func txCountForAccount(_ account: Account) -> Int {
+        appViewModel.dataStore.transactions.filter { $0.accountId == account.id }.count
+    }
+
+    /// Compose the warning text. Deposits attached to the account also
+    /// cascade-delete (FK `deposits.account_id` CASCADE), but the
+    /// `DataStore` doesn't surface deposits as a live collection — they
+    /// live in `DepositsViewModel`. Since accounts of type `.deposit`
+    /// are managed from the Deposits tab anyway, the `withDeposits`
+    /// branches remain in localizations for a future refactor but the
+    /// current message only cites the transaction count.
+    private func deleteConfirmationMessage(for account: Account) -> String {
+        let tx = txCountForAccount(account)
+        if tx > 0 {
+            return String(
+                format: String(localized: "account.deleteConfirm.withTx %lld"),
+                tx
+            )
+        }
+        return String(localized: "account.deleteConfirm.empty")
+    }
+
+    private func deleteAccount(_ account: Account) async {
+        isDeleting = true
+        do {
+            try await accountRepo.delete(id: account.id)
+            await onSave()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isDeleting = false
     }
 }

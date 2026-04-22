@@ -372,17 +372,43 @@ struct ReceiptScannerView: View {
         error = nil
 
         do {
-            // Convert entered amount from editCurrency to base (RUB)
+            // ADR-001: convert the entered receipt amount into the target
+            // account's OWN currency (not the global display currency).
+            // If the receipt was entered in the account's currency, no
+            // foreign_* — it's a native write.
             let cm = appViewModel.currencyManager
-            let baseRate = cm.rates[cm.dataCurrency.rawValue] ?? 1.0
-            let targetRate = cm.rates[editCurrency.rawValue] ?? 1.0
-            let amountInRub = targetRate > 0 ? amount / targetRate * baseRate : amount
-            let amountRounded = max(1, Int(amountInRub.rounded()))
+            let account = appViewModel.dataStore.accounts.first { $0.id == selectedAccountId }
+            let accountCode: CurrencyCode = account?.currencyCode ?? cm.dataCurrency
+
+            // `amount` is the raw receipt value as Double (from the OCR
+            // parser). Cross-account math in Double to keep the existing
+            // rounding semantics; convert to Decimal only at the RPC boundary.
+            let amountInAccountCurrencyDouble: Double
+            let foreignAmountDouble: Double?
+            let foreignCurrency: String?
+            let fxRateDouble: Double?
+            if editCurrency == accountCode {
+                amountInAccountCurrencyDouble = amount
+                foreignAmountDouble = nil
+                foreignCurrency = nil
+                fxRateDouble = nil
+            } else {
+                let baseRate = cm.rates[accountCode.rawValue] ?? 1.0
+                let srcRate = cm.rates[editCurrency.rawValue] ?? 1.0
+                amountInAccountCurrencyDouble = srcRate > 0 ? (amount / srcRate * baseRate) : amount
+                foreignAmountDouble = amount
+                foreignCurrency = editCurrency.rawValue
+                fxRateDouble = amount > 0 ? amountInAccountCurrencyDouble / amount : nil
+            }
+
+            let amountInAccountCurrency = Decimal(Int(amountInAccountCurrencyDouble.rounded()))
+            let foreignAmount = foreignAmountDouble.map { Decimal($0) }
+            let fxRate = fxRateDouble.map { Decimal($0) }
 
             let df = DateFormatter()
             df.dateFormat = "yyyy-MM-dd"
 
-            let originalSuffix = editCurrency != cm.dataCurrency
+            let originalSuffix = editCurrency != accountCode
                 ? " · \(editAmount) \(editCurrency.rawValue)"
                 : ""
             let description = [
@@ -397,8 +423,12 @@ struct ReceiptScannerView: View {
             _ = try await txRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: selectedAccountId,
-                amount: Decimal(amountRounded),
-                currency: nil,
+                amount: amountInAccountCurrency,
+                amount_native: amountInAccountCurrency,
+                currency: accountCode.rawValue,
+                foreign_amount: foreignAmount,
+                foreign_currency: foreignCurrency,
+                fx_rate: fxRate,
                 type: "expense",
                 date: df.string(from: transactionDate),
                 description: description.isEmpty ? nil : description,

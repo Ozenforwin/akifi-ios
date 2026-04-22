@@ -175,7 +175,7 @@ enum SettlementCalculator {
         // 78 000 ₽» when she'd actually owe ~280 ₽.)
         let totalExpenses: Int64 = autoTransferExpenses.reduce(0) {
             $0 + normalizeToBase(
-                amount: $1.amount,
+                amount: $1.amountNative,
                 rowCurrency: $1.currency,
                 baseCurrency: baseCurrency,
                 fxRates: fxRates
@@ -232,7 +232,7 @@ enum SettlementCalculator {
                 // Peer hidden by RLS — attribute to the row creator as best-effort.
                 let uid = row.userId
                 let normalized = normalizeToBase(
-                    amount: row.amount,
+                    amount: row.amountNative,
                     rowCurrency: row.currency,
                     baseCurrency: baseCurrency,
                     fxRates: fxRates
@@ -260,7 +260,7 @@ enum SettlementCalculator {
             // `currency` field so the transfer-out leg (in source ccy)
             // converts correctly.
             let normalized = normalizeToBase(
-                amount: row.amount,
+                amount: row.amountNative,
                 rowCurrency: row.currency,
                 baseCurrency: baseCurrency,
                 fxRates: fxRates

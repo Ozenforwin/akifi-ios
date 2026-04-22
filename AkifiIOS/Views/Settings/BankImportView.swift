@@ -457,13 +457,13 @@ struct BankImportView: View {
         for (idx, parsed) in txs.enumerated() {
             guard let parsedDate = parser.date(from: String(parsed.date.prefix(10))) else { continue }
             // Parser amount is in major units (rubles). Convert to kopecks
-            // for a unit-consistent comparison with `Transaction.amount`.
+            // for a unit-consistent comparison with `Transaction.amountNative`.
             let parsedKopecks = Int64((parsed.amount * 100).rounded())
             for leg in autoTransferLegs {
                 let legDateStr = String((leg.rawDateTime.isEmpty ? leg.date : leg.rawDateTime).prefix(10))
                 guard let legDate = parser.date(from: legDateStr) else { continue }
                 if abs(legDate.timeIntervalSince(parsedDate)) <= oneDay,
-                   abs(leg.amount - parsedKopecks) <= 1 {
+                   abs(leg.amountNative - parsedKopecks) <= 1 {
                     matched.insert(idx)
                     break
                 }
@@ -486,12 +486,23 @@ struct BankImportView: View {
             let userId = try await txRepo.currentUserId()
             var imported = 0
 
+            // ADR-001: bank statements come pre-denominated in the account's
+            // currency (the bank can't send a RUB statement for a USD card),
+            // so `amount == amount_native` and `currency = account.currency`.
+            // No `foreign_*` because there's no user-entry-currency mismatch.
+            let targetAccountId = selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id
+            let targetAccountCurrency = dataStore.accounts
+                .first(where: { $0.id == targetAccountId })?
+                .currency
+                .uppercased()
+
             for tx in txToImport {
                 let input = CreateTransactionInput(
                     user_id: userId,
-                    account_id: selectedAccountId ?? dataStore.accounts.first(where: { $0.isPrimary })?.id,
+                    account_id: targetAccountId,
                     amount: Decimal(tx.amount),
-                    currency: nil,
+                    amount_native: Decimal(tx.amount),
+                    currency: targetAccountCurrency,
                     type: tx.type == "income" ? "income" : "expense",
                     date: tx.date,
                     description: tx.description,

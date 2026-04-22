@@ -22,13 +22,25 @@ struct BudgetMetrics {
 
 enum BudgetMath {
 
-    static func compute(budget: Budget, transactions: [Transaction], subscriptions: [SubscriptionTracker] = []) -> BudgetMetrics {
+    /// Alias of `TransactionMath.CurrencyContext` so existing call sites
+    /// that reference `BudgetMath.CurrencyContext` keep working while the
+    /// canonical spelling lives with the math helper itself.
+    typealias CurrencyContext = TransactionMath.CurrencyContext
+
+    static func compute(
+        budget: Budget,
+        transactions: [Transaction],
+        subscriptions: [SubscriptionTracker] = [],
+        currencyContext: CurrencyContext
+    ) -> BudgetMetrics {
         let period = currentPeriod(for: budget)
-        let spent = spentAmount(budget: budget, transactions: transactions, period: period)
+        let spent = spentAmount(budget: budget, transactions: transactions, period: period, currencyContext: currencyContext)
         let limit = budget.amount
         let remaining = max(0, limit - spent)
 
-        let subCommitted = subscriptionCommitted(budget: budget, subscriptions: subscriptions)
+        let subCommitted = subscriptionCommitted(
+            budget: budget, subscriptions: subscriptions, currencyContext: currencyContext
+        )
         let freeRemaining = max(0, remaining - subCommitted)
 
         let utilization = computeProgress(spent: spent, limit: limit)
@@ -119,7 +131,24 @@ enum BudgetMath {
 
     // MARK: - Spent
 
-    static func spentAmount(budget: Budget, transactions: [Transaction], period: (start: Date, end: Date)) -> Int64 {
+    /// Sums the transactions matching this budget, FX-normalizing each
+    /// amount_native into the budget's currency. The budget's currency is
+    /// the linked account's currency (if `budget.accountId` is set), or
+    /// the user's base currency otherwise.
+    static func spentAmount(
+        budget: Budget,
+        transactions: [Transaction],
+        period: (start: Date, end: Date),
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        let budgetCurrency: String = {
+            if let accId = budget.accountId,
+               let acc = currencyContext.accountsById[accId] {
+                return acc.currency.uppercased()
+            }
+            return currencyContext.baseCode
+        }()
+
         let df = AppDateFormatters.isoDate
         return transactions.filter { tx in
             guard tx.type == .expense && !tx.isTransfer else { return false }
@@ -131,21 +160,55 @@ enum BudgetMath {
             }
             guard let d = df.date(from: tx.date) else { return false }
             return d >= period.start && d <= period.end
-        }.reduce(Int64(0)) { $0 + $1.amount }
+        }.reduce(Int64(0)) { acc, tx in
+            acc + TransactionMath.amountInBase(
+                tx,
+                accountsById: currencyContext.accountsById,
+                fxRates: currencyContext.fxRates,
+                baseCode: budgetCurrency
+            )
+        }
     }
 
     // MARK: - Subscription Committed
 
-    static func subscriptionCommitted(budget: Budget, subscriptions: [SubscriptionTracker]) -> Int64 {
+    /// Sum of the user's active subscriptions committed against this
+    /// budget's period, FX-normalized into the budget's currency.
+    /// Without the FX step a $9.99/mo subscription on a RUB budget gets
+    /// added as 9.99 roubles instead of ~925 — silently understating the
+    /// committed total by two orders of magnitude.
+    static func subscriptionCommitted(
+        budget: Budget,
+        subscriptions: [SubscriptionTracker],
+        currencyContext: CurrencyContext
+    ) -> Int64 {
         let activeSubs = subscriptions.filter { $0.status == .active }
         guard !activeSubs.isEmpty else { return 0 }
+
+        let budgetCurrency: String = {
+            if let accId = budget.accountId,
+               let acc = currencyContext.accountsById[accId] {
+                return acc.currency.uppercased()
+            }
+            return currencyContext.baseCode
+        }()
 
         var total: Int64 = 0
         for sub in activeSubs {
             if let cats = budget.categoryIds, !cats.isEmpty {
                 guard let catId = sub.categoryId, cats.contains(catId) else { continue }
             }
-            total += normalizedAmount(sub.amount, from: sub.billingPeriod, to: budget.billingPeriod)
+            let periodNormalized = normalizedAmount(
+                sub.amount, from: sub.billingPeriod, to: budget.billingPeriod
+            )
+            let subCurrency = (sub.currency ?? currencyContext.baseCode).uppercased()
+            let fxNormalized = NetWorthCalculator.convert(
+                amount: periodNormalized,
+                from: subCurrency,
+                to: budgetCurrency,
+                rates: currencyContext.fxRates
+            )
+            total += fxNormalized
         }
         return total
     }

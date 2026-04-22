@@ -523,10 +523,12 @@ async function evaluateBudgetWarning(
     const periodStart = toDateOnly(period.start);
     const periodEnd = toDateOnly(period.end);
 
-    // Calculate spent in current period
+    // Calculate spent in current period — ADR-001: prefer amount_native
+    // so multi-currency rows sum in the account's own currency rather than
+    // the raw foreign value.
     const { data: txRows } = await supabase
       .from("transactions")
-      .select("amount")
+      .select("amount,amount_native")
       .eq("user_id", userId)
       .eq("type", "expense")
       .is("transfer_group_id", null)
@@ -535,7 +537,7 @@ async function evaluateBudgetWarning(
       .lt("date", periodEnd);
 
     const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number }) => sum + t.amount,
+      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: read amount_native with legacy fallback
       0,
     );
     const percent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
@@ -602,14 +604,14 @@ async function evaluateLargeExpense(
 
     const { data: recentTx } = await supabase
       .from("transactions")
-      .select("amount")
+      .select("amount,amount_native")
       .eq("user_id", userId)
       .eq("type", "expense")
       .is("transfer_group_id", null)
       .gte("date", toDateOnly(thirtyDaysAgo));
 
     const amounts = (recentTx ?? []).map(
-      (t: { amount: number }) => t.amount,
+      (t: { amount: number; amount_native?: number }) => t.amount_native ?? t.amount, // allowlisted-amount: anomaly detector prefers amount_native
     );
 
     // Need at least 5 transactions for meaningful stats
@@ -785,7 +787,7 @@ async function evaluateWeeklyPace(
 
     const { data: txRows } = await supabase
       .from("transactions")
-      .select("amount")
+      .select("amount,amount_native")
       .eq("user_id", userId)
       .eq("type", "expense")
       .is("transfer_group_id", null)
@@ -794,7 +796,7 @@ async function evaluateWeeklyPace(
       .lt("date", periodEnd);
 
     const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number }) => sum + t.amount,
+      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: budget projection prefers amount_native
       0,
     );
 

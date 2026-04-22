@@ -42,7 +42,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
             tx(amount: 100_00, type: .expense, categoryId: "other", date: "2026-04-10"),
             tx(amount: 500_00, type: .income, categoryId: nil, date: "2026-04-12")
         ]
-        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs), 0)
+        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs, currencyContext: ([:], [:], "RUB")), 0)
     }
 
     func testNoCafe_ExpensesInCategory_AccumulatesViolations() {
@@ -53,7 +53,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
             // Outside range — ignored.
             tx(amount: 500_00, type: .expense, categoryId: "cafe", date: "2026-03-12")
         ]
-        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs),
+        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs, currencyContext: ([:], [:], "RUB")),
                        230_00)
     }
 
@@ -68,7 +68,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
             transferGroupId: "g1",
             status: transfer.status, createdAt: transfer.createdAt, updatedAt: transfer.updatedAt
         )
-        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: [transfer]), 0)
+        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: [transfer], currencyContext: ([:], [:], "RUB")), 0)
     }
 
     // MARK: - categoryLimit
@@ -80,7 +80,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
             tx(amount: 250_00, type: .expense, categoryId: "cafe", date: "2026-04-15"),
             tx(amount: 9000_00, type: .expense, categoryId: "food", date: "2026-04-20")
         ]
-        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs),
+        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs, currencyContext: ([:], [:], "RUB")),
                        350_00)
     }
 
@@ -105,7 +105,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
             tx(amount: 333_33, type: .expense, categoryId: "x", date: "2026-04-12")   // delta 67
         ]
         // 125_50 % 100 = 50 → +50. 200_00 % 100 = 0 → +0. 333_33 % 100 = 33 → +67.
-        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs),
+        XCTAssertEqual(ChallengeProgressEngine.progress(for: ch, transactions: txs, currencyContext: ([:], [:], "RUB")),
                        50 + 0 + 67)
     }
 

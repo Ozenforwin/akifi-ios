@@ -143,14 +143,15 @@ struct TransferFormView: View {
         let cm = appViewModel.currencyManager
         let dataStore = appViewModel.dataStore
 
-        // Amount
+        // Amount. `amountNative` is the account-currency value post-ADR-001;
+        // equals `amount` on new rows but avoids the deprecated accessor.
         if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
             selectedCurrency = code
-            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: code)
+            let displayAmount = cm.convertToAccountCurrency(tx.amountNative.displayAmount, accountCurrency: code)
             calculatorState.setValue(abs(displayAmount))
         } else {
             selectedCurrency = cm.selectedCurrency
-            let displayAmount = cm.convertToAccountCurrency(tx.amount.displayAmount, accountCurrency: cm.selectedCurrency)
+            let displayAmount = cm.convertToAccountCurrency(tx.amountNative.displayAmount, accountCurrency: cm.selectedCurrency)
             calculatorState.setValue(abs(displayAmount))
         }
 
@@ -161,11 +162,12 @@ struct TransferFormView: View {
             date = txDate
         }
 
-        // Determine from/to accounts using the transfer pair
+        // Determine from/to accounts using the transfer pair.
+        // Sign on `amountNative` identifies the outgoing leg.
         if let groupId = tx.transferGroupId,
            let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != tx.id }) {
             // The expense side is "from", the income side is "to"
-            if tx.amount < 0 {
+            if tx.amountNative < 0 {
                 fromAccountId = tx.accountId
                 toAccountId = pair.accountId
             } else {
@@ -174,7 +176,7 @@ struct TransferFormView: View {
             }
         } else {
             // Pair not found — use current transaction's account
-            if tx.amount < 0 {
+            if tx.amountNative < 0 {
                 fromAccountId = tx.accountId
             } else {
                 toAccountId = tx.accountId
@@ -218,7 +220,7 @@ struct TransferFormView: View {
                 // Determine which is expense (from) and which is income (to)
                 let expenseTxId: String
                 let incomeTxId: String?
-                if tx.amount < 0 {
+                if tx.amountNative < 0 {
                     expenseTxId = tx.id
                     incomeTxId = pair?.id
                 } else {

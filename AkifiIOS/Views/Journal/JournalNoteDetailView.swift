@@ -174,7 +174,7 @@ struct JournalNoteDetailView: View {
                         .foregroundStyle(tx.type == .income ? Color.income : Color.expense)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))
+                    Text(appViewModel.currencyManager.formatAmount(dataStore.amountInBaseDisplay(tx)))
                         .font(.headline.monospacedDigit())
                     if let cat = dataStore.category(for: tx) {
                         Text(cat.name)

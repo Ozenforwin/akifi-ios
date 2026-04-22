@@ -20,6 +20,14 @@ struct CurrencyReconciliationView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
+    /// Cache of historical / pair-extracted FX rates keyed by transaction.id.
+    /// Populated lazily in `.task` on mount. A `nil` value (vs. missing key)
+    /// means "attempted but no quote available" — the row falls back to the
+    /// current rate with a visible warning.
+    @State private var resolvedRates: [String: ResolvedRate] = [:]
+
+    private let exchangeService = ExchangeRateService()
+
     private var suspiciousRows: [SuspiciousRow] {
         let accounts = Dictionary(
             uniqueKeysWithValues: appViewModel.dataStore.accounts.map { ($0.id, $0) }
@@ -34,6 +42,61 @@ struct CurrencyReconciliationView: View {
             return SuspiciousRow(transaction: tx, account: account)
         }
         .sorted { $0.transaction.rawDateTime > $1.transaction.rawDateTime }
+    }
+
+    /// For each suspicious row, try to find a better-than-today FX rate.
+    /// Priority:
+    ///   1. Paired leg in the same `auto_transfer_group_id` on an account
+    ///      in the target currency — bit-exact, the TMA wrote it when the
+    ///      transaction happened.
+    ///   2. APILayer historical quote on the transaction's date — close to
+    ///      the market rate that day.
+    ///   3. (Fallback handled by the row: today's rate from CurrencyManager
+    ///      with an "approximate" warning badge.)
+    private func resolveRates(for rows: [SuspiciousRow]) async {
+        let accountsById = Dictionary(
+            uniqueKeysWithValues: appViewModel.dataStore.accounts.map { ($0.id, $0) }
+        )
+        var out: [String: ResolvedRate] = [:]
+        for row in rows {
+            let tx = row.transaction
+            let label = (tx.currency ?? "").uppercased()
+            let accountCcy = row.account.currency.uppercased()
+
+            // 1) Pair-extracted — walk the auto-transfer group, find a leg
+            //    on an account already in the target (account) currency.
+            if let groupId = tx.autoTransferGroupId,
+               let pair = appViewModel.dataStore.transactions.first(where: {
+                   $0.autoTransferGroupId == groupId
+                       && $0.id != tx.id
+                       && $0.transferGroupId != nil
+                       && ($0.accountId.flatMap { accountsById[$0]?.currency.uppercased() } == accountCcy)
+               }),
+               tx.amountNative != 0 {
+                // `pair.amountNative` is already in the target currency.
+                // rate = pair_target_amount / broken_foreign_amount.
+                let pairAmount = Decimal(pair.amountNative) / 100
+                let brokenAmount = Decimal(tx.amountNative) / 100
+                if brokenAmount > 0 {
+                    let rate = pairAmount / brokenAmount
+                    out[tx.id] = ResolvedRate(rate: rate, source: .pair, date: row.transaction.date)
+                    continue
+                }
+            }
+
+            // 2) Historical quote from APILayer.
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            if let date = df.date(from: tx.date),
+               let quote = await exchangeService.fetchHistoricalRate(
+                    from: label, to: accountCcy, date: date) {
+                out[tx.id] = ResolvedRate(rate: Decimal(quote), source: .historical, date: tx.date)
+                continue
+            }
+
+            // 3) No resolved rate — the row will fall back to today's rate.
+        }
+        resolvedRates = out
     }
 
     var body: some View {
@@ -63,7 +126,10 @@ struct CurrencyReconciliationView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(suspiciousRows) { row in
-                        ReconciliationRow(row: row) { decision in
+                        ReconciliationRow(
+                            row: row,
+                            resolved: resolvedRates[row.transaction.id]
+                        ) { decision in
                             await applyDecision(row: row, decision: decision)
                         }
                     }
@@ -90,6 +156,9 @@ struct CurrencyReconciliationView: View {
                     ProgressView().controlSize(.large)
                 }
             }
+            .task {
+                await resolveRates(for: suspiciousRows)
+            }
         }
     }
 
@@ -109,16 +178,32 @@ struct CurrencyReconciliationView: View {
             case .reinterpretAsLabel:
                 // The stored number was in `label` currency, not the
                 // account's. Convert to account currency and record foreign_*.
+                //
+                // Rate priority:
+                //   - Pair-extracted (bit-exact): use the rate TMA wrote
+                //     when the transaction happened.
+                //   - Historical APILayer quote for `tx.date`.
+                //   - Fallback: today's `CurrencyManager.rates` — less
+                //     accurate for old rows, but keeps the flow unblocked
+                //     when the API is unreachable.
                 let cm = appViewModel.currencyManager
                 let labelCode = CurrencyCode(rawValue: row.transaction.currency?.uppercased() ?? "") ?? .rub
                 let accountCode = row.account.currencyCode
                 let originalAmount = row.transaction.amountNative.displayAmount
-                let converted = convert(
-                    amount: originalAmount,
-                    from: labelCode,
-                    to: accountCode,
-                    using: cm
-                )
+                let resolved = resolvedRates[row.transaction.id]
+                let rate: Decimal = resolved?.rate ?? {
+                    let fromRate = Decimal(cm.rates[labelCode.rawValue] ?? 1.0)
+                    let toRate = Decimal(cm.rates[accountCode.rawValue] ?? 1.0)
+                    return fromRate != 0 ? toRate / fromRate : 1
+                }()
+                // Safety: refuse to save a 1:1 conversion between different
+                // currencies — that's what produced the original bug in
+                // the first place.
+                guard !(labelCode != accountCode && rate == 1) else {
+                    errorMessage = String(localized: "currencyReconciliation.error.rateMissing")
+                    return
+                }
+                let converted = originalAmount * rate
                 let fx: Decimal? = originalAmount != 0
                     ? converted / originalAmount
                     : nil
@@ -156,6 +241,19 @@ private struct SuspiciousRow: Identifiable {
     var id: String { transaction.id }
 }
 
+/// FX rate resolved for a specific reconciliation row, with provenance so
+/// the UI can show "bit-exact pair rate" vs. "historical quote" vs.
+/// "approximate" (the default when neither is available).
+struct ResolvedRate: Sendable {
+    enum Source: Sendable {
+        case pair          // extracted from an auto-transfer partner leg
+        case historical    // APILayer quote for the tx's date
+    }
+    let rate: Decimal
+    let source: Source
+    let date: String
+}
+
 private enum ReconciliationDecision {
     case keepAsAccountCurrency
     case reinterpretAsLabel
@@ -164,6 +262,7 @@ private enum ReconciliationDecision {
 
 private struct ReconciliationRow: View {
     let row: SuspiciousRow
+    let resolved: ResolvedRate?
     let onDecision: (ReconciliationDecision) async -> Void
 
     @Environment(AppViewModel.self) private var appViewModel
@@ -172,6 +271,22 @@ private struct ReconciliationRow: View {
     private var labelCode: CurrencyCode? {
         guard let raw = row.transaction.currency else { return nil }
         return CurrencyCode(rawValue: raw.uppercased())
+    }
+
+    /// Human-readable provenance for the FX rate used. Nil = "today's
+    /// live rate" (the fallback) — the UI surfaces an "approximate"
+    /// warning for that case.
+    private var rateProvenance: (label: String, isApproximate: Bool) {
+        guard let resolved else {
+            return (String(localized: "currencyReconciliation.rate.approximate"), true)
+        }
+        switch resolved.source {
+        case .pair:
+            return (String(localized: "currencyReconciliation.rate.pair"), false)
+        case .historical:
+            let dateLabel = resolved.date
+            return (String(format: String(localized: "currencyReconciliation.rate.historical %@"), dateLabel), false)
+        }
     }
 
     var body: some View {
@@ -247,12 +362,16 @@ private struct ReconciliationRow: View {
         let amount = row.transaction.amountNative.displayAmount
         let accountCode = row.account.currencyCode
         if let labelCode {
-            let fromRate = Decimal(cm.rates[labelCode.rawValue] ?? 1.0)
-            let toRate = Decimal(cm.rates[accountCode.rawValue] ?? 1.0)
-            let converted: Decimal = {
-                guard fromRate != 0 else { return amount }
-                return amount / fromRate * toRate
+            // Same priority as `applyDecision`: resolved rate > today's
+            // rate. The preview number must match what actually gets
+            // saved.
+            let rate: Decimal = resolved?.rate ?? {
+                let fromRate = Decimal(cm.rates[labelCode.rawValue] ?? 1.0)
+                let toRate = Decimal(cm.rates[accountCode.rawValue] ?? 1.0)
+                return fromRate != 0 ? toRate / fromRate : 1
             }()
+            let converted = amount * rate
+            let provenance = rateProvenance
 
             Button {
                 Task {
@@ -270,6 +389,9 @@ private struct ReconciliationRow: View {
                     Text("≈ \(TransactionFormView.formatRawAmount(converted, currency: accountCode))")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                    Text(provenance.label)
+                        .font(.caption2)
+                        .foregroundStyle(provenance.isApproximate ? .orange : .secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)

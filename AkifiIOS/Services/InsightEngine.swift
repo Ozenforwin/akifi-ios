@@ -229,7 +229,12 @@ enum InsightEngine {
 
         // 5. Budget warning — any budget past 85% utilization with days remaining
         for budget in input.budgets where budget.isActive {
-            let metrics = BudgetMath.compute(budget: budget, transactions: input.transactions, subscriptions: input.subscriptions)
+            let metrics = BudgetMath.compute(
+                budget: budget,
+                transactions: input.transactions,
+                subscriptions: input.subscriptions,
+                currencyContext: (input.accountsById, input.fxRates, input.baseCode)
+            )
             if metrics.utilization >= 85 && metrics.remainingDays > 0 {
                 out.append(Insight(
                     id: "budget-\(budget.id)",
@@ -257,7 +262,11 @@ enum InsightEngine {
 
         // 7. Subscriptions eat > 30% of any monthly budget
         for budget in input.budgets where budget.isActive && budget.billingPeriod == .monthly {
-            let committed = BudgetMath.subscriptionCommitted(budget: budget, subscriptions: input.subscriptions)
+            let committed = BudgetMath.subscriptionCommitted(
+                budget: budget,
+                subscriptions: input.subscriptions,
+                currencyContext: (input.accountsById, input.fxRates, input.baseCode)
+            )
             guard budget.amount > 0, committed > 0 else { continue }
             let pct = Int(Double(committed) / Double(budget.amount) * 100)
             if pct > 30 {

@@ -47,7 +47,7 @@ function buildUserContext(profile: UserFinancialProfile, transactions: TxRow[]):
   const catSpend = new Map<string, number>();
   for (const t of expenseTx) {
     const name = t.category?.name ?? 'Другое';
-    catSpend.set(name, (catSpend.get(name) ?? 0) + Math.abs(t.amount));
+    catSpend.set(name, (catSpend.get(name) ?? 0) + Math.abs(t.amount_in_base ?? t.amount_native ?? t.amount ?? 0));
   }
   const totalSpend = [...catSpend.values()].reduce((a, b) => a + b, 0);
   const topCategories = [...catSpend.entries()]
@@ -66,7 +66,7 @@ function buildUserContext(profile: UserFinancialProfile, transactions: TxRow[]):
 
   // Period totals — give LLM ready-made sums so it doesn't try to calculate
   const incomeTx = transactions.filter((t) => t.type === 'income' && !t.transfer_group_id);
-  const totalIncome = incomeTx.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const totalIncome = incomeTx.reduce((s, t) => s + Math.abs(t.amount_in_base ?? t.amount_native ?? t.amount ?? 0), 0);
   const monthsWithData = new Set(transactions.map((t) => t.date.slice(0, 7))).size;
 
   // Build human-readable context (NOT JSON) to prevent LLM from doing math
@@ -415,9 +415,9 @@ export async function buildBudgetOptimizationResponse(
     const catName = (t.category?.name ?? '').toLowerCase();
     const isNeed = needsKeywords.some((kw) => catName.includes(kw));
     if (isNeed) {
-      needsTotal += Math.abs(t.amount);
+      needsTotal += Math.abs(t.amount_in_base ?? t.amount_native ?? t.amount ?? 0);
     } else {
-      wantsTotal += Math.abs(t.amount);
+      wantsTotal += Math.abs(t.amount_in_base ?? t.amount_native ?? t.amount ?? 0);
     }
   }
 

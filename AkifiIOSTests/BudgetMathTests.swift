@@ -11,6 +11,14 @@ final class BudgetMathTests: XCTestCase {
 
     // MARK: - Factories
 
+    /// Empty currency context — single-currency scenarios (no FX needed).
+    /// `baseCode: "RUB"` means all amounts are read as-is (amountNative in
+    /// RUB kopecks) without any conversion. Use this for tests that don't
+    /// exercise multi-currency math.
+    private var defaultContext: BudgetMath.CurrencyContext {
+        ([:], [:], "RUB")
+    }
+
     private func makeBudget(
         id: String = "b1",
         amount: Int64 = 10_000_00,
@@ -86,7 +94,7 @@ final class BudgetMathTests: XCTestCase {
 
     func testSubscriptionCommitted_NoSubscriptions_ReturnsZero() {
         let budget = makeBudget()
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: []), 0)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: [], currencyContext: defaultContext), 0)
     }
 
     func testSubscriptionCommitted_AllPaused_ReturnsZero() {
@@ -95,7 +103,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(status: .paused),
             makeSub(id: "s2", status: .cancelled)
         ]
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs), 0)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext), 0)
     }
 
     // MARK: - subscriptionCommitted — summation
@@ -106,7 +114,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(amount: 500_00, period: .monthly),
             makeSub(id: "s2", amount: 300_00, period: .monthly)
         ]
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs), 800_00)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext), 800_00)
     }
 
     func testSubscriptionCommitted_MonthlyBudgetMixedPeriods_NormalizesToMonthly() {
@@ -117,7 +125,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s3", amount: 200_00, period: .monthly)   // → 200/month
         ]
         // Expect ~400/month total
-        let result = BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs)
+        let result = BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext)
         XCTAssertEqual(result, 400_00)
     }
 
@@ -130,7 +138,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s2", amount: 300_00, categoryId: "cat-utilities"),      // no match
             makeSub(id: "s3", amount: 200_00, categoryId: nil)                   // no category
         ]
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs), 500_00)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext), 500_00)
     }
 
     func testSubscriptionCommitted_BudgetWithoutCategories_IncludesAllSubs() {
@@ -140,7 +148,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s2", amount: 300_00, categoryId: "cat-b"),
             makeSub(id: "s3", amount: 200_00, categoryId: nil)
         ]
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs), 1_000_00)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext), 1_000_00)
     }
 
     func testSubscriptionCommitted_EmptyCategoryArray_TreatedAsNoFilter() {
@@ -149,7 +157,7 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s1", amount: 500_00, categoryId: "cat-a"),
             makeSub(id: "s2", amount: 300_00, categoryId: nil)
         ]
-        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs), 800_00)
+        XCTAssertEqual(BudgetMath.subscriptionCommitted(budget: budget, subscriptions: subs, currencyContext: defaultContext), 800_00)
     }
 
     // MARK: - compute — end to end
@@ -157,7 +165,10 @@ final class BudgetMathTests: XCTestCase {
     func testCompute_WithSubscriptions_FieldsPopulated() {
         let budget = makeBudget(amount: 10_000_00, period: .monthly)
         let subs = [makeSub(amount: 2_000_00, period: .monthly)]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
 
         XCTAssertEqual(metrics.subscriptionCommitted, 2_000_00)
         XCTAssertEqual(metrics.freeRemaining, 8_000_00)  // limit - subCommitted, since spent=0
@@ -165,7 +176,7 @@ final class BudgetMathTests: XCTestCase {
 
     func testCompute_WithoutSubscriptions_CommittedZero() {
         let budget = makeBudget()
-        let metrics = BudgetMath.compute(budget: budget, transactions: [])
+        let metrics = BudgetMath.compute(budget: budget, transactions: [], currencyContext: defaultContext)
         XCTAssertEqual(metrics.subscriptionCommitted, 0)
         XCTAssertEqual(metrics.freeRemaining, metrics.remaining)
     }
@@ -173,7 +184,10 @@ final class BudgetMathTests: XCTestCase {
     func testCompute_SubsExceedLimit_FreeRemainingClampedToZero() {
         let budget = makeBudget(amount: 1_000_00)
         let subs = [makeSub(amount: 2_000_00)]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
 
         XCTAssertEqual(metrics.subscriptionCommitted, 2_000_00)
         XCTAssertEqual(metrics.freeRemaining, 0)
@@ -185,7 +199,10 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s1", amount: 500_00, categoryId: "cat-1"),
             makeSub(id: "s2", amount: 500_00, categoryId: "cat-2")
         ]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
         XCTAssertEqual(metrics.subscriptionCommitted, 500_00)
     }
 }
