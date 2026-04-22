@@ -23867,6 +23867,48 @@
         }
       }
     },
+    "settings.beta.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Beta features" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funciones beta" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Бета-функции" } }
+      }
+    },
+    "settings.beta.introTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Experimental features" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funciones experimentales" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Экспериментальные функции" } }
+      }
+    },
+    "settings.beta.introBody" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "These features are still being polished. The data is real — it just lives here while we finish the UI and iron out edge cases." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estas funciones aún se están puliendo. Los datos son reales — solo viven aquí mientras terminamos la interfaz y afinamos los detalles." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эти функции ещё дорабатываются. Данные настоящие — просто живут здесь, пока мы допиливаем интерфейс и ловим пограничные случаи." } }
+      }
+    },
+    "settings.beta.section.netWorth" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "NET WORTH" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "PATRIMONIO" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ЧИСТАЯ СТОИМОСТЬ" } }
+      }
+    },
+    "settings.beta.section.planning" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "PLANNING" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "PLANIFICACIÓN" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ПЛАНИРОВАНИЕ" } }
+      }
+    },
+    "settings.beta.section.insights" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "INSIGHTS" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "ANÁLISIS" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "АНАЛИТИКА" } }
+      }
+    },
     "settings.section.general" : {
       "extractionState" : "stale",
       "localizations" : {

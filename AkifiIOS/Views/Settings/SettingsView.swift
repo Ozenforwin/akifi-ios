@@ -91,11 +91,10 @@ struct SettingsView: View {
                         SettingsRow(icon: "banknote.fill", color: .mint, title: String(localized: "settings.baseCurrency"), value: appViewModel.currencyManager.dataCurrency.symbol)
                     }
 
-                    NavigationLink {
-                        CurrencyPickerView()
-                    } label: {
-                        SettingsRow(icon: "dollarsign.circle.fill", color: .green, title: String(localized: "settings.displayCurrency"), value: appViewModel.currencyManager.selectedCurrency.symbol)
-                    }
+                    // Display-currency picker intentionally NOT duplicated
+                    // here — the Home-screen currency switcher is the
+                    // primary control and having both made "Base" vs
+                    // "Display" indistinguishable in the user's head.
 
                     NavigationLink {
                         LanguagePickerView()
@@ -152,36 +151,6 @@ struct SettingsView: View {
 
                 Section(header: Text(String(localized: "settings.section.finance"))) {
                     NavigationLink {
-                        NetWorthDashboardView()
-                    } label: {
-                        SettingsRow(icon: "chart.line.uptrend.xyaxis", color: .green, title: String(localized: "netWorth.title"), badge: "BETA")
-                    }
-
-                    NavigationLink {
-                        NetWorthAssetsSettingsEntry()
-                    } label: {
-                        SettingsRow(icon: "building.2.fill", color: .green, title: String(localized: "netWorth.assets.title"))
-                    }
-
-                    NavigationLink {
-                        NetWorthLiabilitiesSettingsEntry()
-                    } label: {
-                        SettingsRow(icon: "creditcard.fill", color: .red, title: String(localized: "netWorth.liabilities.title"))
-                    }
-
-                    NavigationLink {
-                        SavingsGoalListView()
-                    } label: {
-                        SettingsRow(icon: "target", color: .green, title: String(localized: "home.savings"))
-                    }
-
-                    NavigationLink {
-                        DepositListView()
-                    } label: {
-                        SettingsRow(icon: "percent", color: .purple, title: String(localized: "deposit.title"))
-                    }
-
-                    NavigationLink {
                         SubscriptionListView()
                     } label: {
                         SettingsRow(icon: "repeat.circle.fill", color: .accent, title: String(localized: "subscriptions.title"))
@@ -193,28 +162,17 @@ struct SettingsView: View {
                         SettingsRow(icon: "trophy.fill", color: .yellow, title: String(localized: "achievements.title"))
                     }
 
-                    // BETA: shipped MVP scaffolds, visual polish still pending.
-                    // Hidden from Home to avoid putting unfinished features in
-                    // premium real estate; only discoverable here until they
-                    // graduate.
+                    // Net Worth, Assets, Liabilities, Savings, Deposits,
+                    // Challenges and Reports all live under "Beta features"
+                    // until they graduate — single entry, one BETA badge at
+                    // the door, consistent expectation-setting for the user.
                     NavigationLink {
-                        ChallengesListView()
+                        BetaFeaturesView()
                     } label: {
                         SettingsRow(
-                            icon: "flag.checkered",
+                            icon: "flask.fill",
                             color: .orange,
-                            title: String(localized: "challenges.title"),
-                            badge: "BETA"
-                        )
-                    }
-
-                    NavigationLink {
-                        ReportsView()
-                    } label: {
-                        SettingsRow(
-                            icon: "doc.text.fill",
-                            color: .purple,
-                            title: String(localized: "reports.title"),
+                            title: String(localized: "settings.beta.title"),
                             badge: "BETA"
                         )
                     }
@@ -339,39 +297,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-}
-
-/// Wrapper that gives the asset list its own NetWorthViewModel when
-/// navigated to from Settings (no parent VM to share). The VM loads on
-/// appear, same as the dashboard.
-private struct NetWorthAssetsSettingsEntry: View {
-    @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = NetWorthViewModel()
-
-    var body: some View {
-        AssetListView(viewModel: viewModel)
-            .task {
-                await viewModel.load(
-                    dataStore: appViewModel.dataStore,
-                    currencyManager: appViewModel.currencyManager
-                )
-            }
-    }
-}
-
-private struct NetWorthLiabilitiesSettingsEntry: View {
-    @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = NetWorthViewModel()
-
-    var body: some View {
-        LiabilityListView(viewModel: viewModel)
-            .task {
-                await viewModel.load(
-                    dataStore: appViewModel.dataStore,
-                    currencyManager: appViewModel.currencyManager
-                )
-            }
     }
 }
 

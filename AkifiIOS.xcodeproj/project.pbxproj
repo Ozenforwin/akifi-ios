@@ -218,6 +218,7 @@
 		CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */; };
 		CE13051C181A1D26E2789254 /* AccountFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676F23AAA29C1D39C746C9AE /* AccountFormView.swift */; };
 		D049D392F915129C15EA9663 /* ReportsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5122142A303ED282565C2ECD /* ReportsViewModel.swift */; };
+		D0E2E9C53A87EB73C4189ADB /* BetaFeaturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485573E2F31AA04A04BB84BA /* BetaFeaturesView.swift */; };
 		D0F9C3A3F879C2DF6086F02C /* CashFlowEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F00EDE42A92AC27E3CF2ED2 /* CashFlowEngineTests.swift */; };
 		D22C8B44F30656D012675EE8 /* DepositCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0577C9C2986AA6F96B12FDD /* DepositCardView.swift */; };
 		D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C0D248E5CD52D019DE875 /* HomeTabView.swift */; };
@@ -376,6 +377,7 @@
 		463C4CB313C3A168D97B0EF9 /* FinancialNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinancialNote.swift; sourceTree = "<group>"; };
 		467D6DA128F27DCFC460C597 /* StreakTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakTrackerTests.swift; sourceTree = "<group>"; };
 		474BCE7E89D91936D05860D2 /* AkifiIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AkifiIOS.entitlements; sourceTree = "<group>"; };
+		485573E2F31AA04A04BB84BA /* BetaFeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetaFeaturesView.swift; sourceTree = "<group>"; };
 		49D407DC94F842983B18DCCD /* ChallengeProgressEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeProgressEngineTests.swift; sourceTree = "<group>"; };
 		4A1D54EB55EB0F852C79B23E /* NetWorthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthViewModel.swift; sourceTree = "<group>"; };
 		4A9A1EF45AABE938BDD4EE4D /* StreakBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakBadgeView.swift; sourceTree = "<group>"; };
@@ -989,6 +991,7 @@
 			children = (
 				538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */,
 				C07EB6E35A24CA838F4D2F29 /* BankImportView.swift */,
+				485573E2F31AA04A04BB84BA /* BetaFeaturesView.swift */,
 				79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */,
 				B80DEE0966B7C41CA78547D6 /* CurrencyReconciliationView.swift */,
 				2EE410C427EC7280B21ECFE8 /* ExportView.swift */,
@@ -1383,6 +1386,7 @@
 				BD76A51BA7FAD41B59177744 /* AuthComponents.swift in Sources */,
 				DC9D5F73ECBB4B2767F4D1FB /* AuthManager.swift in Sources */,
 				E22BB9091A5326C6EBA09738 /* BankImportView.swift in Sources */,
+				D0E2E9C53A87EB73C4189ADB /* BetaFeaturesView.swift in Sources */,
 				67653039202E4322F26F51E5 /* Budget.swift in Sources */,
 				A525AF8C213E918E5565684D /* BudgetCardView.swift in Sources */,
 				F5ADA701D2725ABCBB1E2822 /* BudgetFormView.swift in Sources */,
