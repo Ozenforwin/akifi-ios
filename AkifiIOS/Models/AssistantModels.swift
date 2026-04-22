@@ -372,6 +372,16 @@ struct AssistantContext: Encodable, Sendable {
     /// `locale` when the edge function decides response language.
     let responseLanguage: String
 
+    /// USD-pivoted FX rates (units of `code` per 1 USD). Sent so the
+    /// edge function can FX-normalize multi-currency transactions into
+    /// `displayCurrency` without falling back to stale server-side rates
+    /// (ADR-001 Phase 5). Mirrors `CurrencyManager.rates`.
+    let fxRates: [String: Double]?
+    /// User's display currency (e.g. "RUB", "USD"). Edge function uses
+    /// this as the `base` for FX normalization. Falls back to
+    /// `ExchangeRateService` fallback on the server when absent.
+    let displayCurrency: String?
+
     enum CodingKeys: String, CodingKey {
         case accounts, categories, subscriptions, budgets
         case transactionSummary = "transaction_summary"
@@ -379,6 +389,8 @@ struct AssistantContext: Encodable, Sendable {
         case currency, locale
         case amountUnit = "amount_unit"
         case responseLanguage = "response_language"
+        case fxRates = "fx_rates"
+        case displayCurrency = "display_currency"
     }
 }
 

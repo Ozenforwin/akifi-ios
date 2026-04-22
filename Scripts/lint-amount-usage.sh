@@ -43,6 +43,7 @@ SWIFT_ALLOWLIST=(
 TS_ALLOWLIST=(
     "supabase/functions/assistant-query/types.ts"
     "supabase/functions/assistant-query/index.ts"
+    "supabase/functions/_shared/transaction-math.ts"
 )
 
 strip_allowlisted() {

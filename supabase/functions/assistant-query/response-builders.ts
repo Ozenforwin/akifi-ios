@@ -38,8 +38,8 @@ function buildContextualFollowUps(
   const expenses = current.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id);
   const income = current.filter((tx) => tx.type === 'income' && !tx.transfer_group_id);
 
-  const totalExpense = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
-  const totalIncome = income.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const totalExpense = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const contextual: string[] = [];
 
@@ -53,7 +53,7 @@ function buildContextualFollowUps(
     const catSpend = new Map<string, number>();
     for (const tx of expenses) {
       const name = tx.category?.name?.trim() || 'Другое';
-      catSpend.set(name, (catSpend.get(name) ?? 0) + safeNumber(tx.amount));
+      catSpend.set(name, (catSpend.get(name) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
     }
     const topEntry = [...catSpend.entries()].sort((a, b) => b[1] - a[1])[0];
     if (topEntry && totalExpense > 0) {
@@ -88,8 +88,8 @@ export function buildSpendSummaryResponse(
   period: AssistantPeriod,
 ): { answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] } {
   const current = transactions.filter((tx) => inWindow(tx.date, window));
-  const expense = current.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
-  const income = current.filter((tx) => tx.type === 'income' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const expense = current.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const income = current.filter((tx) => tx.type === 'income' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   if (current.length === 0) {
     return {
@@ -153,10 +153,10 @@ export function buildTopCategoriesResponse(
   const map = new Map<string, number>();
   for (const tx of currentExpenses) {
     const key = tx.category?.name?.trim() || 'Без категории';
-    map.set(key, (map.get(key) ?? 0) + safeNumber(tx.amount));
+    map.set(key, (map.get(key) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   }
 
-  const totalExpense = currentExpenses.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const totalExpense = currentExpenses.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const top = [...map.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -200,18 +200,18 @@ export function buildTopExpensesResponse(
   }
 
   const top5 = currentExpenses.slice(0, 5);
-  const total = currentExpenses.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const total = currentExpenses.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const facts = top5.map((tx, idx) => {
     const catName = tx.category?.name?.trim() || 'Без категории';
-    return `${idx + 1}. ${catName}: ${formatMoney(safeNumber(tx.amount))} (${tx.date.slice(0, 10)})`;
+    return `${idx + 1}. ${catName}: ${formatMoney(safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount))} (${tx.date.slice(0, 10)})`;
   });
 
   const topAmount = safeNumber(top5[0].amount);
   const topCat = top5[0].category?.name?.trim() || 'Без категории';
 
   return {
-    answer: `Самая крупная трата ${periodLabel(period)}: ${topCat} на ${formatMoney(topAmount)}. Топ-5 составляют ${formatMoney(top5.reduce((s, tx) => s + safeNumber(tx.amount), 0))} из ${formatMoney(total)}.`,
+    answer: `Самая крупная трата ${periodLabel(period)}: ${topCat} на ${formatMoney(topAmount)}. Топ-5 составляют ${formatMoney(top5.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0))} из ${formatMoney(total)}.`,
     facts,
     actions: [{ type: 'open_transactions', label: 'Открыть транзакции' }],
     followUps: buildContextualFollowUps(transactions, window, ['Сводка расходов', 'Есть аномалии?', 'Средний чек']),
@@ -226,8 +226,8 @@ export function buildTrendCompareResponse(
   const currentTxs = transactions.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, currentWindow));
   const previousTxs = transactions.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, previousWindow));
 
-  const currentExpense = currentTxs.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
-  const previousExpense = previousTxs.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const currentExpense = currentTxs.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const previousExpense = previousTxs.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const diff = currentExpense - previousExpense;
   const percent = previousExpense > 0 ? Math.round((diff / previousExpense) * 100) : null;
@@ -256,11 +256,11 @@ export function buildTrendCompareResponse(
 
   for (const tx of currentTxs) {
     const name = tx.category?.name?.trim() || 'Без категории';
-    currentByCategory.set(name, (currentByCategory.get(name) ?? 0) + safeNumber(tx.amount));
+    currentByCategory.set(name, (currentByCategory.get(name) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   }
   for (const tx of previousTxs) {
     const name = tx.category?.name?.trim() || 'Без категории';
-    previousByCategory.set(name, (previousByCategory.get(name) ?? 0) + safeNumber(tx.amount));
+    previousByCategory.set(name, (previousByCategory.get(name) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   }
 
   const allCategories = new Set([...currentByCategory.keys(), ...previousByCategory.keys()]);
@@ -386,7 +386,7 @@ export async function buildBudgetRiskResponse(
       if (!inWindow(tx.date, window)) continue;
       if (!budget.category_ids.includes(tx.category_id)) continue;
       if (accountScope && (!tx.account_id || !accountScope.has(tx.account_id))) continue;
-      spent += safeNumber(tx.amount);
+      spent += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     }
 
     const limit = safeNumber(budget.amount);
@@ -484,7 +484,7 @@ export function buildByCategoryResponse(
     (tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, window) && matchedIds.has(tx.category_id),
   );
 
-  const total = filtered.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const total = filtered.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const categoryNames = matched.map((c) => c.name).join(', ');
 
   if (filtered.length === 0) {
@@ -539,8 +539,8 @@ export function buildByAccountResponse(
     (tx) => inWindow(tx.date, window) && tx.account_id && matchedIds.has(tx.account_id),
   );
 
-  const expense = filtered.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
-  const income = filtered.filter((tx) => tx.type === 'income' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const expense = filtered.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const income = filtered.filter((tx) => tx.type === 'income' && !tx.transfer_group_id).reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const accountNames = matched.map((a) => a.name).join(', ');
 
   if (filtered.length === 0) {
@@ -626,7 +626,7 @@ export async function buildBudgetRemainingResponse(
       if (!inWindow(tx.date, window)) continue;
       if (!budget.category_ids.includes(tx.category_id)) continue;
       if (accountScope && (!tx.account_id || !accountScope.has(tx.account_id))) continue;
-      spent += safeNumber(tx.amount);
+      spent += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     }
 
     const limit = safeNumber(budget.amount);
@@ -687,15 +687,15 @@ export function buildAverageCheckResponse(
     };
   }
 
-  const total = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const total = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const avg = total / expenses.length;
   const median = (() => {
-    const sorted = expenses.map((tx) => safeNumber(tx.amount)).sort((a, b) => a - b);
+    const sorted = expenses.map((tx) => safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount)).sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   })();
-  const max = Math.max(...expenses.map((tx) => safeNumber(tx.amount)));
-  const min = Math.min(...expenses.map((tx) => safeNumber(tx.amount)));
+  const max = Math.max(...expenses.map((tx) => safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount)));
+  const min = Math.min(...expenses.map((tx) => safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount)));
 
   return {
     answer: `Средний чек ${periodLabel(period)}: ${formatMoney(avg)} (${expenses.length} операций).`,
@@ -718,8 +718,8 @@ export function buildForecastResponse(
   const expenses = transactions.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, window));
   const income = transactions.filter((tx) => tx.type === 'income' && !tx.transfer_group_id && inWindow(tx.date, window));
 
-  const totalExpense = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
-  const totalIncome = income.reduce((sum, tx) => sum + safeNumber(tx.amount), 0);
+  const totalExpense = expenses.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((sum, tx) => sum + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const daysPassed = diffDaysInclusive(window.start, today);
   if (daysPassed <= 0) {
@@ -806,14 +806,14 @@ export function buildAnomaliesResponse(
   for (const tx of expenses) {
     const catName = tx.category?.name?.trim() || 'Без категории';
     const entry = currentByCat.get(tx.category_id) ?? { total: 0, name: catName, txIds: [] };
-    entry.total += safeNumber(tx.amount);
+    entry.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     entry.txIds.push(tx.id);
     currentByCat.set(tx.category_id, entry);
   }
 
   for (const tx of prevExpenses) {
     const entry = baselineByCat.get(tx.category_id) ?? { total: 0, count: 0 };
-    entry.total += safeNumber(tx.amount);
+    entry.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     entry.count++;
     baselineByCat.set(tx.category_id, entry);
   }
@@ -835,19 +835,19 @@ export function buildAnomaliesResponse(
   }
 
   // --- 2. Single large transactions (>2 sigma from mean) ---
-  const amounts = expenses.map((tx) => safeNumber(tx.amount));
+  const amounts = expenses.map((tx) => safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   const mean = amounts.reduce((s, v) => s + v, 0) / amounts.length;
   const stddev = Math.sqrt(amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length);
   const threshold = mean + 2 * stddev;
 
   const largeTxs = expenses
-    .filter((tx) => safeNumber(tx.amount) > threshold)
+    .filter((tx) => safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount) > threshold)
     .sort((a, b) => safeNumber(b.amount) - safeNumber(a.amount))
     .slice(0, 5);
 
   for (const tx of largeTxs) {
     const catName = tx.category?.name?.trim() || 'Без категории';
-    const amt = safeNumber(tx.amount);
+    const amt = safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     evidence.push({
       type: 'single_large_tx',
       label: `${catName}: ${formatMoney(amt)} (${(amt / mean).toFixed(1)}x от среднего)`,
@@ -900,7 +900,7 @@ export function buildAnomaliesResponse(
 
     const merchantLabel = tx.merchant_name?.trim() || tx.merchant_normalized || merchantKey;
     const entry = currentByMerchant.get(merchantKey) ?? { total: 0, name: merchantLabel, txIds: [] };
-    entry.total += safeNumber(tx.amount);
+    entry.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     entry.txIds.push(tx.id);
 
     if ((entry.name === merchantKey || entry.name === tx.merchant_normalized) && tx.merchant_name?.trim()) {
@@ -914,7 +914,7 @@ export function buildAnomaliesResponse(
     if (!merchantKey) continue;
 
     const entry = baselineByMerchant.get(merchantKey) ?? { total: 0 };
-    entry.total += safeNumber(tx.amount);
+    entry.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     baselineByMerchant.set(merchantKey, entry);
   }
 
@@ -1413,18 +1413,18 @@ export function buildSeasonalForecastResponse(
 
   const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
   const thisMonthExpenses = expenses.filter((tx) => tx.date.slice(0, 10) >= monthStart);
-  const thisMonthTotal = thisMonthExpenses.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const thisMonthTotal = thisMonthExpenses.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const currentPaceDaily = dayOfMonth > 0 ? thisMonthTotal / dayOfMonth : 0;
 
   const sameMonthLastYear = `${currentYear - 1}-${String(currentMonth + 1).padStart(2, '0')}`;
   const sameMonthLastYearTxs = transactions.filter(
     (tx) => tx.type === 'expense' && !tx.transfer_group_id && tx.date.slice(0, 7) === sameMonthLastYear,
   );
-  const sameMonthLastYearTotal = sameMonthLastYearTxs.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const sameMonthLastYearTotal = sameMonthLastYearTxs.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const threeMonthsAgo = addDays(today, -90);
   const last3MonthExpenses = expenses.filter((tx) => tx.date.slice(0, 10) >= threeMonthsAgo);
-  const last3MonthTotal = last3MonthExpenses.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const last3MonthTotal = last3MonthExpenses.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const rolling3MonthAvg = last3MonthTotal / 3;
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getUTCDate();
@@ -1453,7 +1453,7 @@ export function buildSeasonalForecastResponse(
   const dailyAmounts = new Map<string, number>();
   for (const tx of expenses) {
     const d = tx.date.slice(0, 10);
-    dailyAmounts.set(d, (dailyAmounts.get(d) ?? 0) + safeNumber(tx.amount));
+    dailyAmounts.set(d, (dailyAmounts.get(d) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   }
   const dailyValues = [...dailyAmounts.values()];
   const dailyMean = dailyValues.reduce((s, v) => s + v, 0) / (dailyValues.length || 1);
@@ -1513,7 +1513,7 @@ export function detectRecurringPatterns(transactions: TxRow[], today: string): R
 
     const label = tx.merchant_name?.trim() ?? tx.category?.name?.trim() ?? key;
     const entry = groups.get(key) ?? { description: label, amounts: [], dates: [] };
-    entry.amounts.push(safeNumber(tx.amount));
+    entry.amounts.push(safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
     entry.dates.push(tx.date.slice(0, 10));
     if (entry.description === key && label !== key) entry.description = label;
     groups.set(key, entry);
@@ -1798,7 +1798,7 @@ export function buildSmartBudgetCreateResponse(
   for (const tx of recentTxs) {
     const name = tx.category?.name?.trim() || 'Без категории';
     const existing = categorySpend.get(name) ?? { total: 0, categoryId: tx.category_id };
-    existing.total += safeNumber(tx.amount);
+    existing.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     categorySpend.set(name, existing);
   }
 
@@ -1952,7 +1952,7 @@ export function buildSpendingOptimizationResponse(
       const d = tx.date.slice(0, 10);
       if (d >= m.start && d <= m.end) {
         const name = tx.category?.name?.trim() || 'Без категории';
-        map.set(name, (map.get(name) ?? 0) + safeNumber(tx.amount));
+        map.set(name, (map.get(name) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
       }
     }
     return map;
@@ -1994,7 +1994,7 @@ export function buildSpendingOptimizationResponse(
     if (!merchant) continue;
     const existing = merchantCounts.get(merchant) ?? { count: 0, total: 0 };
     existing.count++;
-    existing.total += safeNumber(tx.amount);
+    existing.total += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     merchantCounts.set(merchant, existing);
   }
 

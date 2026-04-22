@@ -28,6 +28,32 @@ import {
   periodLabel,
 } from './utils.ts';
 
+import {
+  enrichTransactions,
+  accountsMap,
+  fxRatesMap,
+} from '../_shared/transaction-math.ts';
+
+/**
+ * FX rates baked into the edge function as a last-resort fallback.
+ * iOS is expected to send fresh rates in `context_json.fx_rates`; this
+ * table exists so Telegram-bot / cron callers and failing-to-parse
+ * contexts don't silently regress to 1:1 conversion (the VND-as-RUB
+ * bug). USD-pivoted: values are units of `code` per 1 USD. Update
+ * when substantially stale — the keys mirror `CurrencyCode` in iOS.
+ */
+const DEFAULT_FX_RATES: Record<string, number> = {
+  USD: 1.0,
+  RUB: 92.5,
+  EUR: 0.92,
+  GBP: 0.79,
+  CNY: 7.24,
+  JPY: 154.5,
+  VND: 25_400,
+  THB: 36.5,
+  IDR: 16_300,
+};
+
 import { parseIntentAndPeriod, classifyIntent } from './intent-parser.ts';
 
 import {
@@ -831,11 +857,47 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to fetch transactions: ${txError.message ?? 'unknown'}`);
     }
 
-    const transactions = (txData ?? []) as TxRow[];
+    const rawTransactions = (txData ?? []) as TxRow[];
 
     // Lazy-load categories and accounts only when needed
     let allCategories: CategoryRow[] | null = null;
     let allAccounts: AccountRow[] | null = null;
+
+    // ADR-001 enrichment: the edge function sums `tx.amount_in_base`
+    // everywhere an aggregation used to read `tx.amount`. We resolve
+    // the value eagerly here so downstream code never has to hold the
+    // FX context. When iOS omits `fx_rates` we fall back to baked-in
+    // rates — better than silent 1:1 which re-introduces the VND-as-
+    // RUB phantom.
+    const displayCurrency = (body.context?.display_currency ?? 'RUB').toUpperCase();
+    const fxRatesSource: Record<string, number> = {
+      ...DEFAULT_FX_RATES,
+      ...(body.context?.fx_rates ?? {}),
+    };
+    const fxRates = fxRatesMap(fxRatesSource);
+
+    async function ensureEnrichedTransactions(): Promise<TxRow[]> {
+      const accounts = await getAccounts();
+      const accountsIndex = accountsMap(
+        accounts.map((a) => ({ id: a.id, currency: a.currency ?? null })),
+      );
+      return enrichTransactions(
+        rawTransactions,
+        accountsIndex,
+        fxRates,
+        displayCurrency,
+      );
+    }
+
+    let transactions: TxRow[] = rawTransactions;
+    try {
+      transactions = await ensureEnrichedTransactions();
+    } catch (enrichError) {
+      // Accounts fetch failure → fall back to raw rows. Aggregation code
+      // will still use `amount_native ?? amount` via the fallback chain,
+      // so single-currency users remain unaffected.
+      console.warn('[assistant-query] FX enrichment failed:', enrichError);
+    }
 
     async function getCategories(): Promise<CategoryRow[]> {
       if (allCategories !== null) return allCategories;

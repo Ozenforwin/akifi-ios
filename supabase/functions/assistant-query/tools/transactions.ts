@@ -92,7 +92,7 @@ export function queryTransactions(
       const wd = isoWeekday(dateOnly);
       if (!weekdaySet.has(wd)) continue;
     }
-    const amt = Math.abs(Number(tx.amount) || 0);
+    const amt = Math.abs(Number(tx.amount_in_base ?? tx.amount_native ?? tx.amount) || 0);
     if (amountMin !== null && amt < amountMin) continue;
     if (amountMax !== null && amt > amountMax) continue;
     out.push(tx);
@@ -144,7 +144,7 @@ export function aggregate(
   for (const tx of rows) {
     const key = groupKey(tx, lookups, groupBy);
     const arr = buckets.get(key) ?? [];
-    arr.push(Math.abs(Number(tx.amount) || 0));
+    arr.push(Math.abs(Number(tx.amount_in_base ?? tx.amount_native ?? tx.amount) || 0));
     buckets.set(key, arr);
   }
 
@@ -233,8 +233,8 @@ export function comparePeriods(
 
   const a = slice(args.periodA.from, args.periodA.to);
   const b = slice(args.periodB.from, args.periodB.to);
-  const totalA = round2(a.reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0));
-  const totalB = round2(b.reduce((s, tx) => s + Math.abs(Number(tx.amount) || 0), 0));
+  const totalA = round2(a.reduce((s, tx) => s + Math.abs(Number(tx.amount_in_base ?? tx.amount_native ?? tx.amount) || 0), 0));
+  const totalB = round2(b.reduce((s, tx) => s + Math.abs(Number(tx.amount_in_base ?? tx.amount_native ?? tx.amount) || 0), 0));
   const delta = round2(totalB - totalA);
   const pct = totalA === 0 ? (totalB === 0 ? 0 : 100) : round2(((totalB - totalA) / totalA) * 100);
 

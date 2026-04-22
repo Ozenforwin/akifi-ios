@@ -198,6 +198,7 @@ interface TransactionRow {
   user_id: string;
   type: "income" | "expense";
   amount: number;
+  amount_native?: number;
   category_id: string;
   date: string;
 }
@@ -261,13 +262,18 @@ function buildDigest(
   const catExpense = new Map<string, number>();
 
   for (const tx of userTransactions) {
+    // ADR-001: use amount_native when present (canonical in account
+    // currency). Single-currency digests are unaffected; multi-currency
+    // users will still see partial numbers until the digest is upgraded
+    // to accept per-user fx rates — tracked in Phase 5 follow-up.
+    const amt = tx.amount_native ?? tx.amount; // allowlisted-amount: digest reads amount_native with legacy fallback per ADR-001
     if (tx.type === "income") {
-      totalIncome += tx.amount;
+      totalIncome += amt;
     } else {
-      totalExpense += tx.amount;
+      totalExpense += amt;
       catExpense.set(
         tx.category_id,
-        (catExpense.get(tx.category_id) ?? 0) + tx.amount,
+        (catExpense.get(tx.category_id) ?? 0) + amt,
       );
     }
   }
@@ -378,7 +384,7 @@ Deno.serve(async (req) => {
 
     const { data: txRows, error: txError } = await supabase
       .from("transactions")
-      .select("user_id,type,amount,category_id,date")
+      .select("user_id,type,amount,amount_native,category_id,date")
       .in("user_id", userIds)
       .gte("date", fromDate)
       .is("transfer_group_id", null)

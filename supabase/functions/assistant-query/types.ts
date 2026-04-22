@@ -9,6 +9,13 @@ export interface AssistantQueryContext {
   accounts?: Array<{ id: string; name: string; balance: number; currency: string }>;
   categories?: Array<{ id: string; name: string; type: string }>;
   messages?: Array<{ role: string; content: string }>;
+  /// USD-pivoted FX rates (units of `code` per 1 USD). Sent by iOS so
+  /// the edge function can FX-normalize multi-currency transactions
+  /// into the user's display currency (ADR-001). Falls back to the
+  /// server's `DEFAULT_FX_RATES` when absent.
+  fx_rates?: Record<string, number>;
+  /// User's display currency code. Defaults to 'RUB' when absent.
+  display_currency?: string;
 }
 
 export interface AssistantQueryRequest {
@@ -36,6 +43,10 @@ export interface TxRow {
   foreign_amount?: number | null;
   foreign_currency?: string | null;
   fx_rate?: number | null;
+  /// Populated by `enrichTransactions` at request-entry with the
+  /// FX-normalized value in the user's display currency. Aggregation
+  /// code reads this instead of `amount` (ADR-001).
+  amount_in_base?: number;
   date: string;
   type: 'income' | 'expense';
   category_id: string;

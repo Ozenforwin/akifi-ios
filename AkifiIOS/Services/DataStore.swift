@@ -589,7 +589,9 @@ final class DataStore {
             amountUnit: "Amounts are whole units of \(currencyCode) (not minor units). 1500 means 1500 \(currencyCode).",
             subscriptions: subSummaries.isEmpty ? nil : subSummaries,
             budgets: budgetSummaries.isEmpty ? nil : budgetSummaries,
-            responseLanguage: responseLanguage
+            responseLanguage: responseLanguage,
+            fxRates: currencyManager?.rates,
+            displayCurrency: currencyManager?.dataCurrency.rawValue.uppercased()
         )
     }
 
