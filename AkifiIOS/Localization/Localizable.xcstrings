@@ -265,6 +265,28 @@
         }
       }
     },
+    "account.currency.locked.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To change the currency, create a new account — this one already has transactions in the current one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para cambiar la moneda, crea una cuenta nueva — esta ya tiene transacciones en la moneda actual."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чтобы сменить валюту, создайте новый счёт — у этого уже есть транзакции в текущей."
+          }
+        }
+      }
+    },
     "account.edit" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2571,6 +2593,29 @@
         }
       }
     },
+    "assistant.continueLast" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue last chat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar último chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Продолжить последний чат"
+          }
+        }
+      }
+    },
     "assistant.createBudgets %lld" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3238,6 +3283,29 @@
         }
       }
     },
+    "assistant.share" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share chat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поделиться чатом"
+          }
+        }
+      }
+    },
     "assistant.title" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3328,118 +3396,6 @@
             "value" : "Голосовой ввод"
           }
         }
-      }
-    },
-    "assistant.continueLast" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue last chat" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Continuar último chat" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Продолжить последний чат" } }
-      }
-    },
-    "assistant.share" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share chat" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Compartir chat" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поделиться чатом" } }
-      }
-    },
-    "share.conversation.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Share chat" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Compartir chat" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Поделиться чатом" } }
-      }
-    },
-    "share.conversation.privacyWarning" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The recipient will see the entire chat history including any balances and transactions you mentioned." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "El destinatario verá todo el historial del chat, incluidos saldos y transacciones que hayas mencionado." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Получатель увидит всю историю чата, включая упомянутые балансы и операции." } }
-      }
-    },
-    "share.conversation.invite" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invite by email" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Invitar por correo" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пригласить по email" } }
-      }
-    },
-    "share.conversation.email" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Email" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Correo electrónico" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Email" } }
-      }
-    },
-    "share.conversation.permission" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Access" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Acceso" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доступ" } }
-      }
-    },
-    "share.conversation.permission.read" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Read only" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Sólo lectura" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Только просмотр" } }
-      }
-    },
-    "share.conversation.permission.write" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Can reply" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Puede responder" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Может писать" } }
-      }
-    },
-    "share.conversation.send" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send invite" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Enviar invitación" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отправить" } }
-      }
-    },
-    "share.conversation.access" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Has access" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tienen acceso" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Есть доступ" } }
-      }
-    },
-    "share.conversation.noShares" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not shared with anyone yet." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Aún no se ha compartido." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Чат пока никому не открыт." } }
-      }
-    },
-    "share.conversation.invited" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invited." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Invitación enviada." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Приглашение отправлено." } }
-      }
-    },
-    "share.conversation.userNotFound" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No Akifi user with this email." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No hay usuario de Akifi con ese correo." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пользователь Akifi с таким email не найден." } }
-      }
-    },
-    "share.conversation.invalidEmail" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid email." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Correo inválido." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Некорректный email." } }
-      }
-    },
-    "share.conversation.cannotShareWithSelf" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "You can't share a chat with yourself." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "No puedes compartir contigo mismo." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нельзя поделиться чатом с самим собой." } }
       }
     },
     "assistant.welcome" : {
@@ -24440,6 +24396,328 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Отправьте этот код другому пользователю Akifi. Код действует 72 часа."
+          }
+        }
+      }
+    },
+    "share.conversation.access" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tienen acceso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Есть доступ"
+          }
+        }
+      }
+    },
+    "share.conversation.cannotShareWithSelf" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can't share a chat with yourself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No puedes compartir contigo mismo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нельзя поделиться чатом с самим собой."
+          }
+        }
+      }
+    },
+    "share.conversation.email" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correo electrónico"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email"
+          }
+        }
+      }
+    },
+    "share.conversation.invalidEmail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid email."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correo inválido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Некорректный email."
+          }
+        }
+      }
+    },
+    "share.conversation.invite" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite by email"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitar por correo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пригласить по email"
+          }
+        }
+      }
+    },
+    "share.conversation.invited" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invited."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitación enviada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приглашение отправлено."
+          }
+        }
+      }
+    },
+    "share.conversation.noShares" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not shared with anyone yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no se ha compartido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чат пока никому не открыт."
+          }
+        }
+      }
+    },
+    "share.conversation.permission" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доступ"
+          }
+        }
+      }
+    },
+    "share.conversation.permission.read" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sólo lectura"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Только просмотр"
+          }
+        }
+      }
+    },
+    "share.conversation.permission.write" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can reply"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puede responder"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Может писать"
+          }
+        }
+      }
+    },
+    "share.conversation.privacyWarning" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The recipient will see the entire chat history including any balances and transactions you mentioned."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El destinatario verá todo el historial del chat, incluidos saldos y transacciones que hayas mencionado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Получатель увидит всю историю чата, включая упомянутые балансы и операции."
+          }
+        }
+      }
+    },
+    "share.conversation.send" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send invite"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar invitación"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправить"
+          }
+        }
+      }
+    },
+    "share.conversation.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share chat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поделиться чатом"
+          }
+        }
+      }
+    },
+    "share.conversation.userNotFound" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Akifi user with this email."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay usuario de Akifi con ese correo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пользователь Akifi с таким email не найден."
           }
         }
       }

@@ -63,7 +63,7 @@ struct AccountFormView: View {
                         .font(.caption)
                 }
 
-                Section(String(localized: "settings.currency")) {
+                Section {
                     ForEach(CurrencyCode.allCases, id: \.self) { currency in
                         Button {
                             selectedCurrency = currency
@@ -73,7 +73,7 @@ struct AccountFormView: View {
                                     .font(.title3)
                                     .frame(width: 30)
                                 Text(currency.name)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(isCurrencyLocked ? .secondary : .primary)
                                 Spacer()
                                 if selectedCurrency == currency {
                                     Image(systemName: "checkmark")
@@ -81,6 +81,20 @@ struct AccountFormView: View {
                                 }
                             }
                         }
+                        .disabled(isCurrencyLocked)
+                    }
+                } header: {
+                    Text(String(localized: "settings.currency"))
+                } footer: {
+                    if isCurrencyLocked {
+                        // ADR-001: changing `account.currency` while the
+                        // account still has rows would leave every
+                        // `tx.amount_native` in the OLD currency while the
+                        // account is now in a new one — producing the
+                        // VND-as-RUB phantom on history. Block at the UI.
+                        Text(String(localized: "account.currency.locked.hint"))
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
                 }
 
@@ -178,6 +192,16 @@ struct AccountFormView: View {
     }
 
     // MARK: - Preview (base currency approx)
+
+    /// Currency picker is locked in edit mode whenever the account has
+    /// at least one transaction. Changing `account.currency` under a
+    /// populated account silently mis-denominates the entire history —
+    /// see Scenario 7 in `project_multi_currency_plan.md`. Fresh accounts
+    /// and account creation are unaffected.
+    private var isCurrencyLocked: Bool {
+        guard let account = editingAccount else { return false }
+        return appViewModel.dataStore.transactions.contains { $0.accountId == account.id }
+    }
 
     /// Only show the base-currency preview when the user's base differs from
     /// the account's currency. Avoids redundant "≈ 100 ₽" under "100 ₽".
