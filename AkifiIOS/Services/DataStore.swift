@@ -388,6 +388,23 @@ final class DataStore {
         Decimal(amountInBase(tx)) / 100
     }
 
+    /// Sums transactions, FX-normalizing each into the user's base
+    /// currency. Use this helper in place of `reduce { $0 + $1.amount }`
+    /// whenever you aggregate multiple transactions — `amountNative`
+    /// alone is not comparable across accounts in different currencies,
+    /// and `amount` is the legacy field that produced the VND-as-RUB
+    /// bug. `signed: true` negates expenses so totals reflect net flow;
+    /// `signed: false` (default) sums absolute contributions.
+    func aggregate(_ transactions: [Transaction], signed: Bool = false) -> Int64 {
+        transactions.reduce(Int64(0)) { acc, tx in
+            let base = amountInBase(tx)
+            if signed && tx.type == .expense {
+                return acc - base
+            }
+            return acc + base
+        }
+    }
+
     /// Bundled FX context — handy when you need to pass it into a pure
     /// engine (InsightEngine, CashFlowEngine, PDFReportGenerator) that
     /// otherwise has no reference to `DataStore`.

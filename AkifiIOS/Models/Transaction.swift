@@ -7,6 +7,15 @@ struct Transaction: Codable, Identifiable, Sendable {
     /// Legacy column. Until multi_currency_v2 is fully rolled out, this equals
     /// `amountNative` on new writes and is the historical field read by legacy
     /// code. Kept in kopecks (×100 of the DB numeric) for Int64 math.
+    ///
+    /// ⚠️ Do NOT use for aggregation or display. Summing `.amount` across
+    /// accounts with different currencies produces the VND-as-RUB phantom
+    /// (ADR-001). Use `amountNative` for account-local math, and
+    /// `DataStore.amountInBase(tx)` / `TransactionMath.amountInBase(tx, …)`
+    /// for cross-account aggregation. The field is kept public only for the
+    /// Codable round-trip and the `TransactionRepository` write-path — CI
+    /// lint guards against its use elsewhere.
+    @available(*, deprecated, message: "Use tx.amountNative (account-local) or dataStore.amountInBase(tx) (aggregation). See ADR-001.")
     var amount: Int64
     /// ADR-001 canonical amount in the owning account's currency, kopecks.
     /// Populated server-side at migration (backfill = amount) and on every

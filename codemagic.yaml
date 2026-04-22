@@ -32,6 +32,16 @@ workflows:
         script: |
           brew install xcodegen
 
+      - name: Lint multi-currency amount usage (ADR-001)
+        # Warning-only for 2 weeks after 2026-04-22. Switch to --strict
+        # in Phase 8 (when all 14 Swift + ~60 TS hits are migrated). This
+        # step guards against re-introducing the VND-as-RUB bug by
+        # surfacing direct reads of `tx.amount` outside the allowlist
+        # (models, repository, math helpers).
+        script: |
+          bash Scripts/lint-amount-usage.sh
+        ignore_failure: true
+
       - name: Generate xcconfig from environment variables
         script: |
           python3 << 'PYEOF'
