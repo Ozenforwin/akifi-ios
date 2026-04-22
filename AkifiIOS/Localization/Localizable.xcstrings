@@ -308,6 +308,44 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вы уверены, что хотите удалить этот счёт?" } }
       }
     },
+    "account.deleteConfirm.withDeposits %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld deposit. This cannot be undone." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld deposits. This cannot be undone." } }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозит. Это действие нельзя отменить." } },
+              "few" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозита. Это действие нельзя отменить." } },
+              "many" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить." } }
+            }
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.withTxAndDeposits %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting this account will permanently remove %1$lld transactions and %2$lld deposits. This cannot be undone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вместе со счётом безвозвратно удалятся %1$lld транзакций и %2$lld депозитов. Это действие нельзя отменить."
+          }
+        }
+      }
+    },
     "account.deleteConfirm.action" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete everything" } },

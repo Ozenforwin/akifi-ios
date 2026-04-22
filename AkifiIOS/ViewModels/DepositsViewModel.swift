@@ -330,11 +330,13 @@ final class DepositsViewModel {
         // (only if accrued > 0). Using income type without category —
         // the category picker has no "interest" option in MVP.
         if accrued > 0 {
+            let accruedDecimal = Decimal(accrued) / 100
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: depositAccount.id,
-                amount: Decimal(accrued) / 100,
-                currency: depositAccount.currency,
+                amount: accruedDecimal,
+                amount_native: accruedDecimal,
+                currency: depositAccount.currency.uppercased(),
                 type: TransactionType.income.rawValue,
                 date: dateStr,
                 description: String(localized: "deposit.transaction.interestEarned"),
@@ -344,6 +346,11 @@ final class DepositsViewModel {
         }
 
         // Step 2. Transfer pair: deposit → returnTo for principal+accrued.
+        // Cross-currency: each leg is written in its OWN account currency
+        // (expense leg in deposit's, income leg in returnTo's), FX-
+        // converting through today's rates. Without the conversion the
+        // return would under-credit (USD-valued total written as 1000 RUB
+        // on a RUB return account instead of ~92 500 ₽).
         if total > 0 {
             let groupId = UUID().uuidString
             let isSameCurrency = depositAccount.currency.uppercased() == returnTo.currency.uppercased()
@@ -353,7 +360,8 @@ final class DepositsViewModel {
                 user_id: userId,
                 account_id: depositAccount.id,
                 amount: totalDecimal,
-                currency: depositAccount.currency,
+                amount_native: totalDecimal,
+                currency: depositAccount.currency.uppercased(),
                 type: TransactionType.expense.rawValue,
                 date: dateStr,
                 description: String(localized: "deposit.transfer.return"),
@@ -361,18 +369,24 @@ final class DepositsViewModel {
                 merchant_name: depositAccount.name,
                 transfer_group_id: groupId
             ))
-            // Same-currency: simple income mirror. Cross-currency: we
-            // leave the income-side amount equal to the outgoing amount —
-            // a simplification; bank-side FX conversion would apply here
-            // but in MVP we assume the deposit account's currency matches
-            // the return account's currency (typical case). Future work:
-            // compute destAmount = total * fxRate.
-            let destAmount: Decimal = isSameCurrency ? totalDecimal : totalDecimal
+
+            let destAmount: Decimal = {
+                guard !isSameCurrency else { return totalDecimal }
+                let fxRates = dataStore.currencyContext.fxRates
+                let converted = NetWorthCalculator.convert(
+                    amount: total,
+                    from: depositAccount.currency,
+                    to: returnTo.currency,
+                    rates: fxRates
+                )
+                return Decimal(converted) / 100
+            }()
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: returnTo.id,
                 amount: destAmount,
-                currency: returnTo.currency,
+                amount_native: destAmount,
+                currency: returnTo.currency.uppercased(),
                 type: TransactionType.income.rawValue,
                 date: dateStr,
                 description: String(localized: "deposit.transfer.return"),

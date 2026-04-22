@@ -43,7 +43,7 @@
 | ACC-04 | Edit: смена валюты пустого счёта | Picker активен, валюта меняется | CODE `isCurrencyLocked` возвращает false | ✅ |
 | ACC-05 | Удаление счёта с транзакциями (Scenario 6) | CASCADE → tx удаляются, alert предупреждает точно | DB FK + CODE | ✅ (fixed `b97910a`) |
 | ACC-06 | Удаление счёта, у которого привязаны подписки | Subscriptions → `account_id = NULL`, сохраняются | FK: `subscriptions.account_id SET NULL` | ✅ |
-| ACC-07 | Удаление счёта с активным депозитом | Deposit CASCADE-удаляется | FK: `deposits.account_id CASCADE` | 🟡 UX: iOS alert это не показывает |
+| ACC-07 | Удаление счёта с активным депозитом | Deposit CASCADE-удаляется, alert упоминает только tx count (deposits cascade без UI-счётчика — живут в DepositsViewModel, не в DataStore) | FK + CODE | 🟡 Deposit count в UI — future refactor, localizations готовы |
 | ACC-08 | Удаление счёта с savings goal | Goal → `account_id = NULL`, цель сохраняется | FK: `savings_goals.account_id SET NULL` | ✅ |
 | ACC-09 | Установка счёта primary | RPC `set_my_primary_account`, один primary per user | CODE `AccountRepository.setPrimary` | ✅ |
 | ACC-10 | Счёт с `initial_balance` = 0 | Баланс = сумма tx | CODE `DataStore.balance(for:)` | ✅ |
@@ -94,7 +94,7 @@
 | DEP-01 | Создание депозита с начальным вкладом | Создаёт счёт типа `deposit` + transfer pair | CODE `DepositsViewModel.create` | ✅ |
 | DEP-02 | Contribute в депозит из source-счёта другой валюты | Cross-currency transfer pair в каждой своей валюте | CODE `DepositsViewModel.contribute` | ✅ (Phase 4) |
 | DEP-03 | Live accrued interest compound | `InterestCalculator.accrueInterest` compound formula | CODE `InterestCalculator` | ✅ |
-| DEP-04 | Maturity: return to account | Withdraw lots → transfer to `return_to_account_id` | CODE `DepositsViewModel.withdraw` (mature flow) | 🟡 **Не проверял глубоко** |
+| DEP-04 | Maturity: return to account | Cross-currency maturity должен FX-конвертить total из deposit → return account валюту | CODE audit `closeOrMature` — нашёл баг `destAmount = isSameCurrency ? total : total` (одинаковые ветки) | ✅ (fixed этот аудит) |
 | DEP-05 | Удаление депозита | CASCADE удаляет connected account + tx (после migration 20260422160000) | FK + CODE | ✅ |
 | DEP-06 | Interest в currency отличной от account | `amountNative` всегда в account currency — OK по ADR-001 | CODE | ✅ |
 
@@ -104,7 +104,7 @@
 |---|---|---|---|---|
 | SHARE-01 | Создание shared account, invite user | `account_members` роли owner/editor/viewer | CODE `ShareAccountView` | ✅ |
 | SHARE-02 | Viewer пытается добавить tx | RLS блокирует INSERT | DB RLS policies | ✅ (предполагается) |
-| SHARE-03 | Direct expense на shared account (без payment source) | Вся сумма считается контрибьюцией creator'а для settlement | CODE `SettlementCalculator` ignores direct expenses | 🟡 См. `payment_source_feature` memory |
+| SHARE-03 | Direct expense на shared account (без payment source) | **By design:** `SettlementCalculator` игнорирует direct expenses (`autoTransferGroupId IS NULL`). Причина в коде-комменте: «pulling them in would surface huge historical debts the user never opted into». User не получает долга за такие tx в settlement. | CODE `SettlementCalculator:163-168` | 🟡 By design, documented |
 | SHARE-04 | Expense с payment_source_account_id (auto-transfer) | Triplet: expense + transfer-out (source) + transfer-in (target) | CODE RPC `create_expense_with_auto_transfer` | ✅ |
 | SHARE-05 | Cross-currency auto-transfer (Семейный RUB, source USD) | Source leg в USD, expense+mirror в RUB, settlement в RUB | CODE `SettlementCalculator.normalizeToBase` | ✅ (Phase 3 fix) |
 | SHARE-06 | Split weights: 1.0 / 2.0 / 1.0 — member owes 25% / 50% / 25% | Fair share = total × weight / sumWeights | CODE `SettlementCalculator.fairShareFor` | ✅ |
@@ -178,7 +178,17 @@
 
 | Статус | Число |
 |---|---|
-| ✅ Работает | 75 |
-| 🟡 Минорный UX | 3 |
+| ✅ Работает | 76 |
+| 🟡 Минорный UX / by design | 2 |
 | 🔴 Баг | 0 |
+
+## Fix pass 2 (this audit)
+
+**DEP-04 (HIGH)** — `DepositsViewModel.closeOrMature` имел vacuous тернарник `destAmount = isSameCurrency ? totalDecimal : totalDecimal` на обеих ветках. Результат: USD-депозит при matuity в RUB-аккаунт возвращал 1000 ₽ вместо ~92 500 ₽ (off by 92×). Плюс transaction rows не писались с `amount_native` / `currency` (полагались на БД trigger backfill, который правильно работает только для single-currency).
+
+**Фикс:** per-leg currency fields (expense в deposit currency, income в returnTo currency), FX-конвертация через `NetWorthCalculator.convert` при разных валютах. Interest income tx тоже теперь populate `amount_native`/`currency`.
+
+**ACC-07 (UX nit)** — deposit count не показан в alert. Локализации готовы (`account.deleteConfirm.withDeposits`, `account.deleteConfirm.withTxAndDeposits`), но `DataStore` не surface-ит deposits как live-коллекцию. Оставлено для future refactor когда deposits переедут в DataStore.
+
+**SHARE-03** — остаётся by design. Documented в audit matrix с ссылкой на комментарий в SettlementCalculator.
 

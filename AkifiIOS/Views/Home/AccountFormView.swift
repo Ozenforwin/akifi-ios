@@ -202,15 +202,7 @@ struct AccountFormView: View {
                         }
                         Button(String(localized: "common.cancel"), role: .cancel) { }
                     } message: {
-                        let count = txCountForAccount(acc)
-                        if count > 0 {
-                            Text(String(
-                                format: String(localized: "account.deleteConfirm.withTx %lld"),
-                                count
-                            ))
-                        } else {
-                            Text(String(localized: "account.deleteConfirm.empty"))
-                        }
+                        Text(deleteConfirmationMessage(for: acc))
                     }
                 }
             }
@@ -355,10 +347,27 @@ struct AccountFormView: View {
     // MARK: - Delete
 
     /// Number of transactions that will be removed by the CASCADE FK
-    /// when this account is deleted. Surfaced in the confirmation
-    /// dialog so the user sees the real cost.
+    /// when this account is deleted.
     private func txCountForAccount(_ account: Account) -> Int {
         appViewModel.dataStore.transactions.filter { $0.accountId == account.id }.count
+    }
+
+    /// Compose the warning text. Deposits attached to the account also
+    /// cascade-delete (FK `deposits.account_id` CASCADE), but the
+    /// `DataStore` doesn't surface deposits as a live collection — they
+    /// live in `DepositsViewModel`. Since accounts of type `.deposit`
+    /// are managed from the Deposits tab anyway, the `withDeposits`
+    /// branches remain in localizations for a future refactor but the
+    /// current message only cites the transaction count.
+    private func deleteConfirmationMessage(for account: Account) -> String {
+        let tx = txCountForAccount(account)
+        if tx > 0 {
+            return String(
+                format: String(localized: "account.deleteConfirm.withTx %lld"),
+                tx
+            )
+        }
+        return String(localized: "account.deleteConfirm.empty")
     }
 
     private func deleteAccount(_ account: Account) async {
