@@ -265,95 +265,8 @@
         }
       }
     },
-    "account.deleteAccount" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete account" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar cuenta" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить счёт" } }
-      }
-    },
-    "account.deleteConfirm.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete account?" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar cuenta?" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить счёт?" } }
-      }
-    },
-    "account.deleteConfirm.withTx %lld" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld transaction. This cannot be undone." } },
-              "other" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld transactions. This cannot be undone." } }
-            }
-          }
-        },
-        "ru" : {
-          "variations" : {
-            "plural" : {
-              "one" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакция. Это действие нельзя отменить." } },
-              "few" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакции. Это действие нельзя отменить." } },
-              "many" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить." } },
-              "other" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить." } }
-            }
-          }
-        }
-      }
-    },
-    "account.deleteConfirm.empty" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Are you sure you want to delete this account?" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Seguro que quieres eliminar esta cuenta?" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вы уверены, что хотите удалить этот счёт?" } }
-      }
-    },
-    "account.deleteConfirm.withDeposits %lld" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld deposit. This cannot be undone." } },
-              "other" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld deposits. This cannot be undone." } }
-            }
-          }
-        },
-        "ru" : {
-          "variations" : {
-            "plural" : {
-              "one" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозит. Это действие нельзя отменить." } },
-              "few" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозита. Это действие нельзя отменить." } },
-              "many" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить." } },
-              "other" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить." } }
-            }
-          }
-        }
-      }
-    },
-    "account.deleteConfirm.withTxAndDeposits %lld %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleting this account will permanently remove %1$lld transactions and %2$lld deposits. This cannot be undone."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вместе со счётом безвозвратно удалятся %1$lld транзакций и %2$lld депозитов. Это действие нельзя отменить."
-          }
-        }
-      }
-    },
-    "account.deleteConfirm.action" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete everything" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar todo" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить всё" } }
-      }
-    },
     "account.currency.locked.hint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -371,6 +284,221 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Чтобы сменить валюту, создайте новый счёт — у этого уже есть транзакции в текущей."
+          }
+        }
+      }
+    },
+    "account.deleteAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar cuenta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить счёт"
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.action" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete everything"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar todo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить всё"
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.empty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are you sure you want to delete this account?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Seguro que quieres eliminar esta cuenta?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вы уверены, что хотите удалить этот счёт?"
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar cuenta?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить счёт?"
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.withDeposits %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleting this account will permanently remove %lld deposit. This cannot be undone."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleting this account will permanently remove %lld deposits. This cannot be undone."
+                }
+              }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld депозита. Это действие нельзя отменить."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld депозит. Это действие нельзя отменить."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld депозитов. Это действие нельзя отменить."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.withTx %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleting this account will permanently remove %lld transaction. This cannot be undone."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Deleting this account will permanently remove %lld transactions. This cannot be undone."
+                }
+              }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld транзакции. Это действие нельзя отменить."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld транзакция. Это действие нельзя отменить."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.withTxAndDeposits %lld %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting this account will permanently remove %1$lld transactions and %2$lld deposits. This cannot be undone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вместе со счётом безвозвратно удалятся %1$lld транзакций и %2$lld депозитов. Это действие нельзя отменить."
           }
         }
       }
@@ -23085,6 +23213,144 @@
         }
       }
     },
+    "settings.beta.introBody" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These features are still being polished. The data is real — it just lives here while we finish the UI and iron out edge cases."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estas funciones aún se están puliendo. Los datos son reales — solo viven aquí mientras terminamos la interfaz y afinamos los detalles."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эти функции ещё дорабатываются. Данные настоящие — просто живут здесь, пока мы допиливаем интерфейс и ловим пограничные случаи."
+          }
+        }
+      }
+    },
+    "settings.beta.introTitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Experimental features"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciones experimentales"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Экспериментальные функции"
+          }
+        }
+      }
+    },
+    "settings.beta.section.insights" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "INSIGHTS"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ANÁLISIS"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "АНАЛИТИКА"
+          }
+        }
+      }
+    },
+    "settings.beta.section.netWorth" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NET WORTH"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PATRIMONIO"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ЧИСТАЯ СТОИМОСТЬ"
+          }
+        }
+      }
+    },
+    "settings.beta.section.planning" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PLANNING"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PLANIFICACIÓN"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ПЛАНИРОВАНИЕ"
+          }
+        }
+      }
+    },
+    "settings.beta.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beta features"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciones beta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Бета-функции"
+          }
+        }
+      }
+    },
     "settings.categoryLayout" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -23865,48 +24131,6 @@
             "value" : "ФИНАНСЫ"
           }
         }
-      }
-    },
-    "settings.beta.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Beta features" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funciones beta" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Бета-функции" } }
-      }
-    },
-    "settings.beta.introTitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Experimental features" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Funciones experimentales" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Экспериментальные функции" } }
-      }
-    },
-    "settings.beta.introBody" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "These features are still being polished. The data is real — it just lives here while we finish the UI and iron out edge cases." } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "Estas funciones aún se están puliendo. Los datos son reales — solo viven aquí mientras terminamos la interfaz y afinamos los detalles." } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эти функции ещё дорабатываются. Данные настоящие — просто живут здесь, пока мы допиливаем интерфейс и ловим пограничные случаи." } }
-      }
-    },
-    "settings.beta.section.netWorth" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "NET WORTH" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "PATRIMONIO" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ЧИСТАЯ СТОИМОСТЬ" } }
-      }
-    },
-    "settings.beta.section.planning" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "PLANNING" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "PLANIFICACIÓN" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ПЛАНИРОВАНИЕ" } }
-      }
-    },
-    "settings.beta.section.insights" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "INSIGHTS" } },
-        "es" : { "stringUnit" : { "state" : "translated", "value" : "ANÁLISIS" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "АНАЛИТИКА" } }
       }
     },
     "settings.section.general" : {
