@@ -11,6 +11,14 @@ final class BudgetMathTests: XCTestCase {
 
     // MARK: - Factories
 
+    /// Empty currency context — single-currency scenarios (no FX needed).
+    /// `baseCode: "RUB"` means all amounts are read as-is (amountNative in
+    /// RUB kopecks) without any conversion. Use this for tests that don't
+    /// exercise multi-currency math.
+    private var defaultContext: BudgetMath.CurrencyContext {
+        ([:], [:], "RUB")
+    }
+
     private func makeBudget(
         id: String = "b1",
         amount: Int64 = 10_000_00,
@@ -157,7 +165,10 @@ final class BudgetMathTests: XCTestCase {
     func testCompute_WithSubscriptions_FieldsPopulated() {
         let budget = makeBudget(amount: 10_000_00, period: .monthly)
         let subs = [makeSub(amount: 2_000_00, period: .monthly)]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
 
         XCTAssertEqual(metrics.subscriptionCommitted, 2_000_00)
         XCTAssertEqual(metrics.freeRemaining, 8_000_00)  // limit - subCommitted, since spent=0
@@ -165,7 +176,7 @@ final class BudgetMathTests: XCTestCase {
 
     func testCompute_WithoutSubscriptions_CommittedZero() {
         let budget = makeBudget()
-        let metrics = BudgetMath.compute(budget: budget, transactions: [])
+        let metrics = BudgetMath.compute(budget: budget, transactions: [], currencyContext: defaultContext)
         XCTAssertEqual(metrics.subscriptionCommitted, 0)
         XCTAssertEqual(metrics.freeRemaining, metrics.remaining)
     }
@@ -173,7 +184,10 @@ final class BudgetMathTests: XCTestCase {
     func testCompute_SubsExceedLimit_FreeRemainingClampedToZero() {
         let budget = makeBudget(amount: 1_000_00)
         let subs = [makeSub(amount: 2_000_00)]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
 
         XCTAssertEqual(metrics.subscriptionCommitted, 2_000_00)
         XCTAssertEqual(metrics.freeRemaining, 0)
@@ -185,7 +199,10 @@ final class BudgetMathTests: XCTestCase {
             makeSub(id: "s1", amount: 500_00, categoryId: "cat-1"),
             makeSub(id: "s2", amount: 500_00, categoryId: "cat-2")
         ]
-        let metrics = BudgetMath.compute(budget: budget, transactions: [], subscriptions: subs)
+        let metrics = BudgetMath.compute(
+            budget: budget, transactions: [], subscriptions: subs,
+            currencyContext: defaultContext
+        )
         XCTAssertEqual(metrics.subscriptionCommitted, 500_00)
     }
 }
