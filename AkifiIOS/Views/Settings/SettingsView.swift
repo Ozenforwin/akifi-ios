@@ -8,7 +8,6 @@ struct SettingsView: View {
     @State private var showReceiptScanner = false
     @State private var showDeleteFinalConfirmation = false
     @State private var deleteError: String?
-    @StateObject private var featureFlags = FeatureFlags.shared
 
     private var currentLanguageName: String {
         switch appLanguage {
@@ -249,30 +248,6 @@ struct SettingsView: View {
                         SettingsRow(icon: "doc.text.viewfinder", color: .orange, title: String(localized: "settings.scanReceipt"))
                     }
                 }
-
-                #if DEBUG
-                Section(header: Text("Developer")) {
-                    Toggle(isOn: Binding(
-                        get: { featureFlags.multiCurrencyV2 },
-                        set: { featureFlags.setMultiCurrencyV2($0) }
-                    )) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "globe.badge.chevron.backward")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 28, height: 28)
-                                .background(Color.mint)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Multi-Currency v2")
-                                Text("Reads amount_native / supports foreign entry")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-                #endif
 
                 Section(String(localized: "settings.about")) {
                     HStack {

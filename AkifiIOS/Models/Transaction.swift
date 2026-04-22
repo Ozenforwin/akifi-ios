@@ -4,9 +4,9 @@ struct Transaction: Codable, Identifiable, Sendable {
     let id: String
     let userId: String
     var accountId: String?
-    /// Legacy column. Until multi_currency_v2 is fully rolled out, this equals
-    /// `amountNative` on new writes and is the historical field read by legacy
-    /// code. Kept in kopecks (×100 of the DB numeric) for Int64 math.
+    /// Legacy column. On every new write the server mirrors it from
+    /// `amountNative`, so for all post-ADR-001 rows they are equal.
+    /// Kept in kopecks (×100 of the DB numeric) for Int64 math.
     ///
     /// ⚠️ Do NOT use for aggregation or display. Summing `.amount` across
     /// accounts with different currencies produces the VND-as-RUB phantom
@@ -19,7 +19,7 @@ struct Transaction: Codable, Identifiable, Sendable {
     var amount: Int64
     /// ADR-001 canonical amount in the owning account's currency, kopecks.
     /// Populated server-side at migration (backfill = amount) and on every
-    /// new write. When `multi_currency_v2` is OFF, UI still reads `amount`.
+    /// new write. This is the ONLY field used by post-Phase-3 read-path.
     var amountNative: Int64
     /// Legacy label carried from TMA. Meaning is inconsistent across
     /// historical rows — should be treated as advisory only and not used for
