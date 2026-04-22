@@ -145,20 +145,25 @@ final class ReportsViewModel {
 
     // MARK: - Computed: totals
 
-    func monthIncome(from transactions: [Transaction]) -> Int64 {
+    // ADR-001: totals are summed across accounts that may be in different
+    // currencies, so each amount_native must be FX-normalized into the
+    // user's base currency before aggregation. Using `tx.amount` directly
+    // let VND/USD rows appear at nominal value.
+    func monthIncome(from transactions: [Transaction], dataStore: DataStore) -> Int64 {
         transactions
             .filter { $0.type == .income && !$0.isTransfer }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
     }
 
-    func monthExpense(from transactions: [Transaction]) -> Int64 {
+    func monthExpense(from transactions: [Transaction], dataStore: DataStore) -> Int64 {
         transactions
             .filter { $0.type == .expense && !$0.isTransfer }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
     }
 
-    func monthCashflow(from transactions: [Transaction]) -> Int64 {
-        monthIncome(from: transactions) - monthExpense(from: transactions)
+    func monthCashflow(from transactions: [Transaction], dataStore: DataStore) -> Int64 {
+        monthIncome(from: transactions, dataStore: dataStore)
+            - monthExpense(from: transactions, dataStore: dataStore)
     }
 
     // MARK: - Computed: category breakdown

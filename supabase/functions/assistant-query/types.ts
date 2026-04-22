@@ -20,7 +20,22 @@ export interface AssistantQueryRequest {
 
 export interface TxRow {
   id: string;
+  /// Legacy field. On RUB-native rows equals `amount_native`; on multi-currency
+  /// rows from older clients this may be the raw foreign value (e.g. 76 000
+  /// for ₫) which caused analytics/AI to treat dongs as rubles. Do NOT
+  /// aggregate via this field — use `amount_native` (ADR-001).
   amount: number;
+  /// Canonical amount in the account's own currency (ADR-001). Always
+  /// present on rows written after 2026-04-19; legacy rows get backfilled
+  /// by the Phase 1 trigger.
+  amount_native?: number;
+  /// ISO code of the account's currency (JOIN from accounts on server
+  /// enrichment). Used to FX-normalize `amount_native` into the user's
+  /// display currency for multi-account aggregation.
+  currency?: string | null;
+  foreign_amount?: number | null;
+  foreign_currency?: string | null;
+  fx_rate?: number | null;
   date: string;
   type: 'income' | 'expense';
   category_id: string;

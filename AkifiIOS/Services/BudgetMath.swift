@@ -22,9 +22,24 @@ struct BudgetMetrics {
 
 enum BudgetMath {
 
-    static func compute(budget: Budget, transactions: [Transaction], subscriptions: [SubscriptionTracker] = []) -> BudgetMetrics {
+    /// Currency context required to FX-normalize transactions against the
+    /// budget's own currency (ADR-001). The budget's currency is derived
+    /// from its linked account; when no account is linked the budget uses
+    /// the user's base currency.
+    typealias CurrencyContext = (
+        accountsById: [String: Account],
+        fxRates: [String: Decimal],
+        baseCode: String
+    )
+
+    static func compute(
+        budget: Budget,
+        transactions: [Transaction],
+        subscriptions: [SubscriptionTracker] = [],
+        currencyContext: CurrencyContext
+    ) -> BudgetMetrics {
         let period = currentPeriod(for: budget)
-        let spent = spentAmount(budget: budget, transactions: transactions, period: period)
+        let spent = spentAmount(budget: budget, transactions: transactions, period: period, currencyContext: currencyContext)
         let limit = budget.amount
         let remaining = max(0, limit - spent)
 
@@ -119,7 +134,24 @@ enum BudgetMath {
 
     // MARK: - Spent
 
-    static func spentAmount(budget: Budget, transactions: [Transaction], period: (start: Date, end: Date)) -> Int64 {
+    /// Sums the transactions matching this budget, FX-normalizing each
+    /// amount_native into the budget's currency. The budget's currency is
+    /// the linked account's currency (if `budget.accountId` is set), or
+    /// the user's base currency otherwise.
+    static func spentAmount(
+        budget: Budget,
+        transactions: [Transaction],
+        period: (start: Date, end: Date),
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        let budgetCurrency: String = {
+            if let accId = budget.accountId,
+               let acc = currencyContext.accountsById[accId] {
+                return acc.currency.uppercased()
+            }
+            return currencyContext.baseCode
+        }()
+
         let df = AppDateFormatters.isoDate
         return transactions.filter { tx in
             guard tx.type == .expense && !tx.isTransfer else { return false }
@@ -131,7 +163,14 @@ enum BudgetMath {
             }
             guard let d = df.date(from: tx.date) else { return false }
             return d >= period.start && d <= period.end
-        }.reduce(Int64(0)) { $0 + $1.amount }
+        }.reduce(Int64(0)) { acc, tx in
+            acc + TransactionMath.amountInBase(
+                tx,
+                accountsById: currencyContext.accountsById,
+                fxRates: currencyContext.fxRates,
+                baseCode: budgetCurrency
+            )
+        }
     }
 
     // MARK: - Subscription Committed

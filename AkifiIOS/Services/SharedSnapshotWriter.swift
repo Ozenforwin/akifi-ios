@@ -94,7 +94,8 @@ enum SharedSnapshotWriter {
             let metrics = BudgetMath.compute(
                 budget: budget,
                 transactions: dataStore.transactions,
-                subscriptions: dataStore.subscriptions
+                subscriptions: dataStore.subscriptions,
+                currencyContext: dataStore.currencyContext
             )
             dailyLimit = metrics.safeToSpendDaily
             dailyLimitName = budget.name

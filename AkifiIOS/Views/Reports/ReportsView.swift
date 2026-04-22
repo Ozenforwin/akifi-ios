@@ -139,7 +139,8 @@ struct ReportsView: View {
             accounts: dataStore.accounts,
             accountFilter: account,
             budgets: dataStore.budgets,
-            subscriptions: dataStore.subscriptions
+            subscriptions: dataStore.subscriptions,
+            fxRates: dataStore.currencyContext.fxRates
         )
 
         Task.detached(priority: .userInitiated) {

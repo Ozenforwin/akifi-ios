@@ -54,19 +54,24 @@ final class BudgetsViewModel {
         BudgetMath.currentPeriod(for: budget)
     }
 
-    func spent(for budget: Budget, transactions: [Transaction]) -> Int64 {
+    func spent(for budget: Budget, transactions: [Transaction], currencyContext: BudgetMath.CurrencyContext) -> Int64 {
         let period = currentPeriod(for: budget)
-        return BudgetMath.spentAmount(budget: budget, transactions: transactions, period: period)
+        return BudgetMath.spentAmount(
+            budget: budget,
+            transactions: transactions,
+            period: period,
+            currencyContext: currencyContext
+        )
     }
 
-    func progress(for budget: Budget, transactions: [Transaction]) -> Double {
+    func progress(for budget: Budget, transactions: [Transaction], currencyContext: BudgetMath.CurrencyContext) -> Double {
         guard budget.amount > 0 else { return 0 }
-        let spentAmount = spent(for: budget, transactions: transactions)
+        let spentAmount = spent(for: budget, transactions: transactions, currencyContext: currencyContext)
         return Double(spentAmount) / Double(budget.amount)
     }
 
-    func remaining(for budget: Budget, transactions: [Transaction]) -> Int64 {
-        let spentAmount = spent(for: budget, transactions: transactions)
+    func remaining(for budget: Budget, transactions: [Transaction], currencyContext: BudgetMath.CurrencyContext) -> Int64 {
+        let spentAmount = spent(for: budget, transactions: transactions, currencyContext: currencyContext)
         return budget.amount - spentAmount
     }
 

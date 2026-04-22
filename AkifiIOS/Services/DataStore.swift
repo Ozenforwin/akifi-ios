@@ -539,12 +539,16 @@ final class DataStore {
                 )
             }
 
-        // Budgets with computed metrics
+        // Budgets with computed metrics — FX-normalized via currencyContext
+        // so VND/USD transactions sum correctly against the budget's own
+        // currency (ADR-001).
+        let ctx: BudgetMath.CurrencyContext = (accountsById, fxRates, baseCode)
         let budgetSummaries: [AssistantContext.BudgetSummary] = budgets
             .filter { $0.isActive }
             .map { budget in
                 let metrics = BudgetMath.compute(
-                    budget: budget, transactions: transactions, subscriptions: subscriptions
+                    budget: budget, transactions: transactions, subscriptions: subscriptions,
+                    currencyContext: ctx
                 )
                 return AssistantContext.BudgetSummary(
                     name: budget.name,

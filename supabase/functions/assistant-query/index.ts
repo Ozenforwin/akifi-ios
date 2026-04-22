@@ -783,7 +783,7 @@ Deno.serve(async (req) => {
     // Fetch transactions from all accessible accounts
     let txQuery = anonClient
       .from('transactions')
-      .select('id,amount,date,type,category_id,account_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description')
+      .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description')
       .gte('date', lookbackStart)
       .lte('date', currentWindow.end)
       .order('date', { ascending: false })
@@ -810,7 +810,7 @@ Deno.serve(async (req) => {
     ) {
       let fallbackQuery = anonClient
         .from('transactions')
-        .select('id,amount,date,type,category_id,account_id,transfer_group_id,category:categories(name),description')
+        .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,transfer_group_id,category:categories(name),description')
         .gte('date', lookbackStart)
         .lte('date', currentWindow.end)
         .order('date', { ascending: false })
@@ -903,7 +903,7 @@ Deno.serve(async (req) => {
         if (accountIds.length > 0) {
           const { data: allTxData } = await anonClient
             .from('transactions')
-            .select('account_id,amount,type')
+            .select('account_id,amount,amount_native,type')
             .in('account_id', accountIds)
             .limit(50000);
 
@@ -913,7 +913,10 @@ Deno.serve(async (req) => {
             for (const tx of allTxData) {
               const accId = tx.account_id;
               if (!accId) continue;
-              const amt = Number(tx.amount) || 0;
+              // ADR-001: `amount_native` is the canonical balance contributor
+              // in the account's own currency. Fall back to legacy `amount`
+              // only if the row predates the Phase 1 backfill.
+              const amt = Number(tx.amount_native ?? tx.amount) || 0;
               if (tx.type === 'income') {
                 incomeByAccount.set(accId, (incomeByAccount.get(accId) ?? 0) + amt);
               } else if (tx.type === 'expense') {

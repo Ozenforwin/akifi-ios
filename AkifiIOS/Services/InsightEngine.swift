@@ -229,7 +229,12 @@ enum InsightEngine {
 
         // 5. Budget warning — any budget past 85% utilization with days remaining
         for budget in input.budgets where budget.isActive {
-            let metrics = BudgetMath.compute(budget: budget, transactions: input.transactions, subscriptions: input.subscriptions)
+            let metrics = BudgetMath.compute(
+                budget: budget,
+                transactions: input.transactions,
+                subscriptions: input.subscriptions,
+                currencyContext: (input.accountsById, input.fxRates, input.baseCode)
+            )
             if metrics.utilization >= 85 && metrics.remainingDays > 0 {
                 out.append(Insight(
                     id: "budget-\(budget.id)",

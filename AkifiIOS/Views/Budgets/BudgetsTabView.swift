@@ -13,8 +13,9 @@ struct BudgetsTabView: View {
     /// Budgets sorted by criticality: overLimit first, then nearLimit, warning, onTrack
     private var sortedBudgetsWithMetrics: [(budget: Budget, metrics: BudgetMetrics)] {
         let subs = dataStore.subscriptions
+        let ctx = dataStore.currencyContext
         let items = dataStore.budgets.map { budget in
-            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs))
+            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs, currencyContext: ctx))
         }
         return items.sorted { a, b in
             let priority: (BudgetStatus) -> Int = {
@@ -39,7 +40,7 @@ struct BudgetsTabView: View {
                 if isNewUser {
                     // Demo budget with blur
                     Section {
-                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions, subscriptions: DemoData.subscriptions)
+                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions, subscriptions: DemoData.subscriptions, currencyContext: dataStore.currencyContext)
                         BudgetCardView(budget: DemoData.budget, metrics: metrics, categories: DemoData.categories)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))

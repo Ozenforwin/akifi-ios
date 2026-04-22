@@ -22,16 +22,20 @@ struct SummaryCardsView: View {
         }
     }
 
+    // ADR-001: aggregate via dataStore.amountInBase so VND/EUR/USD rows
+    // on differently-denominated accounts get FX-normalized into the user's
+    // base currency. Summing `tx.amount` directly lets a 76 000 ₫ row
+    // appear as 76 000 ₽ (the original multi-currency bug).
     private var monthlyIncome: Int64 {
         currentMonthTransactions
             .filter { $0.type == .income && !$0.isTransfer }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + appViewModel.dataStore.amountInBase($1) }
     }
 
     private var monthlyExpense: Int64 {
         currentMonthTransactions
             .filter { $0.type == .expense && !$0.isTransfer }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + appViewModel.dataStore.amountInBase($1) }
     }
 
     var body: some View {

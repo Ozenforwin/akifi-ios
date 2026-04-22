@@ -143,8 +143,8 @@ function buildSummary(txs: TxRow[], window: PeriodWindow, period: string, custom
   const expenses = txs.filter((tx) => tx.type === 'expense');
   const income = txs.filter((tx) => tx.type === 'income');
 
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount), 0);
-  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
   const net = totalIncome - totalExpense;
 
   const days = daysBetween(window.start, window.end);
@@ -164,14 +164,14 @@ function buildSummary(txs: TxRow[], window: PeriodWindow, period: string, custom
 
 function buildCategoryBreakdown(txs: TxRow[], categories?: CategoryRow[]): string {
   const expenses = txs.filter((tx) => tx.type === 'expense');
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
   if (totalExpense <= 0) return '';
 
   const catMap = new Map<string, { name: string; amount: number; count: number }>();
   for (const tx of expenses) {
     const catName = resolveCategoryName(tx, categories);
     const entry = catMap.get(catName) ?? { name: catName, amount: 0, count: 0 };
-    entry.amount += safeNumber(tx.amount);
+    entry.amount += safeNumber(tx.amount_native ?? tx.amount);
     entry.count += 1;
     catMap.set(catName, entry);
   }
@@ -217,7 +217,7 @@ function buildRawTransactions(txs: TxRow[], entity: string | undefined, totalFou
 
   const rows = txs.map((tx) => {
     const date = tx.date.slice(5); // MM-DD
-    const amount = formatMoney(safeNumber(tx.amount));
+    const amount = formatMoney(safeNumber(tx.amount_native ?? tx.amount));
     const merchant = tx.merchant_name ?? tx.merchant_normalized ?? '';
     const cat = tx.category?.name ?? '';
     const parts = [date, amount, tx.type === 'income' ? '+' : '-'];
@@ -235,13 +235,13 @@ function buildPreviousPeriodSummary(txs: TxRow[], window: PeriodWindow): string 
   const expenses = txs.filter((tx) => tx.type === 'expense');
   const income = txs.filter((tx) => tx.type === 'income');
 
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount), 0);
-  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
 
   const catMap = new Map<string, number>();
   for (const tx of expenses) {
     const catName = tx.category?.name?.trim() || 'Другое';
-    catMap.set(catName, (catMap.get(catName) ?? 0) + safeNumber(tx.amount));
+    catMap.set(catName, (catMap.get(catName) ?? 0) + safeNumber(tx.amount_native ?? tx.amount));
   }
 
   const sorted = [...catMap.entries()].sort((a, b) => b[1] - a[1]);
@@ -271,7 +271,7 @@ function buildBudgetContext(
 
     const spent = currentTxs
       .filter((tx) => tx.type === 'expense' && b.category_ids.includes(tx.category_id))
-      .reduce((s, tx) => s + safeNumber(tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
 
     const pct = b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0;
 
@@ -310,10 +310,10 @@ function buildAccountContext(
     const accTxs = currentTxs.filter((tx) => tx.account_id === acc.id);
     const expenses = accTxs
       .filter((tx) => tx.type === 'expense')
-      .reduce((s, tx) => s + safeNumber(tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
     const income = accTxs
       .filter((tx) => tx.type === 'income')
-      .reduce((s, tx) => s + safeNumber(tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
     const txCount = accTxs.length;
 
     const sharedTag = acc.is_shared

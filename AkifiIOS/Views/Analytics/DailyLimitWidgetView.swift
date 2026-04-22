@@ -12,9 +12,10 @@ struct DailyLimitWidgetView: View {
 
         // Calculate safe-to-spend as minimum across all budgets
         // (most restrictive budget determines daily limit)
+        let ctx = dataStore.currencyContext
         var minDaily: Decimal?
         for budget in budgets {
-            let metrics = BudgetMath.compute(budget: budget, transactions: transactions)
+            let metrics = BudgetMath.compute(budget: budget, transactions: transactions, currencyContext: ctx)
             guard metrics.remainingDays > 0 else { continue }
             let daily = metrics.remaining.displayAmount / Decimal(metrics.remainingDays)
             if let current = minDaily {

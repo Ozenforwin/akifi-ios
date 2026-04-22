@@ -32,6 +32,17 @@ enum PDFReportGenerator {
         let accountFilter: Account?               // nil = all accounts
         let budgets: [Budget]
         let subscriptions: [SubscriptionTracker]
+        /// FX context so multi-currency totals (budgets, category roll-ups)
+        /// can normalize `amount_native` into a single comparable number.
+        /// Default empty map + base `currencyCode` preserves the legacy
+        /// "assume single currency" behaviour for callers that haven't
+        /// migrated yet.
+        var fxRates: [String: Decimal] = [:]
+
+        var currencyContext: BudgetMath.CurrencyContext {
+            let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+            return (accountsById, fxRates, currencyCode.uppercased())
+        }
     }
 
     // MARK: - Page geometry (A4 @ 72dpi)
@@ -424,12 +435,14 @@ enum PDFReportGenerator {
         let rowFont = UIFont.systemFont(ofSize: 11, weight: .regular)
         let boldFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
 
+        let ctxCurrency = input.currencyContext
         for budget in active {
             c = ensureSpace(42, cursor: c, ctx: ctx)
             let metrics = BudgetMath.compute(
                 budget: budget,
                 transactions: input.transactions,
-                subscriptions: input.subscriptions
+                subscriptions: input.subscriptions,
+                currencyContext: ctxCurrency
             )
 
             let name = budget.name
