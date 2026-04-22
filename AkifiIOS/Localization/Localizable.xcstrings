@@ -265,6 +265,56 @@
         }
       }
     },
+    "account.deleteAccount" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete account" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar cuenta" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить счёт" } }
+      }
+    },
+    "account.deleteConfirm.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete account?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Eliminar cuenta?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить счёт?" } }
+      }
+    },
+    "account.deleteConfirm.withTx %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld transaction. This cannot be undone." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Deleting this account will permanently remove %lld transactions. This cannot be undone." } }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакция. Это действие нельзя отменить." } },
+              "few" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакции. Это действие нельзя отменить." } },
+              "many" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Вместе со счётом безвозвратно удалится %lld транзакций. Это действие нельзя отменить." } }
+            }
+          }
+        }
+      }
+    },
+    "account.deleteConfirm.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Are you sure you want to delete this account?" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "¿Seguro que quieres eliminar esta cuenta?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вы уверены, что хотите удалить этот счёт?" } }
+      }
+    },
+    "account.deleteConfirm.action" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete everything" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Eliminar todo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить всё" } }
+      }
+    },
     "account.currency.locked.hint" : {
       "localizations" : {
         "en" : {

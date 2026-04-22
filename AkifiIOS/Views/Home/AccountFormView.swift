@@ -15,6 +15,8 @@ struct AccountFormView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showShareSheet = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
 
     private let accountRepo = AccountRepository()
 
@@ -173,6 +175,44 @@ struct AccountFormView: View {
                             .font(.caption)
                     }
                 }
+
+                if let acc = editingAccount {
+                    // Destructive action — separate section at the bottom so
+                    // it's visually far from Save. `DELETE FROM accounts`
+                    // cascades into transactions (migration 20260422160000),
+                    // which is exactly what the confirmation text promises.
+                    Section {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text(String(localized: "account.deleteAccount"))
+                            }
+                        }
+                        .disabled(isDeleting || isSaving)
+                    }
+                    .confirmationDialog(
+                        String(localized: "account.deleteConfirm.title"),
+                        isPresented: $showDeleteConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button(String(localized: "account.deleteConfirm.action"), role: .destructive) {
+                            Task { await deleteAccount(acc) }
+                        }
+                        Button(String(localized: "common.cancel"), role: .cancel) { }
+                    } message: {
+                        let count = txCountForAccount(acc)
+                        if count > 0 {
+                            Text(String(
+                                format: String(localized: "account.deleteConfirm.withTx %lld"),
+                                count
+                            ))
+                        } else {
+                            Text(String(localized: "account.deleteConfirm.empty"))
+                        }
+                    }
+                }
             }
             .navigationTitle(isEditing ? String(localized: "account.edit") : String(localized: "account.new"))
             .navigationBarTitleDisplayMode(.inline)
@@ -310,5 +350,26 @@ struct AccountFormView: View {
             else if tx.type == .expense { net -= tx.amountNative }
         }
         return net
+    }
+
+    // MARK: - Delete
+
+    /// Number of transactions that will be removed by the CASCADE FK
+    /// when this account is deleted. Surfaced in the confirmation
+    /// dialog so the user sees the real cost.
+    private func txCountForAccount(_ account: Account) -> Int {
+        appViewModel.dataStore.transactions.filter { $0.accountId == account.id }.count
+    }
+
+    private func deleteAccount(_ account: Account) async {
+        isDeleting = true
+        do {
+            try await accountRepo.delete(id: account.id)
+            await onSave()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isDeleting = false
     }
 }
