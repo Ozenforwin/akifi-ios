@@ -262,7 +262,7 @@ struct JournalNoteCardView: View {
         HStack(spacing: 6) {
             Image(systemName: tx.type == .income ? "arrow.down" : "arrow.up")
                 .font(.caption2)
-            Text(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))
+            Text(appViewModel.currencyManager.formatAmount(dataStore.amountInBaseDisplay(tx)))
                 .font(.caption.weight(.semibold).monospacedDigit())
             if let cat = dataStore.category(for: tx) {
                 Text("·")
@@ -348,7 +348,7 @@ struct JournalNoteCardView: View {
             return txDate >= startDate && txDate <= endDate
         }
         guard !transactions.isEmpty else { return nil }
-        let total = transactions.reduce(Int64(0)) { $0 + abs($1.amount) }
+        let total = transactions.reduce(Int64(0)) { $0 + abs(dataStore.amountInBase($1)) }
         let totalStr = appViewModel.currencyManager.formatAmount(total.displayAmount)
         return ReflectionPeriodSummary(
             totalText: totalStr,

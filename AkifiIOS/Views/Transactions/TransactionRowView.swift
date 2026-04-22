@@ -170,14 +170,17 @@ struct TransactionRowView: View {
            let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != transaction.id }),
            let pairAccountId = pair.accountId,
            let pairAccount = dataStore.accounts.first(where: { $0.id == pairAccountId }) {
-            // Both sides available
-            let fromName = transaction.amount < 0 ? currentName : pairAccount.name
-            let toName = transaction.amount < 0 ? pairAccount.name : currentName
+            // Both sides available. Direction is driven by sign of
+            // `amountNative` (legacy `.amount` would also work since it
+            // equals `amountNative` on new rows, but this keeps us in
+            // the ADR-001 canonical field).
+            let fromName = transaction.amountNative < 0 ? currentName : pairAccount.name
+            let toName = transaction.amountNative < 0 ? pairAccount.name : currentName
             return "\(fromName) → \(toName)"
         }
 
         // Pair not accessible — show partial direction
-        if transaction.amount < 0 {
+        if transaction.amountNative < 0 {
             return "\(currentName) →"
         } else {
             return "→ \(currentName)"

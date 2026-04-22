@@ -14,6 +14,15 @@ import Foundation
 /// classes.
 enum TransactionMath {
 
+    /// Bundle of everything needed to FX-normalize a transaction into a
+    /// target currency. Same shape as `DataStore.currencyContext`, so a
+    /// caller holding a `DataStore` can pass it in directly.
+    typealias CurrencyContext = (
+        accountsById: [String: Account],
+        fxRates: [String: Decimal],
+        baseCode: String
+    )
+
     /// Convert `tx.amountNative` into the caller's base currency.
     ///
     /// - `accountsById`: a `[accountId: Account]` lookup so the function

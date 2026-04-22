@@ -30,12 +30,15 @@ struct TransactionsMiniDashboardView: View {
             return "\(c.year!)-\(String(format: "%02d", c.month!))"
         }()
 
+        let dataStore = appVM.dataStore
         return months.map { item in
             let filtered = transactions.filter { tx in
                 !tx.isTransfer && tx.date.hasPrefix(item.key)
             }
-            let inc = filtered.filter { $0.type == .income }.reduce(Int64(0)) { $0 + $1.amount }
-            let exp = filtered.filter { $0.type == .expense }.reduce(Int64(0)) { $0 + $1.amount }
+            // ADR-001: FX-normalize to base currency before summing so
+            // VND/USD rows on their own accounts don't get read as rubles.
+            let inc = filtered.filter { $0.type == .income }.reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
+            let exp = filtered.filter { $0.type == .expense }.reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
             let month = cal.component(.month, from: item.date)
             return MonthEntry(
                 label: shortLabels[month] ?? "",

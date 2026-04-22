@@ -52,17 +52,17 @@ struct ChallengesListView: View {
         }
         .task {
             await vm.load()
-            await vm.reconcileProgress(transactions: dataStore.transactions)
+            await vm.reconcileProgress(transactions: dataStore.transactions, currencyContext: dataStore.currencyContext)
         }
         .refreshable {
             await vm.load()
-            await vm.reconcileProgress(transactions: dataStore.transactions)
+            await vm.reconcileProgress(transactions: dataStore.transactions, currencyContext: dataStore.currencyContext)
         }
         .sheet(isPresented: $showForm) {
             ChallengeFormView { _ in
                 Task {
                     await vm.load()
-                    await vm.reconcileProgress(transactions: dataStore.transactions)
+                    await vm.reconcileProgress(transactions: dataStore.transactions, currencyContext: dataStore.currencyContext)
                 }
             }
             .presentationBackground(.ultraThinMaterial)

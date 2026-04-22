@@ -205,12 +205,12 @@ enum PDFReportGenerator {
     ) -> Cursor {
         var c = ensureSpace(120, cursor: cursor, ctx: ctx)
 
-        let income = totalIncome(input.transactions)
-        let expense = totalExpense(input.transactions)
+        let income = totalIncome(input.transactions, context: input.currencyContext)
+        let expense = totalExpense(input.transactions, context: input.currencyContext)
         let net = income - expense
 
-        let prevIncome = totalIncome(input.previousTransactions)
-        let prevExpense = totalExpense(input.previousTransactions)
+        let prevIncome = totalIncome(input.previousTransactions, context: input.currencyContext)
+        let prevExpense = totalExpense(input.previousTransactions, context: input.currencyContext)
         let prevNet = prevIncome - prevExpense
 
         drawSectionTitle(String(localized: "pdf.summary"), at: &c.y)
@@ -286,7 +286,7 @@ enum PDFReportGenerator {
             entry.count += 1
             byName[name] = entry
         }
-        let grand = Int64(byName.values.reduce(Int64(0)) { $0 + $1.amount })
+        let grand = Int64(byName.values.reduce(Int64(0)) { $0 + $1.amount }) // allowlisted-amount: byName entries aggregate tx.amountNative in single-account PDF context
         totals = byName.map { (name: $0.key, icon: $0.value.icon, amount: $0.value.amount, count: $0.value.count) }
             .sorted { $0.amount > $1.amount }
 
@@ -376,7 +376,7 @@ enum PDFReportGenerator {
 
         let top = input.transactions
             .filter { $0.type == .expense && !$0.isTransfer }
-            .sorted { $0.amount > $1.amount }
+            .sorted { $0.amountNative > $1.amountNative }
             .prefix(10)
         guard !top.isEmpty else { return c }
 
@@ -608,14 +608,24 @@ enum PDFReportGenerator {
 
     // MARK: - Formatting helpers
 
-    private static func totalIncome(_ txs: [Transaction]) -> Int64 {
+    private static func totalIncome(_ txs: [Transaction], context: BudgetMath.CurrencyContext) -> Int64 {
         txs.filter { $0.type == .income && !$0.isTransfer }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { acc, tx in
+                acc + TransactionMath.amountInBase(
+                    tx, accountsById: context.accountsById,
+                    fxRates: context.fxRates, baseCode: context.baseCode
+                )
+            }
     }
 
-    private static func totalExpense(_ txs: [Transaction]) -> Int64 {
+    private static func totalExpense(_ txs: [Transaction], context: BudgetMath.CurrencyContext) -> Int64 {
         txs.filter { $0.type == .expense && !$0.isTransfer }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { acc, tx in
+                acc + TransactionMath.amountInBase(
+                    tx, accountsById: context.accountsById,
+                    fxRates: context.fxRates, baseCode: context.baseCode
+                )
+            }
     }
 
     private static func percentDelta(now: Int64, prev: Int64) -> String? {

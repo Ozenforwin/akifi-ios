@@ -84,7 +84,7 @@ enum InterestCalculator {
 
     /// Sum of every contribution's `amount` (kopecks).
     static func totalPrincipal(_ contributions: [DepositContribution]) -> Int64 {
-        contributions.reduce(0) { $0 + $1.amount }
+        contributions.reduce(0) { $0 + $1.amount } // allowlisted-amount: DepositContribution.amount is in deposit's own currency, not Transaction.amount
     }
 
     // MARK: - Internals

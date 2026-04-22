@@ -812,7 +812,7 @@ struct JournalNoteFormView: View {
                     .foregroundStyle(tx.type == .income ? Color.income : Color.expense)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))
+                Text(appViewModel.currencyManager.formatAmount(appViewModel.dataStore.amountInBaseDisplay(tx)))
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                 let subtitle = [

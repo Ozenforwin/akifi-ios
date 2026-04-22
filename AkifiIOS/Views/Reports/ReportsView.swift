@@ -284,7 +284,7 @@ struct ReportsView: View {
     @ViewBuilder
     private func donutSection(items: [ReportsViewModel.CategoryBreakdownItem]) -> some View {
         if !items.isEmpty {
-            let total = items.reduce(Int64(0)) { $0 + $1.amount }
+            let total = items.reduce(Int64(0)) { $0 + $1.amount } // allowlisted-amount: CategoryBreakdownItem.amount is already FX-normalized via ReportsViewModel.categoryBreakdown
             ReportDonutChart(
                 items: items,
                 total: total,
@@ -484,7 +484,10 @@ private struct ReportCategoryDetailSheet: View {
     let transactions: [Transaction]
     let isExpense: Bool
     let cm: CurrencyManager
+    @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
+
+    private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
         NavigationStack {
@@ -554,7 +557,7 @@ private struct ReportCategoryDetailSheet: View {
                     }
                     Spacer()
                     let sign = isExpense ? "-" : "+"
-                    Text("\(sign)\(cm.formatAmount(tx.amount.displayAmount))")
+                    Text("\(sign)\(cm.formatAmount(dataStore.amountInBaseDisplay(tx)))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(isExpense ? Color.expense : Color.income)
                         .monospacedDigit()

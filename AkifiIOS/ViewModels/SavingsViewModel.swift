@@ -144,7 +144,7 @@ final class SavingsViewModel {
         // Check if on track based on contributions
         let contribs = contributions[goal.id] ?? []
         let goalAge = max(1, Calendar.current.dateComponents([.day], from: isoDateFormatter.date(from: goal.createdAt ?? "") ?? Date(), to: Date()).day ?? 1)
-        let avgDaily = contribs.filter { $0.type == .contribution }.reduce(Int64(0)) { $0 + $1.amount }
+        let avgDaily = contribs.filter { $0.type == .contribution }.reduce(Int64(0)) { $0 + $1.amount } // allowlisted-amount: DepositContribution.amount is in the goal's own currency
         let avgDailyRate = Double(avgDaily) / Double(goalAge)
 
         if avgDailyRate >= dailyNeeded * 0.8 { return .onTrack }

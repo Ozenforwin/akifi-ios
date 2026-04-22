@@ -22,15 +22,10 @@ struct BudgetMetrics {
 
 enum BudgetMath {
 
-    /// Currency context required to FX-normalize transactions against the
-    /// budget's own currency (ADR-001). The budget's currency is derived
-    /// from its linked account; when no account is linked the budget uses
-    /// the user's base currency.
-    typealias CurrencyContext = (
-        accountsById: [String: Account],
-        fxRates: [String: Decimal],
-        baseCode: String
-    )
+    /// Alias of `TransactionMath.CurrencyContext` so existing call sites
+    /// that reference `BudgetMath.CurrencyContext` keep working while the
+    /// canonical spelling lives with the math helper itself.
+    typealias CurrencyContext = TransactionMath.CurrencyContext
 
     static func compute(
         budget: Budget,

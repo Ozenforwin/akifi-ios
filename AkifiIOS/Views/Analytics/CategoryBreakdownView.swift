@@ -36,7 +36,9 @@ struct CategoryBreakdownView: View {
             )
         }
 
-        let total = txs.reduce(Decimal(0)) { $0 + $1.amount.displayAmount }
+        // ADR-001: sum via amountInBaseDisplay so percentages align with
+        // the FX-normalized per-category totals computed below (line 45).
+        let total = txs.reduce(Decimal(0)) { $0 + appViewModel.dataStore.amountInBaseDisplay($1) }
         guard total > 0 else { return [] }
 
         var byCategory: [String: Decimal] = [:]
@@ -147,7 +149,7 @@ struct CategoryBreakdownView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    let total = data.reduce(Decimal(0)) { $0 + $1.amount }
+                    let total = data.reduce(Decimal(0)) { $0 + $1.amount } // allowlisted-amount: CategorySpending.amount is already FX-normalized via amountInBaseDisplay in `data`
                     Text(appViewModel.currencyManager.formatAmount(total))
                         .font(.system(size: 14, weight: .bold))
                     Text(selectedType == .expense
@@ -295,7 +297,7 @@ struct CategoryTransactionsSheet: View {
                                             .foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Text("-\(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))")
+                                    Text("-\(appViewModel.currencyManager.formatAmount(appViewModel.dataStore.amountInBaseDisplay(tx)))")
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(Color.expense)
                                         .monospacedDigit()

@@ -457,13 +457,13 @@ struct BankImportView: View {
         for (idx, parsed) in txs.enumerated() {
             guard let parsedDate = parser.date(from: String(parsed.date.prefix(10))) else { continue }
             // Parser amount is in major units (rubles). Convert to kopecks
-            // for a unit-consistent comparison with `Transaction.amount`.
+            // for a unit-consistent comparison with `Transaction.amountNative`.
             let parsedKopecks = Int64((parsed.amount * 100).rounded())
             for leg in autoTransferLegs {
                 let legDateStr = String((leg.rawDateTime.isEmpty ? leg.date : leg.rawDateTime).prefix(10))
                 guard let legDate = parser.date(from: legDateStr) else { continue }
                 if abs(legDate.timeIntervalSince(parsedDate)) <= oneDay,
-                   abs(leg.amount - parsedKopecks) <= 1 {
+                   abs(leg.amountNative - parsedKopecks) <= 1 {
                     matched.insert(idx)
                     break
                 }

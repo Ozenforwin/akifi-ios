@@ -22,11 +22,17 @@ enum ChallengeProgressEngine {
     // MARK: - Public API
 
     /// Compute the progress_amount for `challenge` given the user's
-    /// transactions. Returns minor-unit value aligned with
-    /// `SavingsChallenge.progressAmount` semantics (see the enum doc).
+    /// transactions. Returns minor-unit value in the challenge's base
+    /// currency (`currencyContext.baseCode`).
+    ///
+    /// Transactions on accounts denominated in a different currency are
+    /// FX-normalized through `TransactionMath.amountInBase`. A
+    /// category-limit challenge across a RUB cafe and a USD coffee shop
+    /// would otherwise sum kopecks and cents as if identical.
     static func progress(
         for challenge: SavingsChallenge,
-        transactions: [Transaction]
+        transactions: [Transaction],
+        currencyContext: TransactionMath.CurrencyContext
     ) -> Int64 {
         guard let start = dateFormatter.date(from: challenge.startDate),
               let end = dateFormatter.date(from: challenge.endDate) else {
@@ -43,16 +49,16 @@ enum ChallengeProgressEngine {
 
         switch challenge.type {
         case .noCafe:
-            return noCafeProgress(challenge: challenge, transactions: inRange)
+            return noCafeProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         case .categoryLimit:
-            return categoryLimitProgress(challenge: challenge, transactions: inRange)
+            return categoryLimitProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         case .roundUp:
             return roundUpProgress(transactions: inRange)
         case .weeklyAmount:
             // Default: sum income transactions in the "Savings" category name.
             // When a goal link is present the ViewModel may override by using
             // actual contributions.
-            return weeklyAmountProgress(transactions: inRange)
+            return weeklyAmountProgress(transactions: inRange, currencyContext: currencyContext)
         }
     }
 
@@ -94,29 +100,46 @@ enum ChallengeProgressEngine {
 
     // MARK: - Individual rules
 
-    /// `noCafe`: sum of expenses in `categoryId` during the period.
+    /// `noCafe`: sum of expenses in `categoryId` during the period,
+    /// FX-normalized into the challenge's base currency.
     /// Zero means perfect. Any positive number is the "debt" — the total
-    /// violating spend.
+    /// violating spend in base currency.
     private static func noCafeProgress(
         challenge: SavingsChallenge,
-        transactions: [Transaction]
+        transactions: [Transaction],
+        currencyContext: TransactionMath.CurrencyContext
     ) -> Int64 {
         guard let catId = challenge.categoryId else { return 0 }
         return transactions
             .filter { $0.type == .expense && $0.categoryId == catId }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { acc, tx in
+                acc + TransactionMath.amountInBase(
+                    tx,
+                    accountsById: currencyContext.accountsById,
+                    fxRates: currencyContext.fxRates,
+                    baseCode: currencyContext.baseCode
+                )
+            }
     }
 
     /// `categoryLimit`: same accumulation as no-cafe, but compared against
     /// `targetAmount` for success evaluation (done in successFraction).
     private static func categoryLimitProgress(
         challenge: SavingsChallenge,
-        transactions: [Transaction]
+        transactions: [Transaction],
+        currencyContext: TransactionMath.CurrencyContext
     ) -> Int64 {
         guard let catId = challenge.categoryId else { return 0 }
         return transactions
             .filter { $0.type == .expense && $0.categoryId == catId }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { acc, tx in
+                acc + TransactionMath.amountInBase(
+                    tx,
+                    accountsById: currencyContext.accountsById,
+                    fxRates: currencyContext.fxRates,
+                    baseCode: currencyContext.baseCode
+                )
+            }
     }
 
     /// `roundUp`: for every expense, compute the delta needed to round up
@@ -135,10 +158,21 @@ enum ChallengeProgressEngine {
 
     /// `weeklyAmount`: default to incomes with known category names in any
     /// "Savings"-like bucket. Heuristic — the ViewModel can replace with
-    /// actual goal-contribution sums when `linkedGoalId` is set.
-    private static func weeklyAmountProgress(transactions: [Transaction]) -> Int64 {
+    /// actual goal-contribution sums when `linkedGoalId` is set. Incomes
+    /// may land on differently-denominated accounts, so sum in base.
+    private static func weeklyAmountProgress(
+        transactions: [Transaction],
+        currencyContext: TransactionMath.CurrencyContext
+    ) -> Int64 {
         transactions
             .filter { $0.type == .income }
-            .reduce(Int64(0)) { $0 + $1.amount }
+            .reduce(Int64(0)) { acc, tx in
+                acc + TransactionMath.amountInBase(
+                    tx,
+                    accountsById: currencyContext.accountsById,
+                    fxRates: currencyContext.fxRates,
+                    baseCode: currencyContext.baseCode
+                )
+            }
     }
 }

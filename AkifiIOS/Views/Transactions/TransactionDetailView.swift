@@ -189,7 +189,7 @@ struct TransactionDetailView: View {
         case .expense: sign = "-"
         case .transfer: sign = ""
         }
-        return "\(sign)\(cm.formatAmount(transaction.amount.displayAmount))"
+        return "\(sign)\(cm.formatAmount(appViewModel.dataStore.amountInBaseDisplay(transaction)))"
     }
 
     private var amountColor: Color {

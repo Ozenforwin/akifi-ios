@@ -104,11 +104,11 @@ final class SavingsChallengesViewModel {
     /// engine signals a transition.
     ///
     /// Idempotent & safe to call from DataStore.loadAll completion.
-    func reconcileProgress(transactions: [Transaction]) async {
+    func reconcileProgress(transactions: [Transaction], currencyContext: TransactionMath.CurrencyContext) async {
         var updated: [SavingsChallenge] = challenges
         for (idx, ch) in challenges.enumerated() where ch.status == .active {
             let newProgress = ChallengeProgressEngine.progress(
-                for: ch, transactions: transactions
+                for: ch, transactions: transactions, currencyContext: currencyContext
             )
             var next = ch
             if newProgress != ch.progressAmount {

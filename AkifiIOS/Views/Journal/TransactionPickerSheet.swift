@@ -24,7 +24,7 @@ struct TransactionPickerSheet: View {
             if tx.description?.lowercased().contains(q) == true { return true }
             if tx.merchantName?.lowercased().contains(q) == true { return true }
             if let cat = dataStore.category(for: tx), cat.name.lowercased().contains(q) { return true }
-            let amountString = appViewModel.currencyManager.formatAmount(tx.amount.displayAmount).lowercased()
+            let amountString = appViewModel.currencyManager.formatAmount(dataStore.amountInBaseDisplay(tx)).lowercased()
             if amountString.contains(q) { return true }
             return false
         }
@@ -107,7 +107,7 @@ struct TransactionPickerSheet: View {
                 }
             }
             Spacer()
-            Text(appViewModel.currencyManager.formatAmount(tx.amount.displayAmount))
+            Text(appViewModel.currencyManager.formatAmount(dataStore.amountInBaseDisplay(tx)))
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(tx.type == .income ? Color.income : Color.expense)
