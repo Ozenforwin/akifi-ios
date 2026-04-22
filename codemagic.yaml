@@ -48,13 +48,21 @@ workflows:
           import os
           url = os.environ["SUPABASE_URL"].strip().replace("//", "/$()/")
           key = os.environ["SUPABASE_ANON_KEY"].strip().replace("\n", "").replace(" ", "")
-          with open("Config/Release.xcconfig", "w") as f:
-              f.write(f"SUPABASE_URL = {url}\nSUPABASE_ANON_KEY = {key}\n")
-          with open("Config/Debug.xcconfig", "w") as f:
-              f.write(f"SUPABASE_URL = {url}\nSUPABASE_ANON_KEY = {key}\n")
+          # EXCHANGE_RATE_API_KEY is optional — Phase 6 Reconciliation UI
+          # uses it for historical FX quotes; absence falls back to the
+          # free open.er-api.com (latest only). The CI env group "Akifi"
+          # should hold it so Release builds get the Pro Plan quota.
+          exrate = os.environ.get("EXCHANGE_RATE_API_KEY", "").strip()
+          for path in ("Config/Release.xcconfig", "Config/Debug.xcconfig"):
+              with open(path, "w") as f:
+                  f.write(f"SUPABASE_URL = {url}\n")
+                  f.write(f"SUPABASE_ANON_KEY = {key}\n")
+                  if exrate:
+                      f.write(f"EXCHANGE_RATE_API_KEY = {exrate}\n")
           print(f"URL: {url[:40]}...")
           print(f"KEY: {key[:20]}...{key[-10:]}")
           print(f"KEY length: {len(key)}")
+          print(f"EXCHANGE_RATE_API_KEY: {'set' if exrate else 'MISSING — Phase 6 historical rates disabled'}")
           PYEOF
 
       - name: Auto-version, set build number and generate Xcode project

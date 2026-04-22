@@ -72,6 +72,7 @@ targets:
         UILaunchScreen: {}
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        EXCHANGE_RATE_API_KEY: $(EXCHANGE_RATE_API_KEY)
         NSMicrophoneUsageDescription: Akifi uses your microphone for voice messages with the AI financial assistant
         NSPhotoLibraryUsageDescription: Akifi needs access to your photos to set a profile picture or scan receipts
         NSCameraUsageDescription: Akifi uses the camera to scan receipts and automatically create transactions
