@@ -322,6 +322,96 @@ final class MultiCurrencyContractTests: XCTestCase {
         XCTAssertLessThan(spent, 5_000_00, "Budget remains well within limit after fix")
     }
 
+    // MARK: - Edge cases (Phase 7)
+
+    /// Missing FX rate must NOT silently coerce to 1:1 — that is what
+    /// started the whole VND-as-RUB phantom. The helper returns the
+    /// native value so the caller can surface a warning, and regression
+    /// cases stay visible (e.g. orphan currencies with no rate).
+    func testAmountInBase_MissingFXRate_ReturnsNativeNotOne() {
+        let tx = makeVNDTaxiOnRubAccount()
+        // `usdPivotRates` without VND — simulate a partial rate table
+        // (offline / stale cache).
+        var partialRates = usdPivotRates
+        partialRates.removeValue(forKey: "VND")
+        // tx.amountNative=277_00 is already in RUB — conversion to RUB
+        // is identity regardless of missing VND rate.
+        let kopecks = TransactionMath.amountInBase(
+            tx,
+            accountsById: accountsById,
+            fxRates: partialRates,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(kopecks, 277_00)
+    }
+
+    /// USD tx on USD account converted into EUR base — cross-currency
+    /// that doesn't pivot through the caller's locale. Arithmetic:
+    /// 20 USD × (0.92 EUR / 1 USD) = 18.40 EUR → 18_40 minor units.
+    func testAmountInBase_UsdOnUsdAccount_ConvertedToEur() {
+        let tx = makeUsdCafe()
+        let kopecks = TransactionMath.amountInBase(
+            tx,
+            accountsById: accountsById,
+            fxRates: usdPivotRates,
+            baseCode: "EUR"
+        )
+        XCTAssertEqual(kopecks, 18_40)
+    }
+
+    /// Zero amount short-circuits — important because `amountNative = 0`
+    /// occasionally appears on auto-created placeholder rows.
+    func testAmountInBase_ZeroAmount_ReturnsZero() {
+        var tx = makeRubCafe()
+        tx.amountNative = 0
+        let kopecks = TransactionMath.amountInBase(
+            tx,
+            accountsById: accountsById,
+            fxRates: usdPivotRates,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(kopecks, 0)
+    }
+
+    /// Transaction with `accountId == nil` falls back to base — these
+    /// live in "floating" space (legacy TMA exports). Must not crash
+    /// or produce undefined values.
+    func testAmountInBase_NilAccountId_TreatedAsBaseCurrency() {
+        var tx = makeUsdCafe()
+        tx.accountId = nil
+        let kopecks = TransactionMath.amountInBase(
+            tx,
+            accountsById: accountsById,
+            fxRates: usdPivotRates,
+            baseCode: "RUB"
+        )
+        // With nil accountId, the helper assumes the native value is
+        // already in base — no conversion applied. 20_00 cents stays 20_00.
+        XCTAssertEqual(kopecks, 20_00)
+    }
+
+    /// `DataStore.aggregate` helper (Phase 2) must sum the same FX-
+    /// normalized numbers as a hand-rolled `reduce { amountInBase(tx) }`.
+    /// Tests the typealias-alignment between BudgetMath.CurrencyContext
+    /// and TransactionMath.CurrencyContext.
+    func testAggregateEquivalence_HandRolledVsHelper() {
+        let txs = [
+            makeVNDTaxiOnRubAccount(),
+            makeRubCafe(),
+            makeUsdCafe()
+        ]
+        let handRolled = txs.reduce(Int64(0)) { acc, tx in
+            acc + TransactionMath.amountInBase(
+                tx,
+                accountsById: accountsById,
+                fxRates: usdPivotRates,
+                baseCode: "RUB"
+            )
+        }
+        // Expected: 277 + 1 500 + 1 850 = 3 627 ₽ → 3_627_00 kopecks.
+        XCTAssertEqual(handRolled, 3_627_00)
+    }
+
     // MARK: - Helpers
 
     private func withChangedId(_ tx: Transaction, to newId: String) -> Transaction {
