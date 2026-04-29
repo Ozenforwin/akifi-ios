@@ -210,16 +210,52 @@
 | Circular widget: стрик | TODO | |
 | Medium widget: сводка дня (доход/расход/баланс) | TODO | |
 
-### 5.2 Net Worth трекер
+### 5.2 Net Worth трекер — DONE (BETA)
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Модель `Asset` (недвижимость, авто, крипто, инвестиции) | TODO | `Models/Asset.swift` (новый) |
-| Модель `Liability` (кредиты, ипотека, долги) | TODO | `Models/Liability.swift` (новый) |
-| Миграция Supabase (`assets`, `liabilities`) | TODO | `supabase/migrations/` |
-| Net Worth = Assets - Liabilities + Account balances | TODO | `Services/NetWorthCalculator.swift` (новый) |
-| Дашборд net worth на Home | TODO | `Views/Home/NetWorthCardView.swift` (новый) |
-| Ручной ввод и обновление стоимости | TODO | |
-| График изменений за год | TODO | |
+| Модель `Asset` (недвижимость, авто, крипто, инвестиции) | **DONE** | `Models/Asset.swift` |
+| Модель `Liability` (кредиты, ипотека, долги) | **DONE** | `Models/Liability.swift` |
+| Миграция Supabase (`assets`, `liabilities`, `net_worth_snapshots`) | **DONE** | `supabase/migrations/` |
+| Net Worth = Assets - Liabilities + Account balances | **DONE** | `Services/NetWorthCalculator.swift` |
+| Дашборд net worth (hero / breakdown / chart 30/90/180/365 дней) | **DONE** | `Views/NetWorth/NetWorthDashboardView.swift` |
+| Ручной ввод / редактирование / удаление активов и долгов | **DONE** | `AssetFormView.swift` + `LiabilityFormView.swift` |
+| Snapshots ежедневные | **DONE** | `Repositories/NetWorthSnapshotRepository.swift` |
+
+### 5.3 Инвест-инструмент (BETA, Settings → Инвестиции) — Phase 1-2 DONE
+Расширение `Asset` категорий `investment`/`crypto` до полноценного инвест-портфеля. Скрыто за beta-флагом.
+
+| Спринт | Задача | Статус | Коммит |
+|--------|--------|--------|--------|
+| 1 | `investment_holdings` table + AFTER STATEMENT триггер `recompute_asset_value_on_holding_change` | **DONE** | `c1212ba` |
+| 1 | `InvestmentHolding` model + `HoldingKind` enum + `InvestmentHoldingRepository` | **DONE** | `c1212ba` |
+| 1 | `PortfolioCalculator.aggregate` (totalValue, ROI, byKind, byCurrency) + 11 тестов | **DONE** | `c1212ba` |
+| 2 | `PortfolioViewModel` + `InvestmentHoldingFormView` + `InvestmentHoldingsListView` (встроен в `AssetFormView`) | **DONE** | `b663e86` |
+| 2 | `PortfolioDashboardView` — hero / 2 donut chart'а / cross-asset list | **DONE** | `b663e86` |
+| 3 | `fetch-price` edge function + `price_cache` table (CoinGecko + Twelve Data, 30-мин кеш) | **DONE** | `75176b3` |
+| 3 | "Pull current price" button + stale badge | **DONE** | `75176b3` |
+| 4 | `SavingsRateCalculator` (поверх `CashFlowEngine`) + `FIREProjector` (4% rule, scenarios) + `CompoundProjector` | **DONE** | `cec840b` |
+| 4 | `FIREProjectionView` + `CompoundCalculatorView` + FIRE-тизер на NetWorthDashboard | **DONE** | `cec840b` |
+| 5 | Tooltips через `InfoTooltipButton` (4% rule / savings rate / investable / expected return) | **DONE** | `8d6320a` |
+| 6 | `PortfolioCalculator.rebalance` (no-sell) + `TargetAllocationView` + `RebalanceHintView` | **DONE** | `fb2dad1` |
+| 7 | Manual override для FIRE (расход + взнос) — обходит проблему общих счетов | **DONE** | `b1b1afb` |
+| 7 | `FIREImpactCalculator` + секция в `TransactionDetailView` для крупных трат | **DONE** | `b1b1afb` |
+| 7 | CAGR per holding (annualized return из `acquired_date`) + UI рядом с ROI | **DONE** | `b1b1afb` |
+| 7 | `refresh-portfolio-prices` edge function + pg_cron migration (06:00 UTC) | **DONE** (deploy manual) | `b1b1afb` |
+| 7 | PRD по deferred Phase 3 фичам (TWR/IRR/dividends/tax-lots/etc.) | **DONE** | `.claude/prd/portfolio-phase-3.md` |
+
+> [!note] Deploy artefacts
+> Edge function `refresh-portfolio-prices` лежит в `supabase/functions/`, миграция `20260501100000_refresh_prices_cron.sql` — в репо. Из-за временного сбоя Supabase MCP при последнем коммите автодеплой не прошёл; ручной деплой — через `supabase functions deploy refresh-portfolio-prices --project-ref fnvwfrkixjqdifitlifr --no-verify-jwt`, затем `ALTER DATABASE postgres SET app.settings.*` и применение миграции. Подробности — в `b1b1afb`.
+
+### 5.3.1 Phase 3 (deferred → `.claude/prd/portfolio-phase-3.md`)
+- TWR / IRR / XIRR — нужна таблица `holding_transactions`
+- Dividends — нужна таблица `holding_dividends`
+- Tax-lots FIFO/LIFO — нужна та же `holding_transactions`
+- FX-decomposed return — нужны поля `cost_basis_base` + `cost_basis_date`
+- Shared portfolio для пар — RLS rewrite + UI per-holding ownership
+- Education-уроки — нужен контент-pass на ru/en/es
+- Risk / volatility — нужен 5+ лет истории цен (Twelve Data paid)
+- MOEX / KASE feed — research API (MOEX публичный, KASE неясно)
+- Broker CSV import — N парсеров, никогда "done"
 
 ---
 

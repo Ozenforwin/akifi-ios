@@ -1,11 +1,20 @@
 ---
 type: prd
-status: proposed
+status: partial
 date: 2026-04-19
 tags: [deposits, investments, interest, accounts, savings]
 ---
 
 # PRD: Вклады и инвестиции
+
+> [!note] Статус 2026-04-29
+> **Депозиты (фикс-ставка)** — отгружены, см. `Models/Deposit.swift`,
+> `DepositListView`, `InterestCalculator`, BETA-флаг в Settings.
+>
+> **Инвестиции с рыночной переоценкой** изначально были в `Non-goals`
+> этого PRD. Они отгружены отдельной аркой в 7 спринтов под BETA-флагом
+> "Инвестиции". Дальнейшие задачи (TWR/IRR/dividends/tax-lots/FX-
+> decomposed/shared/education/MOEX) собраны в `[[portfolio-phase-3]]`.
 
 ## Problem
 

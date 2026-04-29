@@ -2,7 +2,7 @@
 
 Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase и Firebase. Работает параллельно с Telegram Mini App версией Akifi.
 
-**Актуальная версия:** 1.2.7 (TestFlight) · **Тесты:** 150/150 green
+**Актуальная версия:** 1.3.0 (TestFlight) · **Тесты:** 224/224 green
 
 ## Tech Stack
 
@@ -375,6 +375,19 @@ DB layer:
 - **Snapshots** — ежедневный авто-capture net worth в `net_worth_snapshots`, UNIQUE по (user, date)
 - **Shortcut на Home** — gradient-карточка с текущим net worth
 
+### Инвест-инструмент (BETA, Settings → Бета-функции → Инвестиции)
+Полноценная инвестиционная надстройка над `Asset` категорий `investment` и `crypto`. Скрыта за beta-флагом, развёрнута в 7 спринтов + manual override + FIRE-impact + CAGR + daily cron.
+- **Investment Holdings** — таблица `investment_holdings` (тикер × `quantity` NUMERIC(28,8) × `last_price` NUMERIC(20,8) + `cost_basis` BIGINT), AFTER STATEMENT триггер `recompute_asset_value_on_holding_change` пересчитывает `assets.current_value` по позициям одним UPDATE (O(1) на bulk-импорт). 7 видов: stock / etf / bond / crypto / metal / fund / other.
+- **Portfolio Dashboard** — total value, ROI, два donut chart'а (allocation by kind + currency exposure), список holdings cross-asset, "stale price" badge при `last_price_date > 30 дней`.
+- **Auto price feed** — edge functions `fetch-price` (on-demand с 30-минутным кешем `price_cache`) и `refresh-portfolio-prices` (daily cron 06:00 UTC, x-cron-secret-gated). Источники: CoinGecko (free, без ключа, top-20 крипто-mapping) и Twelve Data (free 800/day, 4-часовая задержка).
+- **CAGR per holding** — annualized return из `acquired_date` parent Asset'а (≥30 дней). Не TWR/IRR — настоящие требуют истории cash flows (см. `.claude/prd/portfolio-phase-3.md`).
+- **Target allocation + Rebalance** — пользователь задаёт долю по `kind` (60/30/10), `PortfolioCalculator.rebalance` выдаёт no-sell действия "докупи X на $Y". Persist в UserDefaults.
+- **FIRE projection** — `FIREProjector` считает «лет до FIRE» по правилу 4% из реальной savings rate (`SavingsRateCalculator` поверх `CashFlowEngine`). Slider 0-100% инвестируемой доли, toggle "включить недвижимость", сценарии 0/25/50/75/100%, accumulation chart.
+- **FIRE manual override** — два поля (расход + взнос) для пользователей с общими счетами, у которых auto-savings rate искажён (groceries за всю семью оседают на одном счёте). Persist в UserDefaults, auto-режим возвращается кнопкой "Сбросить".
+- **FIRE-impact на крупных тратах** — `FIREImpactCalculator` показывает «эта трата отодвигает FIRE на ~N мес.» в `TransactionDetailView`, только при tx ≥ 5% от monthly income и ≥ 1 целого месяца сдвига.
+- **Compound interest calculator** — standalone-калькулятор (principal / monthly / rate / years), Swift Charts area+line. Дефолты SP500-style: 100k / 10k/мес / 7% / 20 лет → ~$5.6M.
+- **Tooltips** — `InfoTooltipButton` (info-circle → medium sheet) на 4% rule, savings rate, investable, expected return.
+
 ### Бюджеты
 - **Гибкие периоды** — недельные, месячные, квартальные, годовые, произвольные
 - **Прогресс-бар** с цветовой индикацией (зелёный → оранжевый → красный)
@@ -513,7 +526,7 @@ DB layer:
 ## Supabase
 
 ### Таблицы
-`profiles`, `accounts`, `account_members`, `transactions` (+ ADR-001: `amount_native`/`foreign_amount`/`foreign_currency`/`fx_rate`), `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `savings_challenges`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`, `assets`, `liabilities`, `net_worth_snapshots`, `deposits`, `deposit_contributions`, `settlements`, `user_account_defaults`
+`profiles`, `accounts`, `account_members`, `transactions` (+ ADR-001: `amount_native`/`foreign_amount`/`foreign_currency`/`fx_rate`), `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `savings_challenges`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`, `assets`, `liabilities`, `net_worth_snapshots`, `deposits`, `deposit_contributions`, `settlements`, `user_account_defaults`, `investment_holdings`, `price_cache`
 
 ### RPC функции
 - `create_expense_with_auto_transfer` (8/10/13-arg overloads) — атомарное создание expense + transfer triplet, с cross-currency source и foreign-entry поддержкой
@@ -522,6 +535,7 @@ DB layer:
 
 ### Triggers
 - `transactions_fill_amount_native` BEFORE INSERT/UPDATE — ADR-001 compat для legacy клиентов
+- `recompute_asset_value_on_holding_change` AFTER STATEMENT (insert/update/delete на `investment_holdings`) — пересчитывает `assets.current_value = ROUND(SUM(quantity*last_price)*100)` для затронутых `asset_id` одним UPDATE; саттурируется при BIGINT max
 
 ### Storage Buckets
 - `avatars` — аватары пользователей (public)
@@ -544,6 +558,8 @@ DB layer:
 | `send-weekly-digest` | Еженедельная сводка |
 | `ios-migrate-auth` | Миграция из Telegram |
 | `delete-account` | Удаление аккаунта (Apple compliance) |
+| `fetch-price` | On-demand котировки для `InvestmentHolding` (CoinGecko + Twelve Data, 30-мин кеш через `price_cache`, JWT-gated) |
+| `refresh-portfolio-prices` | Daily prefetch цен по всем holdings, x-cron-secret-gated (без JWT), 250ms throttle между запросами; вызывается через pg_cron в 06:00 UTC |
 
 ### RLS
 Все таблицы защищены Row Level Security. Данные фильтруются по `user_id`. Shared accounts имеют отдельные policies для чтения данных участников.
