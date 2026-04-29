@@ -50,12 +50,23 @@ struct CompoundCalculatorView: View {
                 text: $monthlyText,
                 trailing: cm.dataCurrency.symbol
             )
-            inputRow(
-                title: String(localized: "compound.input.annualRate"),
-                placeholder: "7",
-                text: $annualRatePercentText,
-                trailing: "%"
-            )
+            HStack {
+                Text(String(localized: "compound.input.annualRate"))
+                    .font(.subheadline)
+                InfoTooltipButton(
+                    titleKey: "compound.tooltip.annualRate.title",
+                    bodyKey: "compound.tooltip.annualRate.body"
+                )
+                Spacer(minLength: 12)
+                TextField("7", text: $annualRatePercentText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                Text("%")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, alignment: .leading)
+            }
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(String(localized: "compound.input.years"))

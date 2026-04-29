@@ -242,6 +242,7 @@
 		D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C0D248E5CD52D019DE875 /* HomeTabView.swift */; };
 		D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5FE1332FF774DC471D4F3C /* HomeViewModel.swift */; };
 		D6D3BF5C709EB42930BEE551 /* JournalPhotoUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38DA85D0B18D7D5024F4C836 /* JournalPhotoUploader.swift */; };
+		D77501538D1C0C94F144EB4B /* InfoTooltipButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD14FC4858DDF02B3B69BC07 /* InfoTooltipButton.swift */; };
 		D78ACEE22AE8CAEC1FE1DD4C /* SharedSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66DD31195D714F4FCC81FCD0 /* SharedSnapshot.swift */; };
 		D80FCFD7ACBACC0A3A033516 /* TransactionSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9E0D98C07B9436403CFC29 /* TransactionSearchView.swift */; };
 		DA142C7FAAAA82736F42AA64 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AD01A6497180AB4B83249087 /* GoogleService-Info.plist */; };
@@ -536,6 +537,7 @@
 		BA3D17B9D8791B07B1727952 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		BB0A1E80DD9680A61192ECCA /* SkillTreeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillTreeEngine.swift; sourceTree = "<group>"; };
 		BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPromptsView.swift; sourceTree = "<group>"; };
+		BD14FC4858DDF02B3B69BC07 /* InfoTooltipButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTooltipButton.swift; sourceTree = "<group>"; };
 		BD4F696F8D4A857E9FC979B0 /* SpotlightModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightModifier.swift; sourceTree = "<group>"; };
 		BD71B178C79E5256314A6EC4 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagRepository.swift; sourceTree = "<group>"; };
@@ -793,6 +795,7 @@
 			children = (
 				E491064CF47273B5A28D90B5 /* CompoundCalculatorView.swift */,
 				1C65FFA13E3F784621385B01 /* FIREProjectionView.swift */,
+				BD14FC4858DDF02B3B69BC07 /* InfoTooltipButton.swift */,
 			);
 			path = Planning;
 			sourceTree = "<group>";
@@ -1549,6 +1552,7 @@
 				D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */,
 				D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */,
 				817F60F91E9ABE232BE42316 /* HorizontalSwipeGesture.swift in Sources */,
+				D77501538D1C0C94F144EB4B /* InfoTooltipButton.swift in Sources */,
 				4875E49D68D6CEF0ACFCBA34 /* InsightCardsView.swift in Sources */,
 				1A9423F7F68B609FA70024B8 /* InsightEngine.swift in Sources */,
 				C5C5838F6A1079D0ADAFC307 /* InterestCalculator.swift in Sources */,

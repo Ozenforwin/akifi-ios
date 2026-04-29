@@ -88,13 +88,15 @@ struct FIREProjectionView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .font(.caption)
+            HStack(spacing: 6) {
                 Text(String(localized: "fire.hero.4pctRule"))
                     .font(.caption)
+                    .foregroundStyle(.tertiary)
+                InfoTooltipButton(
+                    titleKey: "fire.tooltip.fourPctRule.title",
+                    bodyKey: "fire.tooltip.fourPctRule.body"
+                )
             }
-            .foregroundStyle(.tertiary)
             confidencePill
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,6 +179,10 @@ struct FIREProjectionView: View {
             HStack {
                 Text(String(localized: "fire.slider.title"))
                     .font(.headline)
+                InfoTooltipButton(
+                    titleKey: "fire.tooltip.savingsRate.title",
+                    bodyKey: "fire.tooltip.savingsRate.body"
+                )
                 Spacer()
                 Text("\(pct)%")
                     .font(.headline.monospacedDigit())
@@ -219,8 +225,14 @@ struct FIREProjectionView: View {
                 set: { fireVM.includeIlliquid = $0 }
             )) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "fire.toggle.includeIlliquid.title"))
-                        .font(.subheadline.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Text(String(localized: "fire.toggle.includeIlliquid.title"))
+                            .font(.subheadline.weight(.semibold))
+                        InfoTooltipButton(
+                            titleKey: "fire.tooltip.investable.title",
+                            bodyKey: "fire.tooltip.investable.body"
+                        )
+                    }
                     Text(String(localized: "fire.toggle.includeIlliquid.subtitle"))
                         .font(.caption)
                         .foregroundStyle(.secondary)

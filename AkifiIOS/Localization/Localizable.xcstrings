@@ -33362,6 +33362,213 @@
           }
         }
       }
+    },
+    "common.gotIt": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entendido"
+          }
+        }
+      }
+    },
+    "fire.tooltip.fourPctRule.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правило 4%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The 4% rule"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La regla del 4%"
+          }
+        }
+      }
+    },
+    "fire.tooltip.fourPctRule.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идея простая: если ваш капитал в 25 раз больше годовых расходов и вы снимаете не больше 4% в год, по историческим данным США 1928–2021 деньги в среднем не закончатся 30 лет. Это эмпирическое правило (Trinity study, 1998) — оно не гарантия, а ориентир. В странах с другой инфляцией и волатильностью часть FIRE-сообщества использует 3% (множитель 33×) как более консервативный вариант. Цифра в Akifi считается из ваших реальных расходов за последние 3 месяца, без учёта подписок (они учитываются отдельно)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The idea is simple: if your portfolio is 25× your annual spending and you withdraw no more than 4% a year, US historical data 1928–2021 says you usually don't run out in 30 years. It's a heuristic (Trinity study, 1998), not a guarantee. With different inflation and volatility, parts of the FIRE community use 3% (33× multiplier) as a more conservative cushion. Akifi computes the number from your actual last 3 months of spending, excluding subscriptions (they're counted separately)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La idea es simple: si tu cartera es 25× tu gasto anual y no retiras más del 4% al año, los datos históricos de EE. UU. 1928–2021 dicen que el dinero suele durar 30 años. Es una heurística (Trinity study, 1998), no una garantía. Con otra inflación y volatilidad, parte de la comunidad FIRE usa 3% (multiplicador 33×). Akifi calcula el número con tus gastos reales de los últimos 3 meses, sin contar suscripciones (se cuentan aparte)."
+          }
+        }
+      }
+    },
+    "fire.tooltip.savingsRate.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Норма сбережений"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Savings rate"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasa de ahorro"
+          }
+        }
+      }
+    },
+    "fire.tooltip.savingsRate.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сколько от свободного дохода (доход − обязательные расходы и подписки) вы кладёте в инвестиции каждый месяц. Это самый сильный рычаг: разница между 25% и 50% — это разница между «лет 30 до FIRE» и «лет 17». Слайдер показывает, как меняется срок при разных уровнях. Цифра «доступно» вверху — это ваш фактический свободный остаток в среднем за 3 месяца, без подписок."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How much of your disposable income (income − essential expenses and subscriptions) you commit to investing each month. It's the strongest lever: 25% vs 50% can be the difference between 30 years to FIRE and 17. The slider shows how the timeline shifts. The \"disposable\" figure above is your actual leftover, averaged over the last 3 months, with subscriptions excluded."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuánto de tu ingreso disponible (ingreso − gastos esenciales y suscripciones) inviertes cada mes. Es la palanca más fuerte: 25% frente a 50% puede ser la diferencia entre 30 años hasta FIRE y 17. El control deslizante muestra cómo cambia el plazo. El \"disponible\" arriba es tu saldo real promedio de los últimos 3 meses, sin suscripciones."
+          }
+        }
+      }
+    },
+    "fire.tooltip.investable.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инвестируемый капитал"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Investable assets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activos invertibles"
+          }
+        }
+      }
+    },
+    "fire.tooltip.investable.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIRE-сообщество обычно считает только то, что можно потратить без продажи дома или машины: счета, депозиты, инвестиции, крипту, кэш. Недвижимость и автомобиль увеличивают вашу чистую стоимость, но они не дают денежного потока — на них нельзя жить. Если включить переключатель, недвижимость и прочее считаются тоже: число «лет до FIRE» уменьшится, но реальная свобода — нет. По умолчанию выключено."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The FIRE community usually counts only what you can spend without selling your house or car: accounts, deposits, investments, crypto, cash. Real estate and vehicles add to net worth but don't produce cash flow — you can't live off them. Toggle this on and they get included: the \"years to FIRE\" number drops, but your real freedom doesn't. Off by default."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La comunidad FIRE suele contar solo lo que puedes gastar sin vender tu casa o coche: cuentas, depósitos, inversiones, cripto, efectivo. Los inmuebles y vehículos suman al patrimonio neto pero no generan flujo: no puedes vivir de ellos. Si activas la opción se incluyen: el \"años hasta FIRE\" baja, pero tu libertad real no. Apagado por defecto."
+          }
+        }
+      }
+    },
+    "compound.tooltip.annualRate.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Какую ставку взять?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which return to use?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Qué rendimiento usar?"
+          }
+        }
+      }
+    },
+    "compound.tooltip.annualRate.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Никто не знает будущей доходности. Ориентиры из истории: индекс S&P 500 за 1928–2023 годы давал в среднем ~10% в год номинально и ~7% реально (после инфляции 3%). Долгосрочные облигации США — около 5% номинально. Депозиты — обычно близко к инфляции. Для долгосрочного плана рекомендуют считать в реальных процентах (то есть 7%), чтобы цифра «через 20 лет» была сегодняшними деньгами. 7% — разумный дефолт."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody knows future returns. Historical anchors: S&P 500 from 1928–2023 averaged ~10% nominal and ~7% real (after 3% inflation). US long-term treasuries ≈ 5% nominal. Bank deposits usually track inflation. For a long-horizon plan, financial advisors typically use the real rate (≈7%) so the \"in 20 years\" figure stays in today's purchasing power. 7% is a sensible default."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nadie conoce los rendimientos futuros. Referencias históricas: el S&P 500 de 1928–2023 promedió ~10% nominal y ~7% real (después de inflación del 3%). Bonos del Tesoro de EE. UU. a largo plazo ≈ 5% nominal. Los depósitos suelen seguir la inflación. Para un plan a largo plazo se suele usar la tasa real (~7%) para que la cifra \"en 20 años\" quede en poder adquisitivo de hoy. 7% es un valor razonable."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
