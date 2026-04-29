@@ -76,12 +76,6 @@ struct SettingsView: View {
                     } label: {
                         SettingsRow(icon: "tag.fill", color: .orange, title: String(localized: "budgets.categories"))
                     }
-
-                    NavigationLink {
-                        TagManagementView()
-                    } label: {
-                        SettingsRow(icon: "number", color: .purple, title: String(localized: "journal.manageTagsTitle"))
-                    }
                 }
 
                 Section(header: Text(String(localized: "settings.section.settings"))) {
@@ -150,12 +144,6 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text(String(localized: "settings.section.finance"))) {
-                    NavigationLink {
-                        SubscriptionListView()
-                    } label: {
-                        SettingsRow(icon: "repeat.circle.fill", color: .accent, title: String(localized: "subscriptions.title"))
-                    }
-
                     NavigationLink {
                         AchievementsView()
                     } label: {
@@ -508,6 +496,10 @@ struct BaseCurrencyPickerView: View {
                 if let currency = pendingCurrency {
                     appViewModel.currencyManager.dataCurrency = currency
                     appViewModel.currencyManager.selectedCurrency = currency
+                    // The cached FX context inside DataStore is keyed off
+                    // `baseCurrencyCode`; re-derive balances so analytics
+                    // pick up the new base immediately.
+                    appViewModel.dataStore.currencyContextDidChange()
                 }
             }
             Button(String(localized: "common.cancel"), role: .cancel) {}
