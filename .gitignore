@@ -44,3 +44,13 @@ Thumbs.db
 # Xcconfig with credentials (use Config.xcconfig.template as reference)
 Config/Debug.xcconfig
 Config/Release.xcconfig
+
+# Agent / scratch artefacts (transient, not part of the codebase)
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+backups/
+supabase/.temp/
+
+# Local probes (one-off Swift test files at repo root)
+test_persistence
+test_sendable
