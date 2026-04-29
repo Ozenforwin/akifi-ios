@@ -16,6 +16,12 @@ final class NetWorthViewModel {
     var snapshots: [NetWorthSnapshot] = []
     var breakdown: NetWorthCalculator.Breakdown?
 
+    /// Lightweight FIRE summary for the dashboard tease card. Populated
+    /// alongside `breakdown` whenever `recomputeBreakdown` runs and the
+    /// caller passes a transactions/subscriptions snapshot. `hasEnoughData
+    /// == false` means the dashboard hides the row.
+    var fireSnippet: FIRESnippet?
+
     var isLoading = false
     var errorMessage: String?
 
@@ -198,5 +204,46 @@ final class NetWorthViewModel {
             fxRates: rates,
             baseCurrency: currencyManager.dataCurrency
         )
+
+        // FIRE snippet for the dashboard tease — quick savings-rate
+        // sweep + projection at "invest 100% of net" baseline. The
+        // dedicated FIRE screen owns the slider; this is purely a teaser.
+        let accountsById = Dictionary(
+            dataStore.accounts.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let rate = SavingsRateCalculator.compute(
+            transactions: dataStore.transactions,
+            subscriptions: dataStore.subscriptions,
+            accountsById: accountsById,
+            fxRates: rates,
+            baseCode: baseCode
+        )
+        let hasEnough = rate.sampleMonths >= 2 && rate.avgMonthlyExpense > 0
+        if hasEnough, let breakdown {
+            // Investable-only NW (matches FIREViewModel default).
+            let investableCategories: Set<AssetCategory> = [.investment, .crypto, .cash]
+            var nw = breakdown.accountsTotal
+            for (category, amount) in breakdown.byAssetCategory where investableCategories.contains(category) {
+                nw += amount
+            }
+            nw -= breakdown.liabilitiesTotal
+            let projection = FIREProjector.project(
+                currentNetWorth: nw,
+                monthlyContribution: max(rate.avgMonthlyNet, 0),
+                monthlyExpenses: rate.avgMonthlyExpense + rate.monthlySubscriptionCost
+            )
+            fireSnippet = FIRESnippet(
+                yearsToFIRE: projection.yearsToFIRE,
+                confidence: rate.confidence,
+                hasEnoughData: true
+            )
+        } else {
+            fireSnippet = FIRESnippet(
+                yearsToFIRE: nil,
+                confidence: rate.confidence,
+                hasEnoughData: false
+            )
+        }
     }
 }

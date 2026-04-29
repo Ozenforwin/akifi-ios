@@ -41,6 +41,7 @@ struct NetWorthDashboardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
                 breakdownCard
+                fireTeaserCard
                 historySection
                 assetsSection
                 liabilitiesSection
@@ -190,6 +191,66 @@ struct NetWorthDashboardView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - FIRE teaser
+
+    /// Single-row tease card linking to `FIREProjectionView`. Hidden
+    /// until `viewModel.fireSnippet.hasEnoughData == true` so we
+    /// don't show meaningless numbers during onboarding.
+    @ViewBuilder
+    private var fireTeaserCard: some View {
+        if let snippet = viewModel.fireSnippet, snippet.hasEnoughData {
+            NavigationLink {
+                FIREProjectionView()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.accent, Color.accent.opacity(0.78)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "fire.teaser.title"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        if let years = snippet.yearsToFIRE {
+                            let pct = NSDecimalNumber(decimal: years).doubleValue
+                            Text(String(format: String(localized: "fire.teaser.yearsFormat"), pct))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } else {
+                            Text(String(localized: "fire.teaser.unreachable"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.accent.opacity(0.18), lineWidth: 0.5)
+                )
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: - History chart

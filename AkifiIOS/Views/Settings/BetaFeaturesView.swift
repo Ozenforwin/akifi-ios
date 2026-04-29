@@ -75,6 +75,28 @@ struct BetaFeaturesView: View {
                         badge: "BETA"
                     )
                 }
+
+                NavigationLink {
+                    FIREProjectionView()
+                } label: {
+                    SettingsRow(
+                        icon: "flag.checkered",
+                        color: .accent,
+                        title: String(localized: "fire.title"),
+                        badge: "BETA"
+                    )
+                }
+
+                NavigationLink {
+                    CompoundCalculatorView()
+                } label: {
+                    SettingsRow(
+                        icon: "function",
+                        color: .accent,
+                        title: String(localized: "compound.title"),
+                        badge: "BETA"
+                    )
+                }
             }
 
             Section(header: Text(String(localized: "settings.beta.section.planning"))) {
