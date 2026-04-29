@@ -10,8 +10,12 @@ import SwiftUI
 struct AccountSettlementCardView: View {
     let sharedAccountId: String
     let currency: String
+    /// Owned by the parent (`SharedAccountDetailView`) so the period
+    /// picker and the transactions list stay in lockstep, and the
+    /// parent can paint a "pending settlement" badge on rows while
+    /// `viewModel.suggestions` is non-empty for the same period.
+    @Bindable var viewModel: SettlementViewModel
     @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = SettlementViewModel()
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
@@ -236,24 +240,26 @@ struct AccountSettlementCardView: View {
 
             ForEach(viewModel.suggestions) { s in
                 VStack(alignment: .leading, spacing: 10) {
-                    // Row 1: From → To with avatar bubbles + amount on the right.
-                    HStack(spacing: 8) {
-                        memberAvatar(for: s.fromUserId, size: 26)
-                        Text(name(for: s.fromUserId))
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
+                    // Row 1: From-avatar → To-avatar + amount on the right.
+                    // Names are dropped here on purpose — at typical member-name
+                    // widths they always wrapped or got truncated. Avatars carry
+                    // the photo or two-letter initials, which is enough.
+                    // VoiceOver still reads the route via accessibilityLabel.
+                    HStack(spacing: 10) {
+                        memberAvatar(for: s.fromUserId, size: 36)
                         Image(systemName: "arrow.right")
-                            .font(.caption.weight(.bold))
+                            .font(.subheadline.weight(.bold))
                             .foregroundStyle(.secondary)
-                        memberAvatar(for: s.toUserId, size: 26)
-                        Text(name(for: s.toUserId))
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
+                        memberAvatar(for: s.toUserId, size: 36)
                         Spacer()
                         Text(cm.formatAmount(s.amount.displayAmount))
                             .font(.subheadline.weight(.bold).monospacedDigit())
                             .foregroundStyle(Color.accent)
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        "\(name(for: s.fromUserId)) → \(name(for: s.toUserId)), \(cm.formatAmount(s.amount.displayAmount))"
+                    )
 
                     Button {
                         HapticManager.medium()
@@ -394,8 +400,6 @@ struct AccountSettlementCardView: View {
 
     @ViewBuilder
     private func initialsBubble(for userId: String, size: CGFloat) -> some View {
-        let profile = dataStore.profilesMap[userId]
-        let letter = String((profile?.fullName?.first ?? "?")).uppercased()
         Circle()
             .fill(
                 LinearGradient(
@@ -406,10 +410,22 @@ struct AccountSettlementCardView: View {
             )
             .frame(width: size, height: size)
             .overlay {
-                Text(letter)
-                    .font(.system(size: size * 0.42, weight: .bold))
+                Text(initials(for: userId))
+                    .font(.system(size: size * 0.36, weight: .bold))
                     .foregroundStyle(.white)
             }
+    }
+
+    /// Up to 2 uppercase letters — first letter of the first name +
+    /// first letter of the last name. Falls back to the single first
+    /// letter when there is no surname, and "?" when there is no name.
+    private func initials(for userId: String) -> String {
+        let profile = dataStore.profilesMap[userId]
+        let name = profile?.fullName?.trimmingCharacters(in: .whitespaces) ?? ""
+        let parts = name.split(separator: " ").prefix(2)
+        let letters = parts.compactMap { $0.first.map(String.init) }
+        if letters.isEmpty { return "?" }
+        return letters.joined().uppercased()
     }
 
     /// Verbal companion under the name — "вложил больше доли" / "должен

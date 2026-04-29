@@ -21,8 +21,8 @@ enum AppTab: Int, CaseIterable {
 }
 
 enum SheetDestination: Identifiable {
-    case expense(categoryId: String?)
-    case income(categoryId: String?)
+    case expense(categoryId: String? = nil, accountId: String? = nil)
+    case income(categoryId: String? = nil, accountId: String? = nil)
     case transfer
     case receipt
 
@@ -132,6 +132,12 @@ struct MainTabView: View {
     @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
     @State private var pendingInviteCode: String?
+    /// Tracks the account the user is currently "looking at" (Home carousel
+    /// selection or a pushed shared-account detail). Read by the FAB to
+    /// preselect the Account picker on the new-transaction sheet. Only
+    /// honored while `selectedTab == .home` — the other tabs don't have
+    /// a contextual account.
+    @State private var currentAccountContext = CurrentAccountContext()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -152,13 +158,20 @@ struct MainTabView: View {
 
             // FAB
             FABView { action in
+                // Only forward the contextual account on tabs where it makes
+                // sense (Home carousel + pushed shared-account screens). On
+                // Analytics / Budgets / etc. there's no "current account",
+                // so we leave the form's Account picker empty.
+                let contextualAccountId: String? = selectedTab == .home
+                    ? currentAccountContext.accountId
+                    : nil
                 switch action {
                 case .income(let categoryId):
                     fabSelectedCategoryId = categoryId
-                    activeSheet = .income(categoryId: categoryId)
+                    activeSheet = .income(categoryId: categoryId, accountId: contextualAccountId)
                 case .expense(let categoryId):
                     fabSelectedCategoryId = categoryId
-                    activeSheet = .expense(categoryId: categoryId)
+                    activeSheet = .expense(categoryId: categoryId, accountId: contextualAccountId)
                 case .transfer:
                     activeSheet = .transfer
                 case .receipt:
@@ -232,6 +245,7 @@ struct MainTabView: View {
             // Spotlight onboarding overlay (must be LAST — above everything)
             SpotlightOverlayView(manager: spotlightManager)
         }
+        .environment(currentAccountContext)
         .onPreferenceChange(SpotlightFramePreferenceKey.self) { newFrames in
             Task { @MainActor in spotlightManager.frames = newFrames }
         }
@@ -280,21 +294,23 @@ struct MainTabView: View {
         .sheet(item: $activeSheet) { sheet in
             Group {
                 switch sheet {
-                case .expense(let categoryId):
+                case .expense(let categoryId, let accountId):
                     TransactionFormView(
                         categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
-                        defaultCategoryId: categoryId
+                        defaultCategoryId: categoryId,
+                        defaultAccountId: accountId
                     ) {
                         await appViewModel.dataStore.loadAll()
                         fabSelectedCategoryId = nil
                     }
-                case .income(let categoryId):
+                case .income(let categoryId, let accountId):
                     TransactionFormView(
                         categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
                         defaultType: .income,
-                        defaultCategoryId: categoryId
+                        defaultCategoryId: categoryId,
+                        defaultAccountId: accountId
                     ) {
                         await appViewModel.dataStore.loadAll()
                         fabSelectedCategoryId = nil

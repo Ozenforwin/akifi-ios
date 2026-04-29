@@ -24,6 +24,22 @@ struct TransactionFormView: View {
     /// Prevents account-change auto-sync from overriding their explicit choice.
     @State private var userPickedCurrency = false
 
+    // MARK: - Large-expense confirmation state
+
+    /// Drives the "Confirm large expense" alert. Set right before save
+    /// when `TransactionGuards.shouldConfirmLargeExpense` returns true;
+    /// cleared on either alert button.
+    @State private var showLargeExpenseAlert = false
+    /// Cached decision so the alert message can render the median
+    /// without recomputing. Re-set every time we open the alert.
+    @State private var largeExpenseDecision: TransactionGuards.LargeExpenseDecision?
+    /// Snapshot of the editing transaction's original amount/currency
+    /// pair, captured in `prefillIfEditing`. Used to skip the alert when
+    /// the user opens an existing transaction and saves without changing
+    /// either field — we don't want to nag on accidental "Update" taps.
+    @State private var editingBaselineAmount: Decimal?
+    @State private var editingBaselineCurrency: CurrencyCode?
+
     // Payment source state
     /// Selected source account. `nil` means "same as target" (regular expense, no auto-transfer).
     @State private var selectedPaymentSourceId: String?
@@ -48,7 +64,7 @@ struct TransactionFormView: View {
 
     private var isEditing: Bool { editingTransaction != nil }
 
-    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, onSave: @escaping () async -> Void) {
+    init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, defaultAccountId: String? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
         self.accounts = accounts
         self.editingTransaction = editingTransaction
@@ -58,6 +74,16 @@ struct TransactionFormView: View {
         }
         if let defaultCategoryId, editingTransaction == nil {
             _selectedCategoryId = State(initialValue: defaultCategoryId)
+        }
+        // Pre-select the account (e.g. when the FAB is opened from a
+        // specific Home-carousel account or the shared-account detail
+        // screen). Editing flow ignores this — the row already carries
+        // its own `accountId`, prefilled in `prefillIfEditing()`.
+        // The matching currency is picked up automatically via the same
+        // `prefillIfEditing()` path on `.onAppear`.
+        if let defaultAccountId, editingTransaction == nil,
+           accounts.contains(where: { $0.id == defaultAccountId }) {
+            _selectedAccountId = State(initialValue: defaultAccountId)
         }
     }
 
@@ -205,7 +231,7 @@ struct TransactionFormView: View {
                 }
 
                 Section(String(localized: "common.amount")) {
-                    CalculatorKeyboardView(state: calculatorState)
+                    amountSectionContent
                 }
 
                 if !accounts.isEmpty {
@@ -217,12 +243,14 @@ struct TransactionFormView: View {
                             }
                         }
                         .onChange(of: selectedAccountId) { _, newId in
-                            // Default is always "this account (regular expense)" —
-                            // auto-transfer is an explicit opt-in. The saved
-                            // user_account_defaults value is surfaced via the
-                            // ⭐ badge in the picker so the user can pick it in
-                            // one tap, but we never pre-select it.
-                            selectedPaymentSourceId = nil
+                            // Pre-select the user's saved default source for
+                            // the new target account. The ⭐ badge still marks
+                            // the default in the picker, and the user can
+                            // override at any time. Edit mode is handled by
+                            // prefillIfEditing — don't clobber it here.
+                            if !isEditing {
+                                selectedPaymentSourceId = newId.flatMap { userDefaults[$0] }
+                            }
                             // Auto-sync entry currency to the account's currency
                             // unless the user has manually picked a currency.
                             // Without this, a default selectedCurrency=.rub on a
@@ -281,17 +309,6 @@ struct TransactionFormView: View {
                 Section(String(localized: "transaction.details")) {
                     TextField(String(localized: "transaction.description"), text: $description)
                     DatePicker(String(localized: "transaction.dateTime"), selection: $date, displayedComponents: [.date, .hourAndMinute])
-                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                            Text("\(currency.symbol) \(currency.name)").tag(currency)
-                        }
-                    }
-                    .onChange(of: selectedCurrency) { _, _ in
-                        // Mark the choice as explicit so onChange(selectedAccountId)
-                        // stops overriding it. Only matters for new transactions —
-                        // editing flows route through prefillIfEditing.
-                        if !isEditing { userPickedCurrency = true }
-                    }
                 }
 
                 if let errorMessage {
@@ -323,6 +340,29 @@ struct TransactionFormView: View {
                 if newValue != nil {
                     dismissOnboarding()
                 }
+            }
+            .onChange(of: selectedCurrency) { _, _ in
+                // Mark the choice as explicit so onChange(selectedAccountId)
+                // stops overriding it. Only matters for new transactions —
+                // editing flows route through prefillIfEditing.
+                if !isEditing { userPickedCurrency = true }
+            }
+            .alert(
+                String(localized: "transaction.confirmLargeExpense.title"),
+                isPresented: $showLargeExpenseAlert,
+                presenting: largeExpenseDecision
+            ) { _ in
+                Button(String(localized: "transaction.confirmLargeExpense.confirm"), role: .destructive) {
+                    Task { await performSave() }
+                }
+                Button(String(localized: "transaction.confirmLargeExpense.cancel"), role: .cancel) {
+                    // Stay on the form so the user can fix the amount or
+                    // currency. No state mutation needed — `isLoading`
+                    // was never set, the `.disabled` Save button will
+                    // re-enable as soon as the alert dismisses.
+                }
+            } message: { decision in
+                Text(largeExpenseAlertMessage(for: decision))
             }
             .task {
                 await loadUserDefaults()
@@ -452,6 +492,132 @@ struct TransactionFormView: View {
         )
     }
 
+    // MARK: - Amount section (calculator + currency chip)
+
+    /// Stacked layout: calculator on top, currency chip pinned to the
+    /// right edge directly under it. Visually anchors "this number is
+    /// in *this* currency" so the user can't miss the unit before
+    /// hitting Save — the bug class this whole feature exists to
+    /// prevent (entering 350 000 ₽ on a VND account).
+    @ViewBuilder
+    private var amountSectionContent: some View {
+        VStack(spacing: 12) {
+            CalculatorKeyboardView(state: calculatorState)
+
+            HStack(spacing: 8) {
+                Spacer()
+                currencyChip
+                if shouldShowAccountFXPreview {
+                    Text(accountFXPreviewText)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 12, trailing: 12))
+    }
+
+    /// Tappable chip that opens a `Menu` over `CurrencyCode.allCases`.
+    /// Uses an accent-tinted border so it reads as an interactive
+    /// affordance, not a passive label — the prior inline `Picker`
+    /// blended into the secondary row text and got ignored.
+    @ViewBuilder
+    private var currencyChip: some View {
+        Menu {
+            ForEach(CurrencyCode.allCases, id: \.self) { code in
+                Button {
+                    selectedCurrency = code
+                } label: {
+                    if code == selectedCurrency {
+                        Label("\(code.symbol) \(code.name)", systemImage: "checkmark")
+                    } else {
+                        Text("\(code.symbol) \(code.name)")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(selectedCurrency.symbol)
+                    .font(.headline.weight(.semibold))
+                Text(selectedCurrency.rawValue)
+                    .font(.subheadline.weight(.semibold))
+                    .monospaced()
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(Color.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.accent.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.accent.opacity(0.45), lineWidth: 1)
+            )
+        }
+        .accessibilityLabel(String(localized: "common.currency"))
+        .accessibilityValue("\(selectedCurrency.symbol) \(selectedCurrency.name)")
+    }
+
+    /// True when we should render the small "≈ 1 900 ₽" preview next
+    /// to the chip — only when the user's entry currency differs from
+    /// the selected account's currency. Re-uses the existing
+    /// `crossConvert` helper for consistency with the payment-source
+    /// hint label.
+    private var shouldShowAccountFXPreview: Bool {
+        guard let acc = selectedAccount else { return false }
+        guard acc.currencyCode != selectedCurrency else { return false }
+        guard let result = calculatorState.getResult(), result > 0 else {
+            return false
+        }
+        // Need a rate in both directions; otherwise crossConvert returns
+        // the input unchanged and we'd show "≈ 350 000 ₽" for "350 000 ₫".
+        let cm = appViewModel.currencyManager
+        return cm.rates[selectedCurrency.rawValue].map { $0 > 0 } ?? false
+            && cm.rates[acc.currency.uppercased()].map { $0 > 0 } ?? false
+    }
+
+    private var accountFXPreviewText: String {
+        guard let acc = selectedAccount,
+              let amount = calculatorState.getResult() else { return "" }
+        let converted = Self.crossConvert(
+            amount: amount,
+            from: selectedCurrency,
+            to: acc.currencyCode,
+            using: appViewModel.currencyManager
+        )
+        return "≈ \(Self.formatRawAmount(converted, currency: acc.currencyCode))"
+    }
+
+    // MARK: - Large-expense alert message
+
+    /// Renders the second line of the confirmation alert, e.g.:
+    ///   "It's 350 000 ₫. You usually spend about 1 900 ₽ at a time."
+    /// The user-entered figure is formatted in the **input currency**
+    /// (so they can sanity-check the unit they actually typed), while
+    /// the median is in base currency (the only one we have a stable
+    /// reference for).
+    private func largeExpenseAlertMessage(
+        for decision: TransactionGuards.LargeExpenseDecision
+    ) -> String {
+        let input = calculatorState.getResult() ?? 0
+        let inputStr = Self.formatRawAmount(input, currency: selectedCurrency)
+        let baseCode = appViewModel.currencyManager.dataCurrency
+        let medianStr = appViewModel.currencyManager.formatInCurrency(
+            decision.medianInBaseDisplay,
+            currency: baseCode
+        )
+        return String(
+            format: String(localized: "transaction.confirmLargeExpense.message"),
+            inputStr,
+            medianStr
+        )
+    }
+
     private func buildHint(source: Account, target: Account, amount: Decimal, targetStr: String) -> String {
         // "Cross-currency" is relative to what the user entered, not the
         // target's native currency. Keeps the hint quiet when source +
@@ -481,9 +647,16 @@ struct TransactionFormView: View {
                 if let src = r.defaultSourceId { map[r.accountId] = src }
             }
             userDefaults = map
-            // We intentionally do NOT pre-select the saved default here.
-            // The map is used only to decorate the picker with a ⭐ badge
-            // so the user can pick their usual source in one tap.
+            // Pre-select the saved default for the currently-targeted account
+            // on a fresh form. `onChange(of: selectedAccountId)` covers
+            // subsequent target switches; this branch handles the initial
+            // load when the account was set before the defaults arrived.
+            // Edit mode keeps the row's stored source — don't override.
+            if !isEditing, selectedPaymentSourceId == nil,
+               let accId = selectedAccountId,
+               let defaultSrc = map[accId] {
+                selectedPaymentSourceId = defaultSrc
+            }
         } catch {
             // Silent — defaults are optional UX.
             AppLogger.data.debug("paymentDefaults load: \(error.localizedDescription)")
@@ -544,11 +717,63 @@ struct TransactionFormView: View {
         if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
             date = txDate
         }
+
+        // Snapshot the as-loaded amount and currency. The large-expense
+        // alert compares against this on save and skips the prompt when
+        // neither value changed — the user just opened an existing row
+        // to tweak the description / category and shouldn't be nagged.
+        editingBaselineAmount = calculatorState.getResult()
+        editingBaselineCurrency = selectedCurrency
     }
 
     // MARK: - Save
 
+    /// Toolbar entry point. Validates the amount, runs the
+    /// large-expense guard, and either presents the confirmation
+    /// alert or jumps straight to `performSave()`. Side-effect-free
+    /// when the alert is shown — the actual write happens in the
+    /// alert's "Confirm" button handler.
     private func save() async {
+        guard let amountValue = calculatorState.getResult(), amountValue > 0 else {
+            errorMessage = String(localized: "transaction.invalidAmount")
+            return
+        }
+
+        // Skip the guard when editing an existing row and neither the
+        // amount nor the currency changed — typical "fix typo in
+        // description" workflow shouldn't pop a destructive alert.
+        let amountUnchanged: Bool = {
+            guard isEditing else { return false }
+            guard let baselineAmount = editingBaselineAmount,
+                  let baselineCurrency = editingBaselineCurrency else {
+                return false
+            }
+            return baselineAmount == amountValue && baselineCurrency == selectedCurrency
+        }()
+
+        if !amountUnchanged {
+            let decision = TransactionGuards.shouldConfirmLargeExpense(
+                inputAmount: amountValue,
+                inputCurrency: selectedCurrency.rawValue,
+                type: selectedType,
+                allTransactions: appViewModel.dataStore.transactions,
+                context: appViewModel.dataStore.currencyContext
+            )
+            if decision.shouldConfirm {
+                largeExpenseDecision = decision
+                showLargeExpenseAlert = true
+                return
+            }
+        }
+
+        await performSave()
+    }
+
+    /// Actual write path. Invoked either directly from `save()` (when
+    /// the guard passes) or from the alert's confirm button. All the
+    /// previous `save()` logic lives here verbatim — the split is
+    /// purely about gating, not behavior.
+    private func performSave() async {
         guard let amountValue = calculatorState.getResult(), amountValue > 0 else {
             errorMessage = String(localized: "transaction.invalidAmount")
             return

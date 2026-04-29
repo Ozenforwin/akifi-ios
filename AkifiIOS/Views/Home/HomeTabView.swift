@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(CurrentAccountContext.self) private var currentAccountContext
     @State private var viewModel = HomeViewModel()
     @State private var showAddAccount = false
     @State private var showProfile = false
@@ -176,6 +177,19 @@ struct HomeTabView: View {
                     await dataStore.loadAll()
                 }
                 .presentationBackground(.ultraThinMaterial)
+            }
+            // Mirror the carousel's selected account into the shared
+            // FAB context so the new-transaction sheet can pre-fill the
+            // Account picker. Re-syncs when the carousel scrolls or when
+            // the accounts list itself changes (e.g. after a fresh load).
+            .onAppear {
+                currentAccountContext.accountId = selectedAccount?.id
+            }
+            .onChange(of: viewModel.selectedAccountIndex) { _, _ in
+                currentAccountContext.accountId = selectedAccount?.id
+            }
+            .onChange(of: dataStore.accounts.map(\.id)) { _, _ in
+                currentAccountContext.accountId = selectedAccount?.id
             }
         }
     }

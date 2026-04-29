@@ -7,17 +7,59 @@ import SwiftUI
 struct SharedAccountDetailView: View {
     let account: Account
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(CurrentAccountContext.self) private var currentAccountContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var showShareSheet = false
+    /// Snapshot of `currentAccountContext.accountId` taken on appear, so we
+    /// can restore Home's carousel selection (or whatever the previous
+    /// writer set) when the user pops back.
+    @State private var previousContextAccountId: String?
+
+    /// Settlement state lives in the parent so the period picker (inside
+    /// `AccountSettlementCardView`) and the transactions list below stay
+    /// synchronised — same period filters both, and a non-empty
+    /// `viewModel.suggestions` paints a "pending settlement" badge on
+    /// every row in the filtered list until the user closes all debts.
+    @State private var settlementVM = SettlementViewModel()
+
+    /// Shared `yyyy-MM-dd` parser for `Transaction.date`.
+    private static let txDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
 
+    /// Whether to paint the "pending settlement" badge on every visible
+    /// transaction. True while there is at least one suggested transfer
+    /// in the selected period — i.e. someone still owes someone. Goes
+    /// false the moment the user marks all suggestions as settled.
+    private var hasOpenSettlements: Bool {
+        guard !settlementVM.isLoading else { return false }
+        return !settlementVM.suggestions.isEmpty
+    }
+
+    /// Recent transactions that need to be split between members:
+    /// expenses on this shared account only, restricted to the period
+    /// currently selected in the settlement card. Income, internal
+    /// transfers and auto-transfer legs (`transferGroupId != nil`) are
+    /// omitted — the user only cares about what to divide.
     private var transactionsForAccount: [Transaction] {
-        dataStore.transactions
-            .filter { $0.accountId == account.id }
-            .prefix(30)
+        let interval = settlementVM.selectedPeriod.dateInterval()
+        return dataStore.transactions
+            .filter { tx in
+                guard tx.accountId == account.id,
+                      tx.type == .expense,
+                      tx.transferGroupId == nil else { return false }
+                guard let d = Self.txDateFormatter.date(from: tx.date) else { return false }
+                return interval.contains(d)
+            }
+            .prefix(100)
             .map { $0 }
     }
 
@@ -27,7 +69,8 @@ struct SharedAccountDetailView: View {
                 header
                 AccountSettlementCardView(
                     sharedAccountId: account.id,
-                    currency: account.currency
+                    currency: account.currency,
+                    viewModel: settlementVM
                 )
                 inviteRow
                 transactionsSection
@@ -40,6 +83,17 @@ struct SharedAccountDetailView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareAccountView(account: account)
                 .presentationBackground(.ultraThinMaterial)
+        }
+        // Override the FAB's contextual account while this detail screen
+        // is on top of the navigation stack. Restore the previous value
+        // (Home carousel selection) on dismiss so popping back leaves the
+        // FAB pointing at the right account.
+        .onAppear {
+            previousContextAccountId = currentAccountContext.accountId
+            currentAccountContext.accountId = account.id
+        }
+        .onDisappear {
+            currentAccountContext.accountId = previousContextAccountId
         }
     }
 
@@ -210,13 +264,50 @@ struct SharedAccountDetailView: View {
                 Text(String(localized: "transactions.recent"))
                     .font(.headline)
                 ForEach(transactionsForAccount) { tx in
-                    TransactionRowView(
-                        transaction: tx,
-                        category: dataStore.category(for: tx),
-                        account: account
-                    )
+                    transactionRow(for: tx)
                 }
             }
         }
+    }
+
+    /// Wraps `TransactionRowView` in a VStack so we can attach a
+    /// "pending settlement" capsule beneath the row without reaching
+    /// into the row's internals (it is reused by Home, Search, etc.
+    /// — surgery there would ripple). The badge appears on every row
+    /// in the filtered list while there are open suggestions for the
+    /// selected period; it disappears the moment the user clears the
+    /// last debt via "Mark as settled".
+    @ViewBuilder
+    private func transactionRow(for tx: Transaction) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TransactionRowView(
+                transaction: tx,
+                category: dataStore.category(for: tx),
+                account: account
+            )
+            if hasOpenSettlements {
+                pendingSettlementBadge
+                    .padding(.leading, 56) // align under the row's title (icon 44 + 12 spacing)
+            }
+        }
+    }
+
+    /// Compact amber capsule — same warning hue used elsewhere in the
+    /// app (budget pacing, large-expense alert). Caption2 weight keeps
+    /// the row visually subordinate to the amount/title.
+    @ViewBuilder
+    private var pendingSettlementBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "hourglass")
+                .font(.caption2.weight(.semibold))
+            Text(String(localized: "sharedAccount.tx.pendingSettlement"))
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(Color.warning)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Color.warning.opacity(0.15))
+        .clipShape(Capsule())
+        .accessibilityLabel(String(localized: "sharedAccount.tx.pendingSettlement"))
     }
 }
