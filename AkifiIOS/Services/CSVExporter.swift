@@ -4,8 +4,8 @@ enum CSVExporter {
     static func export(transactions: [Transaction], categories: [Category], accounts: [Account]) -> String {
         var csv = "\(String(localized: "csv.date")),\(String(localized: "csv.type")),\(String(localized: "csv.amount")),\(String(localized: "csv.category")),\(String(localized: "csv.description")),\(String(localized: "csv.account"))\n"
 
-        let categoryMap = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
-        let accountMap = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        let categoryMap = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let accountMap = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         for tx in transactions.sorted(by: { $0.date > $1.date }) {
             let type = tx.isTransfer ? String(localized: "transaction.transfer") : (tx.type == .income ? String(localized: "common.income") : String(localized: "common.expense"))

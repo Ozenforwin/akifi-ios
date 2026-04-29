@@ -423,7 +423,7 @@ enum ReflectionPeriodMath {
             transactions: transactions,
             categories: categories,
             currencyManager: currencyManager,
-            accountsById: Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+            accountsById: Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         )
     }
 

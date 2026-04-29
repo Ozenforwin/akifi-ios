@@ -40,7 +40,7 @@ enum PDFReportGenerator {
         var fxRates: [String: Decimal] = [:]
 
         var currencyContext: BudgetMath.CurrencyContext {
-            let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+            let accountsById = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             return (accountsById, fxRates, currencyCode.uppercased())
         }
     }
@@ -274,7 +274,7 @@ enum PDFReportGenerator {
 
         drawSectionTitle(String(localized: "pdf.expensesByCategory"), at: &c.y)
 
-        let categoryById = Dictionary(uniqueKeysWithValues: input.categories.map { ($0.id, $0) })
+        let categoryById = Dictionary(input.categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var totals: [(name: String, icon: String, amount: Int64, count: Int)] = []
         var byName: [String: (icon: String, amount: Int64, count: Int)] = [:]
         for tx in expenses {
@@ -382,8 +382,8 @@ enum PDFReportGenerator {
 
         drawSectionTitle(String(localized: "pdf.topTransactions"), at: &c.y)
 
-        let categoryById = Dictionary(uniqueKeysWithValues: input.categories.map { ($0.id, $0) })
-        let accountById = Dictionary(uniqueKeysWithValues: input.accounts.map { ($0.id, $0) })
+        let categoryById = Dictionary(input.categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let accountById = Dictionary(input.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let rowFont = UIFont.systemFont(ofSize: 10.5, weight: .regular)
         let boldFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
         let secondaryFont = UIFont.systemFont(ofSize: 9, weight: .regular)

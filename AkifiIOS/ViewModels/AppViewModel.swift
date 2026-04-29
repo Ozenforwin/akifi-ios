@@ -35,5 +35,11 @@ final class AppViewModel {
         async let premium: () = paymentManager.checkPremiumStatus()
         async let data: () = dataStore.loadAll()
         _ = await (rates, premium, data)
+        // `fetchRates()` and `loadAll()` run concurrently — when rates
+        // arrive after `loadAll()`'s internal `rebuildCaches()`, the
+        // cached FX context inside `DataStore` is built with empty rates.
+        // Re-run after both finish so balances and `amountInBase(_:)`
+        // see the live FX table.
+        dataStore.currencyContextDidChange()
     }
 }

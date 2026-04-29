@@ -24,6 +24,22 @@ final class DataStore {
     private(set) var accountIncome: [String: Int64] = [:]
     private(set) var accountExpense: [String: Int64] = [:]
 
+    // MARK: - FX context cache
+    //
+    // Analytics-heavy screens (cashflow, category breakdown, monthly summary,
+    // daily-limit widget) call `amountInBase(_:)` thousands of times per
+    // render. Rebuilding `[accountId: Account]` and `[String: Decimal]` on
+    // every call was the dominant cost — for ~2 000 transactions and 6
+    // analytics passes that's tens of thousands of dictionary allocations.
+    //
+    // We cache them as `@ObservationIgnored` so mutations don't trigger
+    // SwiftUI redraws (the cache is derived state — `accounts` /
+    // `currencyManager.rates` are the canonical sources). Keep these in
+    // sync via `rebuildCurrencyContext()`.
+    @ObservationIgnored private var accountsById: [String: Account] = [:]
+    @ObservationIgnored private var fxRatesDecimal: [String: Decimal] = [:]
+    @ObservationIgnored private var baseCurrencyCode: String = "RUB"
+
     private let accountRepo = AccountRepository()
     private let transactionRepo = TransactionRepository()
     private let categoryRepo = CategoryRepository()
@@ -370,16 +386,18 @@ final class DataStore {
     /// (kopecks). Use whenever you aggregate transactions across multiple
     /// accounts — `amountNative` is in each account's own currency and
     /// cannot be summed directly.
+    ///
+    /// Uses the cached FX context (`accountsById`, `fxRatesDecimal`,
+    /// `baseCurrencyCode`) — refreshed via `rebuildCurrencyContext()` on
+    /// every data/rate/base-currency change. Hot loops that hit this on
+    /// every transaction (analytics, cashflow trend) avoid the per-call
+    /// dictionary rebuild that previously dominated render time.
     func amountInBase(_ tx: Transaction) -> Int64 {
-        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
-        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
-            .mapValues { Decimal($0) }
-        let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
-        return TransactionMath.amountInBase(
+        TransactionMath.amountInBase(
             tx,
             accountsById: accountsById,
-            fxRates: fxRates,
-            baseCode: baseCode
+            fxRates: fxRatesDecimal,
+            baseCode: baseCurrencyCode
         )
     }
 
@@ -408,12 +426,13 @@ final class DataStore {
     /// Bundled FX context — handy when you need to pass it into a pure
     /// engine (InsightEngine, CashFlowEngine, PDFReportGenerator) that
     /// otherwise has no reference to `DataStore`.
+    ///
+    /// Returns the cached fields directly — the dictionaries are recomputed
+    /// once per data/rate change in `rebuildCurrencyContext()`, not on
+    /// every call. Callers that hold the tuple over a hot loop pay zero
+    /// per-iteration cost.
     var currencyContext: (accountsById: [String: Account], fxRates: [String: Decimal], baseCode: String) {
-        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
-        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
-            .mapValues { Decimal($0) }
-        let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
-        return (accountsById, fxRates, baseCode)
+        (accountsById, fxRatesDecimal, baseCurrencyCode)
     }
 
     // MARK: - Assistant Context
@@ -425,9 +444,12 @@ final class DataStore {
 
     func buildAssistantContext() -> AssistantContext {
         // Build category name lookup for human-readable keys
-        let categoryNameById = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0.name) })
-        // Build account name lookup
-        let accountNameById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0.name) })
+        let categoryNameById = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        // Build account name lookup — `uniquingKeysWith` defends against
+        // duplicate `account_id` rows from shared-account joins (we own the
+        // dedup contract upstream, but a duplicate would otherwise crash
+        // `Dictionary(uniqueKeysWithValues:)`).
+        let accountNameById = Dictionary(accounts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
 
         let accountSummaries = accounts.map { account in
             AssistantContext.AccountSummary(
@@ -461,14 +483,16 @@ final class DataStore {
         // To aggregate across multiple accounts with different currencies
         // (e.g. RUB Семейный + USD ByBit) we FX-normalize into base first,
         // otherwise $5 gets summed into rubles as "5 ₽" — off by ~76×.
-        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
-        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
-            .mapValues { Decimal($0) }
-        let accountsById: [String: Account] = Dictionary(
-            uniqueKeysWithValues: accounts.map { ($0.id, $0) }
-        )
+        //
+        // Uses the cached FX context (kept in sync by `rebuildCurrencyContext()`).
+        let ctxFx = currencyContext
         let inBase: (Transaction) -> Int64 = { tx in
-            TransactionMath.amountInBase(tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode)
+            TransactionMath.amountInBase(
+                tx,
+                accountsById: ctxFx.accountsById,
+                fxRates: ctxFx.fxRates,
+                baseCode: ctxFx.baseCode
+            )
         }
 
         for tx in transactions {
@@ -559,7 +583,7 @@ final class DataStore {
         // Budgets with computed metrics — FX-normalized via currencyContext
         // so VND/USD transactions sum correctly against the budget's own
         // currency (ADR-001).
-        let ctx: BudgetMath.CurrencyContext = (accountsById, fxRates, baseCode)
+        let ctx: BudgetMath.CurrencyContext = ctxFx
         let budgetSummaries: [AssistantContext.BudgetSummary] = budgets
             .filter { $0.isActive }
             .map { budget in
@@ -597,6 +621,35 @@ final class DataStore {
 
     // MARK: - Cache
 
+    /// Rebuild the FX-context cache (`accountsById`, `fxRatesDecimal`,
+    /// `baseCurrencyCode`) from the current `accounts` array and the
+    /// injected `currencyManager`. Must be called whenever any of those
+    /// inputs change — `rebuildCaches()` does this for us in the data
+    /// path; for FX-rate updates that arrive *after* initial load, call
+    /// `currencyContextDidChange()` from the rate refresh site.
+    ///
+    /// Defends against duplicate `account.id` rows (shared-account joins
+    /// can return the same account twice) by `uniquingKeysWith` instead of
+    /// the crash-on-duplicate `Dictionary(uniqueKeysWithValues:)`.
+    private func rebuildCurrencyContext() {
+        baseCurrencyCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        fxRatesDecimal = (currencyManager?.rates ?? [:]).mapValues { Decimal($0) }
+        accountsById = Dictionary(
+            accounts.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    /// Public hook for `CurrencyManager` / `AppViewModel` to trigger a
+    /// refresh of the cached FX context after rates or the base currency
+    /// change. Also re-runs `rebuildCaches()` because per-account balances
+    /// are stored in base currency and become stale when the FX table
+    /// changes.
+    func currencyContextDidChange() {
+        rebuildCaches()
+        writeWidgetSnapshot()
+    }
+
     /// Rebuild all caches in one pass — call after any data change.
     ///
     /// ADR-001 + legacy-UI contract: balance_cache and per-account sums are
@@ -608,11 +661,15 @@ final class DataStore {
     /// balance got interpreted as RUB and divided by the rate again, which
     /// is why ByBit showed "$8.42" instead of "$640".
     func rebuildCaches() {
-        let baseCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
-        let fxRates: [String: Decimal] = (currencyManager?.rates ?? [:])
-            .mapValues { Decimal($0) }
+        // Refresh the FX-context cache first so downstream getters
+        // (`amountInBase`, `currencyContext`) see the same snapshot of
+        // `accounts` / `currencyManager.rates` we use here.
+        rebuildCurrencyContext()
+        let baseCode = baseCurrencyCode
+        let fxRates = fxRatesDecimal
         let accountCurrencyById: [String: String] = Dictionary(
-            uniqueKeysWithValues: accounts.map { ($0.id, $0.currency.uppercased()) }
+            accounts.map { ($0.id, $0.currency.uppercased()) },
+            uniquingKeysWith: { first, _ in first }
         )
 
         var incomeByAccount: [String: Int64] = [:]
