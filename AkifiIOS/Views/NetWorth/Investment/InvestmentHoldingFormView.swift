@@ -43,6 +43,21 @@ struct InvestmentHoldingFormView: View {
     @State private var notes: String = ""
     @State private var isSaving = false
 
+    /// State of the "Pull current price" button. `idle` is the default,
+    /// `loading` while the edge function call is in flight, `failure`
+    /// shows the error in the section footer for one minute / until the
+    /// next pull attempt. `success` keeps a short status string ("from
+    /// cache · 12:34") so the user knows the price is fresh.
+    @State private var pullState: PullState = .idle
+    private let priceFeed = PriceFeedService()
+
+    private enum PullState: Equatable {
+        case idle
+        case loading
+        case success(String)
+        case failure(String)
+    }
+
     init(parentAssets: [Asset],
          initialAssetId: String? = nil,
          editingHolding: InvestmentHolding? = nil,
@@ -154,7 +169,7 @@ struct InvestmentHoldingFormView: View {
 
             Section(
                 header: Text(String(localized: "holding.form.section.price")),
-                footer: Text(String(localized: "holding.form.priceFooter"))
+                footer: priceFooter
             ) {
                 HStack {
                     TextField(String(localized: "holding.form.lastPrice"), text: $lastPriceText)
@@ -162,6 +177,7 @@ struct InvestmentHoldingFormView: View {
                     Text(currencyLabel)
                         .foregroundStyle(.secondary)
                         .font(.caption)
+                    pullPriceButton
                 }
                 DatePicker(
                     String(localized: "holding.form.lastPriceDate"),
@@ -176,6 +192,120 @@ struct InvestmentHoldingFormView: View {
                     .lineLimit(2...6)
             }
         }
+    }
+
+    // MARK: - Pull price
+
+    /// Disabled until the user has typed a ticker and the kind has a
+    /// provider. Metals / "other" are manual-only — for those we show
+    /// a greyed-out icon with a tooltip in the footer.
+    @ViewBuilder
+    private var pullPriceButton: some View {
+        if kind.supportsAutoPrice {
+            Button {
+                Task { await pullPrice() }
+            } label: {
+                if pullState == .loading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(canPull ? Color.accent : Color.secondary.opacity(0.4))
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(!canPull || pullState == .loading)
+            .accessibilityLabel(String(localized: "holding.form.pullPrice"))
+        } else {
+            Image(systemName: "hand.point.up.left.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var canPull: Bool {
+        !ticker.trimmingCharacters(in: .whitespaces).isEmpty
+            && !currencyLabel.isEmpty && currencyLabel != "—"
+    }
+
+    /// Footer beneath the price section. Shows different copy depending
+    /// on `pullState` and `kind.supportsAutoPrice`. Failure states surface
+    /// the textual error from the edge function so the user can fix it
+    /// (typo'd ticker, unsupported listing, etc.) without trial-and-error.
+    @ViewBuilder
+    private var priceFooter: some View {
+        switch pullState {
+        case .idle:
+            if kind.supportsAutoPrice {
+                Text(String(localized: "holding.form.priceFooter"))
+            } else {
+                Text(String(localized: "holding.form.priceFooter.manualOnly"))
+            }
+        case .loading:
+            Text(String(localized: "holding.form.pullPrice.loading"))
+        case .success(let detail):
+            Text(detail)
+                .foregroundStyle(.green)
+        case .failure(let detail):
+            Text(detail)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func pullPrice() async {
+        guard canPull else { return }
+        pullState = .loading
+        let trimmedTicker = ticker.trimmingCharacters(in: .whitespaces).uppercased()
+        let parentCurrency = parentAsset?.currency ?? ""
+
+        do {
+            let result = try await priceFeed.fetchPrice(
+                ticker: trimmedTicker,
+                kind: kind,
+                currency: parentCurrency
+            )
+            // Apply to the form fields. Quantity and cost basis stay as
+            // they were — the pull only updates the price half of the
+            // valuation.
+            lastPriceText = decimalString(result.lastPrice)
+            if let parsed = parseISODate(result.fetchedAt) {
+                lastPriceDate = Calendar.current.startOfDay(for: parsed)
+            } else {
+                lastPriceDate = Calendar.current.startOfDay(for: Date())
+            }
+            HapticManager.success()
+
+            let suffix = result.cached
+                ? String(localized: "holding.form.pullPrice.cached")
+                : result.source
+            let formattedPrice = decimalString(result.lastPrice)
+            let detail = String(
+                format: String(localized: "holding.form.pullPrice.successFormat"),
+                formattedPrice, parentCurrency, suffix
+            )
+            pullState = .success(detail)
+        } catch {
+            HapticManager.error()
+            let message = (error as? LocalizedError)?.errorDescription
+                ?? error.localizedDescription
+            pullState = .failure(
+                String(format: String(localized: "holding.form.pullPrice.failedFormat"),
+                       message)
+            )
+        }
+    }
+
+    /// Edge function returns ISO-8601 with milliseconds. We only care
+    /// about the day portion for `lastPriceDate`, so a tolerant parse
+    /// is fine — fall back to today on any miss.
+    private func parseISODate(_ iso: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: iso) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: iso)
     }
 
     @ViewBuilder
