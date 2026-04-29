@@ -107,6 +107,14 @@ Vault: `~/Documents/agent-factory-brain/`
 - Use Value Objects for complex domain concepts
 - API changes require OpenAPI spec update first (spec-first approach)
 
+## iOS release rule — never push a closed train
+
+Before pushing iOS changes that may trigger TestFlight upload, sanity-check that `MARKETING_VERSION` in `project.yml` is NOT a version that's already approved or in review on App Store Connect. The `ios-release` workflow has a pre-flight guard that aborts on a closed train, but a stale `project.yml` still wastes 5 minutes of CI minutes before the guard fires.
+
+Rule of thumb: after any successful App Store submission, the FIRST commit to `main` should bump `MARKETING_VERSION` (1.3.0 → 1.3.1). The auto-bumper in `codemagic.yaml` will then march forward from there.
+
+Full release walk-through (push triggers, tag triggers, what to do when something fails): `.claude/research/release-process.md`. Skill `codemagic-ios-cicd` (lessons 13-15) covers the fix history.
+
 ## Self-testing rule — data-layer bugs
 
 Whenever a fix concerns what the user sees (balances, analytics, AI answers,
