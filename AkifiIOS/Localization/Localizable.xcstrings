@@ -34006,6 +34006,305 @@
           }
         }
       }
+    },
+    "fire.manual.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свои числа"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your numbers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus números"
+          }
+        }
+      }
+    },
+    "fire.manual.tooltip.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зачем своя цифра?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why override?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Por qué anular?"
+          }
+        }
+      }
+    },
+    "fire.manual.tooltip.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если у вас общие счета (с супругом, семьёй) или часть расходов покрывает кто-то другой, авто-расчёт завысит ваш реальный месячный расход. Введите сюда свою долю расходов и сумму, которую готовы инвестировать каждый месяц — FIRE-расчёт переключится с авто-режима на ручной. Сбросить → вернёт авто-расчёт из транзакций."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you share accounts (with a spouse, family) or someone else covers part of your expenses, the auto-detected number overstates your real monthly burn. Enter your share of expenses and the amount you can actually invest each month — the FIRE projection switches from auto to manual. Tap Reset to go back to the auto numbers."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si compartes cuentas (con cónyuge, familia) o alguien más cubre parte de tus gastos, el cálculo automático sobreestima tu gasto mensual real. Introduce tu parte de los gastos y cuánto puedes invertir cada mes — la proyección FIRE pasará de automática a manual. Toca Restablecer para volver a los datos automáticos."
+          }
+        }
+      }
+    },
+    "fire.manual.expenses": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расход в месяц"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly expense"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gasto mensual"
+          }
+        }
+      }
+    },
+    "fire.manual.contribution": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взнос в месяц"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly contribution"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aporte mensual"
+          }
+        }
+      }
+    },
+    "fire.manual.apply": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicar"
+          }
+        }
+      }
+    },
+    "fire.manual.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer"
+          }
+        }
+      }
+    },
+    "fire.manual.statusAuto": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас: авто-расчёт из транзакций"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currently using auto from transactions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualmente: cálculo automático"
+          }
+        }
+      }
+    },
+    "fire.manual.statusManual": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сейчас: ваши числа"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Currently using your numbers"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualmente: tus números"
+          }
+        }
+      }
+    },
+    "tx.fireImpact.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIRE-эффект"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FIRE impact"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impacto en FIRE"
+          }
+        }
+      }
+    },
+    "tx.fireImpact.bodyFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта трата отодвигает дату FIRE на ~%d мес."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This expense pushes your FIRE date back by ~%d mo."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este gasto retrasa tu fecha FIRE en ~%d meses."
+          }
+        }
+      }
+    },
+    "tx.fireImpact.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Расчёт по правилу 4% и текущим параметрам экрана «Финансовая независимость»."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Computed by the 4% rule using your current FIRE-screen settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calculado con la regla del 4% usando los parámetros del panel «Independencia financiera»."
+          }
+        }
+      }
+    },
+    "common.year.short": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "г"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "yr"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "a"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

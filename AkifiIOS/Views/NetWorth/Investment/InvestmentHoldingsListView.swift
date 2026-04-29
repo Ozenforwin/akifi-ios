@@ -119,7 +119,10 @@ struct InvestmentHoldingsListView: View {
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                 if let roi = PortfolioCalculator.roi(for: h) {
-                    Text(roiLabel(roi))
+                    let cagr = acquiredDate.flatMap { date in
+                        PortfolioCalculator.cagr(for: h, acquiredDate: date)
+                    }
+                    Text(roiAndCagrLabel(roi: roi, cagr: cagr))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(roi >= 0 ? Color(hex: "#16A34A") : Color(hex: "#DC2626"))
                         .monospacedDigit()
@@ -206,5 +209,24 @@ struct InvestmentHoldingsListView: View {
         let pct = NSDecimalNumber(decimal: roi * 100).doubleValue
         let sign = pct >= 0 ? "+" : ""
         return String(format: "%@%.1f%%", sign, pct)
+    }
+
+    /// "+12.5% · +6.1%/yr" — total ROI plus annualised CAGR when the
+    /// position has been held long enough (≥30 days, parent asset has
+    /// `acquiredDate`). Falls back to total ROI alone otherwise.
+    private func roiAndCagrLabel(roi: Decimal, cagr: Decimal?) -> String {
+        let total = roiLabel(roi)
+        guard let cagr else { return total }
+        let pct = NSDecimalNumber(decimal: cagr * 100).doubleValue
+        let sign = pct >= 0 ? "+" : ""
+        return String(format: "%@ · %@%.1f%%/\(String(localized: "common.year.short"))", total, sign, pct)
+    }
+
+    /// Earliest acquired-date among parent Assets that contain a
+    /// holding under this list. Used to estimate CAGR — `nil` when the
+    /// parent has no acquired date set.
+    private var acquiredDate: Date? {
+        guard let dateStr = asset.acquiredDate else { return nil }
+        return NetWorthSnapshotRepository.dateFormatter.date(from: dateStr)
     }
 }

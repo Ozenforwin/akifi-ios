@@ -116,6 +116,7 @@
 		6116D47ED43F2A675DE19082 /* PaymentDefaultsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29899602DD7780A8382F3D2C /* PaymentDefaultsViewModel.swift */; };
 		617C42FDCAB6E86B334094EB /* InvestmentHolding.swift in Sources */ = {isa = PBXBuildFile; fileRef = C292DC3BB151A2657F0FAF21 /* InvestmentHolding.swift */; };
 		618ECE197B8963238E06AEB2 /* SavingsChallengesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5CCED54FBEC6799B0BE728 /* SavingsChallengesViewModel.swift */; };
+		6263CE80FC97C4FF7087ABC9 /* FIREImpactCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523ADEA12B8BA6D31B0B17D4 /* FIREImpactCalculator.swift */; };
 		639D99A40892C28AA69CCDFB /* AssetFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF4E8DF622AE9FBDF34439D /* AssetFormView.swift */; };
 		63A0E5F197AD17926641EB8E /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 8533BC74DFE011093EB5C6A8 /* FirebaseCrashlytics */; };
 		63A3AEF9EE4B365CD7AAEB43 /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4068BD5C2B34539ACEE31559 /* Transaction.swift */; };
@@ -236,6 +237,7 @@
 		CAA9B0E2E6D674DBF6C9F6E6 /* ContributionSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */; };
 		CBAE8518110E8F6A1E3FD2DA /* UserAccountDefault.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C833DB5AC495E616A3DD32 /* UserAccountDefault.swift */; };
 		CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */; };
+		CD49FAA6B8B8B00D78F8CDBE /* FIREImpactCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */; };
 		CE13051C181A1D26E2789254 /* AccountFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676F23AAA29C1D39C746C9AE /* AccountFormView.swift */; };
 		D049D392F915129C15EA9663 /* ReportsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5122142A303ED282565C2ECD /* ReportsViewModel.swift */; };
 		D0E2E9C53A87EB73C4189ADB /* BetaFeaturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485573E2F31AA04A04BB84BA /* BetaFeaturesView.swift */; };
@@ -424,6 +426,7 @@
 		50EA40FA65D58EED86060438 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
 		5122142A303ED282565C2ECD /* ReportsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsViewModel.swift; sourceTree = "<group>"; };
 		520644E0C49694D32DA72AF0 /* AccountSettlementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettlementCardView.swift; sourceTree = "<group>"; };
+		523ADEA12B8BA6D31B0B17D4 /* FIREImpactCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FIREImpactCalculator.swift; sourceTree = "<group>"; };
 		535E3A1C28B95FC1C362C59A /* DepositsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositsViewModel.swift; sourceTree = "<group>"; };
 		538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		53FDEFCC827F6CD5FCB66A64 /* SavingsGoalFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalFormView.swift; sourceTree = "<group>"; };
@@ -465,6 +468,7 @@
 		701F2C962DC5005DED548E16 /* AssistantModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModels.swift; sourceTree = "<group>"; };
 		725F853410C78E406469FF59 /* DepositContributeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositContributeSheet.swift; sourceTree = "<group>"; };
 		7263138B76430D9B90ABCE14 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FIREImpactCalculatorTests.swift; sourceTree = "<group>"; };
 		73DBCC780D7A28DE9DC71A9B /* NotificationSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettings.swift; sourceTree = "<group>"; };
 		74072AF0E8A86E572AFC0BC2 /* ProfileRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileRepository.swift; sourceTree = "<group>"; };
 		75A8DBBF1BEFA4FD61AE069E /* Decimal+Currency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decimal+Currency.swift"; sourceTree = "<group>"; };
@@ -985,6 +989,7 @@
 				49D407DC94F842983B18DCCD /* ChallengeProgressEngineTests.swift */,
 				4AF7FB7C6BD87327AE22945B /* CompoundProjectorTests.swift */,
 				E8E573FE12D877BB8B69D189 /* DataStoreTests.swift */,
+				72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */,
 				0B100671DEFA1BB219EE226E /* FIREProjectorTests.swift */,
 				2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */,
 				D476F1FCD9502EE467203DA7 /* MultiCurrencyContractTests.swift */,
@@ -1146,6 +1151,7 @@
 				50EA40FA65D58EED86060438 /* DataStore.swift */,
 				21B4F5DDE1EB2C0D08AFB840 /* DateFormatters.swift */,
 				E943C32E125BB4505761CA30 /* ExchangeRateService.swift */,
+				523ADEA12B8BA6D31B0B17D4 /* FIREImpactCalculator.swift */,
 				78B30AE9CAFBF75E6E4F7A58 /* FIREProjector.swift */,
 				074FD729D5B6540F6E107913 /* HapticManager.swift */,
 				F8C3713FC1E32022FF553F27 /* InsightEngine.swift */,
@@ -1408,6 +1414,7 @@
 				78A33B5B05B8821C9864D7DE /* ChallengeProgressEngineTests.swift in Sources */,
 				AEFEDEA26869F8B8F4D136B9 /* CompoundProjectorTests.swift in Sources */,
 				3F90696A2E5A9B7CFDFB8779 /* DataStoreTests.swift in Sources */,
+				CD49FAA6B8B8B00D78F8CDBE /* FIREImpactCalculatorTests.swift in Sources */,
 				71CA2F5DD3B83EAF8D03DE55 /* FIREProjectorTests.swift in Sources */,
 				CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */,
 				3F840685D51EF8BDEBE3F007 /* MultiCurrencyContractTests.swift in Sources */,
@@ -1545,6 +1552,7 @@
 				B73A0C4EB55B3FD8657DA23C /* ExchangeRates.swift in Sources */,
 				1EF6DE5CC7267C6B89E3A96C /* ExportView.swift in Sources */,
 				C3686727ACD0FF16D46F6DC1 /* FABView.swift in Sources */,
+				6263CE80FC97C4FF7087ABC9 /* FIREImpactCalculator.swift in Sources */,
 				DC3BF1BB328EC79277598C83 /* FIREProjectionView.swift in Sources */,
 				FE977C6FE05183A6CAB458BE /* FIREProjector.swift in Sources */,
 				461DD07872032CC4CF3BEDFD /* FIREViewModel.swift in Sources */,

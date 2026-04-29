@@ -364,4 +364,46 @@ final class PortfolioCalculatorTests: XCTestCase {
         )
         XCTAssertTrue(actions.isEmpty)
     }
+
+    // MARK: - CAGR
+
+    /// Cost basis 0 → nil. Avoid div0.
+    func test_cagr_zeroCostBasis_returnsNil() {
+        let h = makeHolding(assetId: "a", quantity: 10, costBasis: 0, lastPrice: 100)
+        let acquired = Date(timeIntervalSinceNow: -365 * 86400)
+        XCTAssertNil(PortfolioCalculator.cagr(for: h, acquiredDate: acquired))
+    }
+
+    /// Acquired in the future → nil.
+    func test_cagr_futureAcquired_returnsNil() {
+        let h = makeHolding(assetId: "a", quantity: 10, costBasis: 100_00, lastPrice: 110)
+        let future = Date(timeIntervalSinceNow: 86400)
+        XCTAssertNil(PortfolioCalculator.cagr(for: h, acquiredDate: future))
+    }
+
+    /// Held less than 30 days → nil (annualizing 2-week return is bunk).
+    func test_cagr_tooShortHistory_returnsNil() {
+        let h = makeHolding(assetId: "a", quantity: 10, costBasis: 100_00, lastPrice: 110)
+        let recent = Date(timeIntervalSinceNow: -10 * 86400)
+        XCTAssertNil(PortfolioCalculator.cagr(for: h, acquiredDate: recent))
+    }
+
+    /// 1.21× return over 1.0 yr → CAGR ≈ +21%.
+    /// Held: $1000 cost, value $1210 (10 × $121).
+    func test_cagr_oneYearTwentyPct_returnsAbout21pct() {
+        let h = makeHolding(assetId: "a", quantity: 10, costBasis: 100_000, lastPrice: 121)
+        let oneYear = Date(timeIntervalSinceNow: -365.25 * 86400)
+        let cagr = PortfolioCalculator.cagr(for: h, acquiredDate: oneYear)!
+        let pct = NSDecimalNumber(decimal: cagr).doubleValue
+        XCTAssertEqual(pct, 0.21, accuracy: 0.01)
+    }
+
+    /// 1.0 ratio over 2 years → CAGR = 0% (no growth).
+    func test_cagr_flatTwoYears_returnsZero() {
+        let h = makeHolding(assetId: "a", quantity: 10, costBasis: 100_000, lastPrice: 100)
+        let twoYears = Date(timeIntervalSinceNow: -2 * 365.25 * 86400)
+        let cagr = PortfolioCalculator.cagr(for: h, acquiredDate: twoYears)!
+        let pct = NSDecimalNumber(decimal: cagr).doubleValue
+        XCTAssertEqual(pct, 0.0, accuracy: 0.001)
+    }
 }

@@ -46,6 +46,41 @@ final class FIREViewModel {
         }
     }
 
+    /// User-defined monthly expenses to use instead of `rate.avgMonthlyExpense
+    /// + rate.monthlySubscriptionCost`. Useful when shared accounts inflate
+    /// the auto-detected expense (e.g. one user covers groceries for the
+    /// whole household, the auto number doesn't separate "my share"). nil
+    /// means "use the auto-computed value". Persisted across launches.
+    var overrideMonthlyExpenses: Int64? {
+        didSet {
+            if let v = overrideMonthlyExpenses {
+                UserDefaults.standard.set(v, forKey: Self.overrideExpensesKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.overrideExpensesKey)
+            }
+            recomputeProjection()
+        }
+    }
+
+    /// User-defined monthly investment contribution to use instead of
+    /// `rate.avgMonthlyNet × investedFraction`. nil means "use auto×slider".
+    var overrideMonthlyContribution: Int64? {
+        didSet {
+            if let v = overrideMonthlyContribution {
+                UserDefaults.standard.set(v, forKey: Self.overrideContributionKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.overrideContributionKey)
+            }
+            recomputeProjection()
+        }
+    }
+
+    /// Whether either override is active. The UI uses this to switch
+    /// between "actual savings rate" and "manual mode" copy.
+    var isManualMode: Bool {
+        overrideMonthlyExpenses != nil || overrideMonthlyContribution != nil
+    }
+
     /// Last `NetWorthCalculator.Breakdown` we were handed by `load(...)`.
     /// Cached so the toggle can recompute the net worth without
     /// re-fetching everything.
@@ -63,11 +98,30 @@ final class FIREViewModel {
 
     private static let includeIlliquidKey = "fire.includeIlliquid"
     private static let investedFractionKey = "fire.investedFraction"
+    private static let overrideExpensesKey = "fire.overrideMonthlyExpenses"
+    private static let overrideContributionKey = "fire.overrideMonthlyContribution"
 
     init() {
         let stored = UserDefaults.standard.object(forKey: Self.investedFractionKey) as? Double
         self.investedFractionOfNet = stored ?? 1.0
         self.includeIlliquid = UserDefaults.standard.bool(forKey: Self.includeIlliquidKey)
+        // UserDefaults stores numbers as Int64 only via NSNumber — read
+        // through `object(forKey:)` so we can disambiguate "0 saved"
+        // (a real override of zero) from "never saved" (use auto).
+        self.overrideMonthlyExpenses = (UserDefaults.standard.object(forKey: Self.overrideExpensesKey) as? NSNumber)?.int64Value
+        self.overrideMonthlyContribution = (UserDefaults.standard.object(forKey: Self.overrideContributionKey) as? NSNumber)?.int64Value
+    }
+
+    /// Resolved monthly expenses (override when set, otherwise the
+    /// auto-detected value).
+    var resolvedMonthlyExpenses: Int64 {
+        overrideMonthlyExpenses ?? (rate.avgMonthlyExpense + rate.monthlySubscriptionCost)
+    }
+
+    /// Resolved monthly contribution (override when set, otherwise
+    /// auto-net × slider fraction).
+    var resolvedMonthlyContribution: Int64 {
+        overrideMonthlyContribution ?? Int64(Double(max(rate.avgMonthlyNet, 0)) * investedFractionOfNet)
     }
 
     // MARK: - Public API
@@ -106,9 +160,11 @@ final class FIREViewModel {
 
     /// True when we have enough months of activity to project. Below
     /// this, the screen shows an onboarding state instead of bogus
-    /// FIRE dates.
+    /// FIRE dates — UNLESS the user has overridden expenses manually,
+    /// in which case the manual numbers carry the projection.
     var hasEnoughData: Bool {
-        rate.sampleMonths >= Self.minSampleMonths
+        if overrideMonthlyExpenses != nil { return true }
+        return rate.sampleMonths >= Self.minSampleMonths
             && rate.avgMonthlyExpense > 0
     }
 
@@ -126,16 +182,17 @@ final class FIREViewModel {
     // MARK: - Private
 
     /// Slider mutation only: monthly contribution = max(0, net) × fraction.
+    /// When the user has set a manual expense / contribution override,
+    /// those values take precedence over the auto-derived ones.
     private func recomputeProjection() {
         guard hasEnoughData else {
             projection = .unknown
             return
         }
-        let contribution = Int64(Double(monthlyDisposable) * investedFractionOfNet)
         projection = FIREProjector.project(
             currentNetWorth: netWorth,
-            monthlyContribution: contribution,
-            monthlyExpenses: rate.avgMonthlyExpense + rate.monthlySubscriptionCost,
+            monthlyContribution: resolvedMonthlyContribution,
+            monthlyExpenses: resolvedMonthlyExpenses,
             disposableMonthly: monthlyDisposable
         )
     }

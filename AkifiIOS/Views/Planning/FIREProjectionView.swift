@@ -26,8 +26,11 @@ struct FIREProjectionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
+                manualOverrideCard
                 if fireVM.hasEnoughData {
-                    sliderCard
+                    if !fireVM.isManualMode {
+                        sliderCard
+                    }
                     toggleCard
                     chartCard
                     scenariosCard
@@ -166,6 +169,149 @@ struct FIREProjectionView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    // MARK: - Manual override
+
+    @State private var manualExpensesText: String = ""
+    @State private var manualContributionText: String = ""
+    @State private var didLoadOverrides = false
+
+    /// Lets the user override the auto-detected monthly expenses and
+    /// contribution. Useful with shared accounts: the auto figure
+    /// includes "everyone's groceries" but FIRE should be planned
+    /// against my-share only. Toggle on → two text fields appear with
+    /// auto values pre-filled; "Save" persists them. "Reset" returns
+    /// to auto-mode.
+    @ViewBuilder
+    private var manualOverrideCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text(String(localized: "fire.manual.title"))
+                    .font(.headline)
+                InfoTooltipButton(
+                    titleKey: "fire.manual.tooltip.title",
+                    bodyKey: "fire.manual.tooltip.body"
+                )
+                Spacer()
+                if fireVM.isManualMode {
+                    Button {
+                        fireVM.overrideMonthlyExpenses = nil
+                        fireVM.overrideMonthlyContribution = nil
+                        loadOverridesFromVM()
+                    } label: {
+                        Text(String(localized: "fire.manual.reset"))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            VStack(spacing: 8) {
+                manualRow(
+                    title: String(localized: "fire.manual.expenses"),
+                    placeholder: cm.formatAmount((fireVM.rate.avgMonthlyExpense + fireVM.rate.monthlySubscriptionCost).displayAmount),
+                    text: $manualExpensesText
+                )
+                manualRow(
+                    title: String(localized: "fire.manual.contribution"),
+                    placeholder: cm.formatAmount(max(0, fireVM.rate.avgMonthlyNet).displayAmount),
+                    text: $manualContributionText
+                )
+            }
+
+            HStack {
+                Text(fireVM.isManualMode
+                     ? String(localized: "fire.manual.statusManual")
+                     : String(localized: "fire.manual.statusAuto"))
+                    .font(.caption)
+                    .foregroundStyle(fireVM.isManualMode ? .green : .secondary)
+                Spacer()
+                Button {
+                    applyManualOverrides()
+                } label: {
+                    Text(String(localized: "fire.manual.apply"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.accent)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasManualInput)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .onAppear {
+            if !didLoadOverrides {
+                didLoadOverrides = true
+                loadOverridesFromVM()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func manualRow(title: String, placeholder: String, text: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+            Spacer(minLength: 12)
+            TextField(placeholder, text: text)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+            Text(cm.dataCurrency.symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 24, alignment: .leading)
+        }
+    }
+
+    private var hasManualInput: Bool {
+        !manualExpensesText.trimmingCharacters(in: .whitespaces).isEmpty
+            || !manualContributionText.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func loadOverridesFromVM() {
+        manualExpensesText = fireVM.overrideMonthlyExpenses
+            .map { decimalText($0) } ?? ""
+        manualContributionText = fireVM.overrideMonthlyContribution
+            .map { decimalText($0) } ?? ""
+    }
+
+    private func applyManualOverrides() {
+        let exp = parseKopecks(manualExpensesText)
+        let contrib = parseKopecks(manualContributionText)
+        fireVM.overrideMonthlyExpenses = manualExpensesText.trimmingCharacters(in: .whitespaces).isEmpty ? nil : exp
+        fireVM.overrideMonthlyContribution = manualContributionText.trimmingCharacters(in: .whitespaces).isEmpty ? nil : contrib
+    }
+
+    private func decimalText(_ minor: Int64) -> String {
+        let value = Decimal(minor) / 100
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 0
+        f.groupingSeparator = ""
+        f.decimalSeparator = "."
+        return f.string(from: value as NSDecimalNumber) ?? ""
+    }
+
+    private func parseKopecks(_ text: String) -> Int64 {
+        let cleaned = text
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+        guard let decimal = Decimal(string: cleaned) else { return 0 }
+        var product = decimal * 100
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &product, 0, .plain)
+        return Int64(truncating: rounded as NSDecimalNumber)
     }
 
     // MARK: - Slider

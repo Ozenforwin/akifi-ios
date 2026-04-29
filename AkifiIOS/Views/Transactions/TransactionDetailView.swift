@@ -66,6 +66,8 @@ struct TransactionDetailView: View {
 
                 detailsSection
 
+                fireImpactSection
+
                 Section {
                     Button {
                         onEdit?()
@@ -152,6 +154,91 @@ struct TransactionDetailView: View {
             }
             .frame(maxWidth: .infinity)
             .listRowBackground(Color.clear)
+        }
+    }
+
+    /// Optional "FIRE impact" line — only shown when:
+    /// * the row is an expense (income/transfers don't push FIRE back),
+    /// * the user has at least 2 months of activity (savings-rate
+    ///   confidence threshold),
+    /// * the transaction is large enough to matter (> 5% of avg
+    ///   monthly income — a $5 coffee delaying FIRE by 5 days is
+    ///   anti-product),
+    /// * the calculator returns a non-zero whole-month delay.
+    private var fireImpactEstimate: FIREImpactCalculator.Estimate? {
+        guard transaction.type == .expense, !isAutoTransferLeg else { return nil }
+        let cm = appViewModel.currencyManager
+        let baseCode = cm.dataCurrency.rawValue
+        let accountsById = Dictionary(
+            dataStore.accounts.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let fxRates: [String: Decimal] = cm.rates.reduce(into: [:]) { acc, pair in
+            acc[pair.key] = Decimal(pair.value)
+        }
+        let txAmount = TransactionMath.amountInBase(
+            transaction, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode
+        )
+        guard txAmount > 0 else { return nil }
+
+        let rate = SavingsRateCalculator.compute(
+            transactions: dataStore.transactions,
+            subscriptions: dataStore.subscriptions,
+            accountsById: accountsById,
+            fxRates: fxRates,
+            baseCode: baseCode
+        )
+        guard rate.sampleMonths >= 2, rate.avgMonthlyIncome > 0 else { return nil }
+        // 5% threshold against avg monthly income.
+        guard txAmount * 20 >= rate.avgMonthlyIncome else { return nil }
+
+        // Approximate investable NW: account balances only. The
+        // detail view doesn't have a NetWorthViewModel handy and
+        // assets/liabilities require a fetch — accounts-only is a
+        // close-enough proxy for the "delays FIRE by N months" line.
+        var nw: Int64 = 0
+        for acc in dataStore.accounts {
+            nw += dataStore.balance(for: acc)
+        }
+
+        return FIREImpactCalculator.estimate(
+            transactionAmount: txAmount,
+            currentNetWorth: nw,
+            monthlyContribution: max(rate.avgMonthlyNet, 0),
+            monthlyExpenses: rate.avgMonthlyExpense + rate.monthlySubscriptionCost
+        )
+    }
+
+    @ViewBuilder
+    private var fireImpactSection: some View {
+        if let est = fireImpactEstimate {
+            Section {
+                HStack(spacing: 10) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.orange, Color.orange.opacity(0.78)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "tx.fireImpact.title"))
+                            .font(.subheadline.weight(.semibold))
+                        Text(String(format: String(localized: "tx.fireImpact.bodyFormat"),
+                                    est.monthsDelay))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+            } footer: {
+                Text(String(localized: "tx.fireImpact.footer"))
+            }
         }
     }
 

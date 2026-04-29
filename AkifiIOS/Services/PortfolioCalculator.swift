@@ -120,6 +120,41 @@ enum PortfolioCalculator {
         return Decimal(value - holding.costBasis) / Decimal(holding.costBasis)
     }
 
+    /// Compound Annual Growth Rate — annualized return inferred from
+    /// `(currentValue / costBasis)^(1/years) − 1`, where `years` is the
+    /// gap between the supplied acquired-date and `asOf`. This is *not*
+    /// TWR or IRR — it ignores cash-flow timing because we only have
+    /// total-position aggregates. Useful as a "what's my annualized
+    /// return so far" headline number; for honest TWR we need a
+    /// holding-transactions table (Phase 3).
+    ///
+    /// Returns nil when:
+    /// * costBasis is zero,
+    /// * acquired date is missing, in the future, or less than 30 days
+    ///   in the past (annualizing a 2-week return is misleading),
+    /// * value/costBasis ratio is non-positive (full loss, total wipe).
+    static func cagr(
+        for holding: InvestmentHolding,
+        acquiredDate: Date?,
+        asOf: Date = Date()
+    ) -> Decimal? {
+        guard let acquiredDate, acquiredDate < asOf else { return nil }
+        let days = asOf.timeIntervalSince(acquiredDate) / 86400
+        guard days >= 30 else { return nil }
+        guard holding.costBasis > 0 else { return nil }
+
+        let value = holding.currentValueMinor
+        let ratio = Decimal(value) / Decimal(holding.costBasis)
+        guard ratio > 0 else { return nil }
+
+        // CAGR = ratio ^ (1 / years) − 1
+        let years = days / 365.25
+        let ratioD = NSDecimalNumber(decimal: ratio).doubleValue
+        let annualized = pow(ratioD, 1.0 / years) - 1.0
+        guard annualized.isFinite else { return nil }
+        return Decimal(annualized)
+    }
+
     // MARK: - Rebalance
 
     /// Single suggested action from the rebalance helper. Always
