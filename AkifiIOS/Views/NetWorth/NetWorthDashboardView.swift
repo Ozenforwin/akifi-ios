@@ -59,7 +59,7 @@ struct NetWorthDashboardView: View {
         .sheet(isPresented: $showAssetForm) {
             AssetFormView(
                 onSave: { input in
-                    await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
             .presentationBackground(.ultraThinMaterial)

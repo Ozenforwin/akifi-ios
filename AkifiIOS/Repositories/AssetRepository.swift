@@ -62,11 +62,15 @@ final class AssetRepository: Sendable {
     }
 }
 
-/// Insert payload. `user_id` is filled from `auth.uid()` client-side via
-/// `SupabaseManager.currentUserId()` — the DB also defaults it to `auth.uid()`
-/// (belt-and-suspenders).
+/// Insert payload. `user_id` is optional on the wire: the DB column has
+/// `DEFAULT auth.uid()`, so on a missing/empty client-side id we let
+/// the server fill it. Sending an empty string would either trip the
+/// FK on `auth.users(id)` or get rejected by the RLS policy
+/// `assets_own_insert (user_id = auth.uid())`, which is exactly what
+/// happens when `SupabaseManager.currentUserId()` returns "" during a
+/// brief auth race on app start.
 struct CreateAssetInput: Encodable, Sendable {
-    let user_id: String
+    let user_id: String?
     let name: String
     let category: String
     let current_value: Int64

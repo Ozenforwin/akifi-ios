@@ -12,9 +12,11 @@ struct AssetFormView: View {
     @Environment(AppViewModel.self) private var appViewModel
 
     /// Called on save for create flow. For edit flow, `onUpdate` is used
-    /// instead so the caller can route to `repo.update(id:)`.
-    let onSave: (CreateAssetInput) async -> Void
-    let onUpdate: ((String, UpdateAssetInput) async -> Void)?
+    /// instead so the caller can route to `repo.update(id:)`. Both can
+    /// throw — the form catches and surfaces the message in an alert
+    /// instead of dismissing on a silent backend reject.
+    let onSave: (CreateAssetInput) async throws -> Void
+    let onUpdate: ((String, UpdateAssetInput) async throws -> Void)?
     let editingAsset: Asset?
     let initialCategory: AssetCategory?
 
@@ -33,6 +35,11 @@ struct AssetFormView: View {
     @State private var portfolioVM = PortfolioViewModel()
     @State private var holdingsLoaded = false
 
+    /// Server-side error captured during save. Non-nil keeps the form
+    /// open so the user sees what to fix (RLS reject, FK failure,
+    /// validation message); the alert below clears it on dismiss.
+    @State private var saveError: String?
+
     /// True when the embedded "Positions" section should appear:
     /// editing an existing Asset of category investment/crypto. On
     /// create the user has no `assetId` yet, so positions can only be
@@ -44,8 +51,8 @@ struct AssetFormView: View {
 
     init(initialCategory: AssetCategory? = nil,
          editingAsset: Asset? = nil,
-         onSave: @escaping (CreateAssetInput) async -> Void,
-         onUpdate: ((String, UpdateAssetInput) async -> Void)? = nil) {
+         onSave: @escaping (CreateAssetInput) async throws -> Void,
+         onUpdate: ((String, UpdateAssetInput) async throws -> Void)? = nil) {
         self.initialCategory = initialCategory
         self.editingAsset = editingAsset
         self.onSave = onSave
@@ -130,6 +137,18 @@ struct AssetFormView: View {
                     Task { await portfolioVM.load(currencyManager: appViewModel.currencyManager) }
                 }
             }
+            .alert(
+                String(localized: "asset.form.saveError.title"),
+                isPresented: Binding(
+                    get: { saveError != nil },
+                    set: { if !$0 { saveError = nil } }
+                ),
+                presenting: saveError
+            ) { _ in
+                Button(String(localized: "common.ok"), role: .cancel) { saveError = nil }
+            } message: { detail in
+                Text(detail)
+            }
         }
     }
 
@@ -169,11 +188,19 @@ struct AssetFormView: View {
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
                 acquired_date: acquiredString
             )
-            await onUpdate(editing.id, update)
+            do {
+                try await onUpdate(editing.id, update)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         } else {
+            // user_id is optional on the wire; let the DB DEFAULT auth.uid()
+            // fill it if our session is fresh and currentUserId() returns "".
             let userId = (try? await SupabaseManager.shared.currentUserId()) ?? ""
             let input = CreateAssetInput(
-                user_id: userId,
+                user_id: userId.isEmpty ? nil : userId,
                 name: name,
                 category: category.rawValue,
                 current_value: kopecks,
@@ -183,7 +210,13 @@ struct AssetFormView: View {
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
                 acquired_date: acquiredString
             )
-            await onSave(input)
+            do {
+                try await onSave(input)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         }
 
         HapticManager.success()

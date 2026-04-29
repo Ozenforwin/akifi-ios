@@ -101,42 +101,35 @@ final class NetWorthViewModel {
 
     // MARK: - Asset CRUD
 
+    /// CRUD methods are `throws` so the calling form (AssetFormView) can
+    /// catch a backend reject — RLS, FK failures, NOT NULL violations —
+    /// and show the message in an alert instead of dismissing silently.
+    /// A successful path still publishes through `assets` / `breakdown`
+    /// for the dashboard to react.
     func createAsset(_ input: CreateAssetInput,
                      dataStore: DataStore,
-                     currencyManager: CurrencyManager) async {
-        do {
-            let asset = try await assetRepo.create(input)
-            assets.insert(asset, at: 0)
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                     currencyManager: CurrencyManager) async throws {
+        let asset = try await assetRepo.create(input)
+        assets.insert(asset, at: 0)
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     func updateAsset(id: String, _ input: UpdateAssetInput,
                      dataStore: DataStore,
-                     currencyManager: CurrencyManager) async {
-        do {
-            try await assetRepo.update(id: id, input)
-            // Refetch that one row — simpler than reconstructing locally
-            // given PATCH requests don't echo the full row.
-            assets = try await assetRepo.fetchAll()
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                     currencyManager: CurrencyManager) async throws {
+        try await assetRepo.update(id: id, input)
+        // Refetch that one row — simpler than reconstructing locally
+        // given PATCH requests don't echo the full row.
+        assets = try await assetRepo.fetchAll()
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     func deleteAsset(id: String,
                      dataStore: DataStore,
-                     currencyManager: CurrencyManager) async {
-        do {
-            try await assetRepo.delete(id: id)
-            assets.removeAll { $0.id == id }
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                     currencyManager: CurrencyManager) async throws {
+        try await assetRepo.delete(id: id)
+        assets.removeAll { $0.id == id }
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     // MARK: - Liability CRUD

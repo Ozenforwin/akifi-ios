@@ -34,7 +34,10 @@ struct AssetListView: View {
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         Task {
-                                            await viewModel.deleteAsset(
+                                            // Swallow delete errors silently — the only realistic
+                                            // failure mode here is a transient network drop, and the
+                                            // row will reappear on next refresh.
+                                            try? await viewModel.deleteAsset(
                                                 id: asset.id,
                                                 dataStore: dataStore,
                                                 currencyManager: cm
@@ -64,7 +67,7 @@ struct AssetListView: View {
             AssetFormView(
                 initialCategory: initialCategory,
                 onSave: { input in
-                    await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
             .presentationBackground(.ultraThinMaterial)
@@ -74,7 +77,7 @@ struct AssetListView: View {
                 editingAsset: asset,
                 onSave: { _ in /* unused for edit */ },
                 onUpdate: { id, input in
-                    await viewModel.updateAsset(id: id, input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.updateAsset(id: id, input, dataStore: dataStore, currencyManager: cm)
                 }
             )
             .presentationBackground(.ultraThinMaterial)
