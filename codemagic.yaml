@@ -396,22 +396,62 @@ workflows:
           locales = [loc["attributes"]["locale"] for loc in localizations]
           print(f"5. Locales to fill: {locales}")
 
-          # Fallback (technical) release notes if Claude is unavailable
+          # Fallback (technical) release notes if Claude is unavailable.
+          # Internal-only commit types (docs, chore, ci, test, style, refactor)
+          # NEVER appear as bullets — they collapse into a generic
+          # "performance and stability" line. App Store reviewers and
+          # users don't want to read about README updates.
           def technical_notes(raw):
-              features, fixes, other = [], [], []
+              features, fixes = [], []
+              has_internal = False
+              internal_prefixes = ("docs", "chore", "ci", "test", "style", "refactor")
               for line in raw.split("\n"):
                   line = line.strip()
-                  if not line: continue
-                  clean = re.sub(r"^(feat|fix|chore|refactor|docs|test|ci|style|perf)(\(.+?\))?:\s*", "", line)
-                  if clean: clean = clean[0].upper() + clean[1:]
-                  if line.startswith("feat"): features.append(clean)
-                  elif line.startswith("fix"): fixes.append(clean)
-                  else: other.append(clean)
+                  if not line:
+                      continue
+                  if line.startswith(internal_prefixes):
+                      has_internal = True
+                      continue
+                  clean = re.sub(r"^(feat|fix|perf)(\(.+?\))?:\s*", "", line)
+                  # Strip BETA / Sprint suffixes that organize work
+                  # internally but mean nothing to end users.
+                  clean = re.sub(r"\s*\[BETA\]\s*$", "", clean, flags=re.IGNORECASE)
+                  clean = re.sub(r"\s*Sprint\s+\d+\s*[—–-]\s*", "", clean, flags=re.IGNORECASE)
+                  if clean:
+                      clean = clean[0].upper() + clean[1:]
+                  if line.startswith("feat"):
+                      features.append(clean)
+                  elif line.startswith("fix"):
+                      fixes.append(clean)
+                  elif line.startswith("perf"):
+                      # Performance counts as user-facing improvement.
+                      features.append(clean)
               sections = []
-              if features: sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
-              if fixes: sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
-              if other: sections.append("Improved:\n" + "\n".join(f"• {o}" for o in other))
+              if features:
+                  sections.append("New:\n" + "\n".join(f"• {f}" for f in features))
+              if fixes:
+                  sections.append("Fixed:\n" + "\n".join(f"• {f}" for f in fixes))
+              if has_internal and (features or fixes):
+                  sections.append("Improved:\n• Performance and stability improvements")
+              elif has_internal:
+                  sections.append("Performance and stability improvements.")
               return "\n\n".join(sections) if sections else "Bug fixes and performance improvements."
+
+          # Cheap promo fallback — first user-facing feat headline,
+          # truncated to fit the 170-char limit with ellipsis.
+          def fallback_promo(raw):
+              for line in raw.split("\n"):
+                  line = line.strip()
+                  if not line.startswith("feat"):
+                      continue
+                  clean = re.sub(r"^feat(\(.+?\))?:\s*", "", line)
+                  clean = re.sub(r"\s*\[BETA\]\s*$", "", clean, flags=re.IGNORECASE)
+                  clean = re.sub(r"\s*Sprint\s+\d+\s*[—–-]\s*", "", clean, flags=re.IGNORECASE)
+                  if not clean:
+                      continue
+                  clean = clean[0].upper() + clean[1:]
+                  return (clean[:162] + "…") if len(clean) > 165 else clean
+              return "Bug fixes and performance improvements."
 
           localized = {}
           anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -428,24 +468,35 @@ workflows:
                       raw_log,
                       f"</commits>",
                       f"",
-                      f"Rewrite these into user-friendly copy for every locale below. DO NOT mention internal technical terms (RLS, migrations, payloads, repositories, refactors, Supabase, backend, API, etc.). Speak to end users about what they will notice or benefit from. If commits are purely internal cleanups, describe them as 'improved stability' / 'performance improvements'.",
+                      f"# Hard rules (read carefully — past versions failed because of these)",
                       f"",
-                      f"For each locale produce:",
-                      f"- 'whatsNew': max 3900 chars. Structured as short bullet list under 1–2 headers (e.g. 'New:' / 'Fixed:' / 'Improved:'). Only include a header if there are items for it. Warm, simple, everyday language. No marketing fluff, no emojis.",
-                      f"- 'promotionalText': max 165 chars. One crisp sentence highlighting the most valuable change in this version — a reason to open the app today.",
+                      f"1. EVERY `feat:` and `fix:` and `perf:` commit in <commits> represents a user-visible change and MUST appear as a bullet. You are NOT allowed to skip them.",
+                      f"   - You MAY merge two closely related commits into one bullet (e.g. \"Sprint 4: FIRE projection\" + \"Sprint 5: tooltips for FIRE\" → one bullet about FIRE).",
+                      f"   - You MAY NOT drop them silently. Aim for 4-10 user-facing bullets total when 10+ feat commits exist.",
+                      f"2. NEVER include `docs:`, `chore:`, `ci:`, `test:`, `style:`, `refactor:` commits as bullets. They go into a single trailing line \"Improved: • Performance and stability improvements\" if any are present.",
+                      f"3. Strip internal scaffolding from commit subjects: `[BETA]` markers, `Sprint N —`/`Sprint N:` prefixes, scope parens `(home)/(assets)/...` are organisational and must NOT leak into user-facing copy.",
+                      f"4. Forbidden words in user-facing copy: README, FEATURE_ROADMAP, PRD, edge function, Supabase, RLS, migration, repository, ViewModel, codemagic, lint, ADR, schema, API key, JWT, cron job, pg_cron, payload. If you are tempted to write any of these, the right answer is to drop the line.",
+                      f"5. Speak to a non-technical iPhone user. Warm, plain, specific. \"Investment portfolio in beta\" is fine. \"AFTER STATEMENT trigger\" is not.",
+                      f"6. Headers (use only those that have content): `New:` for new capabilities, `Improved:` for enhancements to existing ones, `Fixed:` for bug fixes. No emojis, no marketing fluff like \"groundbreaking\".",
                       f"",
+                      f"# Output for each locale",
+                      f"- `whatsNew`: max 3900 chars. Bulleted, headed lists per Rule 6. NEVER blank.",
+                      f"- `promotionalText`: max 165 chars. One single sentence that gives a non-user a reason to open the app today. NEVER blank — if the version is mostly fixes, write something like \"Smoother and faster — across budgets, transactions and analytics.\" Always present.",
+                      f"",
+                      f"# Locales",
                       f"Locales to fill: {json.dumps(locales)}",
                       f"",
-                      f"For Russian locales (ru, ru-RU) write in natural Russian. For English locales (en-US, en-GB) in natural English. For any other locale, translate accurately into that locale's language.",
+                      f"For Russian locales (ru, ru-RU) write in natural Russian. For English locales (en-US, en-GB) in natural English. For any other locale, translate accurately into that locale's language. Use the SAME structure across locales — same number of bullets, same order, just translated.",
                       f"",
-                      f"Respond ONLY with raw JSON, no markdown fences, no commentary:",
+                      f"# Response format",
+                      f"Respond ONLY with raw JSON, no markdown fences, no commentary, no preamble:",
                       f'{{"<locale>": {{"whatsNew": "...", "promotionalText": "..."}}, ...}}',
                   ]
                   prompt = "\n".join(prompt_parts)
 
                   msg = client.messages.create(
-                      model="claude-haiku-4-5-20251001",
-                      max_tokens=4096,
+                      model="claude-sonnet-4-6",
+                      max_tokens=8192,
                       messages=[{"role": "user", "content": prompt}],
                   )
                   text = msg.content[0].text.strip()
@@ -453,6 +504,14 @@ workflows:
                   text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
                   localized = json.loads(text)
                   print(f"5. Claude generated copy for {len(localized)} locales")
+                  # Show the raw output for one locale so a missing
+                  # bullet is visible in the Codemagic build log.
+                  preview_locale_log = next((l for l in ["en-US", "en-GB", "ru", "ru-RU"] if l in localized), None)
+                  if preview_locale_log:
+                      e = localized[preview_locale_log]
+                      print(f"   Preview [{preview_locale_log}] whatsNew (first 400 chars):")
+                      print(f"   {(e.get('whatsNew','') or '')[:400]}")
+                      print(f"   Preview [{preview_locale_log}] promo: {e.get('promotionalText','')}")
               except Exception as e:
                   print(f"5. Claude generation failed, falling back to technical notes: {e}")
                   localized = {}
@@ -460,16 +519,18 @@ workflows:
               print("5. ANTHROPIC_API_KEY not set — using technical fallback notes")
 
           fallback_notes = technical_notes(raw_log)
+          fallback_promo_text = fallback_promo(raw_log)
 
           for loc in localizations:
               loc_id = loc["id"]
               locale = loc["attributes"]["locale"]
               entry = localized.get(locale, {})
+              # Both fields ALWAYS get patched — leaving promo blank
+              # means App Store keeps stale text from a previous
+              # version, which is worse than a generic line.
               whats_new = (entry.get("whatsNew") or fallback_notes)[:3900]
-              promo = (entry.get("promotionalText") or "")[:165]
-              attrs = {"whatsNew": whats_new}
-              if promo:
-                  attrs["promotionalText"] = promo
+              promo = (entry.get("promotionalText") or fallback_promo_text)[:165]
+              attrs = {"whatsNew": whats_new, "promotionalText": promo}
               payload = {"data": {"id": loc_id, "type": "appStoreVersionLocalizations", "attributes": attrs}}
               r2 = api("patch", f"appStoreVersionLocalizations/{loc_id}", json=payload)
               print(f"5. Localization [{locale}]: {'OK' if r2.ok else r2.status_code}")
