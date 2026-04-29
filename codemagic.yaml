@@ -28,6 +28,24 @@ workflows:
       cancel_previous_builds: true
 
     scripts:
+      - name: Decode App Store Connect API key
+        # Must run BEFORE any step that wants to talk to App Store
+        # Connect (auto-version, signing, submission). Past releases
+        # silently fell back to project.yml's MARKETING_VERSION
+        # because this happened later — Apple then rejected the
+        # bundle ("train 1.3.0 is closed"). Now we set it up first
+        # so every downstream Python script can sign JWTs reliably.
+        script: |
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          KEY_PATH="$KEY_DIR/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8"
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$KEY_PATH"
+          if [ ! -s "$KEY_PATH" ]; then
+            echo "ERROR: Decoded .p8 key is empty. Check APP_STORE_CONNECT_PRIVATE_KEY_BASE64 secret in Codemagic."
+            exit 1
+          fi
+          echo "ASC API key decoded: $KEY_PATH ($(wc -c < "$KEY_PATH") bytes)"
+
       - name: Install XcodeGen
         script: |
           brew install xcodegen
@@ -159,13 +177,81 @@ workflows:
             sed -i '' "s/MARKETING_VERSION: $CURRENT_VERSION/MARKETING_VERSION: $NEXT_VERSION/" project.yml
             echo "Updated project.yml: MARKETING_VERSION: $NEXT_VERSION"
           else
-            echo "Could not auto-detect version, using project.yml as-is"
+            echo "WARN: auto-bump produced no version. Will rely on the safety net guard below."
+          fi
+
+          # ── 3. Pre-flight guard: refuse to build a known-closed train ──
+          # Past failures: a soft fallback let MARKETING_VERSION stay at
+          # an already-approved version (e.g. 1.3.0 after 1.3.0 shipped).
+          # Apple then rejected the upload at the very end of a 30-min
+          # build with codes 90062 / 90186. We fail fast here instead.
+          FINAL_VERSION=$(grep 'MARKETING_VERSION:' project.yml | awk '{print $2}')
+          echo "Final MARKETING_VERSION going to build: $FINAL_VERSION"
+
+          GUARD_RESULT=$(python3 << PYEOF
+          import jwt, time, os, requests, sys
+
+          key_id = os.environ.get("APP_STORE_CONNECT_KEY_IDENTIFIER", "")
+          issuer_id = os.environ.get("APP_STORE_CONNECT_ISSUER_ID", "")
+          bundle_id = os.environ.get("BUNDLE_ID", "ru.akifi.app")
+          target_version = "$FINAL_VERSION"
+
+          key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
+          if not os.path.exists(key_path):
+              print(f"WARN: cannot validate version — .p8 key missing at {key_path}")
+              sys.exit(0)
+
+          with open(key_path) as f:
+              private_key = f.read()
+          token = jwt.encode(
+              {"iss": issuer_id, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+              private_key, algorithm="ES256", headers={"kid": key_id}
+          )
+          H = {"Authorization": f"Bearer {token}"}
+          BASE = "https://api.appstoreconnect.apple.com/v1"
+
+          r = requests.get(f"{BASE}/apps?filter[bundleId]={bundle_id}", headers=H)
+          if not r.ok:
+              print(f"WARN: cannot fetch app — {r.status_code}")
+              sys.exit(0)
+          app_id = r.json()["data"][0]["id"]
+
+          # 'READY_FOR_SALE' / 'PENDING_APPLE_RELEASE' / 'PROCESSING_FOR_APP_STORE'
+          # / 'IN_REVIEW' / 'WAITING_FOR_REVIEW' / 'PREPARE_FOR_SUBMISSION'
+          # — ANY state where Apple has already accepted a binary for this
+          # train means we can't reuse the same versionString.
+          closed_states = {"READY_FOR_SALE", "PENDING_DEVELOPER_RELEASE", "PROCESSING_FOR_APP_STORE", "IN_REVIEW", "PENDING_APPLE_RELEASE", "REPLACED_WITH_NEW_VERSION"}
+          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=20", headers=H)
+          conflicts = []
+          if r.ok:
+              for v in r.json()["data"]:
+                  vs = v["attributes"]["versionString"]
+                  state = v["attributes"]["appStoreState"]
+                  if vs == target_version and state in closed_states:
+                      conflicts.append((vs, state))
+          if conflicts:
+              for vs, state in conflicts:
+                  print(f"BLOCK: version {vs} is in closed state '{state}' on App Store Connect")
+              sys.exit(1)
+          print(f"OK: version {target_version} is acceptable")
+          sys.exit(0)
+          PYEOF
+          )
+          GUARD_EXIT=$?
+          echo "$GUARD_RESULT"
+          if [ $GUARD_EXIT -ne 0 ]; then
+            echo ""
+            echo "==== BUILD ABORTED ===="
+            echo "MARKETING_VERSION '$FINAL_VERSION' is already taken on App Store Connect."
+            echo "Bump it in project.yml (e.g. 1.3.1 → 1.3.2) and push again."
+            echo "======================="
+            exit 1
           fi
 
           grep MARKETING_VERSION project.yml
           grep CURRENT_PROJECT_VERSION project.yml
 
-          # ── 3. Generate Xcode project ──
+          # ── 4. Generate Xcode project ──
           xcodegen generate
 
       - name: Set up signing certificates and API key
