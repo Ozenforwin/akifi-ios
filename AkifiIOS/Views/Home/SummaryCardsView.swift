@@ -11,12 +11,20 @@ struct SummaryCardsView: View {
         return df
     }()
 
+    /// Transactions in the current calendar month, restricted to the
+    /// account currently selected in the carousel when `selectedAccount`
+    /// is non-nil. The hero card already shows balance + month income/
+    /// expense chips for the selected account; without this filter the
+    /// big summary cards beneath the carousel would still show the
+    /// global sum and disagree with everything else on the screen.
     private var currentMonthTransactions: [Transaction] {
         let cal = Calendar.current
         let now = Date()
         let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now))!
         let df = Self.dateFormatter
+        let accountId = selectedAccount?.id
         return transactions.filter { tx in
+            if let accountId, tx.accountId != accountId { return false }
             guard let d = df.date(from: tx.date) else { return false }
             return d >= monthStart
         }
