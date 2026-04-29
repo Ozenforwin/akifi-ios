@@ -64,6 +64,19 @@ struct BetaFeaturesView: View {
                 }
             }
 
+            Section(header: Text(String(localized: "settings.beta.section.investing"))) {
+                NavigationLink {
+                    PortfolioDashboardView()
+                } label: {
+                    SettingsRow(
+                        icon: "chart.pie.fill",
+                        color: .accent,
+                        title: String(localized: "portfolio.title"),
+                        badge: "BETA"
+                    )
+                }
+            }
+
             Section(header: Text(String(localized: "settings.beta.section.planning"))) {
                 NavigationLink {
                     SavingsGoalListView()

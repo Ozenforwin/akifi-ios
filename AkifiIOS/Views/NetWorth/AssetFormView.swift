@@ -27,6 +27,21 @@ struct AssetFormView: View {
     @State private var acquiredDate: Date = Date()
     @State private var isSaving = false
 
+    /// Independent VM for the embedded holdings list. Only loads when
+    /// the form is editing an `investment` / `crypto` Asset — otherwise
+    /// the section never renders so the network round-trip is skipped.
+    @State private var portfolioVM = PortfolioViewModel()
+    @State private var holdingsLoaded = false
+
+    /// True when the embedded "Positions" section should appear:
+    /// editing an existing Asset of category investment/crypto. On
+    /// create the user has no `assetId` yet, so positions can only be
+    /// added after the first save.
+    private var supportsHoldings: Bool {
+        guard editingAsset != nil else { return false }
+        return category == .investment || category == .crypto
+    }
+
     init(initialCategory: AssetCategory? = nil,
          editingAsset: Asset? = nil,
          onSave: @escaping (CreateAssetInput) async -> Void,
@@ -81,6 +96,17 @@ struct AssetFormView: View {
                     TextField(String(localized: "asset.form.notes.placeholder"), text: $notes, axis: .vertical)
                         .lineLimit(2...6)
                 }
+
+                if supportsHoldings, let editing = editingAsset {
+                    Section {
+                        InvestmentHoldingsListView(viewModel: portfolioVM, asset: editing)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                    } header: {
+                        Text(String(localized: "asset.form.section.positions"))
+                    } footer: {
+                        Text(String(localized: "asset.form.positionsFooter"))
+                    }
+                }
             }
             .navigationTitle(isEditing
                              ? String(localized: "asset.form.title.edit")
@@ -97,7 +123,13 @@ struct AssetFormView: View {
                     .disabled(!isValid || isSaving)
                 }
             }
-            .onAppear { prefillForEditing() }
+            .onAppear {
+                prefillForEditing()
+                if supportsHoldings && !holdingsLoaded {
+                    holdingsLoaded = true
+                    Task { await portfolioVM.load(currencyManager: appViewModel.currencyManager) }
+                }
+            }
         }
     }
 
