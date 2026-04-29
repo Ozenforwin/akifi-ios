@@ -119,4 +119,98 @@ enum PortfolioCalculator {
         let value = holding.currentValueMinor
         return Decimal(value - holding.costBasis) / Decimal(holding.costBasis)
     }
+
+    // MARK: - Rebalance
+
+    /// Single suggested action from the rebalance helper. Always
+    /// "buy X on top of what you already have" (no-sell mode), so a
+    /// long-term passive investor can correct drift without realising
+    /// gains. Tax-aware sells live in a future tax-lot pass.
+    struct RebalanceAction: Sendable, Equatable {
+        let kind: HoldingKind
+        /// How much to add in base-currency minor units to bring the
+        /// allocation to target. Always > 0.
+        let buyAmountMinor: Int64
+        /// Current weight (0...1) before buying.
+        let currentWeight: Decimal
+        /// Target weight (0...1).
+        let targetWeight: Decimal
+    }
+
+    /// No-sell rebalance plan.
+    ///
+    /// Strategy: figure out the *new total* needed for the most
+    /// underweight kind to hit its target without selling anything,
+    /// then top up every other underweight kind from current value
+    /// to its share of that new total. Overweight kinds are left
+    /// alone.
+    ///
+    /// In practice: the user buys a slug of cash, the calculator
+    /// tells them how to split that slug across underweight kinds
+    /// (or — no slug yet — how big the slug needs to be). Returns
+    /// `[]` when allocation is already within `tolerance` of target.
+    ///
+    /// - Parameters:
+    ///   - summary: aggregated portfolio summary (use `aggregate`).
+    ///   - target: target weights per kind. Caller is responsible for
+    ///     making sure the values sum to ≈ 1.0; we tolerate tiny
+    ///     rounding drift.
+    ///   - tolerance: ignore drift smaller than this fraction
+    ///     (default 1% — UI lets the user adjust later).
+    static func rebalance(
+        summary: Summary,
+        target: [HoldingKind: Decimal],
+        tolerance: Decimal = Decimal(string: "0.01")!
+    ) -> [RebalanceAction] {
+        guard summary.totalValue > 0, !target.isEmpty else { return [] }
+
+        let total = Decimal(summary.totalValue)
+        // Compute current weights — kinds present in `summary.byKind`
+        // get their actual weight; kinds in target but missing from
+        // byKind have weight 0.
+        var currentWeights: [HoldingKind: Decimal] = [:]
+        for (kind, amount) in summary.byKind {
+            currentWeights[kind] = Decimal(amount) / total
+        }
+
+        // Find the maximum "uplift factor" we need: max over kinds of
+        // (currentValue / targetWeight). That's the new total which,
+        // when each kind is multiplied by its target weight, leaves
+        // every kind at least at its current value (no selling).
+        var requiredTotal = total
+        for (kind, w) in target where w > 0 {
+            let curMinor = Decimal(summary.byKind[kind] ?? 0)
+            let needed = curMinor / w
+            if needed > requiredTotal { requiredTotal = needed }
+        }
+        let topUp = requiredTotal - total
+
+        var actions: [RebalanceAction] = []
+        for (kind, w) in target where w > 0 {
+            let curMinor = Decimal(summary.byKind[kind] ?? 0)
+            let targetMinor = requiredTotal * w
+            let buy = targetMinor - curMinor
+            guard buy > 0 else { continue }
+            // Drift threshold: only emit an action if buying changes
+            // weight by more than tolerance, OR the kind is missing
+            // entirely (current weight 0).
+            let curW = currentWeights[kind] ?? 0
+            let drift = abs(curW - w)
+            guard drift > tolerance || curW == 0 else { continue }
+            var rounded = Decimal()
+            var src = buy
+            NSDecimalRound(&rounded, &src, 0, .plain)
+            let buyInt = Int64(truncating: rounded as NSDecimalNumber)
+            actions.append(RebalanceAction(
+                kind: kind,
+                buyAmountMinor: buyInt,
+                currentWeight: curW,
+                targetWeight: w
+            ))
+            _ = topUp // referenced for future analytics; kept for symmetry
+        }
+        // Stable order: largest buy first.
+        actions.sort { $0.buyAmountMinor > $1.buyAmountMinor }
+        return actions
+    }
 }

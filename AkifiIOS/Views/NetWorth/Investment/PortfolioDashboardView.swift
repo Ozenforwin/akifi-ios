@@ -14,6 +14,7 @@ struct PortfolioDashboardView: View {
     @State private var viewModel = PortfolioViewModel()
     @State private var showForm = false
     @State private var editingHolding: InvestmentHolding?
+    @State private var showRebalance = false
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
@@ -33,6 +34,7 @@ struct PortfolioDashboardView: View {
                         title: String(localized: "portfolio.allocation.byCurrency"),
                         slices: currencySlices
                     )
+                    rebalanceTeaserCard
                     holdingsListCard
                 }
             }
@@ -78,6 +80,75 @@ struct PortfolioDashboardView: View {
             )
             .presentationBackground(.ultraThinMaterial)
         }
+        .sheet(isPresented: $showRebalance) {
+            RebalanceHintView(viewModel: viewModel)
+                .presentationBackground(.ultraThinMaterial)
+        }
+    }
+
+    // MARK: - Rebalance teaser
+
+    @ViewBuilder
+    private var rebalanceTeaserCard: some View {
+        Button {
+            showRebalance = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "scope")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.accent, Color.accent.opacity(0.78)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "rebalance.teaser.title"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text(rebalanceTeaserSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.accent.opacity(0.18), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Live preview text — depends on whether the user has set a
+    /// target yet, and whether actions are available.
+    private var rebalanceTeaserSubtitle: String {
+        if viewModel.targetAllocation == nil {
+            return String(localized: "rebalance.teaser.notSet")
+        }
+        guard let summary = viewModel.summary, let target = viewModel.targetAllocation else {
+            return String(localized: "rebalance.teaser.notSet")
+        }
+        let actions = PortfolioCalculator.rebalance(summary: summary, target: target)
+        if actions.isEmpty {
+            return String(localized: "rebalance.teaser.onTarget")
+        }
+        return String(format: String(localized: "rebalance.teaser.actionsFormat"),
+                      actions.count)
     }
 
     // MARK: - Hero

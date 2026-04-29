@@ -8359,8 +8359,14 @@
       }
     },
     "common.done": {
-      "extractionState": "stale",
+      "extractionState": "manual",
       "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
@@ -8371,12 +8377,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Listo"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Готово"
           }
         }
       }
@@ -33566,6 +33566,443 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nadie conoce los rendimientos futuros. Referencias históricas: el S&P 500 de 1928–2023 promedió ~10% nominal y ~7% real (después de inflación del 3%). Bonos del Tesoro de EE. UU. a largo plazo ≈ 5% nominal. Los depósitos suelen seguir la inflación. Para un plan a largo plazo se suele usar la tasa real (~7%) para que la cifra \"en 20 años\" quede en poder adquisitivo de hoy. 7% es un valor razonable."
+          }
+        }
+      }
+    },
+    "rebalance.target.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Целевая аллокация"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target allocation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asignación objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.target.section": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доли по типу"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weights by kind"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pesos por tipo"
+          }
+        }
+      }
+    },
+    "rebalance.target.sum": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сумма"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        }
+      }
+    },
+    "rebalance.target.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы сохранить, сумма долей должна быть около 100%. Все ползунки в шагах 5%."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To save, weights must add up to ≈100%. Sliders move in 5% steps."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para guardar, los pesos deben sumar ≈100%. Los deslizadores se mueven en pasos de 5%."
+          }
+        }
+      }
+    },
+    "rebalance.target.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer"
+          }
+        }
+      }
+    },
+    "rebalance.hint.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перебалансировка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebalance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reequilibrio"
+          }
+        }
+      }
+    },
+    "rebalance.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цель ещё не задана"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No target set"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.empty.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выставьте долю по каждому типу актива (например 70% ETF / 25% облигации / 5% крипта), и Akifi подскажет, что докупить, не продавая ничего."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a weight per asset kind (e.g. 70% ETF / 25% bonds / 5% crypto), and Akifi will suggest what to add without selling anything."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Define un peso para cada tipo de activo (p. ej. 70% ETF / 25% bonos / 5% cripto) y Akifi sugerirá qué añadir sin vender nada."
+          }
+        }
+      }
+    },
+    "rebalance.empty.cta": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задать цель"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set target"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Definir objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.onTarget.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже на цели"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On target"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.onTarget.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Допустимое отклонение в пределах ±1%. Ничего докупать не требуется."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drift is within ±1%. No buys required."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La desviación está dentro de ±1%. No es necesario comprar."
+          }
+        }
+      }
+    },
+    "rebalance.actions.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что докупить"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to buy"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué comprar"
+          }
+        }
+      }
+    },
+    "rebalance.totalBuyFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "всего: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "total: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "total: %@"
+          }
+        }
+      }
+    },
+    "rebalance.driftFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.0f%% сейчас → %.0f%% цель"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.0f%% now → %.0f%% target"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%.0f%% ahora → %.0f%% objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.editTarget": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить целевую аллокацию"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit target allocation"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editar asignación objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.teaser.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перебалансировка"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rebalance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reequilibrio"
+          }
+        }
+      }
+    },
+    "rebalance.teaser.notSet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цель ещё не задана — нажмите, чтобы выставить доли"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No target set yet — tap to define weights"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin objetivo aún — toca para definir pesos"
+          }
+        }
+      }
+    },
+    "rebalance.teaser.onTarget": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Портфель в пределах ±1% от цели"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Portfolio is within ±1% of target"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La cartera está dentro de ±1% del objetivo"
+          }
+        }
+      }
+    },
+    "rebalance.teaser.actionsFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d рекомендации к покупке"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d buy suggestion(s)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d sugerencia(s) de compra"
           }
         }
       }

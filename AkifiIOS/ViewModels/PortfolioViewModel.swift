@@ -32,11 +32,48 @@ final class PortfolioViewModel {
     /// after any mutation, no extra network call.
     var summary: PortfolioCalculator.Summary?
 
+    /// Per-`HoldingKind` target weights for `RebalanceHintView`.
+    /// Persisted in UserDefaults so the user's allocation plan survives
+    /// across launches; nil means "user hasn't set a target yet" and the
+    /// rebalance UI prompts them to do so.
+    var targetAllocation: [HoldingKind: Decimal]? {
+        didSet { persistTargetAllocation() }
+    }
+
     var isLoading = false
     var errorMessage: String?
 
     private let holdingRepo = InvestmentHoldingRepository()
     private let assetRepo = AssetRepository()
+
+    private static let targetAllocationKey = "portfolio.targetAllocation"
+
+    init() {
+        // Restore persisted target allocation on cold start. The wire
+        // shape is [String: String] (kind raw value → decimal string)
+        // so we keep precision through UserDefaults.
+        if let stored = UserDefaults.standard.dictionary(forKey: Self.targetAllocationKey) as? [String: String] {
+            var map: [HoldingKind: Decimal] = [:]
+            for (k, v) in stored {
+                if let kind = HoldingKind(rawValue: k), let weight = Decimal(string: v) {
+                    map[kind] = weight
+                }
+            }
+            self.targetAllocation = map.isEmpty ? nil : map
+        }
+    }
+
+    private func persistTargetAllocation() {
+        guard let target = targetAllocation else {
+            UserDefaults.standard.removeObject(forKey: Self.targetAllocationKey)
+            return
+        }
+        var wire: [String: String] = [:]
+        for (kind, weight) in target {
+            wire[kind.rawValue] = NSDecimalNumber(decimal: weight).stringValue
+        }
+        UserDefaults.standard.set(wire, forKey: Self.targetAllocationKey)
+    }
 
     /// Fetch holdings + parent assets in parallel and recompute the
     /// summary. Failures are non-fatal — partial state is kept and the

@@ -271,4 +271,97 @@ final class PortfolioCalculatorTests: XCTestCase {
         let today = NetWorthSnapshotRepository.dateFormatter.date(from: "2026-04-29")!
         XCTAssertFalse(h.isStale(asOf: today))
     }
+
+    // MARK: - Rebalance
+
+    /// Allocation already matches target → no actions.
+    func test_rebalance_alreadyOnTarget_noActions() {
+        let summary = PortfolioCalculator.Summary(
+            totalValue: 1_000_00,
+            totalCostBasis: 1_000_00,
+            unrealizedPnL: 0,
+            roi: 0,
+            byKind: [.etf: 700_00, .stock: 300_00],
+            byCurrency: [:]
+        )
+        let actions = PortfolioCalculator.rebalance(
+            summary: summary,
+            target: [.etf: Decimal(string: "0.7")!, .stock: Decimal(string: "0.3")!]
+        )
+        XCTAssertTrue(actions.isEmpty)
+    }
+
+    /// Underweight kind → emits a buy action.
+    /// 60/40 actual, 70/30 target — buy ETF until ETF/total = 70%
+    /// without selling stock. Stock stays at 400, target weight 0.3
+    /// → required total = 400/0.3 ≈ 1333.33, buy ETF = 1333.33*0.7 - 600 ≈ 333.
+    func test_rebalance_underweightETF_buyAction() {
+        let summary = PortfolioCalculator.Summary(
+            totalValue: 1_000_00,
+            totalCostBasis: 1_000_00,
+            unrealizedPnL: 0,
+            roi: 0,
+            byKind: [.etf: 600_00, .stock: 400_00],
+            byCurrency: [:]
+        )
+        let actions = PortfolioCalculator.rebalance(
+            summary: summary,
+            target: [.etf: Decimal(string: "0.7")!, .stock: Decimal(string: "0.3")!]
+        )
+        XCTAssertEqual(actions.count, 1)
+        XCTAssertEqual(actions.first?.kind, .etf)
+        XCTAssertGreaterThan(actions.first?.buyAmountMinor ?? 0, 30_000)
+        XCTAssertLessThan(actions.first?.buyAmountMinor ?? 0, 35_000)
+    }
+
+    /// Missing kind in current allocation (ZERO weight) → buy action
+    /// emitted regardless of tolerance.
+    func test_rebalance_missingKind_alwaysSuggested() {
+        let summary = PortfolioCalculator.Summary(
+            totalValue: 1_000_00,
+            totalCostBasis: 1_000_00,
+            unrealizedPnL: 0,
+            roi: 0,
+            byKind: [.etf: 1_000_00],
+            byCurrency: [:]
+        )
+        // Add a small bond target that's missing entirely.
+        let actions = PortfolioCalculator.rebalance(
+            summary: summary,
+            target: [
+                .etf: Decimal(string: "0.95")!,
+                .bond: Decimal(string: "0.05")!,
+            ]
+        )
+        XCTAssertTrue(actions.contains { $0.kind == .bond })
+    }
+
+    /// Overweight kinds get no action — we never sell.
+    func test_rebalance_overweight_noSellAction() {
+        let summary = PortfolioCalculator.Summary(
+            totalValue: 1_000_00,
+            totalCostBasis: 1_000_00,
+            unrealizedPnL: 0,
+            roi: 0,
+            byKind: [.etf: 800_00, .stock: 200_00],
+            byCurrency: [:]
+        )
+        // Target says ETF should be 50% but it's already 80%.
+        let actions = PortfolioCalculator.rebalance(
+            summary: summary,
+            target: [.etf: Decimal(string: "0.5")!, .stock: Decimal(string: "0.5")!]
+        )
+        // Only stock action (buy more stock); never an ETF sell.
+        XCTAssertEqual(actions.count, 1)
+        XCTAssertEqual(actions.first?.kind, .stock)
+    }
+
+    /// Empty portfolio → no actions (avoid div0).
+    func test_rebalance_emptyPortfolio_noActions() {
+        let actions = PortfolioCalculator.rebalance(
+            summary: .zero,
+            target: [.etf: 1]
+        )
+        XCTAssertTrue(actions.isEmpty)
+    }
 }

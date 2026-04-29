@@ -94,6 +94,7 @@
 		4AE7D91E269826EF195ECC55 /* SpotlightStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF25DD7E38CDA24F3516B5D8 /* SpotlightStep.swift */; };
 		4B8053643D54199D333D083A /* ActionPreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806E97C784D40A84056083B6 /* ActionPreviewSheet.swift */; };
 		4C07097105036584EAE0146D /* PortfolioCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC53531605C76B9D1E1755D /* PortfolioCalculatorTests.swift */; };
+		4C12CF7384B84CAEEB987332 /* TargetAllocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938D0C7D769269BBA6087B71 /* TargetAllocationView.swift */; };
 		4C4451DAC4026C668424F60A /* AkifiWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2EC32AA8A0B18132980012FA /* AkifiWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4C7B88FA388B736C22FFC444 /* PaymentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8473385CFEE3FE00448561C8 /* PaymentManager.swift */; };
 		4DE7065E4AE1FA0EECBA02BD /* SwipeableRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A4246E5FCBCE8060EEBBE0 /* SwipeableRow.swift */; };
@@ -180,6 +181,7 @@
 		8FB071031BAC3A01A3D4729C /* DepositRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19A549694F87EF42121743A8 /* DepositRepository.swift */; };
 		904D36283614CD99F650EBE3 /* ReceiptScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65B5C31F5E029C29B622DE4 /* ReceiptScannerView.swift */; };
 		93180BEDF53AC45531AB0BD6 /* SubscriptionDateEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2564C622783A034FD1403F1 /* SubscriptionDateEngineTests.swift */; };
+		93905616DDF83E621D9331B7 /* RebalanceHintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A15637E167CC2411D19BF7 /* RebalanceHintView.swift */; };
 		960F6583C2B9092DAD2D32DD /* StreakWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005997F80D0B462090499AAF /* StreakWidget.swift */; };
 		97982F08DFE241E507431619 /* ChallengeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B085BD8B3732FA323E12B3E /* ChallengeDetailView.swift */; };
 		9831B3C3D4ECDE0CD8B1F483 /* SkillNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13016A359CB32761781CDE85 /* SkillNode.swift */; };
@@ -429,6 +431,7 @@
 		561CBF1D644920E7C6E2F013 /* JournalNoteFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalNoteFormView.swift; sourceTree = "<group>"; };
 		5656863DA0BB761890744ECF /* akifi_logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = akifi_logo.png; sourceTree = "<group>"; };
 		567D5995531EED9D6710C099 /* DepositDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositDetailView.swift; sourceTree = "<group>"; };
+		56A15637E167CC2411D19BF7 /* RebalanceHintView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RebalanceHintView.swift; sourceTree = "<group>"; };
 		56C8AAD5C285993C54E141A4 /* JournalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalViewModel.swift; sourceTree = "<group>"; };
 		596E30134A0FA5750FF736B6 /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
 		59E5F93F8BC1E265B6438CCB /* SavingsGoalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalCardView.swift; sourceTree = "<group>"; };
@@ -490,6 +493,7 @@
 		9060F6A7FDC88354E26E8525 /* DepositFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositFormView.swift; sourceTree = "<group>"; };
 		911532E4FE4098727AD61757 /* TransactionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionRowView.swift; sourceTree = "<group>"; };
 		91A8F17E259EFF346B8BBD7C /* PortfolioCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioCalculator.swift; sourceTree = "<group>"; };
+		938D0C7D769269BBA6087B71 /* TargetAllocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetAllocationView.swift; sourceTree = "<group>"; };
 		93E01170AC56050978FAEC07 /* WelcomeOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeOverlayView.swift; sourceTree = "<group>"; };
 		94C0B4D04279CD2CA93F57C7 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		9550092112C0B62C8907637A /* NotificationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRepository.swift; sourceTree = "<group>"; };
@@ -1187,6 +1191,8 @@
 				3E75DC6B77C6308D5F85C412 /* InvestmentHoldingFormView.swift */,
 				0AEF2354B872AD507CEBF9CE /* InvestmentHoldingsListView.swift */,
 				4195AEAB432FB6E58C1AC129 /* PortfolioDashboardView.swift */,
+				56A15637E167CC2411D19BF7 /* RebalanceHintView.swift */,
+				938D0C7D769269BBA6087B71 /* TargetAllocationView.swift */,
 			);
 			path = Investment;
 			sourceTree = "<group>";
@@ -1610,6 +1616,7 @@
 				697216DF3C268A03501DB38A /* ProfileEditView.swift in Sources */,
 				F3EE92925C2C2B75582A44D2 /* ProfileRepository.swift in Sources */,
 				82E34AA362093FCF50CA58A8 /* QuickPromptsView.swift in Sources */,
+				93905616DDF83E621D9331B7 /* RebalanceHintView.swift in Sources */,
 				F205229791689C8A9BF4D11E /* ReceiptScan.swift in Sources */,
 				904D36283614CD99F650EBE3 /* ReceiptScannerView.swift in Sources */,
 				B67CF59FAE7022CF67FA1299 /* RecentTransactionsView.swift in Sources */,
@@ -1663,6 +1670,7 @@
 				04DF61DAB1C3076A88989578 /* SupabaseManager.swift in Sources */,
 				4DE7065E4AE1FA0EECBA02BD /* SwipeableRow.swift in Sources */,
 				6D05D147B9E4442BA580D874 /* TagManagementView.swift in Sources */,
+				4C12CF7384B84CAEEB987332 /* TargetAllocationView.swift in Sources */,
 				38CD1584A2C812CA9F87EB80 /* ThemeManager.swift in Sources */,
 				63A3AEF9EE4B365CD7AAEB43 /* Transaction.swift in Sources */,
 				321904378989F15DB14B16A5 /* TransactionDetailView.swift in Sources */,
