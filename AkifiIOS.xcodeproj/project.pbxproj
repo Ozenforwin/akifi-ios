@@ -137,6 +137,7 @@
 		6D7761CC6B69A70FC3D311C5 /* SharedAccountDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1694EAC34AB6777AB58820CF /* SharedAccountDetailView.swift */; };
 		6FE727440C4DB9762EDA1643 /* JournalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56C8AAD5C285993C54E141A4 /* JournalViewModel.swift */; };
 		704060E31038BC9A1B94C955 /* SummaryCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA562FB8B99A77709A8173D /* SummaryCardsView.swift */; };
+		704AC38DF2E105083D9883B8 /* TransferFormCrossCurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B7DEBB8E05417011272F68 /* TransferFormCrossCurrencyTests.swift */; };
 		70F254B96BB0C7A54857BC0B /* BalanceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0391413DC5061FB14F465BA4 /* BalanceWidget.swift */; };
 		71CA2F5DD3B83EAF8D03DE55 /* FIREProjectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B100671DEFA1BB219EE226E /* FIREProjectorTests.swift */; };
 		725FBEB673715D69A1E5ADD2 /* TransactionFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF8EE63CEF3E3AC9EA19D10 /* TransactionFormView.swift */; };
@@ -519,6 +520,7 @@
 		A3A9B0A98C8755FBF0D63C69 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
 		A441A9CE08C9908A11C1146E /* PriceFeedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceFeedService.swift; sourceTree = "<group>"; };
 		A67DD639F8B927F145C18CE9 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		A7B7DEBB8E05417011272F68 /* TransferFormCrossCurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferFormCrossCurrencyTests.swift; sourceTree = "<group>"; };
 		A927BEDDC3755F4335C2F900 /* BudgetMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetMath.swift; sourceTree = "<group>"; };
 		A9385B9EDEECD0C2F651AC0F /* TransferFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferFormView.swift; sourceTree = "<group>"; };
 		A99E84E8EF6140BEB1B96CF0 /* WidgetFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetFormatters.swift; sourceTree = "<group>"; };
@@ -1004,6 +1006,7 @@
 				A2564C622783A034FD1403F1 /* SubscriptionDateEngineTests.swift */,
 				97B2DFA2FF2A4AC483A1A0D8 /* SubscriptionMatcherTests.swift */,
 				681F1D9B8F26A66D303BEA07 /* TransactionGuardsTests.swift */,
+				A7B7DEBB8E05417011272F68 /* TransferFormCrossCurrencyTests.swift */,
 			);
 			path = AkifiIOSTests;
 			sourceTree = "<group>";
@@ -1429,6 +1432,7 @@
 				93180BEDF53AC45531AB0BD6 /* SubscriptionDateEngineTests.swift in Sources */,
 				7AF6FC7AB4FB0235F126469D /* SubscriptionMatcherTests.swift in Sources */,
 				4683513B5139E50CA2521FB2 /* TransactionGuardsTests.swift in Sources */,
+				704AC38DF2E105083D9883B8 /* TransferFormCrossCurrencyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1800,7 +1804,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1868,7 +1872,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.3.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

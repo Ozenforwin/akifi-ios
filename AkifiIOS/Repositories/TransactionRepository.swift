@@ -195,15 +195,24 @@ final class TransactionRepository: Sendable {
             let p_foreign_amount: Decimal?
             let p_foreign_currency: String?
             let p_fx_rate: Decimal?
+            let p_source_amount: Decimal?
+            let p_source_currency: String?
             /// When true we emit the foreign-keys (even as null) so PostgREST
             /// picks the ADR-001 9-arg overload. Otherwise we drop them and
             /// the original 6-arg function handles the call.
             let includeForeignKeys: Bool
+            /// When true we emit `p_source_amount` + `p_source_currency` so
+            /// PostgREST picks the 11-arg cross-currency overload (Phase 3.1)
+            /// — without it the transfer-out leg is updated in target
+            /// currency instead of source currency (the 92.5× edit bug).
+            /// Implies `includeForeignKeys`.
+            let includeSourceKeys: Bool
 
             enum CodingKeys: String, CodingKey {
                 case p_expense_id, p_amount, p_category_id
                 case p_date, p_description, p_merchant_name
                 case p_foreign_amount, p_foreign_currency, p_fx_rate
+                case p_source_amount, p_source_currency
             }
 
             func encode(to encoder: Encoder) throws {
@@ -214,18 +223,24 @@ final class TransactionRepository: Sendable {
                 try c.encode(p_date, forKey: .p_date)
                 try c.encode(p_description, forKey: .p_description)
                 try c.encode(p_merchant_name, forKey: .p_merchant_name)
-                if includeForeignKeys {
+                if includeForeignKeys || includeSourceKeys {
                     try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
                     try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
                     try c.encode(p_fx_rate, forKey: .p_fx_rate)
                 }
+                if includeSourceKeys {
+                    try c.encode(p_source_amount, forKey: .p_source_amount)
+                    try c.encode(p_source_currency, forKey: .p_source_currency)
+                }
             }
         }
-        // Route to the 9-arg overload whenever foreign-* might need to be
-        // SET (any non-nil value) OR explicitly CLEARED (the form is
-        // replacing currency fields, e.g. user switched the entry currency
-        // back to the account currency). The 6-arg overload preserves
-        // existing foreign columns and would silently keep a stale entry.
+        // Always emit BOTH foreign-* and source-* keys (as JSON null when
+        // unset) so PostgREST routes unambiguously to the 11-arg overload.
+        // The 9-arg overload still exists for legacy clients but with both
+        // visible we'd hit "Could not choose the best candidate function"
+        // since DEFAULTs make either signature applicable. The 11-arg fn
+        // handles the same-currency case (p_source_currency=NULL → falls
+        // back to writing p_amount on the transfer-out leg).
         let hasForeign = input.foreign_amount != nil && input.foreign_currency != nil
         let includeForeign = hasForeign || input.replaceCurrencyFields
         let params = Params(
@@ -238,7 +253,10 @@ final class TransactionRepository: Sendable {
             p_foreign_amount: input.foreign_amount,
             p_foreign_currency: input.foreign_currency,
             p_fx_rate: input.fx_rate,
-            includeForeignKeys: includeForeign
+            p_source_amount: input.source_amount,
+            p_source_currency: input.source_currency,
+            includeForeignKeys: includeForeign,
+            includeSourceKeys: true
         )
         try await supabase
             .rpc("update_expense_with_auto_transfer", params: params)
@@ -399,6 +417,12 @@ struct UpdateTransactionInput: Codable, Sendable {
     let account_id: String?
     /// Internal, not encoded — tells the repo whether to call the auto-transfer RPC.
     let useAutoTransferUpdate: Bool
+    /// Cross-currency edit: source-account amount in source currency.
+    /// When non-nil, routes to the 11-arg `update_expense_with_auto_transfer`
+    /// overload so the transfer-out leg gets refreshed in its own currency.
+    /// Same-currency edits leave both nil and use the 9-arg overload.
+    let source_amount: Decimal?
+    let source_currency: String?
     /// When true, the encoder emits ALL multi-currency columns
     /// (amount, amount_native, currency, foreign_amount, foreign_currency,
     /// fx_rate) even when nil — JSON null instead of dropping the key.
@@ -424,7 +448,9 @@ struct UpdateTransactionInput: Codable, Sendable {
         merchant_name: String? = nil,
         account_id: String? = nil,
         useAutoTransferUpdate: Bool = false,
-        replaceCurrencyFields: Bool = false
+        replaceCurrencyFields: Bool = false,
+        source_amount: Decimal? = nil,
+        source_currency: String? = nil
     ) {
         self.amount = amount
         self.amount_native = amount_native
@@ -438,6 +464,8 @@ struct UpdateTransactionInput: Codable, Sendable {
         self.account_id = account_id
         self.useAutoTransferUpdate = useAutoTransferUpdate
         self.replaceCurrencyFields = replaceCurrencyFields
+        self.source_amount = source_amount
+        self.source_currency = source_currency?.uppercased()
     }
 
     // Keep `useAutoTransferUpdate` and `replaceCurrencyFields` out of the
@@ -464,6 +492,8 @@ struct UpdateTransactionInput: Codable, Sendable {
         // Flags never round-trip through the decoder.
         useAutoTransferUpdate = false
         replaceCurrencyFields = false
+        source_amount = nil
+        source_currency = nil
     }
 
     func encode(to encoder: Encoder) throws {

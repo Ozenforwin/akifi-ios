@@ -874,6 +874,38 @@ struct TransactionFormView: View {
                     let accountIdForUpdate: String? = selectedAccountId != tx.accountId
                         ? selectedAccountId
                         : nil
+                    // Cross-currency edit: when the existing auto-transfer
+                    // group has a transfer-out leg on a source account whose
+                    // currency differs from the target, the 9-arg RPC stamps
+                    // both legs with `p_amount` (target-currency) — the
+                    // 92.5× edit bug. Compute the source-currency amount
+                    // up-front and route to the 11-arg overload via
+                    // `source_amount` / `source_currency`.
+                    var editSourceAmount: Decimal? = nil
+                    var editSourceCurrency: String? = nil
+                    if useAutoUpdate, let groupId = tx.autoTransferGroupId {
+                        // Find the transfer-out leg of this auto-transfer
+                        // group (expense type, transfer_group_id set, on a
+                        // different account from the main expense).
+                        let outLeg = appViewModel.dataStore.transactions.first { other in
+                            other.autoTransferGroupId == groupId
+                                && other.transferGroupId != nil
+                                && other.type == .expense
+                                && other.id != tx.id
+                        }
+                        if let outAccountId = outLeg?.accountId,
+                           let srcAccount = accounts.first(where: { $0.id == outAccountId }),
+                           srcAccount.currency.lowercased() != accountCode.rawValue.lowercased() {
+                            let srcCode = srcAccount.currencyCode
+                            editSourceAmount = Self.crossConvert(
+                                amount: amountInAccountCurrency,
+                                from: accountCode,
+                                to: srcCode,
+                                using: cm
+                            )
+                            editSourceCurrency = srcCode.rawValue
+                        }
+                    }
                     let input = UpdateTransactionInput(
                         amount: amountInAccountCurrency,
                         amount_native: amountInAccountCurrency,
@@ -891,7 +923,9 @@ struct TransactionFormView: View {
                         // Form save replaces ALL currency-related columns —
                         // switching from VND back to the account currency
                         // must clear foreign_*, not silently leave them.
-                        replaceCurrencyFields: true
+                        replaceCurrencyFields: true,
+                        source_amount: editSourceAmount,
+                        source_currency: editSourceCurrency
                     )
                     try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
                 }

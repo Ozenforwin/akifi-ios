@@ -143,44 +143,49 @@ struct TransferFormView: View {
         let cm = appViewModel.currencyManager
         let dataStore = appViewModel.dataStore
 
-        // Amount. `amountNative` is the account-currency value post-ADR-001;
-        // equals `amount` on new rows but avoids the deprecated accessor.
-        if let cur = tx.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
-            selectedCurrency = code
-            let displayAmount = cm.convertToAccountCurrency(tx.amountNative.displayAmount, accountCurrency: code)
-            calculatorState.setValue(abs(displayAmount))
-        } else {
-            selectedCurrency = cm.selectedCurrency
-            let displayAmount = cm.convertToAccountCurrency(tx.amountNative.displayAmount, accountCurrency: cm.selectedCurrency)
-            calculatorState.setValue(abs(displayAmount))
-        }
-
         description = tx.description ?? ""
 
-        // Parse date
         if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
             date = txDate
         }
 
-        // Determine from/to accounts using the transfer pair.
-        // Sign on `amountNative` identifies the outgoing leg.
-        if let groupId = tx.transferGroupId,
-           let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != tx.id }) {
-            // The expense side is "from", the income side is "to"
-            if tx.amountNative < 0 {
-                fromAccountId = tx.accountId
-                toAccountId = pair.accountId
-            } else {
-                fromAccountId = pair.accountId
-                toAccountId = tx.accountId
-            }
+        // Resolve the transfer pair. Source = expense leg, destination = income leg.
+        let pair: Transaction?
+        if let groupId = tx.transferGroupId {
+            pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
         } else {
-            // Pair not found — use current transaction's account
-            if tx.amountNative < 0 {
-                fromAccountId = tx.accountId
-            } else {
-                toAccountId = tx.accountId
-            }
+            pair = nil
+        }
+        let sourceLeg: Transaction
+        let destLeg: Transaction?
+        if tx.type == .expense || tx.amountNative < 0 {
+            sourceLeg = tx
+            destLeg = pair
+            fromAccountId = tx.accountId
+            toAccountId = pair?.accountId
+        } else {
+            sourceLeg = pair ?? tx
+            destLeg = pair == nil ? nil : tx
+            fromAccountId = pair?.accountId ?? tx.accountId
+            toAccountId = tx.accountId
+        }
+
+        // Recover the user's original entry. If a leg has `foreignAmount`/
+        // `foreignCurrency`, that's the user's input verbatim. Otherwise the
+        // entry was in the source account's currency — derive from
+        // `sourceLeg.amountNative` + that account's currency.
+        let entryLeg = (sourceLeg.foreignAmount != nil ? sourceLeg : (destLeg?.foreignAmount != nil ? destLeg : nil)) ?? sourceLeg
+        if let foreign = entryLeg.foreignAmount,
+           let foreignCur = entryLeg.foreignCurrency,
+           let code = CurrencyCode(rawValue: foreignCur.uppercased()) {
+            selectedCurrency = code
+            calculatorState.setValue(abs(foreign))
+        } else {
+            // Fall back to the source leg's account currency.
+            let srcAccount = dataStore.accounts.first { $0.id == sourceLeg.accountId }
+            let srcCode = srcAccount?.currencyCode ?? cm.dataCurrency
+            selectedCurrency = srcCode
+            calculatorState.setValue(abs(sourceLeg.amountNative.displayAmount))
         }
     }
 
@@ -197,30 +202,37 @@ struct TransferFormView: View {
         let dateStr = AppDateFormatters.isoDate.string(from: date)
         let desc = description.isEmpty ? nil : description
 
-        // Convert entered amount from selected currency to base currency
+        // ADR-001: each leg of the transfer must be stored in its OWN
+        // account's currency. Cross-currency entry currency lives in
+        // `foreign_*`. Using a single base-currency value for both legs
+        // (the prior behavior) wrote 39 747 RUB into a USD leg which
+        // the read-path then summed as USD, sending the destination
+        // balance ~75× too far in the wrong direction.
         let cm = appViewModel.currencyManager
-        let amountInBase: Decimal
-        if selectedCurrency == cm.dataCurrency {
-            amountInBase = amountValue
-        } else {
-            amountInBase = cm.convertFromAccountCurrency(amountValue, accountCurrency: selectedCurrency)
+        let dataStore = appViewModel.dataStore
+        guard let fromAccount = accounts.first(where: { $0.id == fromId }),
+              let toAccount = accounts.first(where: { $0.id == toId }) else {
+            errorMessage = String(localized: "transfer.fillAllFields")
+            isLoading = false
+            return
         }
+
+        let fromLeg = Self.legFields(amountValue: amountValue, entryCurrency: selectedCurrency, account: fromAccount, cm: cm)
+        let toLeg = Self.legFields(amountValue: amountValue, entryCurrency: selectedCurrency, account: toAccount, cm: cm)
 
         do {
             // Always source user_id from the live Supabase session.
             // `dataStore.profile?.id` can be stale right after sign-in or
             // token refresh, and mismatch → RLS violation on INSERT.
             let userId = try await SupabaseManager.shared.currentUserId()
-            let dataStore = appViewModel.dataStore
 
             if let tx = editingTransaction, let groupId = tx.transferGroupId {
                 // Editing: update both sides of the transfer
                 let pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
 
-                // Determine which is expense (from) and which is income (to)
                 let expenseTxId: String
                 let incomeTxId: String?
-                if tx.amountNative < 0 {
+                if tx.type == .expense || tx.amountNative < 0 {
                     expenseTxId = tx.id
                     incomeTxId = pair?.id
                 } else {
@@ -228,35 +240,46 @@ struct TransferFormView: View {
                     incomeTxId = pair != nil ? tx.id : nil
                 }
 
-                // Update expense side (from)
                 try await dataStore.updateTransaction(id: expenseTxId, UpdateTransactionInput(
-                    amount: amountInBase,
-                    currency: selectedCurrency.rawValue,
+                    amount: fromLeg.amountInAccount,
+                    amount_native: fromLeg.amountInAccount,
+                    currency: fromLeg.currencyLabel,
+                    foreign_amount: fromLeg.foreignAmount,
+                    foreign_currency: fromLeg.foreignCurrency,
+                    fx_rate: fromLeg.fxRate,
                     date: dateStr,
                     description: desc,
-                    account_id: fromId
+                    account_id: fromId,
+                    replaceCurrencyFields: true
                 ))
 
-                // Update income side (to) if it exists
                 if let incomeId = incomeTxId {
                     try await dataStore.updateTransaction(id: incomeId, UpdateTransactionInput(
-                        amount: amountInBase,
-                        currency: selectedCurrency.rawValue,
+                        amount: toLeg.amountInAccount,
+                        amount_native: toLeg.amountInAccount,
+                        currency: toLeg.currencyLabel,
+                        foreign_amount: toLeg.foreignAmount,
+                        foreign_currency: toLeg.foreignCurrency,
+                        fx_rate: toLeg.fxRate,
                         date: dateStr,
                         description: desc,
-                        account_id: toId
+                        account_id: toId,
+                        replaceCurrencyFields: true
                     ))
                 }
             } else {
                 // Creating new transfer
                 let groupId = UUID().uuidString
 
-                // Source: expense (money leaves this account)
                 _ = try await dataStore.addTransaction(CreateTransactionInput(
                     user_id: userId,
                     account_id: fromId,
-                    amount: amountInBase,
-                    currency: selectedCurrency.rawValue,
+                    amount: fromLeg.amountInAccount,
+                    amount_native: fromLeg.amountInAccount,
+                    currency: fromLeg.currencyLabel,
+                    foreign_amount: fromLeg.foreignAmount,
+                    foreign_currency: fromLeg.foreignCurrency,
+                    fx_rate: fromLeg.fxRate,
                     type: TransactionType.expense.rawValue,
                     date: dateStr,
                     description: desc,
@@ -264,12 +287,15 @@ struct TransferFormView: View {
                     merchant_name: nil,
                     transfer_group_id: groupId
                 ))
-                // Destination: income (money arrives to this account)
                 _ = try await dataStore.addTransaction(CreateTransactionInput(
                     user_id: userId,
                     account_id: toId,
-                    amount: amountInBase,
-                    currency: selectedCurrency.rawValue,
+                    amount: toLeg.amountInAccount,
+                    amount_native: toLeg.amountInAccount,
+                    currency: toLeg.currencyLabel,
+                    foreign_amount: toLeg.foreignAmount,
+                    foreign_currency: toLeg.foreignCurrency,
+                    fx_rate: toLeg.fxRate,
                     type: TransactionType.income.rawValue,
                     date: dateStr,
                     description: desc,
@@ -285,5 +311,51 @@ struct TransferFormView: View {
         }
 
         isLoading = false
+    }
+
+    /// Per-leg amount + foreign-currency fields, derived from the user's
+    /// entry (amountValue in entryCurrency) projected onto a single account.
+    /// `foreign_*` is set only when entryCurrency ≠ account.currency.
+    struct LegFields: Equatable {
+        let amountInAccount: Decimal
+        let currencyLabel: String
+        let foreignAmount: Decimal?
+        let foreignCurrency: String?
+        let fxRate: Decimal?
+    }
+
+    static func legFields(amountValue: Decimal, entryCurrency: CurrencyCode, account: Account, cm: CurrencyManager) -> LegFields {
+        let accountCode = account.currencyCode
+        let currencyLabel = accountCode.rawValue
+        if entryCurrency == accountCode {
+            return LegFields(
+                amountInAccount: amountValue,
+                currencyLabel: currencyLabel,
+                foreignAmount: nil,
+                foreignCurrency: nil,
+                fxRate: nil
+            )
+        }
+        let amountInAccount = crossConvert(amount: amountValue, from: entryCurrency, to: accountCode, using: cm)
+        let fxRate: Decimal? = amountValue != 0 ? (amountInAccount / amountValue) : nil
+        return LegFields(
+            amountInAccount: amountInAccount,
+            currencyLabel: currencyLabel,
+            foreignAmount: amountValue,
+            foreignCurrency: entryCurrency.rawValue,
+            fxRate: fxRate
+        )
+    }
+
+    /// Same FX-conversion contract as `TransactionFormView.crossConvert`:
+    /// returns the input unchanged when either rate is missing instead of
+    /// silently producing a 75×-off value (see ADR-001 / 2026-04-19 incident).
+    static func crossConvert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
+        guard from != to else { return amount }
+        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
+              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+            return amount
+        }
+        return amount / Decimal(fromRate) * Decimal(toRate)
     }
 }
