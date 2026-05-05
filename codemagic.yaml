@@ -216,22 +216,78 @@ workflows:
               sys.exit(0)
           app_id = r.json()["data"][0]["id"]
 
-          # 'READY_FOR_SALE' / 'PENDING_APPLE_RELEASE' / 'PROCESSING_FOR_APP_STORE'
-          # / 'IN_REVIEW' / 'WAITING_FOR_REVIEW' / 'PREPARE_FOR_SUBMISSION'
-          # — ANY state where Apple has already accepted a binary for this
-          # train means we can't reuse the same versionString.
-          closed_states = {"READY_FOR_SALE", "PENDING_DEVELOPER_RELEASE", "PROCESSING_FOR_APP_STORE", "IN_REVIEW", "PENDING_APPLE_RELEASE", "REPLACED_WITH_NEW_VERSION"}
-          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=20", headers=H)
+          # ANY state where Apple has already accepted a binary for this
+          # versionString means we can't reuse it. Apple keeps trains
+          # closed indefinitely once a build was attached, even after
+          # rejection / removal.
+          # History: 1.3.2 slipped past a narrower set in 2026-05 because
+          # PREPARE_FOR_SUBMISSION + WAITING_FOR_REVIEW were missing.
+          # Open-only states: DEVELOPER_REMOVED_FROM_SALE was deliberate
+          # but the version is still locked; treat as closed.
+          # Inverted-logic safety net: enumerate the OPEN states (ones
+          # that mean "no binary attached yet") and reject everything
+          # else — Apple adds new states occasionally.
+          open_states = {
+              "DEVELOPER_REJECTED",     # waiting for fix, train re-openable
+              "REJECTED",                # same
+              "INVALID_BINARY",          # build was scrubbed, can re-upload
+              "METADATA_REJECTED",       # binary still good though — block
+              "REMOVED_FROM_SALE",       # still locked
+              # Note: nothing is truly "open after a binary was uploaded".
+              # A clean version with no build at all isn't returned here.
+          }
+          # We're explicit about closed states for clarity but ALSO bail
+          # if we see anything outside open_states — defensive.
+          closed_states = {
+              "READY_FOR_SALE",
+              "PENDING_DEVELOPER_RELEASE",
+              "PROCESSING_FOR_APP_STORE",
+              "IN_REVIEW",
+              "PENDING_APPLE_RELEASE",
+              "REPLACED_WITH_NEW_VERSION",
+              "PREPARE_FOR_SUBMISSION",
+              "WAITING_FOR_REVIEW",
+              "DEVELOPER_REMOVED_FROM_SALE",
+              "REJECTED",
+              "DEVELOPER_REJECTED",
+              "INVALID_BINARY",
+              "METADATA_REJECTED",
+              "REMOVED_FROM_SALE",
+          }
+
           conflicts = []
+          # 1) appStoreVersions — public release trains.
+          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=50", headers=H)
           if r.ok:
               for v in r.json()["data"]:
                   vs = v["attributes"]["versionString"]
                   state = v["attributes"]["appStoreState"]
                   if vs == target_version and state in closed_states:
-                      conflicts.append((vs, state))
+                      conflicts.append(("appStore", vs, state))
+
+          # 2) preReleaseVersions — TestFlight trains. A train can be
+          #    closed here too, even before any App Store version exists.
+          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?filter[platform]=IOS&limit=50", headers=H)
+          if r.ok:
+              for v in r.json()["data"]:
+                  vs = v["attributes"]["version"]
+                  if vs == target_version:
+                      # No state field on preReleaseVersions; presence
+                      # alone with builds attached is suspicious. Pull
+                      # builds for this PRV and only block if a build
+                      # was actually uploaded (otherwise it's just an
+                      # empty placeholder we created earlier).
+                      prv_id = v["id"]
+                      br = requests.get(
+                          f"{BASE}/preReleaseVersions/{prv_id}/builds?limit=1",
+                          headers=H,
+                      )
+                      if br.ok and br.json().get("data"):
+                          conflicts.append(("testFlight", vs, "build attached"))
+
           if conflicts:
-              for vs, state in conflicts:
-                  print(f"BLOCK: version {vs} is in closed state '{state}' on App Store Connect")
+              for source, vs, state in conflicts:
+                  print(f"BLOCK: version {vs} taken on {source} (state '{state}')")
               sys.exit(1)
           print(f"OK: version {target_version} is acceptable")
           sys.exit(0)
