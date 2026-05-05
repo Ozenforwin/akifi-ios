@@ -243,13 +243,16 @@ struct TransactionFormView: View {
                             }
                         }
                         .onChange(of: selectedAccountId) { _, newId in
-                            // Pre-select the user's saved default source for
-                            // the new target account. The ⭐ badge still marks
-                            // the default in the picker, and the user can
-                            // override at any time. Edit mode is handled by
+                            // Default to "this account (regular expense)" on
+                            // every target switch. Saved defaults still mark
+                            // the ⭐ in the picker label so the user can spot
+                            // their previous pick, but we never auto-apply
+                            // them — too sticky and conflicted with the
+                            // settings screen ("removed in Settings, kept
+                            // coming back"). Edit mode is handled by
                             // prefillIfEditing — don't clobber it here.
                             if !isEditing {
-                                selectedPaymentSourceId = newId.flatMap { userDefaults[$0] }
+                                selectedPaymentSourceId = nil
                             }
                             // Auto-sync entry currency to the account's currency
                             // unless the user has manually picked a currency.
@@ -647,16 +650,10 @@ struct TransactionFormView: View {
                 if let src = r.defaultSourceId { map[r.accountId] = src }
             }
             userDefaults = map
-            // Pre-select the saved default for the currently-targeted account
-            // on a fresh form. `onChange(of: selectedAccountId)` covers
-            // subsequent target switches; this branch handles the initial
-            // load when the account was set before the defaults arrived.
-            // Edit mode keeps the row's stored source — don't override.
-            if !isEditing, selectedPaymentSourceId == nil,
-               let accId = selectedAccountId,
-               let defaultSrc = map[accId] {
-                selectedPaymentSourceId = defaultSrc
-            }
+            // Map is kept ONLY for the ⭐ marker in picker labels — never
+            // auto-applied as the form's selection. New transactions
+            // always start with "this account (regular expense)"; the
+            // user picks a personal source explicitly when needed.
         } catch {
             // Silent — defaults are optional UX.
             AppLogger.data.debug("paymentDefaults load: \(error.localizedDescription)")
@@ -945,16 +942,10 @@ struct TransactionFormView: View {
                     source_currency: sourceCurrency
                 )
                 _ = try await appViewModel.dataStore.addTransaction(input)
-
-                // Auto-upsert default for next time.
-                if let targetId = selectedAccountId,
-                   let resolvedPaymentSource,
-                   userDefaults[targetId] != resolvedPaymentSource {
-                    Task.detached(priority: .background) { [defaultsRepo] in
-                        try? await defaultsRepo.upsert(accountId: targetId, defaultSourceId: resolvedPaymentSource)
-                    }
-                    userDefaults[targetId] = resolvedPaymentSource
-                }
+                // No auto-upsert of payment-source defaults — managed
+                // explicitly via Settings → Payment defaults to avoid
+                // the "removed it in Settings but it keeps coming back"
+                // pattern users complained about.
             }
             await onSave()
             dismiss()
@@ -1039,16 +1030,8 @@ struct TransactionFormView: View {
             source_currency: sourceCurrency
         )
         _ = try await appViewModel.dataStore.addTransaction(input)
-
-        // 4. Update saved default to reflect the user's new preference.
-        if let targetId = selectedAccountId,
-           let newSource,
-           userDefaults[targetId] != newSource {
-            Task.detached(priority: .background) { [defaultsRepo] in
-                try? await defaultsRepo.upsert(accountId: targetId, defaultSourceId: newSource)
-            }
-            userDefaults[targetId] = newSource
-        }
+        // Saved-default management lives in Settings only — see the
+        // matching note in performSave().
     }
 
     /// Formats an amount already expressed in the transaction's currency

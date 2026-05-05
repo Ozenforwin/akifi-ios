@@ -184,16 +184,28 @@ final class FIREViewModel {
     /// Slider mutation only: monthly contribution = max(0, net) × fraction.
     /// When the user has set a manual expense / contribution override,
     /// those values take precedence over the auto-derived ones.
+    ///
+    /// Scenario sweep baseline:
+    /// * auto-mode → `monthlyDisposable` (the user's net cash flow); the
+    ///   slider already lives inside this range, so 100%-scenario lines
+    ///   up with "slider all the way right".
+    /// * override-mode → `resolvedMonthlyContribution` (whatever the
+    ///   user typed in). Otherwise scenarios stay anchored to the auto
+    ///   baseline and the projection refuses to budge no matter what
+    ///   the user enters — that's the "72.8 years everywhere" bug.
     private func recomputeProjection() {
         guard hasEnoughData else {
             projection = .unknown
             return
         }
+        let disposable: Int64 = isManualMode
+            ? max(resolvedMonthlyContribution, monthlyDisposable)
+            : monthlyDisposable
         projection = FIREProjector.project(
             currentNetWorth: netWorth,
             monthlyContribution: resolvedMonthlyContribution,
             monthlyExpenses: resolvedMonthlyExpenses,
-            disposableMonthly: monthlyDisposable
+            disposableMonthly: disposable
         )
     }
 

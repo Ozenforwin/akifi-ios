@@ -9634,6 +9634,29 @@
         }
       }
     },
+    "currency.gel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lari ₾"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lari ₾"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лари ₾"
+          }
+        }
+      }
+    },
     "currency.idr": {
       "extractionState": "stale",
       "localizations": {
@@ -9653,6 +9676,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Рупия Rp"
+          }
+        }
+      }
+    },
+    "currency.kzt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenge ₸"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenge ₸"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тенге ₸"
           }
         }
       }
@@ -9699,6 +9745,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Бат ฿"
+          }
+        }
+      }
+    },
+    "currency.try": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lira ₺"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lira ₺"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лира ₺"
           }
         }
       }
@@ -32880,6 +32949,29 @@
         }
       }
     },
+    "fire.chart.targetFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "цель: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "target: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "objetivo: %@"
+          }
+        }
+      }
+    },
     "fire.scenarios.title": {
       "extractionState": "manual",
       "localizations": {
@@ -34141,6 +34233,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aplicar"
+          }
+        }
+      }
+    },
+    "fire.manual.applied": {
+      "extractionState": "manual",
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Применено"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applied"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicado"
           }
         }
       }

@@ -167,13 +167,41 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
 
   // ── Coaching intents (before analytical intents) ──
 
-  // Financial safety (deterministic, no LLM needed)
-  if (/(мошенник|мошенничеств|обман|безопасност|защит\S* деньг|защит\S* данн|скам|пирамид|фрод|fraud|развод)/u.test(normalized)) {
+  // Financial safety (deterministic, no LLM needed).
+  //
+  // History: a single bare "безопасност" used to match here, but
+  // "подушка безопасности" (emergency fund) is a totally different
+  // topic — the user asks for help saving up, not for a fraud-protection
+  // lecture. False positive shipped a "Признаки финансовой пирамиды…"
+  // wall of text in answer to a plain budgeting question.
+  // Fix: keep the term but ONLY as part of "финансовой безопасности"
+  // (deliberate fraud-protection ask) or alongside other safety tokens.
+  // Bare "подушка безопасности" / "emergency fund" still fall through
+  // to budgeting/savings paths, where they belong.
+  const hasSafetyCushion = /(подушк\S*\s+безопасност|emergency\s+fund|резервн\S*\s+фонд)/u.test(normalized);
+  if (!hasSafetyCushion && /(мошенник|мошенничеств|обман|защит\S* деньг|защит\S* данн|скам|пирамид|фрод|fraud|развод|финансов\S*\s+безопасност)/u.test(normalized)) {
     return result('financial_safety');
   }
 
-  // Impulse check
-  if (/(хочу купить|стоит ли (покуп|брать)|нужно ли (покуп|брать)|стоит ли мне|импульс\S* покупк|покупать ли)/u.test(normalized)) {
+  // Book recommendations (BEFORE investment_basics / impulse_check —
+  // "что почитать про инвестиции" otherwise gets eaten by investment_basics
+  // ("инвестиц" matches), and "посоветуй книги про деньги" lands in
+  // financial_advice ("посоветуй") if we leave book matching for later).
+  if (/(книг|книжк|литератур|что (по)?читать|что (по)?читат|книжн)/u.test(normalized) ||
+      /(recommend|suggest)\s+(me\s+)?(some\s+|good\s+|best\s+)?(books|reading)/iu.test(normalized) ||
+      /(books|book)\s+(on|about|for|to read)/iu.test(normalized) ||
+      /(reading\s+list|reading\s+material)/iu.test(normalized)) {
+    return result('book_recommendations');
+  }
+
+  // Investment markers — used to disambiguate impulse_check from
+  // investment_basics. "стоит ли купить ETF" is an education question,
+  // not an impulse-purchase one.
+  const isInvestmentTopic = /(\betf\b|\bакци\S*|облигаци\S*|индексн\S*\s*фонд|инвестиц|инвестир|инвест\b|\bфонд\S*|\bкрипт\S*|\bбиткоин|облига)/u.test(normalized);
+
+  // Impulse check — only for plain consumer purchases, not investments.
+  if (!isInvestmentTopic &&
+      /(хочу купить|стоит ли (покуп|брать)|нужно ли (покуп|брать)|стоит ли мне|импульс\S* покупк|покупать ли)/u.test(normalized)) {
     return result('impulse_check');
   }
 
@@ -209,8 +237,11 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     return result('financial_stage');
   }
 
-  // Investment basics
-  if (/(инвестиц|куда вложить|как начать инвестир|начать инвестир|основы инвестир|во что вложить)/u.test(normalized)) {
+  // Investment basics — broadened to catch the verb infinitive
+  // ("инвестировать в индексный фонд") and concrete instrument names
+  // ("выбрать ETF", "купить акции", "стоит ли покупать облигации").
+  // Used to miss those and fall through to `help` or impulse_check.
+  if (/(инвестиц|инвестир|куда вложить|во что вложить|выбрать etf|выбор etf|\betf\b|индексн\S*\s*фонд|облигаци|купить акци|купить облигаци|стоит ли (покуп|брать)\s+\S*\s*(акци|облигаци|etf|фонд)|акци\S*\s*(или|против|в портфел))/u.test(normalized)) {
     return result('investment_basics');
   }
 
@@ -222,14 +253,6 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
   // Habit check
   if (/(привычк|чеклист финанс|как дела с финанс|финансов\S* привычк|мои привычк|оцени привычк|финансов\S* здоров)/u.test(normalized)) {
     return result('habit_check');
-  }
-
-  // Book recommendations (BEFORE financial_advice — "посоветуй книги" matches both)
-  if (/(книг|книжк|литератур|что (по)?читать|что (по)?читат|книжн)/u.test(normalized) ||
-      /(recommend|suggest)\s+(me\s+)?(some\s+|good\s+|best\s+)?(books|reading)/iu.test(normalized) ||
-      /(books|book)\s+(on|about|for|to read)/iu.test(normalized) ||
-      /(reading\s+list|reading\s+material)/iu.test(normalized)) {
-    return result('book_recommendations');
   }
 
   // Financial advice (broad — should be after specific coaching intents)
@@ -317,30 +340,24 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     return result('budget_risk');
   }
 
-  // By account
+  // By account — only when user explicitly references an account/card.
+  //
+  // History: there used to be an `accountFallback` regex below that
+  // tried to extract an account name out of generic spend summaries
+  // ("расходы за неделю" → by_account("за неделю")). It pattern-matched
+  // on the root "трат" inside any verb form like "потратил" and the
+  // preposition "за" wasn't in its whitelist, so it captured arbitrary
+  // sentence tails as bogus account names. ~14 of every 100 generic
+  // questions were getting routed to a `by_account` builder that then
+  // returned an empty result.
+  // Fixed by removing the fallback. If the user actually wants a
+  // per-account view they say "на карте X" / "по счёту Y" — and that's
+  // what this primary regex catches.
   const accountMatch = normalized.match(
     /(?:на счет[уе]?|по счет[уе]?|со? счет[ауе]?|на карт[еу]?|с карт[ыиеу]?)\s+(.+?)(?:\s+за|\s+сегодня|\s+недел|\s+месяц|$)/u,
   );
   if (accountMatch?.[1]) {
     return result('by_account', accountMatch[1].trim());
-  }
-  const accountFallback = normalized.match(
-    /(?:расход|трат|доход|баланс)\S*\s+(?:на |по |с |со )?(.{2,20}?)(?:\s+за|\s+сегодня|\s+недел|\s+месяц|$)/u,
-  );
-  if (
-    accountFallback?.[1] &&
-    !/(катег|топ|круп|дорог|больш|сравн|средн|прогноз|бюдж)/u.test(accountFallback[1])
-  ) {
-    const candidate = accountFallback[1].trim();
-    const STOP_WORDS = new Set([
-      'за', 'на', 'по', 'от', 'из', 'до', 'об', 'ко', 'во',
-      'я', 'мы', 'вы', 'он', 'она', 'мне', 'все', 'всё', 'это',
-      'что', 'как', 'где', 'мой', 'мои', 'наш',
-      'ещё', 'еще', 'уже', 'тут', 'там', 'так', 'вот', 'нет', 'да',
-    ]);
-    if (candidate.length >= 2 && candidate.length <= 30 && !STOP_WORDS.has(candidate)) {
-      return result('by_account', candidate);
-    }
   }
 
   // By category
@@ -358,11 +375,20 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     return result('top_expenses');
   }
 
-  if (/(^|\s)(топ|катег|category)/u.test(normalized)) {
+  // Top categories — must run before trend_compare because trend
+  // matches the bare word "больше", which collides with idioms like
+  // "на что трачу больше всего" / "куда уходит больше денег"
+  // (these are top-N questions, not period comparisons).
+  if (/(^|\s)(топ|катег|category)/u.test(normalized) ||
+      /(больше всего|больше всех|на что (?:я )?трачу больше|куда уход\S* больше)/u.test(normalized)) {
     return result('top_categories');
   }
 
-  if (/(сравн|динам|прошл|рост|упал|больше|меньше|trend)/u.test(normalized)) {
+  if (/(сравн|динам|прошл|рост|упал|trend|по сравнению|больше чем|меньше чем)/u.test(normalized) ||
+      /(больше|меньше)\s+(в|на)\s+\d/u.test(normalized) ||
+      /(стал\S*|становит\S*|начал\S*)\s+\S*\s*(трат|расход|больше|меньше)/u.test(normalized) ||
+      /(трат\S*|расход\S*|тратить|тратит)\s+(больше|меньше)/u.test(normalized) ||
+      /(больше|меньше)\s+(трат\S*|расход\S*|тратить|тратит)/u.test(normalized)) {
     return result('trend_compare');
   }
 

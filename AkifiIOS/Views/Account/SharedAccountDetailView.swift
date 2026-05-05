@@ -44,23 +44,27 @@ struct SharedAccountDetailView: View {
         return !settlementVM.suggestions.isEmpty
     }
 
-    /// Recent transactions that actually drive a settlement between
-    /// members on this shared account, scoped to the period currently
-    /// selected in the settlement card.
+    /// Settlement-driving transactions on this shared account, scoped
+    /// to the period currently selected in the settlement card. The
+    /// shared-account detail screen is a "who owes whom" view — it
+    /// surfaces only the rows that actually create a debt between
+    /// members, not every operation on the account.
     ///
     /// Inclusion rules — the row must satisfy ALL of these:
     /// * sits on this shared account (`accountId == account.id`),
     /// * is an expense (`type == .expense`),
-    /// * is the **main** leg of a payment-source pair, not the
-    ///   auto-transfer leg — `transferGroupId == nil`,
-    /// * was paid from a *different* account (`paymentSourceAccountId
-    ///   != nil` AND not the shared account itself). Expenses paid
-    ///   directly with the shared account's card are already shared
-    ///   money — there's nothing to settle.
+    /// * is NOT a plain manual transfer (`transferGroupId == nil`).
+    ///   Note: this is the legacy `transfer_group_id` for hand-rolled
+    ///   transfers; the **main expense leg** of an auto-transfer pair
+    ///   uses a different field (`autoTransferGroupId`), so it passes
+    ///   through here.
+    /// * was paid from a *different* account
+    ///   (`paymentSourceAccountId != nil` AND `!= account.id`). Direct
+    ///   purchases on the shared card are already shared money — no
+    ///   one owes anyone for those.
     ///
     /// The settlement card's `viewModel.suggestions` is built from the
-    /// same signal, so the "pending settlement" badge below stays in
-    /// sync with the actual debt graph.
+    /// same signal, so the list and the debt graph stay in sync.
     private var transactionsForAccount: [Transaction] {
         let interval = settlementVM.selectedPeriod.dateInterval()
         return dataStore.transactions
@@ -68,7 +72,6 @@ struct SharedAccountDetailView: View {
                 guard tx.accountId == account.id,
                       tx.type == .expense,
                       tx.transferGroupId == nil else { return false }
-                // Only payment-source-funded expenses drive settlement.
                 guard let source = tx.paymentSourceAccountId,
                       source != account.id else { return false }
                 guard let d = Self.txDateFormatter.date(from: tx.date) else { return false }

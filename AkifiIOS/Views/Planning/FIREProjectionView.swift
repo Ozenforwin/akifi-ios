@@ -176,6 +176,14 @@ struct FIREProjectionView: View {
     @State private var manualExpensesText: String = ""
     @State private var manualContributionText: String = ""
     @State private var didLoadOverrides = false
+    /// Briefly flips to true after a successful Apply so the button
+    /// can show a checkmark — without this the user has no signal
+    /// that the override was accepted (the hero number changes but
+    /// far above the fold on long screens).
+    @State private var didApply = false
+    /// Drives the keyboard dismiss on Apply.
+    @FocusState private var manualFieldFocused: ManualField?
+    private enum ManualField: Hashable { case expenses, contribution }
 
     /// Lets the user override the auto-detected monthly expenses and
     /// contribution. Useful with shared accounts: the auto figure
@@ -212,12 +220,14 @@ struct FIREProjectionView: View {
                 manualRow(
                     title: String(localized: "fire.manual.expenses"),
                     placeholder: cm.formatAmount((fireVM.rate.avgMonthlyExpense + fireVM.rate.monthlySubscriptionCost).displayAmount),
-                    text: $manualExpensesText
+                    text: $manualExpensesText,
+                    field: .expenses
                 )
                 manualRow(
                     title: String(localized: "fire.manual.contribution"),
                     placeholder: cm.formatAmount(max(0, fireVM.rate.avgMonthlyNet).displayAmount),
-                    text: $manualContributionText
+                    text: $manualContributionText,
+                    field: .contribution
                 )
             }
 
@@ -231,13 +241,22 @@ struct FIREProjectionView: View {
                 Button {
                     applyManualOverrides()
                 } label: {
-                    Text(String(localized: "fire.manual.apply"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.accent)
-                        .clipShape(Capsule())
+                    HStack(spacing: 6) {
+                        if didApply {
+                            Image(systemName: "checkmark")
+                                .font(.subheadline.weight(.bold))
+                        }
+                        Text(didApply
+                             ? String(localized: "fire.manual.applied")
+                             : String(localized: "fire.manual.apply"))
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(didApply ? Color.green : Color.accent)
+                    .clipShape(Capsule())
+                    .animation(.easeInOut(duration: 0.2), value: didApply)
                 }
                 .buttonStyle(.plain)
                 .disabled(!hasManualInput)
@@ -257,7 +276,7 @@ struct FIREProjectionView: View {
     }
 
     @ViewBuilder
-    private func manualRow(title: String, placeholder: String, text: Binding<String>) -> some View {
+    private func manualRow(title: String, placeholder: String, text: Binding<String>, field: ManualField) -> some View {
         HStack {
             Text(title)
                 .font(.subheadline)
@@ -266,6 +285,12 @@ struct FIREProjectionView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
+                .focused($manualFieldFocused, equals: field)
+                .onChange(of: text.wrappedValue) { _, _ in
+                    // Any edit invalidates the "Applied!" affordance
+                    // — user clearly wants to enter a new value.
+                    if didApply { didApply = false }
+                }
             Text(cm.dataCurrency.symbol)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -290,6 +315,15 @@ struct FIREProjectionView: View {
         let contrib = parseKopecks(manualContributionText)
         fireVM.overrideMonthlyExpenses = manualExpensesText.trimmingCharacters(in: .whitespaces).isEmpty ? nil : exp
         fireVM.overrideMonthlyContribution = manualContributionText.trimmingCharacters(in: .whitespaces).isEmpty ? nil : contrib
+        // Visual + tactile confirmation. Without this the user has to
+        // scroll up to see the hero number changed — confusing UX.
+        manualFieldFocused = nil
+        HapticManager.success()
+        withAnimation { didApply = true }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run { withAnimation { didApply = false } }
+        }
     }
 
     private func decimalText(_ minor: Int64) -> String {
@@ -411,7 +445,10 @@ struct FIREProjectionView: View {
     private func chartCardBody(years: Decimal, target: Int64) -> some View {
         let yearsDouble = NSDecimalNumber(decimal: years).doubleValue
         let yearsInt = max(1, Int(ceil(yearsDouble)))
-        let monthlyContrib = Int64(Double(max(0, fireVM.rate.avgMonthlyNet)) * fireVM.investedFractionOfNet)
+        // Use the SAME contribution the projection used. Reading
+        // `rate.avgMonthlyNet × slider` here ignored the manual
+        // override and left the chart looking flat after Apply.
+        let monthlyContrib = fireVM.resolvedMonthlyContribution
         let result = CompoundProjector.project(
             principal: fireVM.netWorth,
             monthlyContribution: monthlyContrib,
@@ -421,8 +458,26 @@ struct FIREProjectionView: View {
         let targetD = Double(target) / 100.0
 
         VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "fire.chart.title"))
-                .font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(localized: "fire.chart.title"))
+                    .font(.headline)
+                Spacer(minLength: 8)
+                // Target label here instead of an in-chart annotation
+                // — chart annotations got clipped on the left by the
+                // y-axis or on the right by the trailing edge depending
+                // on `position`. The card header is roomy and stable.
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green.opacity(0.6))
+                        .frame(width: 6, height: 6)
+                    Text(String(format: String(localized: "fire.chart.targetFormat"),
+                                cm.formatAmount(target.displayAmount)))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.green)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
 
             Chart {
                 ForEach(result.points) { point in
@@ -448,11 +503,6 @@ struct FIREProjectionView: View {
                 RuleMark(y: .value("target", targetD))
                     .foregroundStyle(Color.green.opacity(0.6))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .annotation(position: .topTrailing, alignment: .trailing) {
-                        Text(cm.formatAmount(target.displayAmount))
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.green)
-                    }
             }
             .frame(height: 180)
             .chartXAxis {

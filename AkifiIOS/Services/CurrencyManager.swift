@@ -132,6 +132,9 @@ enum CurrencyCode: String, CaseIterable, Codable, Sendable {
     case vnd = "VND"
     case thb = "THB"
     case idr = "IDR"
+    case kzt = "KZT"
+    case gel = "GEL"
+    case `try` = "TRY"
 
     var symbol: String {
         switch self {
@@ -141,6 +144,9 @@ enum CurrencyCode: String, CaseIterable, Codable, Sendable {
         case .vnd: return "₫"
         case .thb: return "฿"
         case .idr: return "Rp"
+        case .kzt: return "₸"
+        case .gel: return "₾"
+        case .try: return "₺"
         }
     }
 
@@ -152,14 +158,19 @@ enum CurrencyCode: String, CaseIterable, Codable, Sendable {
         case .vnd: return String(localized: "currency.vnd")
         case .thb: return String(localized: "currency.thb")
         case .idr: return String(localized: "currency.idr")
+        case .kzt: return String(localized: "currency.kzt")
+        case .gel: return String(localized: "currency.gel")
+        case .try: return String(localized: "currency.try")
         }
     }
 
-    /// Number of decimal places for display (matches Telegram app)
+    /// Number of decimal places for display (matches Telegram app).
+    /// KZT — по факту тенге пишут без тийинов, как RUB.
+    /// GEL/TRY — реально дробятся на 100 (тетри / куруш).
     var decimals: Int {
         switch self {
-        case .rub, .vnd, .thb, .idr: return 0
-        case .usd, .eur: return 2
+        case .rub, .vnd, .thb, .idr, .kzt: return 0
+        case .usd, .eur, .gel, .try: return 2
         }
     }
 }
