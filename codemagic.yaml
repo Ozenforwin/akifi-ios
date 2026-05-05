@@ -127,7 +127,8 @@ workflows:
           app_id = r.json()["data"][0]["id"]
 
           # Get all App Store versions (approved, in review, prepare for submission)
-          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=10", headers=H)
+          # Higher limit so we don't miss old closed trains beyond the first 10.
+          r = requests.get(f"{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&limit=50", headers=H)
           store_versions = []
           if r.ok:
               for v in r.json()["data"]:
@@ -144,7 +145,7 @@ workflows:
                       # preReleaseVersion is a relationship, not inline
                       pass
           # Also check preReleaseVersions
-          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?sort=-version&limit=5&filter[platform]=IOS", headers=H)
+          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?sort=-version&limit=50&filter[platform]=IOS", headers=H)
           if r.ok:
               for v in r.json()["data"]:
                   tf_versions.append(v["attributes"]["version"])
@@ -156,15 +157,43 @@ workflows:
               parts = v.split(".")
               return tuple(int(p) for p in parts if p.isdigit())
 
+          # Always seed `all_versions` with whatever is in project.yml.
+          # History: if a developer bumped manually because the auto path
+          # picked a closed train (e.g. 1.3.2 was approved → removed → no
+          # longer returned by ASC API, but Apple-side upload still
+          # rejects it as `previously approved version`), we must NOT
+          # downgrade them. Always pick max(ASC, project.yml) and only
+          # bump when the manual value would actually collide with ASC.
+          try:
+              with open("project.yml") as f:
+                  for line in f:
+                      if line.strip().startswith("MARKETING_VERSION:"):
+                          current_yml = line.split(":", 1)[1].strip()
+                          if current_yml:
+                              all_versions.append(current_yml)
+                              print(f"project.yml says: {current_yml}", file=sys.stderr)
+                          break
+          except Exception as e:
+              print(f"WARN: could not read project.yml: {e}", file=sys.stderr)
+
           if not all_versions:
               print("")
               sys.exit(0)
 
           max_ver = max(all_versions, key=lambda v: parse_ver(v))
+          # If project.yml is already at or above the highest version
+          # known to ASC, leave it alone — the developer raised it on
+          # purpose. Bumping again would just walk into the next closed
+          # train (the failure mode this whole script exists to prevent).
+          # We only bump when the file *equals* the ASC max — that's the
+          # case where a fresh build needs a higher patch number.
           parts = list(parse_ver(max_ver))
           while len(parts) < 3:
               parts.append(0)
-          parts[2] += 1  # bump patch
+          if max_ver in store_versions or max_ver in tf_versions:
+              # ASC has it → must bump.
+              parts[2] += 1
+          # Otherwise max_ver came from project.yml only; respect it.
           next_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
           print(f"Max existing: {max_ver}, next: {next_ver}", file=sys.stderr)
           print(next_ver)
