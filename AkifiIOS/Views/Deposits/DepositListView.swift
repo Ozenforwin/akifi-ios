@@ -155,7 +155,7 @@ struct DepositListView: View {
     @ViewBuilder
     private func row(for deposit: Deposit) -> some View {
         let account = dataStore.accounts.first(where: { $0.id == deposit.accountId })
-        let ccy = account.map { CurrencyCode(rawValue: $0.currency.uppercased()) ?? .rub } ?? .rub
+        let ccy = account.map { Currency(code: $0.currency.uppercased()) ?? .rub } ?? .rub
         let total = viewModel.liveTotalValue(for: deposit)
         let accrued = viewModel.liveAccruedInterest(for: deposit)
         let days = daysLeft(for: deposit)

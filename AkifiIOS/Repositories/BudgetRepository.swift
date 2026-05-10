@@ -54,6 +54,9 @@ struct CreateBudgetInput: Encodable, Sendable {
     let budget_type: String
     let custom_start_date: String?
     let custom_end_date: String?
+    /// ISO 4217 (uppercase). The DB column is nullable; pass nil for the
+    /// historical "treat amount as base currency" behavior.
+    let currency: String?
 }
 
 struct UpdateBudgetInput: Encodable, Sendable {
@@ -68,4 +71,5 @@ struct UpdateBudgetInput: Encodable, Sendable {
     var budget_type: String?
     var custom_start_date: String?
     var custom_end_date: String?
+    var currency: String?
 }

@@ -3,43 +3,29 @@ import SwiftUI
 struct MonthlySummaryView: View {
     @Environment(AppViewModel.self) private var appViewModel
 
-    let transactions: [Transaction]
-
-    private static let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    /// Pre-computed monthly aggregates in base currency (kopecks),
+    /// chronologically sorted (oldest → newest). Last element is the
+    /// current month, second-to-last is the previous month. When fewer
+    /// than two months are present the missing values fall back to zero.
+    let aggregates: [MonthlyAggregate]
 
     private var currentMonthTotals: (income: Decimal, expense: Decimal) {
-        monthTotals(offset: 0)
+        guard let last = aggregates.last else { return (0, 0) }
+        return (kopecksToDecimal(last.income), kopecksToDecimal(last.expense))
     }
 
     private var previousMonthTotals: (income: Decimal, expense: Decimal) {
-        monthTotals(offset: -1)
+        guard aggregates.count >= 2 else { return (0, 0) }
+        let prev = aggregates[aggregates.count - 2]
+        return (kopecksToDecimal(prev.income), kopecksToDecimal(prev.expense))
     }
 
-    private func monthTotals(offset: Int) -> (income: Decimal, expense: Decimal) {
-        let cal = Calendar.current
-        let now = Date()
-        guard let targetMonth = cal.date(byAdding: .month, value: offset, to: now) else {
-            return (0, 0)
-        }
-        let comps = cal.dateComponents([.year, .month], from: targetMonth)
-        let df = Self.dateFormatter
-
-        var income: Decimal = 0
-        var expense: Decimal = 0
-        for tx in transactions {
-            guard !tx.isTransfer else { continue }
-            guard let date = df.date(from: tx.date) else { continue }
-            let txComps = cal.dateComponents([.year, .month], from: date)
-            guard txComps.year == comps.year, txComps.month == comps.month else { continue }
-            let amount = appViewModel.dataStore.amountInBaseDisplay(tx)
-            if tx.type == .income { income += amount }
-            else if tx.type == .expense { expense += amount }
-        }
-        return (income, expense)
+    /// `MonthlyAggregate` stores values in base-currency kopecks (Int64).
+    /// `CurrencyManager.formatAmount(_:)` expects a `Decimal` in major
+    /// units, so we convert with the canonical 1/100 factor used by the
+    /// rest of the app (kopecks → rubles / cents → dollars / etc).
+    private func kopecksToDecimal(_ kopecks: Int64) -> Decimal {
+        Decimal(kopecks) / Decimal(100)
     }
 
     private func changePercent(current: Decimal, previous: Decimal) -> Int? {

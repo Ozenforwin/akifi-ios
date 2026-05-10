@@ -7,6 +7,28 @@ struct CashFlowForecastView: View {
     @State private var selectedDate: Date?
     @State private var showHowItWorks: Bool = false
 
+    /// Memoization for `forecast`. The engine is O(N) over transactions and
+    /// is invoked from many computed properties used by `body` (chart marks,
+    /// summary grid, confidence chip, run-out alert). Without memoization,
+    /// every chart-hover (which only flips `selectedDate`) re-triggers a
+    /// full forecast pass — visibly janky on accounts with 1000+ tx.
+    ///
+    /// The cache is keyed on the stable inputs that actually feed
+    /// `CashFlowEngine.forecast`. Identity-based keys (object pointers) are
+    /// avoided — `DataStore` re-publishes value-type arrays on every sync,
+    /// so identity flips even when the data is unchanged.
+    @State private var cachedForecast: (key: ForecastCacheKey, value: CashFlowEngine.Forecast)?
+
+    private struct ForecastCacheKey: Equatable, Hashable {
+        let transactionsCount: Int
+        let subscriptionsCount: Int
+        let accountsCount: Int
+        let horizonMonths: Int
+        let startingBalance: Int64
+        let baseCode: String
+        let fxRatesFingerprint: Int
+    }
+
     enum Horizon: Int, CaseIterable, Identifiable {
         case oneMonth = 1, threeMonths = 3, sixMonths = 6
         var id: Int { rawValue }
@@ -26,7 +48,41 @@ struct CashFlowForecastView: View {
         dataStore.accounts.reduce(Int64(0)) { $0 + dataStore.balance(for: $1) }
     }
 
+    /// Current cache key derived from the inputs that genuinely feed
+    /// `CashFlowEngine.forecast`. Cheap to build (O(N rates) on FX dict —
+    /// in practice <30 entries).
+    private var forecastCacheKey: ForecastCacheKey {
+        let ctx = dataStore.currencyContext
+        return ForecastCacheKey(
+            transactionsCount: dataStore.transactions.count,
+            subscriptionsCount: dataStore.subscriptions.count,
+            accountsCount: dataStore.accounts.count,
+            horizonMonths: horizon.rawValue,
+            startingBalance: startingBalance,
+            baseCode: ctx.baseCode,
+            fxRatesFingerprint: Self.fingerprint(for: ctx.fxRates)
+        )
+    }
+
+    /// Returns the cached forecast when inputs match; otherwise computes
+    /// inline. The cache is *populated* via `.onChange` / `.task` modifiers
+    /// on the view body — never from inside this getter — to avoid the
+    /// classic SwiftUI re-render loop ("write @State from body → invalidate
+    /// → write @State from body → ...").
+    ///
+    /// Worst case (stale cache, body re-evaluated): we compute the forecast
+    /// inline once, the next runloop tick fires `.onChange`, the cache is
+    /// refreshed, and subsequent re-evaluations (chart-hover, animation
+    /// ticks) hit the fast path. No engine work on `selectedDate` flips.
     private var forecast: CashFlowEngine.Forecast {
+        let key = forecastCacheKey
+        if let cached = cachedForecast, cached.key == key {
+            return cached.value
+        }
+        return computeForecast()
+    }
+
+    private func computeForecast() -> CashFlowEngine.Forecast {
         let ctx = dataStore.currencyContext
         return CashFlowEngine.forecast(
             startingBalance: startingBalance,
@@ -37,6 +93,18 @@ struct CashFlowForecastView: View {
             fxRates: ctx.fxRates,
             baseCode: ctx.baseCode
         )
+    }
+
+    /// Cheap fingerprint of the FX rates dictionary — count + a hash of
+    /// its sorted (code, rate) pairs. Stable regardless of dict ordering.
+    private static func fingerprint(for rates: [String: Decimal]) -> Int {
+        var hasher = Hasher()
+        hasher.combine(rates.count)
+        for code in rates.keys.sorted() {
+            hasher.combine(code)
+            hasher.combine(rates[code])
+        }
+        return hasher.finalize()
     }
 
     /// Anchor date for "today" on the chart (start of day, so it visually
@@ -75,6 +143,16 @@ struct CashFlowForecastView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .sheet(isPresented: $showHowItWorks) {
             HowItWorksSheet()
+        }
+        .task(id: forecastCacheKey) {
+            // Refresh the memo whenever the inputs change. Runs once on
+            // appear (when the cache is nil) and again only on real input
+            // changes — chart-hover doesn't touch any field of the key, so
+            // SwiftUI does not re-fire this task.
+            let key = forecastCacheKey
+            if cachedForecast?.key != key {
+                cachedForecast = (key, computeForecast())
+            }
         }
     }
 

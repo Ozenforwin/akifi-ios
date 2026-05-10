@@ -71,7 +71,7 @@ struct DepositsShortcutCard: View {
         let totalPerCurrency = aggregateByCurrency(active)
         var parts: [String] = []
         if totalPerCurrency.count == 1, let (ccy, total) = totalPerCurrency.first {
-            let code = CurrencyCode(rawValue: ccy.uppercased()) ?? .rub
+            let code = Currency(code: ccy.uppercased()) ?? .rub
             parts.append(formatKopecks(total, currency: code))
         } else if totalPerCurrency.count > 1 {
             // Multi-currency: show count only to avoid lying about a fake FX sum.

@@ -4,13 +4,18 @@ import Charts
 struct CashflowTrendView: View {
     @Environment(AppViewModel.self) private var appViewModel
 
-    let transactions: [Transaction]
+    /// Pre-aggregated 6 months in base currency (kopecks), oldest first.
+    /// `DataStore.recentMonthlyAggregates(months: 6, ...)` zero-fills empty
+    /// months so the chart x-axis is always continuous.
+    let aggregates: [MonthlyAggregate]
 
     @State private var selectedLabel: String?
 
-    private static let dateFormatter: DateFormatter = {
+    private static let monthKeyFormatter: DateFormatter = {
         let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
+        df.dateFormat = "yyyy-MM"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(identifier: "UTC")
         return df
     }()
 
@@ -21,35 +26,25 @@ struct CashflowTrendView: View {
         return df
     }()
 
+    /// Convert each `MonthlyAggregate` directly into a `TrendPoint`.
+    /// Single O(N) pass — N is at most 6 — replaces the previous nested
+    /// month × tx loop that called `DateFormatter.date(from:)` per row.
     private var trendData: [TrendPoint] {
-        let cal = Calendar.current
-        let now = Date()
+        let keyFmt = Self.monthKeyFormatter
         let labelFmt = Self.monthLabelFormatter
-
-        var points: [TrendPoint] = []
-
-        for offset in stride(from: -5, through: 0, by: 1) {
-            guard let monthDate = cal.date(byAdding: .month, value: offset, to: now) else { continue }
-            let comps = cal.dateComponents([.year, .month], from: monthDate)
-            let df = Self.dateFormatter
-
-            var income: Decimal = 0
-            var expense: Decimal = 0
-            for tx in transactions {
-                guard !tx.isTransfer else { continue }
-                guard let date = df.date(from: tx.date) else { continue }
-                let txComps = cal.dateComponents([.year, .month], from: date)
-                guard txComps.year == comps.year, txComps.month == comps.month else { continue }
-                let amount = appViewModel.dataStore.amountInBaseDisplay(tx)
-                if tx.type == .income { income += amount }
-                else if tx.type == .expense { expense += amount }
+        return aggregates.map { agg in
+            let label: String
+            if let date = keyFmt.date(from: agg.monthKey) {
+                label = labelFmt.string(from: date).capitalized
+            } else {
+                label = agg.monthKey
             }
-
-            let label = labelFmt.string(from: monthDate).capitalized
-            points.append(TrendPoint(label: label, income: income, expense: expense))
+            return TrendPoint(
+                label: label,
+                income: Decimal(agg.income) / Decimal(100),
+                expense: Decimal(agg.expense) / Decimal(100)
+            )
         }
-
-        return points
     }
 
     private var selectedPoint: TrendPoint? {

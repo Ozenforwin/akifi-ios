@@ -89,11 +89,13 @@ struct TransferFormView: View {
                 Section(String(localized: "transfer.details")) {
                     TextField(String(localized: "transfer.comment"), text: $description)
                     DatePicker(String(localized: "common.date"), selection: $date, displayedComponents: .date)
-                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                            Text("\(currency.symbol) \(currency.name)").tag(currency)
-                        }
+                    HStack {
+                        Text(String(localized: "common.currency"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ActiveCurrencyPicker(selection: $selectedCurrency)
                     }
+                    .frame(minHeight: 44)
                 }
 
                 if let errorMessage {
@@ -177,7 +179,7 @@ struct TransferFormView: View {
         let entryLeg = (sourceLeg.foreignAmount != nil ? sourceLeg : (destLeg?.foreignAmount != nil ? destLeg : nil)) ?? sourceLeg
         if let foreign = entryLeg.foreignAmount,
            let foreignCur = entryLeg.foreignCurrency,
-           let code = CurrencyCode(rawValue: foreignCur.uppercased()) {
+           let code = Currency(code: foreignCur.uppercased()) {
             selectedCurrency = code
             calculatorState.setValue(abs(foreign))
         } else {
@@ -326,7 +328,7 @@ struct TransferFormView: View {
 
     static func legFields(amountValue: Decimal, entryCurrency: CurrencyCode, account: Account, cm: CurrencyManager) -> LegFields {
         let accountCode = account.currencyCode
-        let currencyLabel = accountCode.rawValue
+        let currencyLabel = accountCode.code
         if entryCurrency == accountCode {
             return LegFields(
                 amountInAccount: amountValue,
@@ -342,7 +344,7 @@ struct TransferFormView: View {
             amountInAccount: amountInAccount,
             currencyLabel: currencyLabel,
             foreignAmount: amountValue,
-            foreignCurrency: entryCurrency.rawValue,
+            foreignCurrency: entryCurrency.code,
             fxRate: fxRate
         )
     }
@@ -352,8 +354,8 @@ struct TransferFormView: View {
     /// silently producing a 75×-off value (see ADR-001 / 2026-04-19 incident).
     static func crossConvert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
         guard from != to else { return amount }
-        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
-              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+        guard let fromRate = cm.rates[from.code], fromRate > 0,
+              let toRate   = cm.rates[to.code],   toRate > 0 else {
             return amount
         }
         return amount / Decimal(fromRate) * Decimal(toRate)

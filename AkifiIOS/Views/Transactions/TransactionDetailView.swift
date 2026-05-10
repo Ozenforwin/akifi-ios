@@ -168,7 +168,7 @@ struct TransactionDetailView: View {
     private var fireImpactEstimate: FIREImpactCalculator.Estimate? {
         guard transaction.type == .expense, !isAutoTransferLeg else { return nil }
         let cm = appViewModel.currencyManager
-        let baseCode = cm.dataCurrency.rawValue
+        let baseCode = cm.dataCurrency.code
         let accountsById = Dictionary(
             dataStore.accounts.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }

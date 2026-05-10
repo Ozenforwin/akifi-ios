@@ -64,7 +64,7 @@ enum NetWorthCalculator {
         fxRates: [String: Decimal],
         baseCurrency: CurrencyCode
     ) -> Breakdown {
-        let base = baseCurrency.rawValue.uppercased()
+        let base = baseCurrency.code.uppercased()
 
         // Accounts
         var accountsTotal: Int64 = 0

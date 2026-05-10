@@ -52,7 +52,7 @@ struct DepositFormView: View {
     /// source currency, fxRate) used by the save flow.
     private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal)? {
         guard let src = sourceAccount else { return nil }
-        let srcCcy = CurrencyCode(rawValue: src.currency.uppercased()) ?? .rub
+        let srcCcy = Currency(code: src.currency) ?? .rub
         guard srcCcy != currency else { return nil }
         // amountKopecks is in DEPOSIT currency. Convert to source currency
         // using the ExchangeRateService's USD-pivot rates via CurrencyManager.
@@ -79,11 +79,13 @@ struct DepositFormView: View {
             Form {
                 Section(String(localized: "deposit.form.section.info")) {
                     TextField(String(localized: "deposit.form.name"), text: $name)
-                    Picker(String(localized: "common.currency"), selection: $currency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { code in
-                            Text("\(code.symbol) \(code.rawValue)").tag(code)
-                        }
+                    HStack {
+                        Text(String(localized: "common.currency"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ActiveCurrencyPicker(selection: $currency)
                     }
+                    .frame(minHeight: 44)
                 }
 
                 Section(String(localized: "deposit.form.section.initialDeposit")) {
@@ -103,7 +105,7 @@ struct DepositFormView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("\(formatKopecks(info.sourceKopecks, currency: CurrencyCode(rawValue: src.currency.uppercased()) ?? .rub))")
+                            Text("\(formatKopecks(info.sourceKopecks, currency: Currency(code: src.currency) ?? .rub))")
                                 .font(.caption2.weight(.medium))
                                 .monospacedDigit()
                         }

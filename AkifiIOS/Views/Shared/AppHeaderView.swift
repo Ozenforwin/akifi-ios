@@ -3,6 +3,9 @@ import SwiftUI
 struct AppHeaderView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Binding var showProfile: Bool
+    @State private var showFullPicker = false
+    @State private var fullPickerSelection: Currency = .rub
+    private let prefs = UserCurrencyPreferences.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -45,19 +48,40 @@ struct AppHeaderView: View {
 
             Spacer()
 
-            // Currency picker as popup menu (like account switcher)
+            // Display-currency switcher. Inline `Menu` over the user's
+            // active currencies (managed in Settings → "My currencies") so
+            // the most-used one-tap switch stays fast. The "All currencies…"
+            // row is the escape hatch for one-off switches without polluting
+            // the active list.
             Menu {
-                ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                ForEach(prefs.activeCurrencies) { currency in
                     Button {
                         appViewModel.currencyManager.selectedCurrency = currency
                     } label: {
-                        HStack {
-                            Text("\(currency.symbol) \(currency.name)")
-                            if appViewModel.currencyManager.selectedCurrency == currency {
-                                Image(systemName: "checkmark")
-                            }
+                        // Short label inside inline Menu so the row never wraps
+                        // — Apple wraps long localized names ("Российский рубль")
+                        // onto two lines and the menu becomes ugly. Symbol + ISO
+                        // code is enough to identify the currency at a glance;
+                        // full names live in the full-list sheet escape hatch.
+                        if currency == appViewModel.currencyManager.selectedCurrency {
+                            Label(
+                                "\(currency.symbol)  \(currency.code)",
+                                systemImage: "checkmark"
+                            )
+                        } else {
+                            Text("\(currency.symbol)  \(currency.code)")
                         }
                     }
+                }
+                Divider()
+                Button {
+                    fullPickerSelection = appViewModel.currencyManager.selectedCurrency
+                    showFullPicker = true
+                } label: {
+                    Label(
+                        String(localized: "currencyPicker.allCurrencies"),
+                        systemImage: "ellipsis.circle"
+                    )
                 }
             } label: {
                 Text(appViewModel.currencyManager.selectedCurrency.symbol)
@@ -66,7 +90,14 @@ struct AppHeaderView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .menuStyle(.borderlessButton)
+            .accessibilityLabel(String(localized: "common.currency"))
+            .sheet(isPresented: $showFullPicker, onDismiss: {
+                if fullPickerSelection != appViewModel.currencyManager.selectedCurrency {
+                    appViewModel.currencyManager.selectedCurrency = fullPickerSelection
+                }
+            }) {
+                CurrencyPickerView(selection: $fullPickerSelection)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

@@ -78,13 +78,7 @@ struct AssetFormView: View {
                     HStack {
                         TextField(String(localized: "asset.form.value"), text: $amountText)
                             .keyboardType(.decimalPad)
-                        Picker("", selection: $currency) {
-                            ForEach(CurrencyCode.allCases, id: \.self) { code in
-                                Text("\(code.symbol) \(code.rawValue)").tag(code)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(.secondary)
+                        ActiveCurrencyPicker(selection: $currency)
                     }
                 }
 
@@ -182,7 +176,7 @@ struct AssetFormView: View {
                 name: name,
                 category: category.rawValue,
                 current_value: kopecks,
-                currency: currency.rawValue,
+                currency: currency.code,
                 icon: nil,
                 color: nil,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
@@ -204,7 +198,7 @@ struct AssetFormView: View {
                 name: name,
                 category: category.rawValue,
                 current_value: kopecks,
-                currency: currency.rawValue,
+                currency: currency.code,
                 icon: nil,
                 color: nil,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,

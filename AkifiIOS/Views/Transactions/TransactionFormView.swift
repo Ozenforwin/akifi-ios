@@ -51,6 +51,12 @@ struct TransactionFormView: View {
     /// Keyed by `paymentSource.onboardingSeen.<accountId>` in UserDefaults.
     @State private var onboardingDismissedAccounts: Set<String> = []
 
+    /// Sheet escape hatch for "All currencies…" — separate from the
+    /// inline `Menu` because the menu's items can't push a sheet directly.
+    @State private var showFullCurrencyPicker = false
+
+    private let currencyPrefs = UserCurrencyPreferences.shared
+
     private static let isoDateTimeFormatter: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -159,7 +165,7 @@ struct TransactionFormView: View {
         let starred = userDefaults[selectedAccountId ?? ""] == acc.id
         let starSuffix = starred ? " ⭐" : ""
         // Source matches what the user typed in → no conversion, clean label.
-        if acc.currency.lowercased() == selectedCurrency.rawValue.lowercased() {
+        if acc.currency.lowercased() == selectedCurrency.code.lowercased() {
             return "\(acc.icon) \(acc.name)\(starSuffix)"
         }
         // Cross-currency — source account uses a different currency than
@@ -182,7 +188,7 @@ struct TransactionFormView: View {
         guard let sourceId = selectedPaymentSourceId,
               let source = accounts.first(where: { $0.id == sourceId })
         else { return false }
-        return source.currency.lowercased() != selectedCurrency.rawValue.lowercased()
+        return source.currency.lowercased() != selectedCurrency.code.lowercased()
     }
 
     /// Whether to surface the first-time onboarding banner. Fires only
@@ -521,29 +527,52 @@ struct TransactionFormView: View {
         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 12, trailing: 12))
     }
 
-    /// Tappable chip that opens a `Menu` over `CurrencyCode.allCases`.
+    /// Tappable chip that opens an inline `Menu` of the user's active
+    /// currencies, with an "All currencies…" escape hatch that opens
+    /// the full searchable `CurrencyPickerView` as a sheet.
+    ///
     /// Uses an accent-tinted border so it reads as an interactive
     /// affordance, not a passive label — the prior inline `Picker`
     /// blended into the secondary row text and got ignored.
+    ///
+    /// Single-Text-per-row rule applies inside the menu (memory note:
+    /// `feedback_swiftui_picker_rows`).
     @ViewBuilder
     private var currencyChip: some View {
         Menu {
-            ForEach(CurrencyCode.allCases, id: \.self) { code in
+            ForEach(currencyPrefs.activeCurrencies) { c in
                 Button {
-                    selectedCurrency = code
+                    selectedCurrency = c
                 } label: {
-                    if code == selectedCurrency {
-                        Label("\(code.symbol) \(code.name)", systemImage: "checkmark")
+                    // Short row format — long localized names break menu
+                    // layout. Full names live in the searchable sheet below.
+                    if c == selectedCurrency {
+                        Label {
+                            Text("\(c.symbol)  \(c.code)")
+                        } icon: {
+                            Image(systemName: "checkmark")
+                        }
                     } else {
-                        Text("\(code.symbol) \(code.name)")
+                        Text("\(c.symbol)  \(c.code)")
                     }
                 }
             }
+            Divider()
+            Button {
+                showFullCurrencyPicker = true
+            } label: {
+                Label {
+                    Text(String(localized: "currencyPicker.allCurrencies"))
+                } icon: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
         } label: {
+            // Single interpolated Text — keeps the menu trigger label
+            // visually stable across iOS builds (the previous two-Text
+            // HStack would lose the second Text on certain devices).
             HStack(spacing: 6) {
-                Text(selectedCurrency.symbol)
-                    .font(.headline.weight(.semibold))
-                Text(selectedCurrency.rawValue)
+                Text("\(selectedCurrency.symbol)  \(selectedCurrency.code)")
                     .font(.subheadline.weight(.semibold))
                     .monospaced()
                 Image(systemName: "chevron.down")
@@ -563,7 +592,13 @@ struct TransactionFormView: View {
             )
         }
         .accessibilityLabel(String(localized: "common.currency"))
-        .accessibilityValue("\(selectedCurrency.symbol) \(selectedCurrency.name)")
+        .accessibilityValue("\(selectedCurrency.symbol) \(selectedCurrency.localizedName)")
+        .sheet(isPresented: $showFullCurrencyPicker) {
+            // `userPickedCurrency` flips automatically via the existing
+            // `.onChange(of: selectedCurrency)` handler in `body`, so
+            // we don't need an `onDismiss` callback here.
+            CurrencyPickerView(selection: $selectedCurrency)
+        }
     }
 
     /// True when we should render the small "≈ 1 900 ₽" preview next
@@ -580,7 +615,7 @@ struct TransactionFormView: View {
         // Need a rate in both directions; otherwise crossConvert returns
         // the input unchanged and we'd show "≈ 350 000 ₽" for "350 000 ₫".
         let cm = appViewModel.currencyManager
-        return cm.rates[selectedCurrency.rawValue].map { $0 > 0 } ?? false
+        return cm.rates[selectedCurrency.code].map { $0 > 0 } ?? false
             && cm.rates[acc.currency.uppercased()].map { $0 > 0 } ?? false
     }
 
@@ -625,7 +660,7 @@ struct TransactionFormView: View {
         // "Cross-currency" is relative to what the user entered, not the
         // target's native currency. Keeps the hint quiet when source +
         // entered currency match (e.g. entered 100 $, picked USD source).
-        if source.currency.lowercased() != selectedCurrency.rawValue.lowercased() {
+        if source.currency.lowercased() != selectedCurrency.code.lowercased() {
             let sourceAmount = Self.crossConvert(
                 amount: amount,
                 from: selectedCurrency,
@@ -694,7 +729,7 @@ struct TransactionFormView: View {
         //    falls back to `amount` for pre-Phase-1 rows, by Transaction
         //    decoder contract).
         if let fc = tx.foreignCurrency,
-           let code = CurrencyCode(rawValue: fc.uppercased()),
+           let code = Currency(code: fc.uppercased()),
            let fa = tx.foreignAmount {
             selectedCurrency = code
             calculatorState.setValue(fa)
@@ -751,7 +786,7 @@ struct TransactionFormView: View {
         if !amountUnchanged {
             let decision = TransactionGuards.shouldConfirmLargeExpense(
                 inputAmount: amountValue,
-                inputCurrency: selectedCurrency.rawValue,
+                inputCurrency: selectedCurrency.code,
                 type: selectedType,
                 allTransactions: appViewModel.dataStore.transactions,
                 context: appViewModel.dataStore.currencyContext
@@ -806,7 +841,7 @@ struct TransactionFormView: View {
                 using: cm
             )
             foreignAmount = amountValue
-            foreignCurrencyCode = selectedCurrency.rawValue
+            foreignCurrencyCode = selectedCurrency.code
             fxRate = amountValue != 0
                 ? (amountInAccountCurrency / amountValue)
                 : nil
@@ -814,7 +849,7 @@ struct TransactionFormView: View {
 
         // Legacy `currency` column now always mirrors account.currency on
         // new writes. The foreign-entry currency lives in `foreign_currency`.
-        let txCurrencyLabel = accountCode.rawValue
+        let txCurrencyLabel = accountCode.code
 
         do {
             // Always source user_id from the live Supabase session.
@@ -895,7 +930,7 @@ struct TransactionFormView: View {
                         }
                         if let outAccountId = outLeg?.accountId,
                            let srcAccount = accounts.first(where: { $0.id == outAccountId }),
-                           srcAccount.currency.lowercased() != accountCode.rawValue.lowercased() {
+                           srcAccount.currency.lowercased() != accountCode.code.lowercased() {
                             let srcCode = srcAccount.currencyCode
                             editSourceAmount = Self.crossConvert(
                                 amount: amountInAccountCurrency,
@@ -903,7 +938,7 @@ struct TransactionFormView: View {
                                 to: srcCode,
                                 using: cm
                             )
-                            editSourceCurrency = srcCode.rawValue
+                            editSourceCurrency = srcCode.code
                         }
                     }
                     let input = UpdateTransactionInput(
@@ -947,7 +982,7 @@ struct TransactionFormView: View {
                 var sourceCurrency: String? = nil
                 if let srcId = resolvedPaymentSource,
                    let src = accounts.first(where: { $0.id == srcId }),
-                   src.currency.lowercased() != accountCode.rawValue.lowercased() {
+                   src.currency.lowercased() != accountCode.code.lowercased() {
                     let srcCode = src.currencyCode
                     sourceAmount = Self.crossConvert(
                         amount: amountInAccountCurrency,
@@ -955,7 +990,7 @@ struct TransactionFormView: View {
                         to: srcCode,
                         using: cm
                     )
-                    sourceCurrency = srcCode.rawValue
+                    sourceCurrency = srcCode.code
                 }
                 let input = CreateTransactionInput(
                     user_id: userId,
@@ -1031,7 +1066,7 @@ struct TransactionFormView: View {
         var sourceCurrency: String? = nil
         if let srcId = newSource,
            let src = accounts.first(where: { $0.id == srcId }),
-           src.currency.lowercased() != targetCode.rawValue.lowercased() {
+           src.currency.lowercased() != targetCode.code.lowercased() {
             let srcCode = src.currencyCode
             sourceAmount = Self.crossConvert(
                 amount: amountInAccountCurrency,
@@ -1039,7 +1074,7 @@ struct TransactionFormView: View {
                 to: srcCode,
                 using: cm
             )
-            sourceCurrency = srcCode.rawValue
+            sourceCurrency = srcCode.code
         }
 
         // 3. Recreate with the new shape. `addTransaction` will route to
@@ -1100,8 +1135,8 @@ struct TransactionFormView: View {
         using cm: CurrencyManager
     ) -> Decimal {
         guard from != to else { return amount }
-        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
-              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+        guard let fromRate = cm.rates[from.code], fromRate > 0,
+              let toRate   = cm.rates[to.code],   toRate > 0 else {
             return amount
         }
         return amount / Decimal(fromRate) * Decimal(toRate)

@@ -15,6 +15,10 @@ struct Budget: Codable, Identifiable, Sendable {
     var rolloverEnabled: Bool
     var alertThresholds: [Int]?
     var isActive: Bool
+    /// ISO 4217 code (uppercase) the `amount` is denominated in. Legacy
+    /// rows have `nil` — `BudgetMath` treats those as the user's base
+    /// currency, preserving the original implicit behavior.
+    var currency: String?
     let createdAt: String?
     let updatedAt: String?
 
@@ -33,16 +37,18 @@ struct Budget: Codable, Identifiable, Sendable {
         case rolloverEnabled = "rollover_enabled"
         case alertThresholds = "alert_thresholds"
         case isActive = "is_active"
+        case currency
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
 
-    init(id: String, userId: String, budgetName: String? = nil, budgetDescription: String? = nil, accountIds: [String]? = nil, budgetType: String? = nil, amount: Int64, billingPeriod: BillingPeriod, categoryIds: [String]? = nil, customStartDate: String? = nil, customEndDate: String? = nil, rolloverEnabled: Bool = false, alertThresholds: [Int]? = nil, isActive: Bool = true, createdAt: String? = nil, updatedAt: String? = nil) {
+    init(id: String, userId: String, budgetName: String? = nil, budgetDescription: String? = nil, accountIds: [String]? = nil, budgetType: String? = nil, amount: Int64, billingPeriod: BillingPeriod, categoryIds: [String]? = nil, customStartDate: String? = nil, customEndDate: String? = nil, rolloverEnabled: Bool = false, alertThresholds: [Int]? = nil, isActive: Bool = true, currency: String? = nil, createdAt: String? = nil, updatedAt: String? = nil) {
         self.id = id; self.userId = userId; self.budgetName = budgetName; self.budgetDescription = budgetDescription
         self.accountIds = accountIds; self.budgetType = budgetType; self.amount = amount; self.billingPeriod = billingPeriod
         self.categoryIds = categoryIds; self.customStartDate = customStartDate
         self.customEndDate = customEndDate; self.rolloverEnabled = rolloverEnabled
         self.alertThresholds = alertThresholds; self.isActive = isActive
+        self.currency = currency
         self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
@@ -62,6 +68,7 @@ struct Budget: Codable, Identifiable, Sendable {
         rolloverEnabled = try container.decodeIfPresent(Bool.self, forKey: .rolloverEnabled) ?? false
         alertThresholds = try container.decodeIfPresent([Int].self, forKey: .alertThresholds)
         isActive = try container.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
+        currency = try container.decodeIfPresent(String.self, forKey: .currency)?.uppercased()
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
@@ -82,6 +89,7 @@ struct Budget: Codable, Identifiable, Sendable {
         try container.encode(rolloverEnabled, forKey: .rolloverEnabled)
         try container.encodeIfPresent(alertThresholds, forKey: .alertThresholds)
         try container.encode(isActive, forKey: .isActive)
+        try container.encodeIfPresent(currency, forKey: .currency)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }

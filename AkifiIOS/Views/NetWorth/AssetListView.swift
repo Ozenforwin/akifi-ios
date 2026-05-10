@@ -163,7 +163,7 @@ struct AssetListView: View {
     /// (so the user always sees what they actually entered). Dashboard
     /// sums convert to base currency separately.
     private func formatLocal(_ amount: Int64, currency: String) -> String {
-        let code = CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        let code = Currency(code: currency.uppercased()) ?? .rub
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = code.decimals

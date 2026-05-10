@@ -49,11 +49,13 @@ struct SubscriptionFormView: View {
                         }
                     }
 
-                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                            Text("\(currency.symbol) \(currency.name)").tag(currency)
-                        }
+                    HStack {
+                        Text(String(localized: "common.currency"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ActiveCurrencyPicker(selection: $selectedCurrency)
                     }
+                    .frame(minHeight: 44)
 
                     Picker(String(localized: "subscriptions.category"), selection: $selectedCategoryId) {
                         Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
@@ -144,7 +146,7 @@ struct SubscriptionFormView: View {
         let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
         let last: Date? = specifyLastPayment ? lastPaymentDate : nil
         await onSave(
-            name, amountCents, period, selectedColor, selectedCurrency.rawValue,
+            name, amountCents, period, selectedColor, selectedCurrency.code,
             reminderDays, last, nextPaymentDate, selectedCategoryId
         )
         dismiss()

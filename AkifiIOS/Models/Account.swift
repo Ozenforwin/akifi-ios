@@ -63,7 +63,7 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
     }
 
     var currencyCode: CurrencyCode {
-        CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        Currency(code: currency.uppercased()) ?? .rub
     }
 }
 

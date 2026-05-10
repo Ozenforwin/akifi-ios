@@ -23,6 +23,15 @@ struct SharedAccountDetailView: View {
     /// every row in the filtered list until the user closes all debts.
     @State private var settlementVM = SettlementViewModel()
 
+    /// Transaction whose per-member settlement sheet is currently open.
+    /// `nil` = no sheet. Driven by tap on the row's status badge.
+    @State private var sheetTxn: Transaction?
+
+    /// Members of the shared account with their split weights, fetched
+    /// alongside settlement state. Used by the per-txn sheet to compute
+    /// each member's share. Empty until `settlementVM.load` returns.
+    @State private var memberWeights: [(userId: String, weight: Decimal)] = []
+
     /// Shared `yyyy-MM-dd` parser for `Transaction.date`.
     private static let txDateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -101,6 +110,19 @@ struct SharedAccountDetailView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareAccountView(account: account)
                 .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(item: $sheetTxn) { tx in
+            TxnSettlementSheetView(
+                transaction: tx,
+                sharedAccount: account,
+                members: memberWeights,
+                payerUserId: tx.userId,
+                viewModel: settlementVM
+            )
+            .presentationBackground(.regularMaterial)
+        }
+        .task(id: account.id) {
+            await loadMemberWeights()
         }
         // Override the FAB's contextual account while this detail screen
         // is on top of the navigation stack. Restore the previous value
@@ -288,44 +310,209 @@ struct SharedAccountDetailView: View {
         }
     }
 
-    /// Wraps `TransactionRowView` in a VStack so we can attach a
-    /// "pending settlement" capsule beneath the row without reaching
-    /// into the row's internals (it is reused by Home, Search, etc.
-    /// — surgery there would ripple). The badge appears on every row
-    /// in the filtered list while there are open suggestions for the
-    /// selected period; it disappears the moment the user clears the
-    /// last debt via "Mark as settled".
+    /// One row in the shared-account tx list. Wraps `TransactionRowView`
+    /// in a VStack so the per-row settlement state badge fits beneath
+    /// without surgery on the shared row component (it's reused across
+    /// Home, Search, etc.).
+    ///
+    /// Three interactions, all converging on the same per-member marks:
+    /// 1. Tap the badge → opens the per-member sheet.
+    /// 2. Swipe left → quick "Учесть всё" / "Вернуть всё".
+    /// 3. (In the sheet) per-member toggles for precise control.
     @ViewBuilder
     private func transactionRow(for tx: Transaction) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let state = settlementState(for: tx)
+        Button {
+            HapticManager.light()
+            sheetTxn = tx
+        } label: {
             TransactionRowView(
                 transaction: tx,
                 category: dataStore.category(for: tx),
                 account: account
             )
-            if hasOpenSettlements {
-                pendingSettlementBadge
-                    .padding(.leading, 56) // align under the row's title (icon 44 + 12 spacing)
+            // Badge sits in the bottom-right inside the card. Using overlay
+            // keeps `TransactionRowView` itself unchanged (it's reused across
+            // Home, Search, etc.) — surgery there would ripple. The 12pt
+            // inset matches the row's internal padding so the pill aligns
+            // with the rest of the row chrome.
+            .overlay(alignment: .bottomTrailing) {
+                if let state {
+                    settlementBadge(for: tx, state: state)
+                        .padding(.trailing, 12)
+                        .padding(.bottom, 10)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .opacity(state == .full ? 0.55 : 1.0)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            swipeAction(for: tx, state: state ?? .open)
+        }
+    }
+
+    /// Status capsule shown inside the row card. Color and copy reflect
+    /// the txn's per-member settlement state. The whole row is tappable
+    /// (parent wraps in a Button), so this view stays purely visual.
+    @ViewBuilder
+    private func settlementBadge(for tx: Transaction, state: TxnSettleState) -> some View {
+        let title = state.localizedTitle(
+            settled: settledCount(for: tx),
+            total: nonPayerCount(for: tx)
+        )
+        HStack(spacing: 4) {
+            Image(systemName: state.icon)
+                .font(.caption2.weight(.semibold))
+            Text(title)
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(state.tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(state.tint.opacity(0.15))
+        .clipShape(Capsule())
+        .accessibilityLabel(title)
+    }
+
+    /// Swipe-to-toggle action. Mirrors the "Учесть всё / Вернуть всё"
+    /// bulk action from the sheet — a single horizontal gesture per row.
+    @ViewBuilder
+    private func swipeAction(for tx: Transaction, state: TxnSettleState) -> some View {
+        if state == .full {
+            Button {
+                HapticManager.medium()
+                Task {
+                    await settlementVM.unmarkTxnSettledForAll(
+                        transactionId: tx.id,
+                        sharedAccountId: account.id,
+                        dataStore: dataStore,
+                        currencyManager: cm
+                    )
+                }
+            } label: {
+                Label(String(localized: "sharedAccount.tx.swipe.reopen"),
+                      systemImage: "arrow.uturn.backward")
+            }
+            .tint(Color.warning)
+        } else {
+            Button {
+                HapticManager.medium()
+                Task {
+                    await settlementVM.markTxnSettledForAll(
+                        transactionId: tx.id,
+                        sharedAccountId: account.id,
+                        payerUserId: tx.userId,
+                        memberUserIds: memberWeights.map(\.userId),
+                        dataStore: dataStore,
+                        currencyManager: cm
+                    )
+                }
+            } label: {
+                Label(String(localized: "sharedAccount.tx.swipe.markSettled"),
+                      systemImage: "checkmark.seal.fill")
+            }
+            .tint(Color.income)
+        }
+    }
+
+    // MARK: - Per-tx settlement state
+
+    enum TxnSettleState: Equatable {
+        case open
+        case partial
+        case full
+
+        var icon: String {
+            switch self {
+            case .open:    return "hourglass"
+            case .partial: return "circle.lefthalf.filled"
+            case .full:    return "checkmark.seal.fill"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .open:    return .warning
+            case .partial: return .accent
+            case .full:    return .income
+            }
+        }
+
+        func localizedTitle(settled: Int, total: Int) -> String {
+            switch self {
+            case .open:
+                return String(localized: "sharedAccount.tx.pendingSettlement")
+            case .partial:
+                return String(format: String(localized: "sharedAccount.tx.partial %lld %lld"),
+                              settled, total)
+            case .full:
+                return String(localized: "sharedAccount.tx.settledForAll")
             }
         }
     }
 
-    /// Compact amber capsule — same warning hue used elsewhere in the
-    /// app (budget pacing, large-expense alert). Caption2 weight keeps
-    /// the row visually subordinate to the amount/title.
-    @ViewBuilder
-    private var pendingSettlementBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "hourglass")
-                .font(.caption2.weight(.semibold))
-            Text(String(localized: "sharedAccount.tx.pendingSettlement"))
-                .font(.caption2.weight(.semibold))
+    /// Visible state for the per-row badge. Returns nil when there's
+    /// nothing meaningful to show — both the cumulative balance is even
+    /// AND no per-txn marks exist for this row. Without that early-exit
+    /// the row stays "Ожидает расчёта" forever after the user closes
+    /// debts via the aggregate "Mark settled" flow (no per-member marks
+    /// were created, so the per-txn state would still read open).
+    private func settlementState(for tx: Transaction) -> TxnSettleState? {
+        let settled = settledCount(for: tx)
+        let total = nonPayerCount(for: tx)
+
+        // Per-txn marks present — show their state regardless of cumulative.
+        if total > 0 && settled > 0 {
+            return settled >= total ? .full : .partial
         }
-        .foregroundStyle(Color.warning)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Color.warning.opacity(0.15))
-        .clipShape(Capsule())
-        .accessibilityLabel(String(localized: "sharedAccount.tx.pendingSettlement"))
+
+        // No per-txn marks. Only flag as "ожидает" when there's still an
+        // open cumulative debt — otherwise everyone's even and the badge
+        // would just be visual noise on a clean account.
+        if !settlementVM.suggestions.isEmpty {
+            return .open
+        }
+        return nil
+    }
+
+    private func settledCount(for tx: Transaction) -> Int {
+        settlementVM.memberSettlementsByTxn[tx.id]?.count ?? 0
+    }
+
+    private func nonPayerCount(for tx: Transaction) -> Int {
+        // Total members − 1 (the payer doesn't owe their own share).
+        max(memberWeights.count - 1, 0)
+    }
+
+    /// Pulls `account_members` once on appear so the per-txn sheet has the
+    /// member list with split weights ready. The settlement card already
+    /// fetches the same rows in `SettlementViewModel.load`, but the sheet
+    /// view needs them in a friendly tuple-list shape.
+    private func loadMemberWeights() async {
+        do {
+            let members: [AccountMember] = try await SupabaseManager.shared.client
+                .from("account_members")
+                .select()
+                .eq("account_id", value: account.id)
+                .execute()
+                .value
+            if !members.isEmpty {
+                memberWeights = members.map { ($0.userId, $0.splitWeight) }
+            } else {
+                let ids = Array(
+                    Set(dataStore.transactions
+                        .filter { $0.accountId == account.id }
+                        .map(\.userId))
+                )
+                memberWeights = ids.map { ($0, Decimal(1.0)) }
+            }
+        } catch {
+            // Non-fatal — the sheet will fall back to a single-member view
+            // if the list is empty, and the row badges will still render
+            // from `viewModel.memberSettlementsByTxn` correctly.
+            AppLogger.data.debug("memberWeights load: \(error.localizedDescription)")
+        }
     }
 }

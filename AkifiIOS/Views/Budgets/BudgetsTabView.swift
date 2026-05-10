@@ -421,11 +421,13 @@ struct EditSubscriptionFormView: View {
                             nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: newValue)
                         }
                     }
-                    Picker(String(localized: "common.currency"), selection: $selectedCurrency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                            Text("\(currency.symbol) \(currency.name)").tag(currency)
-                        }
+                    HStack {
+                        Text(String(localized: "common.currency"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ActiveCurrencyPicker(selection: $selectedCurrency)
                     }
+                    .frame(minHeight: 44)
 
                     Picker(String(localized: "subscriptions.category"), selection: $selectedCategoryId) {
                         Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
@@ -558,7 +560,7 @@ struct EditSubscriptionFormView: View {
         reminderDays = subscription.reminderDays
         selectedCategoryId = subscription.categoryId
         status = subscription.status
-        if let cur = subscription.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+        if let cur = subscription.currency, let code = Currency(code: cur.uppercased()) {
             selectedCurrency = code
         }
         if let lastStr = subscription.lastPaymentDate,
@@ -588,7 +590,7 @@ struct EditSubscriptionFormView: View {
             amount: amountCents,
             period: period,
             color: selectedColor,
-            currency: selectedCurrency.rawValue,
+            currency: selectedCurrency.code,
             reminderDays: reminderDays,
             lastPaymentDate: specifyLastPayment ? lastPaymentDate : nil,
             nextPaymentDate: nextPaymentDate,

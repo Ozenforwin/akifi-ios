@@ -130,7 +130,7 @@ struct Liability: Codable, Sendable, Identifiable {
     }
 
     var currencyCode: CurrencyCode {
-        CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        Currency(code: currency.uppercased()) ?? .rub
     }
 
     /// Small helper because PostgREST may send BIGINT either as a JSON

@@ -23,6 +23,12 @@ struct BudgetFormView: View {
     @State private var customEndDate = Calendar.current.date(byAdding: .month, value: 1, to: Date())!
     @State private var isSaving = false
     @State private var errorMessage: String?
+    /// Currency the budget's amount is denominated in. New budgets default
+    /// to the linked account's ccy → user's display ccy → base ccy.
+    /// Editing reads from `budget.currency` (or falls back to base for
+    /// pre-currency rows).
+    @State private var currency: Currency = .rub
+    @State private var didInitCurrency = false
 
     private let budgetRepo = BudgetRepository()
 
@@ -83,9 +89,23 @@ struct BudgetFormView: View {
                     }
                 }
 
-                // Amount
-                Section(String(localized: "common.amount")) {
+                // Amount + currency
+                Section {
+                    HStack {
+                        Text(String(localized: "common.currency"))
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ActiveCurrencyPicker(selection: $currency)
+                    }
+                    .frame(minHeight: 44)
                     CalculatorKeyboardView(state: calculatorState)
+                } header: {
+                    Text(String(localized: "common.amount"))
+                } footer: {
+                    Text(String(format: String(localized: "budget.amount.currencyHint %@"),
+                                currency.code))
+                        .font(.caption)
                 }
 
                 // Period
@@ -245,35 +265,70 @@ struct BudgetFormView: View {
                     .disabled(!isValid || isSaving)
                 }
             }
-            .onAppear { prefillIfEditing() }
+            .onAppear { prefill() }
         }
     }
 
-    private func prefillIfEditing() {
-        guard let budget = editingBudget else { return }
-        budgetName = budget.budgetName ?? ""
-        budgetDescription = budget.budgetDescription ?? ""
-        // Budget.amount is stored in BASE currency (kopecks). Convert to the
-        // user's display currency so the calculator pre-fills a value the
-        // user can recognize (e.g. VND when they originally entered VND).
-        let cm = appViewModel.currencyManager
-        let inDisplay = cm.convert(budget.amount.displayAmount)
-        calculatorState.setValue(inDisplay)
-        period = budget.billingPeriod
-        budgetType = budget.budgetTypeEnum
-        selectedCategories = Set(budget.categoryIds ?? [])
-        selectedAccountId = budget.accountId
-        rolloverEnabled = budget.rolloverEnabled
-        alertThresholds = budget.alertThresholds ?? [80]
-        if let start = budget.customStartDate {
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            customStartDate = df.date(from: start) ?? Date()
+    /// Resolves the default currency for a brand-new budget. Priority:
+    /// 1. Currency of the currently-selected linked account (if any).
+    /// 2. The user's selected display currency (`CurrencyManager.selectedCurrency`).
+    /// 3. The user's base/data currency.
+    /// This matches what the user is most likely thinking of when they
+    /// open the form — usually they want the same units as the account
+    /// they're budgeting against.
+    private func defaultCurrencyForNewBudget() -> Currency {
+        if let accId = selectedAccountId,
+           let acc = accounts.first(where: { $0.id == accId }),
+           let code = Currency(code: acc.currency) {
+            return code
         }
-        if let end = budget.customEndDate {
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            customEndDate = df.date(from: end) ?? Date()
+        let cm = appViewModel.currencyManager
+        return cm.selectedCurrency
+    }
+
+    private func prefill() {
+        guard !didInitCurrency else { return }
+        didInitCurrency = true
+
+        if let budget = editingBudget {
+            budgetName = budget.budgetName ?? ""
+            budgetDescription = budget.budgetDescription ?? ""
+            period = budget.billingPeriod
+            budgetType = budget.budgetTypeEnum
+            selectedCategories = Set(budget.categoryIds ?? [])
+            selectedAccountId = budget.accountId
+            rolloverEnabled = budget.rolloverEnabled
+            alertThresholds = budget.alertThresholds ?? [80]
+            if let start = budget.customStartDate {
+                let df = DateFormatter()
+                df.dateFormat = "yyyy-MM-dd"
+                customStartDate = df.date(from: start) ?? Date()
+            }
+            if let end = budget.customEndDate {
+                let df = DateFormatter()
+                df.dateFormat = "yyyy-MM-dd"
+                customEndDate = df.date(from: end) ?? Date()
+            }
+
+            // Currency resolution for editing:
+            // - Explicit `budget.currency` → use it, amount stays in those units.
+            // - Legacy NULL → amount is stored in user's base currency, so
+            //   prefill picker with base ccy and amount unchanged. The user
+            //   can change ccy if they want — the migrate-on-edit semantics
+            //   keep things simple (no auto-FX inside the form).
+            let cm = appViewModel.currencyManager
+            if let raw = budget.currency,
+               let code = Currency(code: raw) {
+                currency = code
+                calculatorState.setValue(budget.amount.displayAmount)
+            } else {
+                currency = cm.dataCurrency
+                calculatorState.setValue(budget.amount.displayAmount)
+            }
+        } else {
+            // New budget: pick a sensible default currency based on the
+            // account selection and user's display currency.
+            currency = defaultCurrencyForNewBudget()
         }
     }
 
@@ -284,12 +339,13 @@ struct BudgetFormView: View {
         }
 
         isSaving = true
-        // CalculatorState returns the amount in the user's DISPLAY currency.
-        // Budgets live in base currency in the DB, so convert before saving —
-        // otherwise 20M VND gets stored as 20M RUB, then re-rendered as
-        // ~6.9 billion VND on next open.
-        let cm = appViewModel.currencyManager
-        let amountForDB = cm.toBase(decimalAmount)
+        // The amount is now stored in the **picker's currency** (no FX at
+        // write time). `BudgetMath.spentAmount` uses `budget.currency` to
+        // FX-normalize transaction amounts on the fly when computing
+        // metrics — so a USD budget with RUB transactions gets correct
+        // numbers without any pre-conversion gymnastics here.
+        let amountForDB = decimalAmount
+        let currencyCode = currency.code
         let cats = selectedCategories.isEmpty ? nil : Array(selectedCategories)
         let accountIds = selectedAccountId.map { [$0] }
 
@@ -310,7 +366,8 @@ struct BudgetFormView: View {
                     alert_thresholds: alertThresholds,
                     budget_type: budgetType.rawValue,
                     custom_start_date: period == .custom ? df.string(from: customStartDate) : nil,
-                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil
+                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil,
+                    currency: currencyCode
                 )
                 try await budgetRepo.update(id: budget.id, input)
             } else {
@@ -328,7 +385,8 @@ struct BudgetFormView: View {
                     alert_thresholds: alertThresholds,
                     budget_type: budgetType.rawValue,
                     custom_start_date: period == .custom ? df.string(from: customStartDate) : nil,
-                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil
+                    custom_end_date: period == .custom ? df.string(from: customEndDate) : nil,
+                    currency: currencyCode
                 )
                 _ = try await budgetRepo.create(input)
                 AnalyticsService.logCreateBudget(period: period.rawValue)

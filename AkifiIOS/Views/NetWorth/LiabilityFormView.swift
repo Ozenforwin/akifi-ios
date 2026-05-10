@@ -54,13 +54,7 @@ struct LiabilityFormView: View {
                     HStack {
                         TextField(String(localized: "liability.form.currentBalance"), text: $balanceText)
                             .keyboardType(.decimalPad)
-                        Picker("", selection: $currency) {
-                            ForEach(CurrencyCode.allCases, id: \.self) { code in
-                                Text("\(code.symbol) \(code.rawValue)").tag(code)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .tint(.secondary)
+                        ActiveCurrencyPicker(selection: $currency)
                     }
                     TextField(String(localized: "liability.form.originalAmount"), text: $originalText)
                         .keyboardType(.decimalPad)
@@ -136,7 +130,7 @@ struct LiabilityFormView: View {
                 current_balance: currentBalance,
                 original_amount: original,
                 interest_rate: rate,
-                currency: currency.rawValue,
+                currency: currency.code,
                 icon: nil,
                 color: nil,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
@@ -153,7 +147,7 @@ struct LiabilityFormView: View {
                 current_balance: currentBalance,
                 original_amount: original,
                 interest_rate: rate,
-                currency: currency.rawValue,
+                currency: currency.code,
                 icon: nil,
                 color: nil,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,

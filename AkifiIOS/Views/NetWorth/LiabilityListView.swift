@@ -164,7 +164,7 @@ struct LiabilityListView: View {
     }
 
     private func formatLocal(_ amount: Int64, currency: String) -> String {
-        let code = CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        let code = Currency(code: currency.uppercased()) ?? .rub
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = code.decimals

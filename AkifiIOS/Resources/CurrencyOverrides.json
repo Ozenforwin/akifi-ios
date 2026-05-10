@@ -1,0 +1,9 @@
+{
+  "RUB": { "symbol": "₽", "decimals": 0 },
+  "VND": { "symbol": "₫", "decimals": 0 },
+  "THB": { "symbol": "฿", "decimals": 0 },
+  "IDR": { "symbol": "Rp", "decimals": 0 },
+  "KZT": { "symbol": "₸", "decimals": 0 },
+  "GEL": { "symbol": "₾" },
+  "TRY": { "symbol": "₺" }
+}

@@ -45,6 +45,14 @@ enum SettlementPeriod: Hashable, Sendable {
 /// Observable facade over `SettlementCalculator`. A `SharedAccountDetailView`
 /// or `AccountSettlementCardView` creates one instance per shared account
 /// and calls `load(sharedAccountId:)` on appear / period-change.
+///
+/// **Balance scope is cumulative.** The "who owes whom" card always reflects
+/// the all-time net, not the selected period. Reason: a period-scoped balance
+/// produced phantom reverse-direction debts after a settlement closed at a
+/// wider scope (e.g. settle in YTD, then the month view re-applied the
+/// YTD-scoped settlement to the month's standalone delta and inverted it).
+/// `selectedPeriod` now only filters the closed-history list and the
+/// transaction list below the card.
 @MainActor
 @Observable
 final class SettlementViewModel {
@@ -53,11 +61,24 @@ final class SettlementViewModel {
     var balances: [SettlementCalculator.MemberBalance] = []
     var suggestions: [SettlementCalculator.SettlementSuggestion] = []
     var pastSettlements: [Settlement] = []
+    /// Per-member, per-transaction settlement marks for this shared account.
+    /// Refreshed alongside `pastSettlements` on every `load`. The UI groups
+    /// these by `transaction_id` to render the row toggle / per-member sheet.
+    var transactionMemberSettlements: [TransactionMemberSettlement] = []
     var isLoading = false
     var errorMessage: String?
 
     private let settlementRepo = SettlementRepository()
+    private let txMemberRepo = TransactionMemberSettlementRepository()
     private let supabase = SupabaseManager.shared.client
+
+    /// Wide-open interval used for cumulative balance computation. Pass to
+    /// `SettlementCalculator.compute` so every in-account transaction and
+    /// every recorded settlement contributes to the running net.
+    private static let cumulativeInterval = DateInterval(
+        start: .distantPast,
+        end: .distantFuture
+    )
 
     /// Recomputes balances + suggestions for `sharedAccountId` using the
     /// transactions & accounts currently in `dataStore`. Also fetches past
@@ -112,14 +133,22 @@ final class SettlementViewModel {
             personalMap[acc.userId, default: []].insert(acc.id)
         }
 
-        let interval = selectedPeriod.dateInterval()
-
         // Fetch past settlements BEFORE compute so closed debts are applied
-        // to balances and don't show up again as live suggestions.
+        // to balances and don't show up again as live suggestions. Also
+        // fetch per-member, per-txn marks — they nudge the contributions
+        // map the same way an aggregate settlement does, but at txn-row
+        // granularity (used by the swipe / sheet UX).
         do {
             pastSettlements = try await settlementRepo.fetchForAccount(sharedAccountId)
         } catch {
             errorMessage = error.localizedDescription
+        }
+        do {
+            transactionMemberSettlements = try await txMemberRepo.fetchForAccount(sharedAccountId)
+        } catch {
+            // Non-fatal — feature is additive; falling through with the
+            // previous list (or empty) keeps the rest of the card working.
+            AppLogger.data.debug("txn-member settlements load: \(error.localizedDescription)")
         }
 
         // Shared account's native currency drives the FX base. `Account.currency`
@@ -131,13 +160,17 @@ final class SettlementViewModel {
         let fxRates = currencyManager?.rates ?? [:]
         let baseCurrency = sharedAccount?.currency
 
+        // Always cumulative: every transaction on the shared account and every
+        // recorded settlement counts toward the running net. The period selector
+        // filters the history & transaction lists, not the balance card.
         balances = SettlementCalculator.compute(
             sharedAccountId: sharedAccountId,
             transactions: dataStore.transactions,
             memberUserIds: memberUserIds,
             personalAccountsByUser: personalMap,
-            period: interval,
+            period: Self.cumulativeInterval,
             pastSettlements: pastSettlements,
+            transactionMemberSettlements: transactionMemberSettlements,
             memberWeights: memberWeights,
             fxRates: fxRates,
             baseCurrency: baseCurrency
@@ -147,17 +180,29 @@ final class SettlementViewModel {
         isLoading = false
     }
 
-    /// Past settlements filtered to the currently selected period — used by
-    /// the "История расчётов" section of the card.
+    /// Past settlements *recorded* during the currently selected period —
+    /// used by the "История расчётов" section of the card.
+    ///
+    /// Filter is keyed off `settledAt` / `createdAt` (the moment the
+    /// settlement was made), NOT `period_end`. Reason: with cumulative
+    /// balances we no longer scope a settlement to a period — recording
+    /// `period_end = today` for a YTD settle would otherwise duplicate the
+    /// row across every period whose interval contains "today" (month,
+    /// quarter, YTD all show it). Filtering by *when the settlement
+    /// happened* keeps each row in exactly one period view.
     var pastSettlementsForCurrentPeriod: [Settlement] {
         let interval = selectedPeriod.dateInterval()
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoNoFrac = ISO8601DateFormatter()
+        isoNoFrac.formatOptions = [.withInternetDateTime]
+
         return pastSettlements.filter { s in
-            guard let end = parser.date(from: s.periodEnd) else { return false }
-            return interval.contains(end)
+            let raw = s.settledAt ?? s.createdAt
+            guard let raw else { return false }
+            let parsed = iso.date(from: raw) ?? isoNoFrac.date(from: raw)
+            guard let parsed else { return false }
+            return interval.contains(parsed)
         }
     }
 
@@ -222,6 +267,135 @@ final class SettlementViewModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Indexed view of `transactionMemberSettlements` for fast UI lookups —
+    /// `marks[txnId]` gives the set of `settled_for_user_id`s closed for
+    /// that txn. Empty set when the txn is fully open.
+    var memberSettlementsByTxn: [String: Set<String>] {
+        var out: [String: Set<String>] = [:]
+        for s in transactionMemberSettlements {
+            out[s.transactionId, default: []].insert(s.settledForUserId)
+        }
+        return out
+    }
+
+    /// Records a per-member settlement mark for a single `(txn, member)`
+    /// pair and reloads. Inserting a duplicate (same txn+member) hits the
+    /// UNIQUE constraint and is treated as a no-op via the catch.
+    func markTxnShareSettled(
+        transactionId: String,
+        sharedAccountId: String,
+        settledForUserId: String,
+        note: String? = nil,
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
+        do {
+            let me = try await SupabaseManager.shared.currentUserId()
+            let input = CreateTransactionMemberSettlementInput(
+                transaction_id: transactionId,
+                shared_account_id: sharedAccountId,
+                settled_for_user_id: settledForUserId,
+                settled_by_user_id: me,
+                note: note
+            )
+            _ = try await txMemberRepo.create(input)
+            await load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: currencyManager
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Removes a per-member settlement mark and reloads. RLS lets only the
+    /// original marker delete; non-marker callers see a silent no-op.
+    func unmarkTxnShareSettled(
+        transactionId: String,
+        sharedAccountId: String,
+        settledForUserId: String,
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
+        do {
+            try await txMemberRepo.delete(
+                transactionId: transactionId,
+                settledForUserId: settledForUserId
+            )
+            await load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: currencyManager
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Bulk action: marks every non-payer member's share of a txn as
+    /// settled (or unmarks all if already fully closed). Mirrors the
+    /// "Учесть всё" / "Вернуть всё" button in the per-txn sheet — and
+    /// the quick toggle on the row when the user is OK collapsing the
+    /// per-member detail.
+    ///
+    /// `payerUserId` is the user whose personal account funded the
+    /// auto-transfer for this txn — they can't owe themselves their own
+    /// share, so we never mark a row for them.
+    func markTxnSettledForAll(
+        transactionId: String,
+        sharedAccountId: String,
+        payerUserId: String,
+        memberUserIds: [String],
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
+        do {
+            let me = try await SupabaseManager.shared.currentUserId()
+            let alreadySettled = memberSettlementsByTxn[transactionId] ?? []
+            let toMark = memberUserIds
+                .filter { $0 != payerUserId }
+                .filter { !alreadySettled.contains($0) }
+            for member in toMark {
+                let input = CreateTransactionMemberSettlementInput(
+                    transaction_id: transactionId,
+                    shared_account_id: sharedAccountId,
+                    settled_for_user_id: member,
+                    settled_by_user_id: me,
+                    note: nil
+                )
+                _ = try? await txMemberRepo.create(input)
+            }
+            await load(
+                sharedAccountId: sharedAccountId,
+                dataStore: dataStore,
+                currencyManager: currencyManager
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Inverse of `markTxnSettledForAll` — clears every per-member mark on
+    /// a txn, reopening it. Useful when the user toggles ✓→◯ on the row.
+    func unmarkTxnSettledForAll(
+        transactionId: String,
+        sharedAccountId: String,
+        dataStore: DataStore,
+        currencyManager: CurrencyManager? = nil
+    ) async {
+        let toClear = transactionMemberSettlements
+            .filter { $0.transactionId == transactionId }
+        for s in toClear {
+            try? await txMemberRepo.delete(id: s.id)
+        }
+        await load(
+            sharedAccountId: sharedAccountId,
+            dataStore: dataStore,
+            currencyManager: currencyManager
+        )
     }
 
     /// Past settlements across ALL periods for this view-model's most

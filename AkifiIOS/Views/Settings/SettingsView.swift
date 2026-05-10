@@ -85,6 +85,25 @@ struct SettingsView: View {
                         SettingsRow(icon: "banknote.fill", color: .mint, title: String(localized: "settings.baseCurrency"), value: appViewModel.currencyManager.dataCurrency.symbol)
                     }
 
+                    // Active-currencies row — controls which currencies
+                    // appear in the inline `ActiveCurrencyPicker` used
+                    // by transaction / account / budget forms. Distinct
+                    // from base/display currency above (which control
+                    // analytics + home screen).
+                    NavigationLink {
+                        ManageActiveCurrenciesView()
+                    } label: {
+                        SettingsRow(
+                            icon: "list.bullet",
+                            color: .green,
+                            title: String(localized: "settings.activeCurrencies.title"),
+                            value: String(
+                                format: String(localized: "settings.activeCurrencies.row %lld"),
+                                UserCurrencyPreferences.shared.activeCodes.count
+                            )
+                        )
+                    }
+
                     // Display-currency picker intentionally NOT duplicated
                     // here — the Home-screen currency switcher is the
                     // primary control and having both made "Base" vs
@@ -451,37 +470,36 @@ struct CategoryLayoutPickerView: View {
 struct BaseCurrencyPickerView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showConfirmAlert = false
-    @State private var pendingCurrency: CurrencyCode?
+    @State private var pendingCurrency: Currency?
+    @State private var showCurrencyPicker = false
+    /// Buffer that the searchable picker writes back into. We don't bind
+    /// directly to `appViewModel.currencyManager.dataCurrency` because
+    /// a base-currency change has to go through a confirm alert first
+    /// (it triggers an FX-context rebuild + UI refresh in DataStore).
+    @State private var pickerSelection: Currency = .rub
 
     var body: some View {
         List {
             Section {
-                ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                    Button {
-                        if currency != appViewModel.currencyManager.dataCurrency {
-                            pendingCurrency = currency
-                            showConfirmAlert = true
-                        }
-                    } label: {
-                        HStack {
-                            Text(currency.symbol)
-                                .font(.title2)
-                            VStack(alignment: .leading) {
-                                Text(currency.rawValue)
-                                    .font(.headline)
-                                Text(currency.name)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if appViewModel.currencyManager.dataCurrency == currency {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.accent)
-                            }
-                        }
+                Button {
+                    pickerSelection = appViewModel.currencyManager.dataCurrency
+                    showCurrencyPicker = true
+                } label: {
+                    HStack {
+                        Text(String(localized: "settings.baseCurrency"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        let cur = appViewModel.currencyManager.dataCurrency
+                        Text("\(cur.symbol)  \(cur.code)")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
                     }
-                    .foregroundStyle(.primary)
+                    .frame(minHeight: 44)
                 }
+                .accessibilityLabel(String(localized: "settings.baseCurrency"))
             }
 
             Section {
@@ -491,6 +509,18 @@ struct BaseCurrencyPickerView: View {
             }
         }
         .navigationTitle(String(localized: "settings.baseCurrency"))
+        .sheet(isPresented: $showCurrencyPicker, onDismiss: {
+            // The picker calls `dismiss()` after a tap, so by the time
+            // `onDismiss` fires the new value is already in
+            // `pickerSelection`. We compare to the live data currency
+            // and only confirm if the user actually changed it.
+            if pickerSelection != appViewModel.currencyManager.dataCurrency {
+                pendingCurrency = pickerSelection
+                showConfirmAlert = true
+            }
+        }) {
+            CurrencyPickerView(selection: $pickerSelection)
+        }
         .alert(String(localized: "settings.baseCurrency.confirmTitle"), isPresented: $showConfirmAlert) {
             Button(String(localized: "settings.baseCurrency.change")) {
                 if let currency = pendingCurrency {
@@ -506,40 +536,6 @@ struct BaseCurrencyPickerView: View {
         } message: {
             Text(String(localized: "settings.baseCurrency.confirmMessage"))
         }
-    }
-}
-
-struct CurrencyPickerView: View {
-    @Environment(AppViewModel.self) private var appViewModel
-
-    var body: some View {
-        List {
-            ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                Button {
-                    appViewModel.currencyManager.selectedCurrency = currency
-                    AnalyticsService.logChangeCurrency(to: currency.rawValue)
-                } label: {
-                    HStack {
-                        Text(currency.symbol)
-                            .font(.title2)
-                        VStack(alignment: .leading) {
-                            Text(currency.rawValue)
-                                .font(.headline)
-                            Text(currency.name)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if appViewModel.currencyManager.selectedCurrency == currency {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.accent)
-                        }
-                    }
-                }
-                .foregroundStyle(.primary)
-            }
-        }
-        .navigationTitle(String(localized: "settings.currency"))
     }
 }
 

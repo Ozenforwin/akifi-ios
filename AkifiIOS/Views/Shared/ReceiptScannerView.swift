@@ -162,13 +162,7 @@ struct ReceiptScannerView: View {
                     TextField("0", text: $editAmount)
                         .keyboardType(.decimalPad)
                         .font(.title2.weight(.bold))
-                    Picker("", selection: $editCurrency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { c in
-                            Text(c.symbol).tag(c)
-                        }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                    ActiveCurrencyPicker(selection: $editCurrency)
                     if let conf = result.confidence {
                         Text("\(Int(conf * 100))%")
                             .font(.caption)
@@ -289,7 +283,7 @@ struct ReceiptScannerView: View {
             editMerchant = result.merchantName ?? ""
             editAmount = result.totalAmount > 0 ? String(format: "%.2f", result.totalAmount) : ""
             editDescription = result.summary ?? ""
-            if let cur = result.currency, let code = CurrencyCode(rawValue: cur.uppercased()) {
+            if let cur = result.currency, let code = Currency(code: cur) {
                 editCurrency = code
             } else {
                 editCurrency = appViewModel.currencyManager.selectedCurrency
@@ -393,11 +387,11 @@ struct ReceiptScannerView: View {
                 foreignCurrency = nil
                 fxRateDouble = nil
             } else {
-                let baseRate = cm.rates[accountCode.rawValue] ?? 1.0
-                let srcRate = cm.rates[editCurrency.rawValue] ?? 1.0
+                let baseRate = cm.rates[accountCode.code] ?? 1.0
+                let srcRate = cm.rates[editCurrency.code] ?? 1.0
                 amountInAccountCurrencyDouble = srcRate > 0 ? (amount / srcRate * baseRate) : amount
                 foreignAmountDouble = amount
-                foreignCurrency = editCurrency.rawValue
+                foreignCurrency = editCurrency.code
                 fxRateDouble = amount > 0 ? amountInAccountCurrencyDouble / amount : nil
             }
 
@@ -409,7 +403,7 @@ struct ReceiptScannerView: View {
             df.dateFormat = "yyyy-MM-dd"
 
             let originalSuffix = editCurrency != accountCode
-                ? " · \(editAmount) \(editCurrency.rawValue)"
+                ? " · \(editAmount) \(editCurrency.code)"
                 : ""
             let description = [
                 editMerchant.isEmpty ? nil : "Чек: \(editMerchant)",
@@ -425,7 +419,7 @@ struct ReceiptScannerView: View {
                 account_id: selectedAccountId,
                 amount: amountInAccountCurrency,
                 amount_native: amountInAccountCurrency,
-                currency: accountCode.rawValue,
+                currency: accountCode.code,
                 foreign_amount: foreignAmount,
                 foreign_currency: foreignCurrency,
                 fx_rate: fxRate,

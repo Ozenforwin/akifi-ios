@@ -23,7 +23,7 @@ struct DepositContributeSheet: View {
     private var cm: CurrencyManager { appViewModel.currencyManager }
 
     private var depositCurrency: CurrencyCode {
-        CurrencyCode(rawValue: depositAccount.currency.uppercased()) ?? .rub
+        Currency(code: depositAccount.currency.uppercased()) ?? .rub
     }
 
     private var personalSourceAccounts: [Account] {
@@ -40,7 +40,7 @@ struct DepositContributeSheet: View {
 
     private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal)? {
         guard let src = sourceAccount else { return nil }
-        let srcCcy = CurrencyCode(rawValue: src.currency.uppercased()) ?? .rub
+        let srcCcy = Currency(code: src.currency.uppercased()) ?? .rub
         guard srcCcy != depositCurrency else { return nil }
         let depositAmountUnits = Decimal(amountKopecks) / 100
         let sourceAmountUnits = cm.convertToAccountCurrency(depositAmountUnits, accountCurrency: srcCcy)
@@ -83,7 +83,7 @@ struct DepositContributeSheet: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(formatKopecks(info.sourceKopecks, currency: CurrencyCode(rawValue: src.currency.uppercased()) ?? .rub))
+                            Text(formatKopecks(info.sourceKopecks, currency: Currency(code: src.currency.uppercased()) ?? .rub))
                                 .font(.caption2.weight(.medium))
                                 .monospacedDigit()
                         }

@@ -5,28 +5,23 @@ struct AnalyticsTabView: View {
     @State private var viewModel = AnalyticsViewModel()
     @State private var showAddTransaction = false
 
-    // Shared period filter for cashflow + categories
-    @State private var selectedPeriod: WidgetPeriod = .month
-
-    // Account filter
-    @State private var selectedAccountId: String?
+    // Lazily initialized in `.task` because `appViewModel` (and thus
+    // `dataStore`) isn't available in `init`. `tabState` owns the
+    // period/account filters plus memoized projections.
+    @State private var tabState: AnalyticsTabState?
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
 
-    private var effectiveTransactions: [Transaction] {
-        if isNewUser { return DemoData.transactions }
-        if let accountId = selectedAccountId {
-            return dataStore.transactions.filter { $0.accountId == accountId }
-        }
-        return dataStore.transactions
+    /// Demo-mode is handled here at the view boundary (per spec). When the
+    /// user has no real transactions we feed `DemoData.transactions` into
+    /// the same widgets; the live `tabState` is only consulted for real data.
+    private var allTransactions: [Transaction] {
+        tabState?.scopedTransactions ?? dataStore.transactions
     }
 
-    private var allTransactions: [Transaction] {
-        if let accountId = selectedAccountId {
-            return dataStore.transactions.filter { $0.accountId == accountId }
-        }
-        return dataStore.transactions
+    private var periodTransactions: [Transaction] {
+        tabState?.periodTransactions ?? []
     }
 
     private static let isoDateFormatter: DateFormatter = {
@@ -35,19 +30,25 @@ struct AnalyticsTabView: View {
         return df
     }()
 
-    private func filteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
+    private func demoFilteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
         let startDate = period.startDate()
         let df = Self.isoDateFormatter
-        let txs = isNewUser ? DemoData.transactions : allTransactions
-        return txs.filter { tx in
+        return DemoData.transactions.filter { tx in
             guard let date = df.date(from: tx.date) else { return false }
             return date >= startDate
         }
     }
 
-    private var globalFiltered: [Transaction] {
-        viewModel.filteredTransactions(from: allTransactions)
+    /// Binding into `tabState.selectedPeriod` with a safe fallback while the
+    /// state is still being constructed (one frame at most).
+    private var periodBinding: Binding<WidgetPeriod> {
+        Binding(
+            get: { tabState?.selectedPeriod ?? .month },
+            set: { tabState?.selectedPeriod = $0 }
+        )
     }
+
+    private var selectedAccountId: String? { tabState?.selectedAccountId }
 
     var body: some View {
         NavigationStack {
@@ -60,15 +61,25 @@ struct AnalyticsTabView: View {
 
                 ScrollView {
                     VStack(spacing: 12) {
+                        // Pre-aggregated 6-month series, scoped to the
+                        // currently-selected account. For demo mode we
+                        // can't get this from `DataStore` (those rows are
+                        // synthetic and live outside Supabase), so fall
+                        // back to the empty-array contract — both consumer
+                        // widgets handle a fewer-than-six list gracefully.
+                        let aggregates = isNewUser
+                            ? []
+                            : dataStore.recentMonthlyAggregates(months: 6, accountId: selectedAccountId)
+
                         // 1. Monthly Summary with % change
                         if isNewUser {
-                            MonthlySummaryView(transactions: DemoData.transactions)
+                            MonthlySummaryView(aggregates: aggregates)
                                 .demoBlur(
                                     hint: String(localized: "welcome.summaryHint"),
                                     buttonTitle: String(localized: "welcome.addTransaction")
                                 ) { showAddTransaction = true }
                         } else {
-                            MonthlySummaryView(transactions: allTransactions)
+                            MonthlySummaryView(aggregates: aggregates)
                                 .spotlight(.analyticsChart)
                         }
 
@@ -84,22 +95,29 @@ struct AnalyticsTabView: View {
 
                         // 4. 6-month Trend
                         if isNewUser {
-                            CashflowTrendView(transactions: DemoData.transactions)
+                            CashflowTrendView(aggregates: aggregates)
                                 .demoBlur(
                                     hint: String(localized: "analytics.trendHint"),
                                     buttonTitle: String(localized: "welcome.addTransaction")
                                 ) { showAddTransaction = true }
                         } else {
-                            CashflowTrendView(transactions: allTransactions)
+                            CashflowTrendView(aggregates: aggregates)
                         }
 
-                        // 5. Period filter
-                        WidgetFilterView(selectedPeriod: $selectedPeriod)
+                        // 5. Period filter (single source of truth — bound
+                        //    to `tabState.selectedPeriod` so the cashflow
+                        //    chart and the category breakdown move in sync).
+                        WidgetFilterView(selectedPeriod: periodBinding)
 
-                        // 6. Cashflow Chart
+                        // 6. Cashflow Chart — sub-month buckets, so it
+                        //    can't read from `monthlyAggregates`. Memoizes
+                        //    `cashflowData(...)` internally.
                         if isNewUser {
                             CashflowChartView(
-                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod), dataStore: dataStore)
+                                transactions: demoFilteredByPeriod(periodBinding.wrappedValue),
+                                period: periodBinding.wrappedValue,
+                                dataStore: dataStore,
+                                viewModel: viewModel
                             )
                             .demoBlur(
                                 hint: String(localized: "analytics.cashflowHint"),
@@ -107,15 +125,21 @@ struct AnalyticsTabView: View {
                             ) { showAddTransaction = true }
                         } else {
                             CashflowChartView(
-                                data: viewModel.cashflowData(from: filteredByPeriod(selectedPeriod), dataStore: dataStore)
+                                transactions: periodTransactions,
+                                period: periodBinding.wrappedValue,
+                                dataStore: dataStore,
+                                viewModel: viewModel
                             )
                         }
 
-                        // 7. Category Breakdown
+                        // 7. Category Breakdown — shares `selectedPeriod`
+                        //    with the cashflow chart above (no duplicate
+                        //    `WidgetFilterView` row inside the widget).
                         if isNewUser {
                             CategoryBreakdownView(
                                 allTransactions: DemoData.transactions,
-                                categories: DemoData.categories
+                                categories: DemoData.categories,
+                                selectedPeriod: periodBinding
                             )
                             .demoBlur(
                                 hint: String(localized: "analytics.categoryHint"),
@@ -124,7 +148,8 @@ struct AnalyticsTabView: View {
                         } else {
                             CategoryBreakdownView(
                                 allTransactions: allTransactions,
-                                categories: dataStore.categories
+                                categories: dataStore.categories,
+                                selectedPeriod: periodBinding
                             )
                         }
 
@@ -152,6 +177,13 @@ struct AnalyticsTabView: View {
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
+            .task {
+                // Lazy one-shot init — `appViewModel.dataStore` isn't available
+                // in `init()` (Environment isn't readable there).
+                if tabState == nil {
+                    tabState = AnalyticsTabState(dataStore: dataStore)
+                }
+            }
         }
     }
 
@@ -159,7 +191,7 @@ struct AnalyticsTabView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
-                    selectedAccountId = nil
+                    tabState?.selectedAccountId = nil
                 } label: {
                     Text(String(localized: "common.all"))
                         .font(.system(size: 13, weight: .medium))
@@ -177,7 +209,7 @@ struct AnalyticsTabView: View {
 
                 ForEach(dataStore.accounts) { account in
                     Button {
-                        selectedAccountId = account.id
+                        tabState?.selectedAccountId = account.id
                     } label: {
                         HStack(spacing: 4) {
                             Text(account.icon)

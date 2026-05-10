@@ -16,7 +16,7 @@ struct DepositDetailView: View {
         dataStore.accounts.first { $0.id == deposit.accountId }
     }
     private var currency: CurrencyCode {
-        depositAccount.map { CurrencyCode(rawValue: $0.currency.uppercased()) ?? .rub } ?? .rub
+        depositAccount.map { Currency(code: $0.currency.uppercased()) ?? .rub } ?? .rub
     }
     private var contributions: [DepositContribution] {
         viewModel.contributionsByDeposit[deposit.id] ?? []
@@ -346,7 +346,7 @@ struct DepositDetailView: View {
                     .foregroundStyle(Color(hex: "#16A34A"))
                     .monospacedDigit()
                 if let srcCurr = contrib.sourceCurrency, let srcAmt = contrib.sourceAmount {
-                    let srcCode = CurrencyCode(rawValue: srcCurr.uppercased()) ?? .rub
+                    let srcCode = Currency(code: srcCurr.uppercased()) ?? .rub
                     Text("~ \(formatAmountInCurrency(srcAmt, currency: srcCode))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

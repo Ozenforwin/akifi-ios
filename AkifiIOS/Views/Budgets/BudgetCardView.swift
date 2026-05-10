@@ -104,13 +104,27 @@ struct BudgetCardView: View {
 
     private var fmt: CurrencyManager { appViewModel.currencyManager }
 
+    /// Formats `kopecks` in the **budget's** currency, not the user's
+    /// display currency. With explicit `budget.currency` we want a USD
+    /// budget to read as "$120 / $200" even when the user's display ccy
+    /// is RUB; otherwise the card silently FX-converts and stops matching
+    /// the value the user typed in. Legacy budgets (currency == nil) keep
+    /// the old behavior — base-ccy amount converted to display ccy.
+    private func budgetFmt(_ kopecks: Int64) -> String {
+        if let raw = budget.currency,
+           let code = Currency(code: raw.uppercased()) {
+            return fmt.formatInCurrency(abs(kopecks).displayAmount, currency: code)
+        }
+        return fmt.formatAmount(kopecks.displayAmount)
+    }
+
     // MARK: - Accessibility
 
     private var accessibilityDescription: String {
         let status = statusLabel.text
-        let spent = fmt.formatAmount(metrics.spent.displayAmount)
-        let limit = fmt.formatAmount(metrics.effectiveLimit.displayAmount)
-        let remaining = fmt.formatAmount(max(0, metrics.remaining).displayAmount)
+        let spent = budgetFmt(metrics.spent)
+        let limit = budgetFmt(metrics.effectiveLimit)
+        let remaining = budgetFmt(max(0, metrics.remaining))
         let pct = metrics.utilization
         return "\(budget.name). \(status). \(spent) \(String(localized: "common.of")) \(limit), \(pct)%. \(remaining) \(String(localized: "budget.accessibility.remaining"))."
     }
@@ -188,10 +202,10 @@ struct BudgetCardView: View {
             // Stats row: spent / remaining + pace + utilization %
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(fmt.formatAmount(metrics.spent.displayAmount))")
+                    Text("\(budgetFmt(metrics.spent))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(progressColor)
-                    + Text(" \(String(localized: "common.of")) \(fmt.formatAmount(metrics.effectiveLimit.displayAmount))")
+                    + Text(" \(String(localized: "common.of")) \(budgetFmt(metrics.effectiveLimit))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -214,11 +228,11 @@ struct BudgetCardView: View {
                     Image(systemName: "repeat.circle.fill")
                         .font(.caption)
                         .foregroundStyle(Color.budget)
-                    Text(String(localized: "budget.subscriptions.\(fmt.formatAmount(metrics.subscriptionCommitted.displayAmount))"))
+                    Text(String(localized: "budget.subscriptions.\(budgetFmt(metrics.subscriptionCommitted))"))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text(String(localized: "budget.freeRemaining.\(fmt.formatAmount(metrics.freeRemaining.displayAmount))"))
+                    Text(String(localized: "budget.freeRemaining.\(budgetFmt(metrics.freeRemaining))"))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
@@ -228,7 +242,7 @@ struct BudgetCardView: View {
             if metrics.remainingDays > 0 && metrics.remaining > 0 {
                 HStack(spacing: 16) {
                     Label {
-                        Text("\(fmt.formatAmount(metrics.safeToSpendDaily.displayAmount))/\(String(localized: "budget.perDay"))")
+                        Text("\(budgetFmt(metrics.safeToSpendDaily))/\(String(localized: "budget.perDay"))")
                             .font(.caption)
                     } icon: {
                         Image(systemName: "shield.checkered")
@@ -251,7 +265,7 @@ struct BudgetCardView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                         .font(.caption)
-                    Text(String(localized: "budget.exceeded.\(fmt.formatAmount(abs(metrics.remaining).displayAmount))"))
+                    Text(String(localized: "budget.exceeded.\(budgetFmt(abs(metrics.remaining)))"))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.primary)
                 }

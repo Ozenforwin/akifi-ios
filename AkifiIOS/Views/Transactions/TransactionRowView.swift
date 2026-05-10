@@ -220,11 +220,11 @@ struct TransactionRowView: View {
         let cm = appViewModel.currencyManager
         if let fAmount = transaction.foreignAmount,
            let fCcyRaw = transaction.foreignCurrency,
-           let fCode = CurrencyCode(rawValue: fCcyRaw.uppercased()) {
+           let fCode = Currency(code: fCcyRaw.uppercased()) {
             return (abs(fAmount), fCode)
         }
         let amount = abs(transaction.amountNative.displayAmount)
-        let ccy = transaction.currency.flatMap { CurrencyCode(rawValue: $0.uppercased()) }
+        let ccy = transaction.currency.flatMap { Currency(code: $0.uppercased()) }
             ?? resolvedAccount?.currencyCode
             ?? cm.dataCurrency
         return (amount, ccy)
@@ -233,8 +233,8 @@ struct TransactionRowView: View {
     private func convert(_ amount: Decimal, from: CurrencyCode, to: CurrencyCode) -> Decimal {
         if from == to { return amount }
         let cm = appViewModel.currencyManager
-        guard let fromRate = cm.rates[from.rawValue], fromRate > 0,
-              let toRate   = cm.rates[to.rawValue],   toRate > 0 else {
+        guard let fromRate = cm.rates[from.code], fromRate > 0,
+              let toRate   = cm.rates[to.code],   toRate > 0 else {
             return amount
         }
         return amount / Decimal(fromRate) * Decimal(toRate)

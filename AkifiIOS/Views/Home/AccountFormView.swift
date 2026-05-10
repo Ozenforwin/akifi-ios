@@ -66,25 +66,23 @@ struct AccountFormView: View {
                 }
 
                 Section {
-                    ForEach(CurrencyCode.allCases, id: \.self) { currency in
-                        Button {
-                            selectedCurrency = currency
-                        } label: {
-                            HStack {
-                                Text(currency.symbol)
-                                    .font(.title3)
-                                    .frame(width: 30)
-                                Text(currency.name)
-                                    .foregroundStyle(isCurrencyLocked ? .secondary : .primary)
-                                Spacer()
-                                if selectedCurrency == currency {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accent)
-                                }
-                            }
+                    HStack {
+                        Text(String(localized: "settings.currency"))
+                            .foregroundStyle(isCurrencyLocked ? .secondary : .primary)
+                        Spacer()
+                        if isCurrencyLocked {
+                            // ADR-001: locked editing case — render the
+                            // current code as plain text, not a Menu trigger,
+                            // so the user can't open it and silently fail
+                            // a change. The footer below explains why.
+                            Text("\(selectedCurrency.symbol)  \(selectedCurrency.code)")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } else {
+                            ActiveCurrencyPicker(selection: $selectedCurrency)
                         }
-                        .disabled(isCurrencyLocked)
                     }
+                    .frame(minHeight: 44)
                 } header: {
                     Text(String(localized: "settings.currency"))
                 } footer: {
@@ -251,8 +249,8 @@ struct AccountFormView: View {
         guard let parsed = parsedBalance else { return "" }
         // FX: account currency → base currency.
         let cm = appViewModel.currencyManager
-        let baseCode = cm.dataCurrency.rawValue.uppercased()
-        let fromCode = selectedCurrency.rawValue.uppercased()
+        let baseCode = cm.dataCurrency.code.uppercased()
+        let fromCode = selectedCurrency.code.uppercased()
         let kopecks = Int64((parsed * 100).rounded())
         let fxRates = cm.rates.mapValues { Decimal($0) }
         let converted = NetWorthCalculator.convert(
@@ -309,7 +307,7 @@ struct AccountFormView: View {
                     name: name,
                     icon: selectedIcon,
                     color: selectedColor,
-                    currency: selectedCurrency.rawValue.lowercased(),
+                    currency: selectedCurrency.code.lowercased(),
                     initialBalance: newBalance
                 )
             } else {
@@ -320,7 +318,7 @@ struct AccountFormView: View {
                     icon: selectedIcon,
                     color: selectedColor,
                     initialBalance: enteredKopecks,
-                    currency: selectedCurrency.rawValue.lowercased()
+                    currency: selectedCurrency.code.lowercased()
                 )
                 AnalyticsService.logCreateAccount()
             }

@@ -60,7 +60,7 @@ final class NetWorthViewModel {
         let today = NetWorthSnapshotRepository.dateFormatter.string(from: Date())
         let alreadyCapturedToday = snapshots.contains { $0.snapshotDate == today }
         if !alreadyCapturedToday, let breakdown {
-            let base = currencyManager.dataCurrency.rawValue
+            let base = currencyManager.dataCurrency.code
             do {
                 let snap = try await snapshotRepo.upsertToday(
                     accountsTotal: breakdown.accountsTotal,
@@ -85,7 +85,7 @@ final class NetWorthViewModel {
     func captureSnapshot(dataStore: DataStore, currencyManager: CurrencyManager) async {
         recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
         guard let breakdown else { return }
-        let base = currencyManager.dataCurrency.rawValue
+        let base = currencyManager.dataCurrency.code
         do {
             let snap = try await snapshotRepo.upsertToday(
                 accountsTotal: breakdown.accountsTotal,
@@ -186,7 +186,7 @@ final class NetWorthViewModel {
         // into base currency (see DataStore.rebuildCaches). Pass the base
         // currency as the "from" side so the calculator's per-account FX
         // step becomes a no-op and doesn't double-convert.
-        let baseCode = currencyManager.dataCurrency.rawValue
+        let baseCode = currencyManager.dataCurrency.code
         let accountBalances: [(accountCurrency: String, amount: Int64)] = dataStore.accounts.map {
             (baseCode, dataStore.balance(for: $0))
         }

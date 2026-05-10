@@ -41,7 +41,7 @@ enum SharedSnapshotWriter {
         currencyManager: CurrencyManager
     ) -> SharedSnapshot {
         let baseCurrency = currencyManager.dataCurrency
-        let baseCode = baseCurrency.rawValue
+        let baseCode = baseCurrency.code
         let symbol = baseCurrency.symbol
         let decimals = baseCurrency.decimals
 

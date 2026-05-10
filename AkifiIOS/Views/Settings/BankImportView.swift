@@ -496,6 +496,13 @@ struct BankImportView: View {
                 .currency
                 .uppercased()
 
+            // Capture each inserted row so we can run subscription auto-match
+            // after the batch lands. Without this, bank-statement auto-debits
+            // (Netflix, Spotify, gym, etc) get persisted but never recorded
+            // against the matching subscription's payment history — the user
+            // sees the expense in the feed but the "История платежей" stays
+            // empty.
+            var insertedTxs: [Transaction] = []
             for tx in txToImport {
                 let input = CreateTransactionInput(
                     user_id: userId,
@@ -509,11 +516,21 @@ struct BankImportView: View {
                     category_id: tx.categoryId,
                     merchant_name: tx.merchantName
                 )
-                _ = try await txRepo.create(input)
+                let created = try await txRepo.create(input)
+                insertedTxs.append(created)
                 imported += 1
             }
 
             await appViewModel.dataStore.loadAll()
+
+            // Run the same hook that `DataStore.addTransaction` calls for
+            // manual rows. Each match inserts a `subscription_payments` row
+            // and advances `last_payment_date` / `next_payment_date` on the
+            // subscription, so the statement run-through behaves like the
+            // user tapped "Mark as paid" on each matching subscription.
+            for tx in insertedTxs {
+                await appViewModel.dataStore.attemptAutoMatch(for: tx)
+            }
             AnalyticsService.logImportStatement()
             importResult = ImportResult(imported: imported, skipped: result.transactions.count - imported)
         } catch {

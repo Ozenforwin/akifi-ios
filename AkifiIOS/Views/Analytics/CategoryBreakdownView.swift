@@ -6,7 +6,11 @@ struct CategoryBreakdownView: View {
     let allTransactions: [Transaction]
     let categories: [Category]
 
-    @State private var selectedPeriod: WidgetPeriod = .month
+    /// Period filter is owned by the enclosing tab so all widgets reading
+    /// from `AnalyticsTabState.selectedPeriod` (cashflow chart, category
+    /// donut, etc.) move in lockstep — no duplicate `WidgetFilterView`
+    /// rows on screen.
+    @Binding var selectedPeriod: WidgetPeriod
     @State private var selectedType: CategoryType = .expense
     @State private var selectedCategory: CategorySpending?
     @State private var isExpanded = false
@@ -20,34 +24,71 @@ struct CategoryBreakdownView: View {
         return df
     }()
 
-    private var filteredTransactions: [Transaction] {
-        let startDate = selectedPeriod.startDate()
-        return allTransactions.filter { tx in
-            guard let date = Self.isoDF.date(from: tx.date) else { return false }
-            return date >= startDate
-        }
+    // MARK: - Memoization
+    //
+    // `data` is consumed by both the donut chart and the list, and
+    // `findCategory(for:)` reads it on every chart-tap. Re-bucketing the
+    // entire transaction set on each access was the dominant cost when
+    // the user scrubbed the chart. The cache key fingerprints
+    // (`txCount`, `selectedType`, `selectedPeriod`) — that's enough to
+    // catch every input that shapes the result while keeping the key
+    // cheap to compare. Account / FX changes flow in via `allTransactions`
+    // (which is itself derived from `AnalyticsTabState.scopedTransactions`,
+    // already keyed on `txGenerationToken`).
+
+    private struct CacheKey: Equatable {
+        let txCount: Int
+        let selectedType: CategoryType
+        let selectedPeriod: WidgetPeriod
     }
 
-    private var data: [CategorySpending] {
-        let txs = filteredTransactions.filter { tx in
+    @State private var cachedKey: CacheKey?
+    @State private var cachedData: [CategorySpending] = []
+    @State private var cachedFiltered: [Transaction] = []
+
+    private var currentKey: CacheKey {
+        CacheKey(
+            txCount: allTransactions.count,
+            selectedType: selectedType,
+            selectedPeriod: selectedPeriod
+        )
+    }
+
+    /// Single-pass aggregation. The previous implementation walked
+    /// `filteredTxs` twice (once for `total`, once for `byCategory`) and
+    /// called `amountInBaseDisplay` on every tx in each pass. Folding both
+    /// accumulators into one loop halves the FX-conversion work and
+    /// matches what `AnalyticsViewModel.categoryBreakdown(...)` does for
+    /// the AI surface.
+    private func computeData() -> (filtered: [Transaction], spending: [CategorySpending]) {
+        let startDate = selectedPeriod.startDate()
+        let df = Self.isoDF
+        let filtered = allTransactions.filter { tx in
+            guard let date = df.date(from: tx.date) else { return false }
+            return date >= startDate
+        }
+
+        let typed = filtered.filter { tx in
             !tx.isTransfer && (
                 (selectedType == .expense && tx.type == .expense) ||
                 (selectedType == .income && tx.type == .income)
             )
         }
 
-        // ADR-001: sum via amountInBaseDisplay so percentages align with
-        // the FX-normalized per-category totals computed below (line 45).
-        let total = txs.reduce(Decimal(0)) { $0 + appViewModel.dataStore.amountInBaseDisplay($1) }
-        guard total > 0 else { return [] }
-
+        var total: Decimal = 0
         var byCategory: [String: Decimal] = [:]
-        for tx in txs {
+        for tx in typed {
+            // ADR-001: sum via amountInBaseDisplay so per-category totals
+            // and the grand total are FX-normalized in lockstep.
+            let amount = appViewModel.dataStore.amountInBaseDisplay(tx)
+            total += amount
             let catId = tx.categoryId ?? "uncategorized"
-            byCategory[catId, default: 0] += appViewModel.dataStore.amountInBaseDisplay(tx)
+            byCategory[catId, default: 0] += amount
         }
 
-        return byCategory.compactMap { catId, amount in
+        guard total > 0 else { return (filtered, []) }
+
+        let spending: [CategorySpending] = byCategory.compactMap { catId, amount in
             let cat = categories.first { $0.id == catId }
             return CategorySpending(
                 id: catId,
@@ -59,6 +100,26 @@ struct CategoryBreakdownView: View {
             )
         }
         .sorted { $0.amount > $1.amount }
+
+        return (filtered, spending)
+    }
+
+    /// Memoized accessor — falls back to a synchronous compute on cache
+    /// miss so the donut never renders stale data for a frame, then the
+    /// `task(id:)` modifier promotes the result into `@State` for all
+    /// subsequent reads (including `findCategory(for:)` taps).
+    private var data: [CategorySpending] {
+        if cachedKey == currentKey {
+            return cachedData
+        }
+        return computeData().spending
+    }
+
+    private var filteredTransactions: [Transaction] {
+        if cachedKey == currentKey {
+            return cachedFiltered
+        }
+        return computeData().filtered
     }
 
     private var visibleData: [CategorySpending] {
@@ -83,8 +144,9 @@ struct CategoryBreakdownView: View {
                 .frame(width: 180)
             }
 
-            // Period filter
-            WidgetFilterView(selectedPeriod: $selectedPeriod)
+            // Period filter is rendered once in `AnalyticsTabView` and
+            // shared with the cashflow chart via `tabState.selectedPeriod`.
+            // (Removed local `WidgetFilterView` to avoid the duplicate row.)
 
             if data.isEmpty {
                 ContentUnavailableView(
@@ -118,6 +180,19 @@ struct CategoryBreakdownView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             .presentationBackground(.ultraThinMaterial)
+        }
+        // Promote the freshly-computed data into `@State` once per key
+        // transition. Subsequent reads of `data` / `filteredTransactions`
+        // (donut redraws, list refreshes, chart-tap `findCategory`) hit
+        // the cache instead of re-bucketing.
+        .task(id: currentKey) {
+            let key = currentKey
+            if cachedKey != key {
+                let result = computeData()
+                cachedFiltered = result.filtered
+                cachedData = result.spending
+                cachedKey = key
+            }
         }
     }
 

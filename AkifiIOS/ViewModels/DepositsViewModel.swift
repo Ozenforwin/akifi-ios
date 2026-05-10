@@ -114,7 +114,7 @@ final class DepositsViewModel {
             icon: "percent",
             color: "#A78BFA",
             initialBalance: 0,
-            currency: currency.rawValue,
+            currency: currency.code,
             accountType: .deposit
         )
 
@@ -134,7 +134,7 @@ final class DepositsViewModel {
         // 3. Transfer pair (source → deposit account) for initial amount.
         let groupId = UUID().uuidString
         let dateStr = Self.formatDate(startDate)
-        let isSameCurrency = sourceAccount.currency.uppercased() == currency.rawValue.uppercased()
+        let isSameCurrency = sourceAccount.currency.uppercased() == currency.code.uppercased()
         let sourceAmountKopecks = isSameCurrency ? initialAmount : (sourceAmount ?? initialAmount)
         let sourceAmountDecimal = Decimal(sourceAmountKopecks) / 100
         let destAmountDecimal = Decimal(initialAmount) / 100
@@ -166,7 +166,7 @@ final class DepositsViewModel {
             account_id: account.id,
             amount: destAmountDecimal,
             amount_native: destAmountDecimal,
-            currency: currency.rawValue.uppercased(),
+            currency: currency.code.uppercased(),
             type: TransactionType.income.rawValue,
             date: dateStr,
             description: String(localized: "deposit.transfer.contribute"),

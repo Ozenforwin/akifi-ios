@@ -476,7 +476,7 @@ enum ReflectionPeriodMath {
         // provided currencyManager (USD-pivoted). Falls back to 1:1 when
         // accountsById is empty (legacy callers).
         let fxRates: [String: Decimal] = currencyManager.rates.mapValues { Decimal($0) }
-        let baseCode = currencyManager.dataCurrency.rawValue.uppercased()
+        let baseCode = currencyManager.dataCurrency.code.uppercased()
         let toBase: (Transaction) -> Int64 = { tx in
             TransactionMath.amountInBase(tx, accountsById: accountsById, fxRates: fxRates, baseCode: baseCode)
         }

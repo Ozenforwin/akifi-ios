@@ -99,7 +99,14 @@ enum SettlementCalculator {
     ///     credited (they paid the debt), `to_user` gets debited (they
     ///     received the repayment). This collapses closed suggestions so
     ///     they don't keep reappearing after "Отметить выполненным".
-    ///     Only settlements overlapping the current period are applied.
+    ///     A settlement is applied when its `period_end` falls inside the
+    ///     `period` argument. The production caller (`SettlementViewModel`)
+    ///     passes a wide-open `distantPast..distantFuture` interval so every
+    ///     settlement is applied — the balance card is always cumulative.
+    ///     Period-scoped intervals are still supported for testing legacy
+    ///     scenarios but are NOT used at runtime: a narrow period combined
+    ///     with a wider-scoped settlement (e.g. YTD settle viewed inside a
+    ///     month) inverts the in-period delta and surfaces phantom debt.
     ///   - memberWeights: `userId → split_weight` from `account_members`.
     ///     Default empty or all-equal collapses to equal split. Members
     ///     missing from the map get weight 1.0 (backward-compat with
@@ -119,6 +126,7 @@ enum SettlementCalculator {
         personalAccountsByUser: [String: Set<String>],
         period: DateInterval,
         pastSettlements: [Settlement] = [],
+        transactionMemberSettlements: [TransactionMemberSettlement] = [],
         memberWeights: [String: Decimal] = [:],
         fxRates: [String: Double] = [:],
         baseCurrency: String? = nil
@@ -193,19 +201,42 @@ enum SettlementCalculator {
         )
         let sumWeights: Decimal = resolvedWeights.values.reduce(0, +)
 
-        /// Fair share for a single member, in kopecks. When sumWeights is
-        /// zero (every member is weight-0 — degenerate) or total is zero,
-        /// everyone gets 0 and nothing is owed.
-        func fairShareFor(_ uid: String) -> Int64 {
-            guard totalExpenses > 0, sumWeights > 0 else { return 0 }
-            let weight = resolvedWeights[uid] ?? 1.0
-            let share = Decimal(totalExpenses) * weight / sumWeights
-            // Round half-up to the nearest kopeck. Explicit handler
-            // avoids banker's rounding drift when weights are equal.
-            var rounded = Decimal()
-            var source = share
-            NSDecimalRound(&rounded, &source, 0, .plain)
-            return Int64(truncating: rounded as NSDecimalNumber)
+        // Per-member fair share, in kopecks. We compute everyone's share
+        // up-front so we can distribute the rounding residual (see below)
+        // and guarantee `sum(fairShares) == totalExpenses`. Without that
+        // step, an odd `totalExpenses` split between two equal-weight
+        // members leaves a 1-kopeck residual that surfaces in the UI as
+        // a "−0 ₽ должен доплатить" caption next to a "В расчёте" peer
+        // (one delta exact zero, the other off by 1 kopeck).
+        var fairShares: [String: Int64] = Dictionary(
+            uniqueKeysWithValues: memberUserIds.map { ($0, Int64(0)) }
+        )
+        if totalExpenses > 0 && sumWeights > 0 {
+            for uid in memberUserIds {
+                let weight = resolvedWeights[uid] ?? 1.0
+                let share = Decimal(totalExpenses) * weight / sumWeights
+                // Round half-up to the nearest kopeck. Explicit handler
+                // avoids banker's rounding drift when weights are equal.
+                var rounded = Decimal()
+                var source = share
+                NSDecimalRound(&rounded, &source, 0, .plain)
+                fairShares[uid] = Int64(truncating: rounded as NSDecimalNumber)
+            }
+
+            // Distribute residual one kopeck at a time across members in
+            // the order they were passed in, so the result is deterministic
+            // for tests. With 2-member equal-split the residual is at most
+            // ±1; with N members and N-tier split-weights it's at most ±N/2.
+            let summed = fairShares.values.reduce(0, +)
+            var residual = totalExpenses - summed
+            let step: Int64 = residual > 0 ? 1 : -1
+            var i = 0
+            while residual != 0 && i < memberUserIds.count {
+                let uid = memberUserIds[i]
+                fairShares[uid, default: 0] += step
+                residual -= step
+                i += 1
+            }
         }
 
         // 3. Contributions.
@@ -290,6 +321,62 @@ enum SettlementCalculator {
             contributions[settlement.toUserId, default: 0] -= settlement.amount
         }
 
+        // 4b. Apply per-member, per-transaction settlements — each row
+        //     means "the share of `transaction_id` that `settled_for_user_id`
+        //     owed the payer is resolved off-book". Effect on the math:
+        //     credit the settled member by their share (as if they
+        //     contributed that amount) and debit the payer by the same
+        //     (as if the payer received that amount back). When every
+        //     non-payer member of a txn settles, the txn's net delta
+        //     becomes zero — same as if it had been split off-app.
+        if !transactionMemberSettlements.isEmpty && sumWeights > 0 {
+            // Index expense rows by id once; lookups inside the loop are O(1).
+            let expensesById = Dictionary(
+                uniqueKeysWithValues: autoTransferExpenses.map { ($0.id, $0) }
+            )
+            // Map auto_transfer_group_id → payer user id, derived from the
+            // peer leg's account. Using the same attribution logic as the
+            // contributions walk above so the payer matches who got the
+            // contribution credit.
+            var payerByGroupId: [String: String] = [:]
+            for leg in autoTransferLegsOnShared where leg.type == .income {
+                guard let groupId = leg.transferGroupId else { continue }
+                let peer = transactions.first { $0.transferGroupId == groupId && $0.id != leg.id }
+                guard let peerAccountId = peer?.accountId else { continue }
+                let payer = personalAccountsByUser.first { _, accounts in
+                    accounts.contains(peerAccountId)
+                }?.key ?? leg.userId
+                payerByGroupId[groupId] = payer
+            }
+
+            for memberSettlement in transactionMemberSettlements
+            where memberSettlement.sharedAccountId == sharedAccountId {
+                guard let expense = expensesById[memberSettlement.transactionId] else { continue }
+                guard let groupId = expense.autoTransferGroupId,
+                      let payer = payerByGroupId[groupId] else { continue }
+                // No-op if the payer marks their own share — they don't
+                // owe themselves anything for this txn.
+                if payer == memberSettlement.settledForUserId { continue }
+
+                // Share for the settled member, in base currency.
+                let normalizedTotal = normalizeToBase(
+                    amount: expense.amountNative,
+                    rowCurrency: expense.currency,
+                    baseCurrency: baseCurrency,
+                    fxRates: fxRates
+                )
+                let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
+                let share = Decimal(normalizedTotal) * weight / sumWeights
+                var rounded = Decimal()
+                var src = share
+                NSDecimalRound(&rounded, &src, 0, .plain)
+                let shareInt = Int64(truncating: rounded as NSDecimalNumber)
+
+                contributions[memberSettlement.settledForUserId, default: 0] += shareInt
+                contributions[payer, default: 0] -= shareInt
+            }
+        }
+
         // 5. Clean empty state: if there are no auto-transfer expenses in the
         //    period, return an empty array so the UI shows "no feature-scoped
         //    activity yet" instead of "everyone owes each other nothing".
@@ -301,7 +388,7 @@ enum SettlementCalculator {
             MemberBalance(
                 userId: uid,
                 contributed: contributions[uid] ?? 0,
-                fairShare: fairShareFor(uid)
+                fairShare: fairShares[uid] ?? 0
             )
         }
     }

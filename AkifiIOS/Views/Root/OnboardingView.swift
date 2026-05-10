@@ -79,6 +79,17 @@ struct WelcomeStepView: View {
 struct CurrencyStepView: View {
     @Environment(AppViewModel.self) private var appViewModel
     let onNext: () -> Void
+    @State private var showCurrencyPicker = false
+    /// Mirror of `selectedCurrency` so the picker can write through a
+    /// `Binding<Currency>`. Synced via `.onAppear` and `.onChange`.
+    @State private var pickerSelection: Currency = .rub
+
+    /// Top-of-list shortcut buttons: keeps the high-friendly tactile UX
+    /// from the original 9-button onboarding while letting users pick
+    /// any of the 150+ ISO codes via the "More" sheet.
+    private let onboardingHotList: [Currency] = [
+        .usd, .eur, .rub
+    ]
 
     var body: some View {
         VStack(spacing: 24) {
@@ -98,16 +109,15 @@ struct CurrencyStepView: View {
                 .padding(.horizontal, 40)
 
             VStack(spacing: 8) {
-                ForEach(CurrencyCode.allCases, id: \.self) { currency in
+                ForEach(onboardingHotList) { currency in
                     Button {
-                        appViewModel.currencyManager.selectedCurrency = currency
-                        appViewModel.currencyManager.dataCurrency = currency
+                        select(currency)
                     } label: {
                         HStack {
                             Text(currency.symbol)
                                 .font(.title2)
                                 .frame(width: 36)
-                            Text(currency.name)
+                            Text(currency.localizedName)
                                 .font(.subheadline)
                             Spacer()
                             if appViewModel.currencyManager.selectedCurrency == currency {
@@ -122,6 +132,27 @@ struct CurrencyStepView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                Button {
+                    pickerSelection = appViewModel.currencyManager.selectedCurrency
+                    showCurrencyPicker = true
+                } label: {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .frame(width: 36)
+                        Text(String(localized: "currencyPicker.title"))
+                            .font(.subheadline)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 24)
 
@@ -129,6 +160,16 @@ struct CurrencyStepView: View {
 
             OnboardingButton(title: String(localized: "common.next"), action: onNext)
         }
+        .sheet(isPresented: $showCurrencyPicker, onDismiss: {
+            select(pickerSelection)
+        }) {
+            CurrencyPickerView(selection: $pickerSelection)
+        }
+    }
+
+    private func select(_ currency: Currency) {
+        appViewModel.currencyManager.selectedCurrency = currency
+        appViewModel.currencyManager.dataCurrency = currency
     }
 }
 

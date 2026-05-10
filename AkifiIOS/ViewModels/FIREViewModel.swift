@@ -135,7 +135,7 @@ final class FIREViewModel {
     ) {
         self.breakdown = breakdown
 
-        let baseCode = currencyManager.dataCurrency.rawValue
+        let baseCode = currencyManager.dataCurrency.code
         let accountsById = Dictionary(
             dataStore.accounts.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }

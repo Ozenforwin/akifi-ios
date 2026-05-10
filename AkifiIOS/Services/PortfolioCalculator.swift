@@ -65,7 +65,7 @@ enum PortfolioCalculator {
     ) -> Summary {
         guard !holdings.isEmpty else { return .zero }
 
-        let base = baseCurrency.rawValue.uppercased()
+        let base = baseCurrency.code.uppercased()
 
         var totalValue: Int64 = 0
         var totalCostBasis: Int64 = 0

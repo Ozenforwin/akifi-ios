@@ -132,9 +132,14 @@ enum BudgetMath {
     // MARK: - Spent
 
     /// Sums the transactions matching this budget, FX-normalizing each
-    /// amount_native into the budget's currency. The budget's currency is
-    /// the linked account's currency (if `budget.accountId` is set), or
-    /// the user's base currency otherwise.
+    /// amount_native into the budget's currency. Resolution order for the
+    /// budget's denominating currency:
+    ///   1. `budget.currency` — set explicitly when the user picks one in
+    ///      `BudgetFormView` (per-budget multi-currency support).
+    ///   2. The linked account's currency, when `budget.accountId` is set
+    ///      and there is no explicit override.
+    ///   3. The user's base currency — legacy default for budgets created
+    ///      before the currency picker existed.
     static func spentAmount(
         budget: Budget,
         transactions: [Transaction],
@@ -142,6 +147,9 @@ enum BudgetMath {
         currencyContext: CurrencyContext
     ) -> Int64 {
         let budgetCurrency: String = {
+            if let explicit = budget.currency, !explicit.isEmpty {
+                return explicit.uppercased()
+            }
             if let accId = budget.accountId,
                let acc = currencyContext.accountsById[accId] {
                 return acc.currency.uppercased()
@@ -186,6 +194,9 @@ enum BudgetMath {
         guard !activeSubs.isEmpty else { return 0 }
 
         let budgetCurrency: String = {
+            if let explicit = budget.currency, !explicit.isEmpty {
+                return explicit.uppercased()
+            }
             if let accId = budget.accountId,
                let acc = currencyContext.accountsById[accId] {
                 return acc.currency.uppercased()

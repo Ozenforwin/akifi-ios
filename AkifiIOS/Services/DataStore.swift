@@ -1,6 +1,21 @@
 import Foundation
 import os
 
+/// Aggregated income / expense for a single yyyy-MM bucket, in the user's
+/// **base currency** (kopecks). Built once per `rebuildCaches()` and read
+/// by analytics widgets via `DataStore.recentMonthlyAggregates(...)`.
+///
+/// Contract: net cashflow only. Transactions of type `.transfer` (or any row
+/// carrying a `transferGroupId`) are excluded — they move money between the
+/// user's own accounts and would double-count or cancel out depending on
+/// account scope.
+struct MonthlyAggregate: Sendable, Equatable {
+    let monthKey: String       // "yyyy-MM"
+    let income: Int64          // base currency, kopecks
+    let expense: Int64         // base currency, kopecks
+    var net: Int64 { income - expense }
+}
+
 @Observable @MainActor
 final class DataStore {
     var accounts: [Account] = []
@@ -39,6 +54,26 @@ final class DataStore {
     @ObservationIgnored private var accountsById: [String: Account] = [:]
     @ObservationIgnored private var fxRatesDecimal: [String: Decimal] = [:]
     @ObservationIgnored private var baseCurrencyCode: String = "RUB"
+
+    // MARK: - Monthly aggregate cache (analytics)
+    //
+    // Pre-bucketed income/expense per yyyy-MM, in base currency (kopecks).
+    // Built eagerly in `rebuildCaches()` because the cost is trivial
+    // (O(transactions)) and analytics widgets hit these on every render
+    // / period change. Power-users have 5-15 accounts → per-account map
+    // stays under a few KB.
+    //
+    // Excludes `.transfer` rows and anything tagged with `transferGroupId`
+    // (cross-leg moves between user's own accounts) so the totals reflect
+    // true net cashflow.
+    @ObservationIgnored private(set) var monthlyAggregates: [String: MonthlyAggregate] = [:]
+    @ObservationIgnored private(set) var monthlyAggregatesByAccount: [String: [String: MonthlyAggregate]] = [:]
+
+    /// Monotonic counter bumped at the end of every `rebuildCaches()` and on
+    /// `currencyContextDidChange()`. Downstream `@Observable` view-states
+    /// (e.g. `AnalyticsTabState`) compare this token in their cache key —
+    /// any change forces re-derivation without needing per-property KVO.
+    @ObservationIgnored private(set) var txGenerationToken: UInt64 = 0
 
     private let accountRepo = AccountRepository()
     private let transactionRepo = TransactionRepository()
@@ -202,7 +237,12 @@ final class DataStore {
     /// If auto-match is enabled in Settings, try to link `tx` to an active
     /// subscription. On success, records a payment via the repository and
     /// surfaces a `PendingAutoMatch` so the UI can offer undo.
-    private func attemptAutoMatch(for tx: Transaction) async {
+    ///
+    /// Internal so callers like `BankImportView` (which create rows directly
+    /// against `TransactionRepository` rather than via `addTransaction`) can
+    /// run the same hook on imported rows. Without this, bank-statement
+    /// auto-debits would never land in the subscription's payment history.
+    func attemptAutoMatch(for tx: Transaction) async {
         // Setting defaults to ON (key missing → use default of true).
         let autoMatchEnabled: Bool = {
             if UserDefaults.standard.object(forKey: Self.autoMatchEnabledKey) == nil { return true }
@@ -265,6 +305,128 @@ final class DataStore {
         } catch {
             AppLogger.data.warning("Auto-match payment insert failed: \(error.localizedDescription)")
         }
+    }
+
+    /// Walk every loaded expense transaction, score it against the given
+    /// subscription, and insert a `subscription_payments` row for every
+    /// score that clears `SubscriptionMatcher.matchThreshold` and is not
+    /// already recorded.
+    ///
+    /// This is the "Pull from history" affordance — for users whose
+    /// subscriptions existed before the auto-match feature shipped, or
+    /// who imported a bank statement that pre-dated the integration.
+    /// `SubscriptionMatcher.score` already returns 0 for the date
+    /// component when the txn is far from `nextPaymentDate`, so historical
+    /// rows fall back to amount + merchant scoring (50 + 20 = 70 ≥ 60),
+    /// which is the right behavior here — the date axis is meaningless
+    /// for older charges.
+    ///
+    /// After the pass, the subscription's `last_payment_date` and
+    /// `next_payment_date` are advanced to follow the most recent matched
+    /// txn so reminders line up with reality.
+    ///
+    /// Returns the number of newly-inserted payments. 0 means either no
+    /// matches or every match was already on file.
+    @discardableResult
+    func backfillPayments(for subscriptionId: String) async -> Int {
+        guard let sub = subscriptions.first(where: { $0.id == subscriptionId }) else { return 0 }
+
+        // Pull existing payments so we can dedupe by (subscription, date).
+        // Multiple charges on the same day for the same subscription are
+        // rare enough that date-only deduping is the pragmatic default; if
+        // it ever bites we'd switch to (date, amount) tuple deduping.
+        let existing: [SubscriptionPayment]
+        do {
+            existing = try await subscriptionRepo.fetchPayments(for: subscriptionId)
+        } catch {
+            AppLogger.data.warning("Backfill: existing-payments fetch failed: \(error.localizedDescription)")
+            return 0
+        }
+        let existingDates = Set(existing.map { String($0.paymentDate.prefix(10)) })
+
+        // Score every loaded expense txn. We don't pre-filter by currency
+        // here — the matcher's amount component already requires a currency
+        // match before awarding the 50 points, and merchant alone (20 pts)
+        // can't clear the 60-point threshold.
+        let candidates: [Transaction] = transactions.filter { $0.type == .expense }
+        var matches: [Transaction] = []
+        for tx in candidates {
+            let scored = SubscriptionMatcher.score(transaction: tx, subscription: sub)
+            guard scored.total >= SubscriptionMatcher.matchThreshold else { continue }
+            let txDayKey = String(tx.date.prefix(10))
+            guard !existingDates.contains(txDayKey) else { continue }
+            matches.append(tx)
+        }
+
+        // Insert in chronological order so the last match wins for the
+        // updated `last_payment_date`. SubscriptionDateEngine then derives
+        // the next-payment date from the rolling cadence — ready for the
+        // reminder scheduler.
+        matches.sort { $0.date < $1.date }
+
+        var inserted = 0
+        var lastMatchDate: String?
+        for tx in matches {
+            let amountDecimal = Decimal(tx.amountNative) / 100
+            let txDayKey = String(tx.date.prefix(10))
+            do {
+                _ = try await subscriptionRepo.addPayment(
+                    CreateSubscriptionPaymentInput(
+                        subscription_id: subscriptionId,
+                        amount: amountDecimal,
+                        currency: sub.currency ?? tx.currency ?? "RUB",
+                        payment_date: txDayKey
+                    )
+                )
+                lastMatchDate = txDayKey
+                inserted += 1
+            } catch {
+                AppLogger.data.warning("Backfill payment insert failed: \(error.localizedDescription)")
+            }
+        }
+
+        // Roll the subscription's payment dates forward to the most recent
+        // matched txn. Skip when nothing matched OR when the existing
+        // last_payment_date is already at or past our latest match — we
+        // don't want to clobber a future-dated reminder with a stale one.
+        if let last = lastMatchDate,
+           let lastDate = SubscriptionDateEngine.parseDbDate(last) {
+            let shouldAdvance: Bool = {
+                guard let currentLast = sub.lastPaymentDate,
+                      let currentLastDate = SubscriptionDateEngine.parseDbDate(currentLast)
+                else { return true }
+                return lastDate > currentLastDate
+            }()
+            if shouldAdvance {
+                let nextDate = SubscriptionDateEngine.nextPaymentDate(from: lastDate, period: sub.billingPeriod)
+                let nextStr = SubscriptionDateEngine.formatDbDate(nextDate)
+                do {
+                    try await subscriptionRepo.updateDates(
+                        id: subscriptionId,
+                        lastPaymentDate: last,
+                        nextPaymentDate: nextStr
+                    )
+                    if let idx = subscriptions.firstIndex(where: { $0.id == subscriptionId }) {
+                        var updated = subscriptions[idx]
+                        updated.lastPaymentDate = last
+                        updated.nextPaymentDate = nextStr
+                        subscriptions[idx] = updated
+                        await NotificationManager.scheduleSubscriptionReminder(
+                            id: updated.id,
+                            serviceName: updated.serviceName,
+                            amount: updated.amount,
+                            currency: updated.currency ?? "RUB",
+                            nextPaymentDate: nextDate,
+                            daysBefore: updated.reminderDays
+                        )
+                    }
+                } catch {
+                    AppLogger.data.warning("Backfill date update failed: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        return inserted
     }
 
     /// Revert the most recent auto-match: deletes the payment row, restores
@@ -615,7 +777,7 @@ final class DataStore {
             budgets: budgetSummaries.isEmpty ? nil : budgetSummaries,
             responseLanguage: responseLanguage,
             fxRates: currencyManager?.rates,
-            displayCurrency: currencyManager?.dataCurrency.rawValue.uppercased()
+            displayCurrency: currencyManager?.dataCurrency.code.uppercased()
         )
     }
 
@@ -632,7 +794,7 @@ final class DataStore {
     /// can return the same account twice) by `uniquingKeysWith` instead of
     /// the crash-on-duplicate `Dictionary(uniqueKeysWithValues:)`.
     private func rebuildCurrencyContext() {
-        baseCurrencyCode = currencyManager?.dataCurrency.rawValue.uppercased() ?? "RUB"
+        baseCurrencyCode = currencyManager?.dataCurrency.code.uppercased() ?? "RUB"
         fxRatesDecimal = (currencyManager?.rates ?? [:]).mapValues { Decimal($0) }
         accountsById = Dictionary(
             accounts.map { ($0.id, $0) },
@@ -675,6 +837,12 @@ final class DataStore {
         var incomeByAccount: [String: Int64] = [:]
         var expenseByAccount: [String: Int64] = [:]
 
+        // Monthly aggregate buckets — populated in the same pass so we don't
+        // walk `transactions` twice. Excludes transfers (see contract on
+        // `MonthlyAggregate`).
+        var monthlyGlobal: [String: (income: Int64, expense: Int64)] = [:]
+        var monthlyByAccount: [String: [String: (income: Int64, expense: Int64)]] = [:]
+
         for tx in transactions {
             guard let accountId = tx.accountId else { continue }
             let accountCcy = accountCurrencyById[accountId] ?? baseCode
@@ -700,6 +868,22 @@ final class DataStore {
                 } else {
                     expenseByAccount[accountId, default: 0] += abs(amountInBase)
                 }
+            }
+
+            // Monthly buckets — net cashflow only. Skip both the dedicated
+            // transfer type and any row that's a leg of a multi-row transfer
+            // (`transferGroupId != nil`).
+            guard tx.type != .transfer, tx.transferGroupId == nil else { continue }
+            let monthKey = String(tx.date.prefix(7))  // yyyy-MM (UTC-consistent with tx.date)
+            switch tx.type {
+            case .income:
+                monthlyGlobal[monthKey, default: (0, 0)].income += amountInBase
+                monthlyByAccount[accountId, default: [:]][monthKey, default: (0, 0)].income += amountInBase
+            case .expense:
+                monthlyGlobal[monthKey, default: (0, 0)].expense += amountInBase
+                monthlyByAccount[accountId, default: [:]][monthKey, default: (0, 0)].expense += amountInBase
+            case .transfer:
+                break  // unreachable — guarded above
             }
         }
 
@@ -729,5 +913,60 @@ final class DataStore {
             return true
         }
         categoryIndex = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+
+        // Materialize the monthly aggregate dictionaries from the (income, expense)
+        // tuple buckets we accumulated above.
+        monthlyAggregates = monthlyGlobal.reduce(into: [String: MonthlyAggregate]()) { acc, kv in
+            acc[kv.key] = MonthlyAggregate(monthKey: kv.key, income: kv.value.income, expense: kv.value.expense)
+        }
+        monthlyAggregatesByAccount = monthlyByAccount.reduce(into: [String: [String: MonthlyAggregate]]()) { outer, kv in
+            outer[kv.key] = kv.value.reduce(into: [String: MonthlyAggregate]()) { inner, mv in
+                inner[mv.key] = MonthlyAggregate(monthKey: mv.key, income: mv.value.income, expense: mv.value.expense)
+            }
+        }
+
+        // Bump generation token last — readers that see a new token are
+        // guaranteed to see the new aggregate dictionaries too.
+        txGenerationToken &+= 1
+    }
+}
+
+extension DataStore {
+    /// Returns the last `months` monthly aggregates, sorted chronologically
+    /// (oldest first). When `accountId` is supplied, the values are scoped
+    /// to that account; otherwise the global aggregates are used.
+    ///
+    /// Months without any non-transfer activity are filled with a zero
+    /// `MonthlyAggregate` so chart x-axes don't gap. The window is anchored
+    /// to the current calendar month (in UTC, matching `tx.date`'s yyyy-MM).
+    func recentMonthlyAggregates(months: Int = 6, accountId: String? = nil) -> [MonthlyAggregate] {
+        guard months > 0 else { return [] }
+
+        let source: [String: MonthlyAggregate]
+        if let accountId {
+            source = monthlyAggregatesByAccount[accountId] ?? [:]
+        } else {
+            source = monthlyAggregates
+        }
+
+        // Build the month-key window ending at "now" (UTC, yyyy-MM).
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        var keys: [String] = []
+        keys.reserveCapacity(months)
+        for offset in stride(from: months - 1, through: 0, by: -1) {
+            guard let date = calendar.date(byAdding: .month, value: -offset, to: now) else { continue }
+            keys.append(formatter.string(from: date))
+        }
+
+        return keys.map { key in
+            source[key] ?? MonthlyAggregate(monthKey: key, income: 0, expense: 0)
+        }
     }
 }

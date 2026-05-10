@@ -93,7 +93,7 @@ struct Asset: Codable, Sendable, Identifiable {
     }
 
     var currencyCode: CurrencyCode {
-        CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        Currency(code: currency.uppercased()) ?? .rub
     }
 }
 

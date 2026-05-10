@@ -193,7 +193,7 @@ struct InvestmentHoldingsListView: View {
     }
 
     private func formatLocal(_ minor: Int64, currency: String) -> String {
-        let code = CurrencyCode(rawValue: currency.uppercased()) ?? .rub
+        let code = Currency(code: currency.uppercased()) ?? .rub
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = code.decimals

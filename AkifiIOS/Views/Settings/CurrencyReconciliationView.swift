@@ -187,13 +187,13 @@ struct CurrencyReconciliationView: View {
                 //     accurate for old rows, but keeps the flow unblocked
                 //     when the API is unreachable.
                 let cm = appViewModel.currencyManager
-                let labelCode = CurrencyCode(rawValue: row.transaction.currency?.uppercased() ?? "") ?? .rub
+                let labelCode = Currency(code: row.transaction.currency?.uppercased() ?? "") ?? .rub
                 let accountCode = row.account.currencyCode
                 let originalAmount = row.transaction.amountNative.displayAmount
                 let resolved = resolvedRates[row.transaction.id]
                 let rate: Decimal = resolved?.rate ?? {
-                    let fromRate = Decimal(cm.rates[labelCode.rawValue] ?? 1.0)
-                    let toRate = Decimal(cm.rates[accountCode.rawValue] ?? 1.0)
+                    let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
+                    let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
                     return fromRate != 0 ? toRate / fromRate : 1
                 }()
                 // Safety: refuse to save a 1:1 conversion between different
@@ -212,9 +212,9 @@ struct CurrencyReconciliationView: View {
                     UpdateTransactionInput(
                         amount: converted,
                         amount_native: converted,
-                        currency: accountCode.rawValue.uppercased(),
+                        currency: accountCode.code.uppercased(),
                         foreign_amount: originalAmount,
-                        foreign_currency: labelCode.rawValue.uppercased(),
+                        foreign_currency: labelCode.code.uppercased(),
                         fx_rate: fx
                     )
                 )
@@ -228,8 +228,8 @@ struct CurrencyReconciliationView: View {
 
     private func convert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
         guard from != to else { return amount }
-        let fromRate = Decimal(cm.rates[from.rawValue] ?? 1.0)
-        let toRate = Decimal(cm.rates[to.rawValue] ?? 1.0)
+        let fromRate = Decimal(cm.rates[from.code] ?? 1.0)
+        let toRate = Decimal(cm.rates[to.code] ?? 1.0)
         guard fromRate != 0 else { return amount }
         return amount / fromRate * toRate
     }
@@ -270,7 +270,7 @@ private struct ReconciliationRow: View {
 
     private var labelCode: CurrencyCode? {
         guard let raw = row.transaction.currency else { return nil }
-        return CurrencyCode(rawValue: raw.uppercased())
+        return Currency(code: raw.uppercased())
     }
 
     /// Human-readable provenance for the FX rate used. Nil = "today's
@@ -366,8 +366,8 @@ private struct ReconciliationRow: View {
             // rate. The preview number must match what actually gets
             // saved.
             let rate: Decimal = resolved?.rate ?? {
-                let fromRate = Decimal(cm.rates[labelCode.rawValue] ?? 1.0)
-                let toRate = Decimal(cm.rates[accountCode.rawValue] ?? 1.0)
+                let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
+                let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
                 return fromRate != 0 ? toRate / fromRate : 1
             }()
             let converted = amount * rate
