@@ -105,10 +105,91 @@ final class SubscriptionMatcherTests: XCTestCase {
     }
 
     func testAmountMissingTxCurrencyGivesZero() {
-        let sub = makeSubscription(amount: 29900, currency: "RUB")
+        // Legacy behavior preserved when baseCode default ("RUB") doesn't help:
+        // here sub is USD, tx currency is nil → falls back to RUB → mismatch and
+        // no FX rates provided → 0. Verifies the default-arg call path.
+        let sub = makeSubscription(amount: 29900, currency: "USD")
         let tx = makeTransaction(amount: 29900, currency: nil)
         let (_, amount, _, _) = SubscriptionMatcher.score(transaction: tx, subscription: sub, calendar: calendar)
         XCTAssertEqual(amount, 0)
+    }
+
+    // MARK: - NULL currency / cross-currency edges (the Railway incident)
+
+    func testAmountNullTxCurrencyWithMatchingBaseCodeMatches() {
+        // tx.currency = NULL, sub.currency = "RUB" → fallback treats NULL as
+        // baseCode ("RUB") and the amounts are equal → 50.
+        let sub = makeSubscription(amount: 29900, currency: "RUB")
+        let tx = makeTransaction(amount: 29900, currency: nil)
+        let (_, amount, _, _) = SubscriptionMatcher.score(
+            transaction: tx,
+            subscription: sub,
+            calendar: calendar,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(amount, 50)
+    }
+
+    func testAmountCrossCurrencyWithFxRatesMatches() {
+        // Real case: Railway $9 USD vs 668.45 RUB-eq charge.
+        // USD-pivoted rates: USD=1, RUB ≈ 74.27 (668.45 / 9).
+        let sub = makeSubscription(amount: 900, currency: "USD")        // $9.00
+        let tx = makeTransaction(amount: 66845, currency: "RUB")        // 668.45 RUB
+        let rates: [String: Double] = ["USD": 1.0, "RUB": 74.27]
+        let (_, amount, _, _) = SubscriptionMatcher.score(
+            transaction: tx,
+            subscription: sub,
+            calendar: calendar,
+            fxRates: rates,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(amount, 50)
+    }
+
+    func testAmountCrossCurrencyWithoutFxRatesGivesZero() {
+        // Same shape as above, but FX dictionary empty → cannot convert → 0.
+        let sub = makeSubscription(amount: 900, currency: "USD")
+        let tx = makeTransaction(amount: 66845, currency: "RUB")
+        let (_, amount, _, _) = SubscriptionMatcher.score(
+            transaction: tx,
+            subscription: sub,
+            calendar: calendar,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(amount, 0)
+    }
+
+    func testAmountCrossCurrencyOutsideToleranceGivesZero() {
+        // FX rate is off by 25 % → 75 RUB/USD vs sub priced at $9. tx is
+        // 800 RUB which converts to ~$10.67 → 18 % over tolerance.
+        let sub = makeSubscription(amount: 900, currency: "USD")
+        let tx = makeTransaction(amount: 80000, currency: "RUB")        // 800 RUB
+        let rates: [String: Double] = ["USD": 1.0, "RUB": 75.0]
+        let (_, amount, _, _) = SubscriptionMatcher.score(
+            transaction: tx,
+            subscription: sub,
+            calendar: calendar,
+            fxRates: rates,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(amount, 0)
+    }
+
+    func testAmountNullTxCurrencyConvertsViaBaseCodeWhenSubDiffers() {
+        // tx.currency = NULL is treated as baseCode (RUB). sub is USD. With FX
+        // rates available we should still score the cross-currency match — this
+        // is the exact Railway scenario (NULL currency tx, USD sub).
+        let sub = makeSubscription(amount: 900, currency: "USD")
+        let tx = makeTransaction(amount: 66845, currency: nil)          // 668.45 (treated as RUB)
+        let rates: [String: Double] = ["USD": 1.0, "RUB": 74.27]
+        let (_, amount, _, _) = SubscriptionMatcher.score(
+            transaction: tx,
+            subscription: sub,
+            calendar: calendar,
+            fxRates: rates,
+            baseCode: "RUB"
+        )
+        XCTAssertEqual(amount, 50)
     }
 
     // MARK: - Date component

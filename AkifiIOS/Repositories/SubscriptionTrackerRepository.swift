@@ -121,6 +121,7 @@ struct CreateSubscriptionInput: Encodable, Sendable {
     let currency: String?
     let status: String?
     let category_id: String?
+    let account_id: String?
 }
 
 struct UpdateSubscriptionInput: Encodable, Sendable {
@@ -135,6 +136,7 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let currency: String?
     let status: String?
     let category_id: String?
+    let account_id: String?
 }
 
 struct UpdateSubscriptionDatesInput: Encodable, Sendable {

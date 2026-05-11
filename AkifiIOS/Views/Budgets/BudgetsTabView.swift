@@ -236,12 +236,13 @@ struct BudgetsTabView: View {
                 .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSubscriptionForm) {
-                SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId in
+                SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId, accountId in
                     await subscriptionsVM.create(
                         name: name, amount: amount, period: period, color: color,
                         currency: currency, reminderDays: reminderDays,
                         lastPaymentDate: lastDate, nextPaymentDate: nextDate,
-                        categoryId: categoryId
+                        categoryId: categoryId,
+                        accountId: accountId
                     )
                     await dataStore.loadAll()
                 }
@@ -386,11 +387,16 @@ struct EditSubscriptionFormView: View {
     @State private var selectedColor: String = "#60A5FA"
     @State private var reminderDays: Int = 1
     @State private var selectedCategoryId: String?
+    @State private var selectedAccountId: String?
     @State private var isSaving = false
     @State private var status: SubscriptionTrackerStatus = .active
 
     private var expenseCategories: [Category] {
         appViewModel.dataStore.displayCategories.filter { $0.type == .expense }
+    }
+
+    private var accounts: [Account] {
+        appViewModel.dataStore.accounts
     }
 
     @State private var specifyLastPayment = false
@@ -433,6 +439,13 @@ struct EditSubscriptionFormView: View {
                         Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
                         ForEach(expenseCategories, id: \.id) { cat in
                             Text("\(cat.icon) \(cat.name)").tag(String?(cat.id))
+                        }
+                    }
+
+                    Picker(String(localized: "subscription.account"), selection: $selectedAccountId) {
+                        Text(String(localized: "subscription.account.none")).tag(String?.none)
+                        ForEach(accounts, id: \.id) { account in
+                            Text("\(account.icon) \(account.name)").tag(String?(account.id))
                         }
                     }
                 }
@@ -559,6 +572,7 @@ struct EditSubscriptionFormView: View {
         selectedColor = subscription.iconColor ?? "#60A5FA"
         reminderDays = subscription.reminderDays
         selectedCategoryId = subscription.categoryId
+        selectedAccountId = subscription.accountId
         status = subscription.status
         if let cur = subscription.currency, let code = Currency(code: cur.uppercased()) {
             selectedCurrency = code
@@ -595,7 +609,8 @@ struct EditSubscriptionFormView: View {
             lastPaymentDate: specifyLastPayment ? lastPaymentDate : nil,
             nextPaymentDate: nextPaymentDate,
             status: status,
-            categoryId: selectedCategoryId
+            categoryId: selectedCategoryId,
+            accountId: selectedAccountId
         )
         if status != subscription.status {
             AnalyticsService.logSubscriptionStatusChange(to: status.rawValue)

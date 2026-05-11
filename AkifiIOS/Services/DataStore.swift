@@ -250,7 +250,18 @@ final class DataStore {
         }()
         guard autoMatchEnabled, tx.type == .expense else { return }
 
-        guard let match = SubscriptionMatcher.bestMatch(for: tx, in: subscriptions) else { return }
+        // Pass FX context so the matcher can score cross-currency candidates —
+        // e.g. a RUB-eq charge against a USD subscription. Without this, a
+        // legacy tx with `currency = NULL` never clears the amount threshold
+        // even when merchant+date already say "this is the Railway charge".
+        let ctx = currencyContext
+        let fxRatesDouble = ctx.fxRates.mapValues { Double(truncating: $0 as NSDecimalNumber) }
+        guard let match = SubscriptionMatcher.bestMatch(
+            for: tx,
+            in: subscriptions,
+            fxRates: fxRatesDouble,
+            baseCode: ctx.baseCode
+        ) else { return }
 
         let sub = match.subscription
         let previousLast = sub.lastPaymentDate
@@ -348,10 +359,19 @@ final class DataStore {
         // here — the matcher's amount component already requires a currency
         // match before awarding the 50 points, and merchant alone (20 pts)
         // can't clear the 60-point threshold.
+        // Forward FX context so cross-currency historical rows (e.g. RUB-eq
+        // tx against a USD sub) still score against the same threshold.
+        let ctx = currencyContext
+        let fxRatesDouble = ctx.fxRates.mapValues { Double(truncating: $0 as NSDecimalNumber) }
         let candidates: [Transaction] = transactions.filter { $0.type == .expense }
         var matches: [Transaction] = []
         for tx in candidates {
-            let scored = SubscriptionMatcher.score(transaction: tx, subscription: sub)
+            let scored = SubscriptionMatcher.score(
+                transaction: tx,
+                subscription: sub,
+                fxRates: fxRatesDouble,
+                baseCode: ctx.baseCode
+            )
             guard scored.total >= SubscriptionMatcher.matchThreshold else { continue }
             let txDayKey = String(tx.date.prefix(10))
             guard !existingDates.contains(txDayKey) else { continue }

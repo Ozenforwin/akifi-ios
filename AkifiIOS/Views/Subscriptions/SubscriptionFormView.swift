@@ -3,8 +3,8 @@ import SwiftUI
 struct SubscriptionFormView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
-    /// Callback: (name, amountCents, period, color, currency, reminderDays, lastPayment?, nextPayment, categoryId?)
-    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date, String?) async -> Void
+    /// Callback: (name, amountCents, period, color, currency, reminderDays, lastPayment?, nextPayment, categoryId?, accountId?)
+    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date, String?, String?) async -> Void
 
     @State private var name = ""
     @State private var amountText = ""
@@ -13,6 +13,7 @@ struct SubscriptionFormView: View {
     @State private var selectedColor = "#60A5FA"
     @State private var reminderDays: Int = 1
     @State private var selectedCategoryId: String?
+    @State private var selectedAccountId: String?
     @State private var isSaving = false
 
     @State private var specifyLastPayment = false
@@ -26,6 +27,10 @@ struct SubscriptionFormView: View {
 
     private var expenseCategories: [Category] {
         appViewModel.dataStore.displayCategories.filter { $0.type == .expense }
+    }
+
+    private var accounts: [Account] {
+        appViewModel.dataStore.accounts
     }
 
     var body: some View {
@@ -61,6 +66,13 @@ struct SubscriptionFormView: View {
                         Text(String(localized: "subscriptions.noCategory")).tag(String?.none)
                         ForEach(expenseCategories, id: \.id) { cat in
                             Text("\(cat.icon) \(cat.name)").tag(String?(cat.id))
+                        }
+                    }
+
+                    Picker(String(localized: "subscription.account"), selection: $selectedAccountId) {
+                        Text(String(localized: "subscription.account.none")).tag(String?.none)
+                        ForEach(accounts, id: \.id) { account in
+                            Text("\(account.icon) \(account.name)").tag(String?(account.id))
                         }
                     }
                 }
@@ -147,7 +159,7 @@ struct SubscriptionFormView: View {
         let last: Date? = specifyLastPayment ? lastPaymentDate : nil
         await onSave(
             name, amountCents, period, selectedColor, selectedCurrency.code,
-            reminderDays, last, nextPaymentDate, selectedCategoryId
+            reminderDays, last, nextPaymentDate, selectedCategoryId, selectedAccountId
         )
         dismiss()
     }
