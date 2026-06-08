@@ -117,6 +117,7 @@
 		600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */; };
 		606B9971B793A02486643DC7 /* SubscriptionMatchBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B75306996D7E7CAEAEBA0D /* SubscriptionMatchBanner.swift */; };
 		6116D47ED43F2A675DE19082 /* PaymentDefaultsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29899602DD7780A8382F3D2C /* PaymentDefaultsViewModel.swift */; };
+		613291146719C772603D1D32 /* SettlementWatermarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */; };
 		617C42FDCAB6E86B334094EB /* InvestmentHolding.swift in Sources */ = {isa = PBXBuildFile; fileRef = C292DC3BB151A2657F0FAF21 /* InvestmentHolding.swift */; };
 		618ECE197B8963238E06AEB2 /* SavingsChallengesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5CCED54FBEC6799B0BE728 /* SavingsChallengesViewModel.swift */; };
 		6263CE80FC97C4FF7087ABC9 /* FIREImpactCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523ADEA12B8BA6D31B0B17D4 /* FIREImpactCalculator.swift */; };
@@ -495,6 +496,7 @@
 		7586539256E4605D2A7B4E4A /* CurrencyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyCatalog.swift; sourceTree = "<group>"; };
 		75A8DBBF1BEFA4FD61AE069E /* Decimal+Currency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Decimal+Currency.swift"; sourceTree = "<group>"; };
 		77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsViewModel.swift; sourceTree = "<group>"; };
+		7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettlementWatermarkTests.swift; sourceTree = "<group>"; };
 		78B30AE9CAFBF75E6E4F7A58 /* FIREProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FIREProjector.swift; sourceTree = "<group>"; };
 		79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesManagementView.swift; sourceTree = "<group>"; };
 		79EB1D3B16CBD84AD0DCA51E /* UserSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSubscription.swift; sourceTree = "<group>"; };
@@ -1040,6 +1042,7 @@
 				5BC53531605C76B9D1E1755D /* PortfolioCalculatorTests.swift */,
 				FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */,
 				6446F759C5B15E88CB44F621 /* SettlementCalculatorTests.swift */,
+				7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */,
 				7D8DFB77B12340F805BC80C0 /* SharedSnapshotTests.swift */,
 				29F1B0746101FBAE76E1828C /* SkillTreeEngineTests.swift */,
 				467D6DA128F27DCFC460C597 /* StreakTrackerTests.swift */,
@@ -1475,6 +1478,7 @@
 				4C07097105036584EAE0146D /* PortfolioCalculatorTests.swift in Sources */,
 				FF04697C565B4B5CF9C18B22 /* SavingsRateCalculatorTests.swift in Sources */,
 				14705FC20298E9BA44B26632 /* SettlementCalculatorTests.swift in Sources */,
+				613291146719C772603D1D32 /* SettlementWatermarkTests.swift in Sources */,
 				3B67B5AD3F0EFEF3D9051E23 /* SharedSnapshotTests.swift in Sources */,
 				4F73048A366902C07AAB741B /* SkillTreeEngineTests.swift in Sources */,
 				AC6B8485EA6E8DB2D8E30A05 /* StreakTrackerTests.swift in Sources */,

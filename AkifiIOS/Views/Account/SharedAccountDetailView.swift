@@ -116,7 +116,7 @@ struct SharedAccountDetailView: View {
                 transaction: tx,
                 sharedAccount: account,
                 members: memberWeights,
-                payerUserId: tx.userId,
+                payerUserId: payerUserId(for: tx),
                 viewModel: settlementVM
             )
             .presentationBackground(.regularMaterial)
@@ -381,21 +381,27 @@ struct SharedAccountDetailView: View {
     @ViewBuilder
     private func swipeAction(for tx: Transaction, state: TxnSettleState) -> some View {
         if state == .full {
-            Button {
-                HapticManager.medium()
-                Task {
-                    await settlementVM.unmarkTxnSettledForAll(
-                        transactionId: tx.id,
-                        sharedAccountId: account.id,
-                        dataStore: dataStore,
-                        currencyManager: cm
-                    )
+            // Only offer "reopen" when the row carries real per-txn marks.
+            // A row that's `.full` purely because it predates the settle
+            // watermark has nothing to unmark here — it's reopened by
+            // cancelling the settlement in the card's history list instead.
+            if settledCount(for: tx) > 0 {
+                Button {
+                    HapticManager.medium()
+                    Task {
+                        await settlementVM.unmarkTxnSettledForAll(
+                            transactionId: tx.id,
+                            sharedAccountId: account.id,
+                            dataStore: dataStore,
+                            currencyManager: cm
+                        )
+                    }
+                } label: {
+                    Label(String(localized: "sharedAccount.tx.swipe.reopen"),
+                          systemImage: "arrow.uturn.backward")
                 }
-            } label: {
-                Label(String(localized: "sharedAccount.tx.swipe.reopen"),
-                      systemImage: "arrow.uturn.backward")
+                .tint(Color.warning)
             }
-            .tint(Color.warning)
         } else {
             Button {
                 HapticManager.medium()
@@ -403,7 +409,7 @@ struct SharedAccountDetailView: View {
                     await settlementVM.markTxnSettledForAll(
                         transactionId: tx.id,
                         sharedAccountId: account.id,
-                        payerUserId: tx.userId,
+                        payerUserId: payerUserId(for: tx),
                         memberUserIds: memberWeights.map(\.userId),
                         dataStore: dataStore,
                         currencyManager: cm
@@ -454,27 +460,43 @@ struct SharedAccountDetailView: View {
     }
 
     /// Visible state for the per-row badge. Returns nil when there's
-    /// nothing meaningful to show — both the cumulative balance is even
-    /// AND no per-txn marks exist for this row. Without that early-exit
-    /// the row stays "Ожидает расчёта" forever after the user closes
-    /// debts via the aggregate "Mark settled" flow (no per-member marks
-    /// were created, so the per-txn state would still read open).
+    /// nothing meaningful to show — the cumulative balance is even AND the
+    /// row is neither per-txn-marked nor covered by a past settle.
     private func settlementState(for tx: Transaction) -> TxnSettleState? {
         let settled = settledCount(for: tx)
         let total = nonPayerCount(for: tx)
 
-        // Per-txn marks present — show their state regardless of cumulative.
+        // 1. Explicit per-txn marks win — show their precise state.
         if total > 0 && settled > 0 {
             return settled >= total ? .full : .partial
         }
 
-        // No per-txn marks. Only flag as "ожидает" when there's still an
-        // open cumulative debt — otherwise everyone's even and the badge
-        // would just be visual noise on a clean account.
+        // 2. Covered by a cumulative settle: the row is dated on/before the
+        //    last "Отметить выполненным" watermark, so its debt is already
+        //    folded into a closed settlement. Without this the row flips back
+        //    to "Ожидает расчёта" as soon as a *newer* expense reopens the
+        //    net debt — the exact "settled rows reappear" bug. See
+        //    `SettlementViewModel.settlementWatermark`.
+        if isCoveredBySettlement(tx) {
+            return .full
+        }
+
+        // 3. Otherwise only flag "ожидает" while a net debt is still open —
+        //    on a clean account the badge would just be visual noise.
         if !settlementVM.suggestions.isEmpty {
             return .open
         }
         return nil
+    }
+
+    /// True when `tx` is dated on or before the last cumulative settle, i.e.
+    /// its share is already reconciled by a `settlements` row even though no
+    /// per-transaction mark exists for it.
+    private func isCoveredBySettlement(_ tx: Transaction) -> Bool {
+        guard let watermark = settlementVM.settlementWatermark,
+              let txDate = Self.txDateFormatter.date(from: String(tx.date.prefix(10)))
+        else { return false }
+        return txDate <= watermark
     }
 
     private func settledCount(for tx: Transaction) -> Int {
@@ -484,6 +506,20 @@ struct SharedAccountDetailView: View {
     private func nonPayerCount(for tx: Transaction) -> Int {
         // Total members − 1 (the payer doesn't owe their own share).
         max(memberWeights.count - 1, 0)
+    }
+
+    /// The user who actually funded this auto-transfer expense — the owner
+    /// of the payment-source account, NOT `tx.userId` (which is merely who
+    /// recorded the row; the recorder isn't always the payer). Falls back to
+    /// `tx.userId` when the source account isn't visible (RLS hides the other
+    /// member's personal accounts) — that matches the calculator's own
+    /// best-effort attribution.
+    private func payerUserId(for tx: Transaction) -> String {
+        if let src = tx.paymentSourceAccountId,
+           let owner = dataStore.accounts.first(where: { $0.id == src })?.userId {
+            return owner
+        }
+        return tx.userId
     }
 
     /// Pulls `account_members` once on appear so the per-txn sheet has the

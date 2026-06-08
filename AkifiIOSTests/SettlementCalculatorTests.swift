@@ -753,4 +753,31 @@ final class SettlementCalculatorTests: XCTestCase {
         XCTAssertNotEqual(buggyV.delta, v.delta,
                           "Period-scoped May view yields a different (distorted) V delta — confirms cumulative path is needed")
     }
+
+    // MARK: - Rounding-noise floor (settlementEpsilon)
+
+    func test_settlements_subEpsilonResidual_producesNoSuggestion() {
+        // ±50 kopecks of drift (e.g. left over after a whole-ruble settle of
+        // a cross-currency account) is below the 1 RUB floor → no suggestion.
+        let balances = [
+            SettlementCalculator.MemberBalance(userId: "V", contributed: 150, fairShare: 100),
+            SettlementCalculator.MemberBalance(userId: "O", contributed: 50, fairShare: 100),
+        ]
+        XCTAssertEqual(balances.first { $0.userId == "V" }!.delta, 50)
+        XCTAssertTrue(SettlementCalculator.settlements(from: balances).isEmpty,
+                      "Sub-ruble residual must not surface as a phantom kopeck transfer")
+    }
+
+    func test_settlements_atEpsilon_producesSuggestion() {
+        // Exactly 1 RUB (100 kopecks) is real debt → one suggestion.
+        let balances = [
+            SettlementCalculator.MemberBalance(userId: "V", contributed: 200, fairShare: 100),
+            SettlementCalculator.MemberBalance(userId: "O", contributed: 0, fairShare: 100),
+        ]
+        let s = SettlementCalculator.settlements(from: balances)
+        XCTAssertEqual(s.count, 1)
+        XCTAssertEqual(s.first?.fromUserId, "O")
+        XCTAssertEqual(s.first?.toUserId, "V")
+        XCTAssertEqual(s.first?.amount, 100)
+    }
 }

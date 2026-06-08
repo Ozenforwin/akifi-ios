@@ -428,12 +428,18 @@ struct AccountSettlementCardView: View {
         return letters.joined().uppercased()
     }
 
+    /// Sub-ruble deltas are rounding noise (see `settlementEpsilon`) — treat
+    /// them as even so the card never shows "+0,03 ₽ вложил больше доли".
+    private func isEven(_ b: SettlementCalculator.MemberBalance) -> Bool {
+        abs(b.delta) < SettlementCalculator.settlementEpsilon
+    }
+
     /// Verbal companion under the name — "вложил больше доли" / "должен
     /// доплатить" / "всё ровно". Kept concise; amounts live on the right.
     private func deltaCaption(for b: SettlementCalculator.MemberBalance) -> String {
+        if isEven(b) { return String(localized: "settlement.balance.even") }
         if b.delta > 0 { return String(localized: "settlement.balance.positive") }
-        if b.delta < 0 { return String(localized: "settlement.balance.negative") }
-        return String(localized: "settlement.balance.even")
+        return String(localized: "settlement.balance.negative")
     }
 
     /// Compact signed amount — "+1 346,29 ₽" or "−1 346,29 ₽".
@@ -441,17 +447,17 @@ struct AccountSettlementCardView: View {
     /// at member-name-widths; color-coded signed amount + header
     /// "Предлагаем свести" conveys the same info without wrapping.
     private func deltaLabel(for b: SettlementCalculator.MemberBalance) -> String {
-        let amount = cm.formatAmount(abs(b.delta).displayAmount)
-        if b.delta == 0 {
+        if isEven(b) {
             return String(localized: "settlement.balance.even")
         }
+        let amount = cm.formatAmount(abs(b.delta).displayAmount)
         let sign = b.delta > 0 ? "+" : "−"
         return "\(sign)\(amount)"
     }
 
     private func deltaColor(for b: SettlementCalculator.MemberBalance) -> Color {
+        if isEven(b) { return .secondary }
         if b.delta > 0 { return .income }
-        if b.delta < 0 { return .expense }
-        return .secondary
+        return .expense
     }
 }

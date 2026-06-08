@@ -206,6 +206,38 @@ final class SettlementViewModel {
         }
     }
 
+    /// "Settlement watermark" — the timestamp of the most recent cumulative
+    /// settle (`Отметить выполненным`). Because balances are cumulative, a
+    /// settle closes the ENTIRE outstanding net debt as of the moment it was
+    /// recorded, so every auto-transfer transaction dated on or before this
+    /// line is already folded into a closed debt. The transactions list uses
+    /// it to paint pre-watermark rows as "settled" instead of re-flagging
+    /// them "Ожидает расчёта" the moment a new expense reopens the net debt.
+    ///
+    /// `nil` until the first settle exists. Caveat: for >2-member accounts a
+    /// settle can be partial (the user closes only some of several
+    /// suggestions); we still treat the whole pre-watermark span as settled.
+    /// For a 2-member account a single settle always zeroes the net debt, so
+    /// the approximation is exact there.
+    var settlementWatermark: Date? {
+        Self.watermark(from: pastSettlements)
+    }
+
+    /// Pure, side-effect-free watermark computation — the latest
+    /// `settledAt` (falling back to `createdAt`) across the given
+    /// settlements. Factored out so it's unit-testable without standing up
+    /// the view model (which pulls in Supabase).
+    nonisolated static func watermark(from settlements: [Settlement]) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoNoFrac = ISO8601DateFormatter()
+        isoNoFrac.formatOptions = [.withInternetDateTime]
+        return settlements.compactMap { s -> Date? in
+            guard let raw = s.settledAt ?? s.createdAt else { return nil }
+            return iso.date(from: raw) ?? isoNoFrac.date(from: raw)
+        }.max()
+    }
+
     /// Records a settlement in the `settlements` table and recomputes
     /// balances/suggestions so the closed debt collapses visually.
     func markSettled(
@@ -358,6 +390,11 @@ final class SettlementViewModel {
             let toMark = memberUserIds
                 .filter { $0 != payerUserId }
                 .filter { !alreadySettled.contains($0) }
+            // Collect insert failures instead of swallowing them with `try?`.
+            // A silent failure here is exactly what made "marked settled, then
+            // it re-appears" invisible — the row never persisted but the UI
+            // gave no signal. Surface the last error after the reload.
+            var lastError: Error?
             for member in toMark {
                 let input = CreateTransactionMemberSettlementInput(
                     transaction_id: transactionId,
@@ -366,13 +403,19 @@ final class SettlementViewModel {
                     settled_by_user_id: me,
                     note: nil
                 )
-                _ = try? await txMemberRepo.create(input)
+                do {
+                    _ = try await txMemberRepo.create(input)
+                } catch {
+                    lastError = error
+                    AppLogger.data.error("markTxnSettledForAll insert failed: \(error.localizedDescription)")
+                }
             }
             await load(
                 sharedAccountId: sharedAccountId,
                 dataStore: dataStore,
                 currencyManager: currencyManager
             )
+            if let lastError { errorMessage = lastError.localizedDescription }
         } catch {
             errorMessage = error.localizedDescription
         }

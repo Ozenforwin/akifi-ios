@@ -427,15 +427,27 @@ enum SettlementCalculator {
         return Int64(truncating: rounded as NSDecimalNumber)
     }
 
+    /// Imbalances at or below this magnitude (kopecks) are treated as
+    /// settled — no suggestion, member reads "в расчёте". Live-rate FX
+    /// normalization rounds every cross-currency leg to the kopeck, so over
+    /// dozens of transactions a few tens of kopecks of drift accumulate; a
+    /// settle recorded as a whole number then leaves a sub-ruble residual
+    /// that resurfaces as a phantom "0,xx ₽ должен" the next recompute.
+    /// Nobody transfers 40 kopecks, so we floor it. 1 RUB comfortably covers
+    /// the rounding drift while staying below any real debt worth settling.
+    static let settlementEpsilon: Int64 = 100  // 1 RUB
+
     /// Greedy min-cash-flow settlement. O(N log N) where N = member count.
     /// Result size is at most N-1 suggestions — good enough for the MVP
     /// (equal-split only).
     static func settlements(from balances: [MemberBalance]) -> [SettlementSuggestion] {
-        // Ignore zero-delta members. Keep mutable copies for the greedy pass.
-        var creditors = balances.filter { $0.delta > 0 }
+        // Ignore members whose delta is within the rounding-noise floor —
+        // both sides drop out so the greedy pass never proposes a kopeck
+        // transfer. Keep mutable copies for the greedy pass.
+        var creditors = balances.filter { $0.delta >= settlementEpsilon }
             .sorted { $0.delta > $1.delta }
             .map { (userId: $0.userId, amount: $0.delta) }
-        var debtors = balances.filter { $0.delta < 0 }
+        var debtors = balances.filter { $0.delta <= -settlementEpsilon }
             .sorted { $0.delta < $1.delta }
             .map { (userId: $0.userId, amount: -$0.delta) }
 
