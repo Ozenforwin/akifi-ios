@@ -287,6 +287,11 @@ struct MainTabView: View {
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { return }
                 await appViewModel.dataStore.syncPendingOperations()
+                // Rates may be stale (or fallback) after an offline start —
+                // refresh them now that the network is back so FX-converted
+                // balances snap to real values.
+                await appViewModel.currencyManager.fetchRates()
+                appViewModel.dataStore.currencyContextDidChange()
             }
         }
         .task {

@@ -59,6 +59,13 @@ actor ExchangeRateService {
             return cached
         }
 
+        // Offline: an expired cache still beats no rates at all — missing
+        // rates make USD balances render 1:1 as base currency. Skip the
+        // network attempts and their retry sleeps entirely.
+        if await !NetworkMonitor.shared.isConnected {
+            return loadCachedRates() ?? fallbackRates
+        }
+
         // Fetch from API
         let urlString = "https://open.er-api.com/v6/latest/\(base)"
         guard let url = URL(string: urlString) else { return fallbackRates }

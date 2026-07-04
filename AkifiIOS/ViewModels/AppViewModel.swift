@@ -42,18 +42,21 @@ final class AppViewModel {
         await NetworkMonitor.shared.waitForFirstUpdate()
         let online = NetworkMonitor.shared.isConnected
 
+        // Rates ALWAYS load — offline they come straight from the
+        // UserDefaults cache (ExchangeRateService skips the network when
+        // disconnected). Skipping them entirely offline left `rates` empty
+        // and USD balances rendered 1:1 as roubles.
+        let currencyManager = self.currencyManager
         async let data: () = dataStore.loadAll()
+        async let rates: () = { try? await withTimeout(seconds: 8) { await currencyManager.fetchRates() } }()
         if online {
-            // Hard ceilings: SDK-level retries (rates 2 attempts, Supabase
-            // interceptor 2 retries with backoff) stack up on a flaky
+            // Hard ceiling: Supabase SDK retries stack up on a flaky
             // connection; the splash must not absorb that.
-            let currencyManager = self.currencyManager
             let paymentManager = self.paymentManager
-            async let rates: () = { try? await withTimeout(seconds: 8) { await currencyManager.fetchRates() } }()
             async let premium: () = { try? await withTimeout(seconds: 8) { await paymentManager.checkPremiumStatus() } }()
-            _ = await (rates, premium)
+            _ = await premium
         }
-        _ = await data
+        _ = await (rates, data)
 
         // `fetchRates()` and `loadAll()` run concurrently — when rates
         // arrive after `loadAll()`'s internal `rebuildCaches()`, the
