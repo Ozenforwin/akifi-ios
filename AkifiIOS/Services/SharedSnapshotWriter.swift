@@ -95,6 +95,8 @@ enum SharedSnapshotWriter {
                 budget: budget,
                 transactions: dataStore.transactions,
                 subscriptions: dataStore.subscriptions,
+                categories: dataStore.categories,
+                externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [],
                 currencyContext: dataStore.currencyContext
             )
             dailyLimit = metrics.safeToSpendDaily

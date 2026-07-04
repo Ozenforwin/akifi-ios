@@ -120,6 +120,16 @@
     "%@ %%" : {
 
     },
+    "%@ → %@" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
     "%@ XP" : {
 
     },
@@ -6061,6 +6071,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Перенос остатка"
+          }
+        }
+      }
+    },
+    "budget.sharing.section" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceso compartido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Совместный доступ"
           }
         }
       }
@@ -21883,6 +21916,98 @@
         }
       }
     },
+    "offline.pendingAutoTransferEdit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This entry hasn't synced yet. Edit it once you're back online."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta entrada aún no se ha sincronizado. Edítala cuando vuelvas a estar en línea."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта запись ещё не синхронизирована. Отредактируйте её после подключения к интернету."
+          }
+        }
+      }
+    },
+    "offline.syncFailed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to sync: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de sincronización: %lld"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось синхронизировать: %lld"
+          }
+        }
+      }
+    },
+    "offline.syncFailed.discard" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить"
+          }
+        }
+      }
+    },
+    "offline.transactionNotFound" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transaction not found"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transacción no encontrada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Транзакция не найдена"
+          }
+        }
+      }
+    },
     "onboarding.account.createAndContinue" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -24971,6 +25096,29 @@
         }
       }
     },
+    "report.period.custom" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Período personalizado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свой период"
+          }
+        }
+      }
+    },
     "report.quarter" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -25059,6 +25207,75 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Транзакции"
+          }
+        }
+      }
+    },
+    "report.transfers.empty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transfers"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin transferencias"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет переводов"
+          }
+        }
+      }
+    },
+    "report.transfers.emptyDescription" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transfers between accounts in the selected period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hubo transferencias entre cuentas en el período seleccionado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "За выбранный период не было переводов между счетами"
+          }
+        }
+      }
+    },
+    "report.transfers.externalAccount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuenta externa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Внешний счёт"
           }
         }
       }
@@ -28101,25 +28318,71 @@
         }
       }
     },
+    "share.budget.messageV1.%@.%@.%@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join the budget \"%1$@\" in Akifi!\n\nInvite code:\n%2$@\n\nOr open the link:\n%3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¡Únete al presupuesto «%1$@» en Akifi!\n\nCódigo de invitación:\n%2$@\n\nO abre el enlace:\n%3$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Присоединяйся к бюджету «%1$@» в Akifi!\n\nКод приглашения:\n%2$@\n\nИли открой ссылку:\n%3$@"
+          }
+        }
+      }
+    },
+    "share.budget.progressHint" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progress includes every member's spending in this budget. Only amounts and dates are shared — transaction details stay private."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El progreso incluye los gastos de todos los miembros. Solo se comparten importes y fechas: los detalles de las transacciones permanecen privados."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прогресс учитывает траты всех участников бюджета. Передаются только суммы и даты — детали транзакций остаются приватными."
+          }
+        }
+      }
+    },
     "share.codeHint" : {
       "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Send this code to another Akifi user. Code expires in 72 hours."
+            "value" : "Send this code to another Akifi user. They can enter it in Settings → “Accept invite”, or simply open your link. Valid for 72 hours."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Envía este código a otro usuario de Akifi. El código expira en 72 horas."
+            "value" : "Envía este código a otro usuario de Akifi. Puede introducirlo en Ajustes → «Aceptar invitación» o simplemente abrir tu enlace. Válido 72 horas."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Отправьте этот код другому пользователю Akifi. Код действует 72 часа."
+            "value" : "Отправьте этот код другому пользователю Akifi. Его можно ввести в Настройках → «Принять приглашение» или просто открыть вашу ссылку. Код действует 72 часа."
           }
         }
       }
@@ -29063,6 +29326,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Вернуть"
+          }
+        }
+      }
+    },
+    "signout.pendingWarning" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld unsynced changes. Signing out will permanently discard them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tienes %lld cambios sin sincronizar. Cerrar sesión los descartará permanentemente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Несинхронизированных операций: %lld. При выходе они будут удалены безвозвратно."
+          }
+        }
+      }
+    },
+    "signout.pendingWarning.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsynced changes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios sin sincronizar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Несинхронизированные данные"
           }
         }
       }
@@ -30654,6 +30963,29 @@
         }
       }
     },
+    "status.offline.pending" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline · pending sync: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión · pendientes: %lld"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Офлайн · ожидают синхронизации: %lld"
+          }
+        }
+      }
+    },
     "streak.consecutiveDays" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -31064,6 +31396,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Подписки"
+          }
+        }
+      }
+    },
+    "subscription.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De la cuenta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Со счёта"
+          }
+        }
+      }
+    },
+    "subscription.account.none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not specified"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No especificada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не указан"
           }
         }
       }
@@ -31701,52 +32079,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Нет активных подписок"
-          }
-        }
-      }
-    },
-    "subscription.account" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "From account"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "De la cuenta"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Со счёта"
-          }
-        }
-      }
-    },
-    "subscription.account.none" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not specified"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No especificada"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не указан"
           }
         }
       }
@@ -34724,6 +35056,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Этот счёт (обычный расход)"
+          }
+        }
+      }
+    },
+    "tx.pendingSync" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting to sync"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pendiente de sincronización"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ожидает синхронизации"
           }
         }
       }

@@ -6,6 +6,7 @@ struct BudgetsTabView: View {
     @State private var showSubscriptionForm = false
     @State private var editingSubscription: SubscriptionTracker?
     @State private var subscriptionsVM = SubscriptionsViewModel()
+    @State private var sharingBudget: Budget?
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
@@ -15,7 +16,7 @@ struct BudgetsTabView: View {
         let subs = dataStore.subscriptions
         let ctx = dataStore.currencyContext
         let items = dataStore.budgets.map { budget in
-            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs, currencyContext: ctx))
+            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs, categories: dataStore.categories, externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [], currencyContext: ctx))
         }
         return items.sorted { a, b in
             let priority: (BudgetStatus) -> Int = {
@@ -40,7 +41,7 @@ struct BudgetsTabView: View {
                 if isNewUser {
                     // Demo budget with blur
                     Section {
-                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions, subscriptions: DemoData.subscriptions, currencyContext: dataStore.currencyContext)
+                        let metrics = BudgetMath.compute(budget: DemoData.budget, transactions: DemoData.transactions, subscriptions: DemoData.subscriptions, categories: DemoData.categories, currencyContext: dataStore.currencyContext)
                         BudgetCardView(budget: DemoData.budget, metrics: metrics, categories: DemoData.categories)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -93,6 +94,18 @@ struct BudgetsTabView: View {
                                         Label(String(localized: "common.edit"), systemImage: "pencil")
                                     }
                                     .tint(.blue)
+                                }
+                                .contextMenu {
+                                    Button {
+                                        viewModel.editingBudget = budget
+                                    } label: {
+                                        Label(String(localized: "common.edit"), systemImage: "pencil")
+                                    }
+                                    Button {
+                                        sharingBudget = budget
+                                    } label: {
+                                        Label(String(localized: "common.share"), systemImage: "person.badge.plus")
+                                    }
                                 }
                         }
                     }
@@ -237,14 +250,18 @@ struct BudgetsTabView: View {
             }
             .sheet(isPresented: $showSubscriptionForm) {
                 SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId, accountId in
-                    await subscriptionsVM.create(
+                    let created = await subscriptionsVM.create(
                         name: name, amount: amount, period: period, color: color,
                         currency: currency, reminderDays: reminderDays,
                         lastPaymentDate: lastDate, nextPaymentDate: nextDate,
                         categoryId: categoryId,
                         accountId: accountId
                     )
+                    guard created else {
+                        return subscriptionsVM.error ?? String(localized: "common.error")
+                    }
                     await dataStore.loadAll()
+                    return nil
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
@@ -253,6 +270,10 @@ struct BudgetsTabView: View {
                     await dataStore.loadAll()
                 }
                 .presentationBackground(.ultraThinMaterial)
+            }
+            .sheet(item: $sharingBudget) { budget in
+                ShareBudgetView(budget: budget)
+                    .presentationBackground(.ultraThinMaterial)
             }
         }
     }
@@ -390,6 +411,7 @@ struct EditSubscriptionFormView: View {
     @State private var selectedAccountId: String?
     @State private var isSaving = false
     @State private var status: SubscriptionTrackerStatus = .active
+    @State private var errorMessage: String?
 
     private var expenseCategories: [Category] {
         appViewModel.dataStore.displayCategories.filter { $0.type == .expense }
@@ -415,17 +437,18 @@ struct EditSubscriptionFormView: View {
                     TextField(String(localized: "common.name"), text: $name)
                     TextField(String(localized: "common.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
-                    Picker(String(localized: "common.period"), selection: $period) {
+                    // User-action bindings, NOT .onChange — onChange also
+                    // fires on prefill()'s programmatic assignments, which
+                    // latched nextManuallyEdited and froze auto-recalc (bug:
+                    // setting the last-payment date never moved the next one).
+                    Picker(String(localized: "common.period"), selection: Binding(
+                        get: { period },
+                        set: { period = $0; recalcNextIfAuto() }
+                    )) {
                         Text(String(localized: "billingPeriod.weekly")).tag(BillingPeriod.weekly)
                         Text(String(localized: "billingPeriod.monthly")).tag(BillingPeriod.monthly)
                         Text(String(localized: "billingPeriod.quarterly")).tag(BillingPeriod.quarterly)
                         Text(String(localized: "billingPeriod.yearly")).tag(BillingPeriod.yearly)
-                    }
-                    .onChange(of: period) { _, newValue in
-                        if !nextManuallyEdited {
-                            let base = specifyLastPayment ? lastPaymentDate : Calendar.current.startOfDay(for: Date())
-                            nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: newValue)
-                        }
                     }
                     HStack {
                         Text(String(localized: "common.currency"))
@@ -462,27 +485,28 @@ struct EditSubscriptionFormView: View {
                 }
 
                 Section {
-                    Toggle(String(localized: "subscriptions.specifyLastPayment"), isOn: $specifyLastPayment)
+                    Toggle(String(localized: "subscriptions.specifyLastPayment"), isOn: Binding(
+                        get: { specifyLastPayment },
+                        set: { specifyLastPayment = $0; recalcNextIfAuto() }
+                    ))
                     if specifyLastPayment {
                         DatePicker(
                             String(localized: "subscriptions.lastPayment"),
-                            selection: $lastPaymentDate,
+                            selection: Binding(
+                                get: { lastPaymentDate },
+                                set: { lastPaymentDate = $0; recalcNextIfAuto() }
+                            ),
                             displayedComponents: .date
                         )
-                        .onChange(of: lastPaymentDate) { _, newValue in
-                            if !nextManuallyEdited {
-                                nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: newValue, period: period)
-                            }
-                        }
                     }
                     DatePicker(
                         String(localized: "subscriptions.nextPayment"),
-                        selection: $nextPaymentDate,
+                        selection: Binding(
+                            get: { nextPaymentDate },
+                            set: { nextPaymentDate = $0; nextManuallyEdited = true }
+                        ),
                         displayedComponents: .date
                     )
-                    .onChange(of: nextPaymentDate) { _, _ in
-                        nextManuallyEdited = true
-                    }
                 } header: {
                     Text(String(localized: "subscriptions.datesSection"))
                 } footer: {
@@ -554,7 +578,26 @@ struct EditSubscriptionFormView: View {
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
+            .alert(
+                String(localized: "common.error"),
+                isPresented: .init(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(String(localized: "common.ok")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
+    }
+
+    /// Recomputes the next payment date from the last-payment anchor (or
+    /// today) unless the user explicitly overrode it via the next picker.
+    private func recalcNextIfAuto() {
+        guard !nextManuallyEdited else { return }
+        let base = specifyLastPayment ? lastPaymentDate : Calendar.current.startOfDay(for: Date())
+        nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: period)
     }
 
     private func statusFooter(_ status: SubscriptionTrackerStatus) -> String {
@@ -594,11 +637,12 @@ struct EditSubscriptionFormView: View {
 
     private func save() async {
         isSaving = true
+        defer { isSaving = false }
         guard let decimal = Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) else { return }
         let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
         // Seed VM with our current subscription so update can reschedule notifications.
         viewModel.subscriptions = [subscription]
-        await viewModel.update(
+        let updated = await viewModel.update(
             id: subscription.id,
             name: name,
             amount: amountCents,
@@ -612,6 +656,10 @@ struct EditSubscriptionFormView: View {
             categoryId: selectedCategoryId,
             accountId: selectedAccountId
         )
+        guard updated else {
+            errorMessage = viewModel.error ?? String(localized: "common.error")
+            return
+        }
         if status != subscription.status {
             AnalyticsService.logSubscriptionStatusChange(to: status.rawValue)
         }

@@ -74,11 +74,16 @@ final class SubscriptionsViewModel {
     }
 
     /// New API: explicit dates from the form.
+    /// Returns `false` on failure with the message in `self.error` — callers
+    /// that drive a form MUST surface it; a swallowed create error looks
+    /// like "the subscription silently didn't save" to the user.
+    @discardableResult
     func create(name: String, amount: Int64, period: BillingPeriod, color: String?,
                 currency: String, reminderDays: Int,
                 lastPaymentDate: Date?, nextPaymentDate: Date,
                 categoryId: String? = nil,
-                accountId: String? = nil) async {
+                accountId: String? = nil) async -> Bool {
+        error = nil
         do {
             let resolvedUserId = try await SupabaseManager.shared.currentUserId()
             let amountDecimal = Decimal(amount) / 100
@@ -102,19 +107,24 @@ final class SubscriptionsViewModel {
             let sub = try await repo.create(input)
             subscriptions.append(sub)
             await scheduleReminder(for: sub)
+            return true
         } catch {
             self.error = error.localizedDescription
+            return false
         }
     }
 
     // MARK: - Update
 
+    /// Returns `false` on failure with the message in `self.error` — see `create`.
+    @discardableResult
     func update(id: String, name: String, amount: Int64, period: BillingPeriod,
                 color: String?, currency: String, reminderDays: Int,
                 lastPaymentDate: Date?, nextPaymentDate: Date,
                 status: SubscriptionTrackerStatus? = nil,
                 categoryId: String? = nil,
-                accountId: String? = nil) async {
+                accountId: String? = nil) async -> Bool {
+        error = nil
         do {
             let amountDecimal = Decimal(amount) / 100
             let input = UpdateSubscriptionInput(
@@ -151,8 +161,10 @@ final class SubscriptionsViewModel {
                 subscriptions[idx] = sub
                 await applyReminderPolicy(for: sub)
             }
+            return true
         } catch {
             self.error = error.localizedDescription
+            return false
         }
     }
 

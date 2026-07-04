@@ -6,6 +6,11 @@ struct ReportsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vm = ReportsViewModel()
     @State private var sheetData: CategorySheetData?
+    @State private var showCustomPeriodSheet = false
+    @State private var draftCustomStart = Calendar.current.date(
+        from: Calendar.current.dateComponents([.year, .month], from: Date())
+    ) ?? Date()
+    @State private var draftCustomEnd = Calendar.current.startOfDay(for: Date())
 
     // PDF export state
     @State private var isGeneratingPDF = false
@@ -23,17 +28,16 @@ struct ReportsView: View {
     }
 
     var body: some View {
-        let items = vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories, dataStore: dataStore)
-
         VStack(spacing: 0) {
             // Swipeable header (not inside ScrollView — safe for gestures)
             VStack(spacing: 0) {
                 filtersBar
                 periodPager
 
-                Picker("", selection: $vm.selectedType) {
-                    Text(String(localized: "common.expenses")).tag(CategoryType.expense)
-                    Text(String(localized: "common.incomes")).tag(CategoryType.income)
+                Picker("", selection: $vm.selectedSegment) {
+                    Text(String(localized: "common.expenses")).tag(ReportsViewModel.ReportSegment.expense)
+                    Text(String(localized: "common.incomes")).tag(ReportsViewModel.ReportSegment.income)
+                    Text(String(localized: "common.transfers")).tag(ReportsViewModel.ReportSegment.transfers)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -42,23 +46,10 @@ struct ReportsView: View {
             .contentShape(Rectangle())
             .gesture(periodSwipeGesture)
 
-            if items.isEmpty {
-                ContentUnavailableView(
-                    String(localized: "report.noData"),
-                    systemImage: "chart.pie",
-                    description: Text(String(localized: "report.noDataDescription"))
-                )
-                .frame(maxHeight: .infinity)
+            if vm.selectedSegment == .transfers {
+                transfersContent
             } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        donutSection(items: items)
-                            .padding(.bottom, 24)
-
-                        categoryList(items: items)
-                    }
-                    .padding(.bottom, 100)
-                }
+                categoriesContent
             }
         }
         .navigationTitle(String(localized: "report.title"))
@@ -100,6 +91,41 @@ struct ReportsView: View {
         )) { item in
             ActivityViewController(items: [item.url])
         }
+        .sheet(isPresented: $showCustomPeriodSheet) {
+            NavigationStack {
+                Form {
+                    DatePicker(
+                        String(localized: "filter.from"),
+                        selection: $draftCustomStart,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                    DatePicker(
+                        String(localized: "filter.to"),
+                        selection: $draftCustomEnd,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                }
+                .navigationTitle(String(localized: "report.period.custom"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel")) {
+                            showCustomPeriodSheet = false
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(String(localized: "common.apply")) {
+                            vm.setCustomRange(start: draftCustomStart, end: draftCustomEnd)
+                            showCustomPeriodSheet = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationBackground(.ultraThinMaterial)
+        }
         .alert(String(localized: "reports.pdfError"), isPresented: .init(
             get: { pdfError != nil }, set: { _ in pdfError = nil }
         )) {
@@ -109,18 +135,76 @@ struct ReportsView: View {
         }
     }
 
+    // MARK: - Segment content
+
+    @ViewBuilder
+    private var categoriesContent: some View {
+        let items = vm.categoryBreakdown(from: dataStore.transactions, categories: dataStore.categories, dataStore: dataStore)
+        if items.isEmpty {
+            ContentUnavailableView(
+                String(localized: "report.noData"),
+                systemImage: "chart.pie",
+                description: Text(String(localized: "report.noDataDescription"))
+            )
+            .frame(maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(spacing: 0) {
+                    donutSection(items: items)
+                        .padding(.bottom, 24)
+
+                    categoryList(items: items)
+                }
+                .padding(.bottom, 100)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var transfersContent: some View {
+        let items = vm.transferBreakdown(from: dataStore.transactions, dataStore: dataStore)
+        if items.isEmpty {
+            ContentUnavailableView(
+                String(localized: "report.transfers.empty"),
+                systemImage: "arrow.left.arrow.right",
+                description: Text(String(localized: "report.transfers.emptyDescription"))
+            )
+            .frame(maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(spacing: 0) {
+                    transfersDonutSection(items: items)
+                        .padding(.bottom, 24)
+
+                    transferList(items: items)
+                }
+                .padding(.bottom, 100)
+            }
+        }
+    }
+
     // MARK: - PDF Export
 
     private func generatePDF() {
         isGeneratingPDF = true
         let monthTxs = vm.monthTransactions(from: dataStore.transactions)
 
-        // Previous period = shift selectedMonth by one period back, re-filter
-        let prevSelected = vm.prevPeriodDate()
-        let savedSelected = vm.selectedMonth
-        vm.selectedMonth = prevSelected
-        let prevTxs = vm.monthTransactions(from: dataStore.transactions)
-        vm.selectedMonth = savedSelected
+        // Previous period = shift back by one period, re-filter, restore.
+        // Custom mode shifts the from/to bounds instead of selectedMonth.
+        let prevTxs: [Transaction]
+        if vm.periodMode == .custom {
+            let saved = (vm.customStart, vm.customEnd)
+            let prev = vm.previousCustomRange()
+            vm.customStart = prev.start
+            vm.customEnd = prev.end
+            prevTxs = vm.monthTransactions(from: dataStore.transactions)
+            (vm.customStart, vm.customEnd) = saved
+        } else {
+            let savedSelected = vm.selectedMonth
+            vm.selectedMonth = vm.prevPeriodDate()
+            prevTxs = vm.monthTransactions(from: dataStore.transactions)
+            vm.selectedMonth = savedSelected
+        }
 
         let account = vm.selectedAccountId.flatMap { id in
             dataStore.accounts.first(where: { $0.id == id })
@@ -140,7 +224,8 @@ struct ReportsView: View {
             accountFilter: account,
             budgets: dataStore.budgets,
             subscriptions: dataStore.subscriptions,
-            fxRates: dataStore.currencyContext.fxRates
+            fxRates: dataStore.currencyContext.fxRates,
+            externalSpendByBudget: dataStore.externalSpendByBudget
         )
 
         Task.detached(priority: .userInitiated) {
@@ -170,6 +255,8 @@ struct ReportsView: View {
     private var periodSwipeGesture: some Gesture {
         DragGesture(minimumDistance: 50)
             .onEnded { value in
+                // Free-form range has no prev/next (VM no-ops too — belt and braces).
+                guard vm.periodMode != .custom else { return }
                 // Strict horizontal: width must dominate height by 2x
                 guard abs(value.translation.width) > abs(value.translation.height) * 2 else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -209,7 +296,15 @@ struct ReportsView: View {
             Menu {
                 ForEach(ReportsViewModel.PeriodMode.allCases, id: \.self) { mode in
                     Button(mode.label) {
-                        vm.periodMode = mode
+                        if mode == .custom {
+                            // Mode flips only when the range is applied in
+                            // the sheet — cancel keeps the current mode.
+                            draftCustomStart = vm.customStart
+                            draftCustomEnd = vm.customEnd
+                            showCustomPeriodSheet = true
+                        } else {
+                            vm.periodMode = mode
+                        }
                     }
                 }
             } label: {
@@ -239,7 +334,35 @@ struct ReportsView: View {
 
     // MARK: - Period Pager (3 columns)
 
+    @ViewBuilder
     private var periodPager: some View {
+        if vm.periodMode == .custom {
+            // Free-form range: no prev/next stepping — a single label with
+            // an edit affordance instead of the 3-column pager.
+            Button {
+                draftCustomStart = vm.customStart
+                draftCustomEnd = vm.customEnd
+                showCustomPeriodSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text(vm.periodLabel(vm.selectedMonth))
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+        } else {
+            standardPeriodPager
+        }
+    }
+
+    private var standardPeriodPager: some View {
         let prev = vm.prevPeriodDate()
         let next = vm.nextPeriodDate()
 
@@ -286,13 +409,83 @@ struct ReportsView: View {
         if !items.isEmpty {
             let total = items.reduce(Int64(0)) { $0 + $1.amount } // allowlisted-amount: CategoryBreakdownItem.amount is already FX-normalized via ReportsViewModel.categoryBreakdown
             ReportDonutChart(
-                items: items,
+                items: items.map { item in
+                    DonutSlice(
+                        id: item.category.name,
+                        icon: item.category.icon,
+                        colorHex: item.category.color,
+                        amount: item.amount,
+                        percentage: item.percentage
+                    )
+                },
                 total: total,
                 totalLabel: cm.formatAmount(total.displayAmount),
                 typeLabel: vm.selectedType == .expense
                     ? String(localized: "common.expenses")
                     : String(localized: "common.incomes")
             )
+        }
+    }
+
+    @ViewBuilder
+    private func transfersDonutSection(items: [ReportsViewModel.TransferBreakdownItem]) -> some View {
+        if !items.isEmpty {
+            let total = items.reduce(Int64(0)) { $0 + $1.amount } // allowlisted-amount: TransferBreakdownItem.amount is already FX-normalized via ReportsViewModel.transferBreakdown
+            ReportDonutChart(
+                items: items.map { item in
+                    DonutSlice(
+                        id: item.directionKey,
+                        icon: item.fromIcon,
+                        colorHex: item.colorHex,
+                        amount: item.amount,
+                        percentage: item.percentage
+                    )
+                },
+                total: total,
+                totalLabel: cm.formatAmount(total.displayAmount),
+                typeLabel: String(localized: "common.transfers")
+            )
+        }
+    }
+
+    // MARK: - Transfer List (directions, non-tappable)
+
+    private func transferList(items: [ReportsViewModel.TransferBreakdownItem]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(items) { item in
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(hex: item.colorHex))
+                        .frame(width: 40, height: 40)
+                        .background(Color(hex: item.colorHex).opacity(0.15))
+                        .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(item.fromLabel) → \(item.toLabel)")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(String(localized: "analytics.transactionsCount.\(item.txCount)"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    // Transfers are neutral — no sign.
+                    Text(cm.formatAmount(item.amount.displayAmount))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+
+                if item.id != items.last?.id {
+                    Divider().padding(.leading, 68)
+                }
+            }
         }
     }
 
@@ -370,8 +563,18 @@ private struct ActivityViewController: UIViewControllerRepresentable {
 
 // MARK: - Donut Chart
 
+/// Chart-agnostic slice — categories and transfer directions both map here,
+/// so the donut renders either world without knowing about Category.
+struct DonutSlice: Identifiable {
+    let id: String
+    let icon: String
+    let colorHex: String
+    let amount: Int64
+    let percentage: Double
+}
+
 private struct ReportDonutChart: View {
-    let items: [ReportsViewModel.CategoryBreakdownItem]
+    let items: [DonutSlice]
     let total: Int64
     let totalLabel: String
     let typeLabel: String
@@ -391,13 +594,13 @@ private struct ReportDonutChart: View {
     }
 
     private var donutChart: some View {
-        Chart(items, id: \.category.id) { item in
+        Chart(items, id: \.id) { item in
             SectorMark(
                 angle: .value("Amount", item.amount),
                 innerRadius: .ratio(0.55),
                 angularInset: 1.5
             )
-            .foregroundStyle(Color(hex: item.category.color))
+            .foregroundStyle(Color(hex: item.colorHex))
         }
         .frame(width: donutSize, height: donutSize)
         .chartBackground { _ in
@@ -411,7 +614,7 @@ private struct ReportDonutChart: View {
         }
     }
 
-    private var visibleItems: [ReportsViewModel.CategoryBreakdownItem] {
+    private var visibleItems: [DonutSlice] {
         Array(items.prefix(8))
     }
 
@@ -459,17 +662,17 @@ private struct ReportDonutChart: View {
         let angles = midAngles
         let c = center
 
-        return ForEach(Array(vis.enumerated()), id: \.element.category.id) { index, item in
+        return ForEach(Array(vis.enumerated()), id: \.element.id) { index, item in
             let angle = angles[index]
             VStack(spacing: 2) {
-                Text(item.category.icon)
+                Text(item.icon)
                     .font(.system(size: 16))
                     .frame(width: 28, height: 28)
-                    .background(Color(hex: item.category.color).opacity(0.15))
+                    .background(Color(hex: item.colorHex).opacity(0.15))
                     .clipShape(Circle())
                 Text(String(format: "%.0f%%", item.percentage))
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: item.category.color))
+                    .foregroundStyle(Color(hex: item.colorHex))
             }
             .position(x: c.x + iconRadius * cos(angle), y: c.y + iconRadius * sin(angle))
             .allowsHitTesting(false)

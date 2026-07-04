@@ -112,7 +112,8 @@ struct ContentView: View {
                 },
                 accountsById: ctx.accountsById,
                 fxRates: ctx.fxRates,
-                baseCode: ctx.baseCode
+                baseCode: ctx.baseCode,
+                externalSpendByBudget: dataStore.externalSpendByBudget
             )
         )
         await NotificationManager.scheduleWeeklyDigest(body: body)
@@ -132,12 +133,15 @@ struct MainTabView: View {
     @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
     @State private var pendingInviteCode: String?
+    @State private var pendingBudgetInviteCode: String?
     /// Tracks the account the user is currently "looking at" (Home carousel
     /// selection or a pushed shared-account detail). Read by the FAB to
     /// preselect the Account picker on the new-transaction sheet. Only
     /// honored while `selectedTab == .home` — the other tabs don't have
     /// a contextual account.
     @State private var currentAccountContext = CurrentAccountContext()
+    /// Debounced offline-queue sync fired when connectivity returns.
+    @State private var reconnectSyncTask: Task<Void, Never>?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -203,13 +207,18 @@ struct MainTabView: View {
 
             // Offline indicator
             if !NetworkMonitor.shared.isConnected {
+                let pendingCount = appViewModel.dataStore.offlineQueue.pendingCount
                 VStack {
                     Spacer()
                     HStack(spacing: 6) {
                         Image(systemName: "wifi.slash")
                             .font(.caption)
-                        Text(String(localized: "status.offline"))
-                            .font(.caption.weight(.medium))
+                        Text(
+                            pendingCount > 0
+                                ? String(format: String(localized: "status.offline.pending"), pendingCount)
+                                : String(localized: "status.offline")
+                        )
+                        .font(.caption.weight(.medium))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
@@ -252,6 +261,19 @@ struct MainTabView: View {
         .onChange(of: spotlightManager.currentStepIndex) { _, _ in
             if let tab = spotlightManager.requiredTab, tab != selectedTab {
                 withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
+            }
+        }
+        .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
+            // Drain the offline queue as soon as connectivity returns.
+            // Short debounce so a flapping path (elevator Wi-Fi) doesn't
+            // fire overlapping sync rounds; the queue's isProcessing guard
+            // is the second line of defense.
+            reconnectSyncTask?.cancel()
+            guard !wasConnected, isConnected else { return }
+            reconnectSyncTask = Task {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                await appViewModel.dataStore.syncPendingOperations()
             }
         }
         .task {
@@ -355,7 +377,24 @@ struct MainTabView: View {
                 }
             }
 
-            // 2) Invite links: akifi://invite/<code> or https://akifi.pro/invite/<code>
+            // 2) Budget invite links: akifi://budget-invite/<code> or
+            //    https://akifi.pro/budget-invite/<code>. Checked BEFORE the
+            //    account branch — pathComponents of "/budget-invite/x" don't
+            //    contain "invite", but keep the ordering explicit anyway.
+            let budgetCode: String?
+            if url.scheme == "akifi", url.host == "budget-invite" {
+                budgetCode = url.pathComponents.last
+            } else if url.host == "akifi.pro", url.pathComponents.contains("budget-invite") {
+                budgetCode = url.pathComponents.last
+            } else {
+                budgetCode = nil
+            }
+            if let budgetCode, budgetCode != "/", budgetCode.count >= 16 {
+                pendingBudgetInviteCode = budgetCode
+                return
+            }
+
+            // 3) Account invite links: akifi://invite/<code> or https://akifi.pro/invite/<code>
             let code: String?
             if url.scheme == "akifi", url.host == "invite" {
                 code = url.pathComponents.last
@@ -373,6 +412,13 @@ struct MainTabView: View {
             set: { if !$0 { pendingInviteCode = nil } }
         )) {
             AcceptInviteView(initialCode: pendingInviteCode ?? "")
+                .presentationBackground(.ultraThinMaterial)
+        }
+        .sheet(isPresented: Binding(
+            get: { pendingBudgetInviteCode != nil },
+            set: { if !$0 { pendingBudgetInviteCode = nil } }
+        )) {
+            AcceptInviteView(initialCode: pendingBudgetInviteCode ?? "", kind: .budget)
                 .presentationBackground(.ultraThinMaterial)
         }
     }

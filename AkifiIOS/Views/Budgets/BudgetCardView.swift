@@ -16,6 +16,37 @@ struct BudgetCardView: View {
         return df
     }()
 
+    // MARK: - Shared budget members
+
+    private var sharedMembers: [BudgetMember] {
+        appViewModel.dataStore.budgetMembersByBudget[budget.id] ?? []
+    }
+
+    /// Overlapping initials circles — shown only when the budget actually
+    /// has more than one member.
+    private var memberAvatarStack: some View {
+        HStack(spacing: -6) {
+            ForEach(sharedMembers.prefix(3)) { member in
+                memberInitialsCircle(member.userId)
+            }
+        }
+        .accessibilityLabel(String(localized: "share.members"))
+    }
+
+    private func memberInitialsCircle(_ userId: String) -> some View {
+        let profile = appViewModel.dataStore.profilesMap[userId]
+        let initial = String((profile?.fullName ?? profile?.email ?? "?").prefix(1)).uppercased()
+        return Circle()
+            .fill(Color(.systemGray4))
+            .frame(width: 20, height: 20)
+            .overlay {
+                Text(initial)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .overlay(Circle().stroke(Color(.secondarySystemGroupedBackground), lineWidth: 1.5))
+    }
+
     // MARK: - Computed Properties
 
     private var progressColor: Color { Color(hex: metrics.progressColor) }
@@ -153,6 +184,11 @@ struct BudgetCardView: View {
                 }
 
                 Spacer()
+
+                // Overlapping member avatars for shared budgets
+                if sharedMembers.count > 1 {
+                    memberAvatarStack
+                }
 
                 // Status pill — foreground uses .primary for contrast
                 Text(statusLabel.text)

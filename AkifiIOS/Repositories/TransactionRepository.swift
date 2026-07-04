@@ -302,6 +302,12 @@ final class TransactionRepository: Sendable {
 }
 
 struct CreateTransactionInput: Codable, Sendable {
+    /// Client-generated UUID. When set, the INSERT carries an explicit `id`
+    /// so the local placeholder and the server row share identity — offline
+    /// edit/delete chains replay against the same id, and a duplicate replay
+    /// fails with 23505 which the queue treats as "already synced".
+    /// Nil → key dropped from the payload → server generates the id.
+    let id: String?
     let user_id: String
     let account_id: String?
     /// ADR-001: amount in the account's own currency (main units, not kopecks).
@@ -335,6 +341,7 @@ struct CreateTransactionInput: Codable, Sendable {
     let source_currency: String?
 
     init(
+        id: String? = nil,
         user_id: String,
         account_id: String?,
         amount: Decimal,
@@ -353,6 +360,7 @@ struct CreateTransactionInput: Codable, Sendable {
         source_amount: Decimal? = nil,
         source_currency: String? = nil
     ) {
+        self.id = id
         self.user_id = user_id; self.account_id = account_id; self.amount = amount
         self.amount_native = amount_native ?? amount
         self.currency = currency
@@ -369,16 +377,46 @@ struct CreateTransactionInput: Codable, Sendable {
 
     // `source_amount` / `source_currency` are client-only — they only exist
     // to route the RPC overload. Drop them from the direct-INSERT payload
-    // so the `transactions` table doesn't reject unknown columns.
+    // so the `transactions` table doesn't reject unknown columns. They DO
+    // round-trip through the offline queue on disk (gated by
+    // `PersistenceManager.queuePersistenceKey`), otherwise a queued
+    // cross-currency payment-source expense would replay through the wrong
+    // RPC overload after an app restart.
     enum CodingKeys: String, CodingKey {
-        case user_id, account_id, amount, currency, type, date, description
+        case id, user_id, account_id, amount, currency, type, date, description
         case category_id, merchant_name, transfer_group_id
         case payment_source_account_id
         case amount_native, foreign_amount, foreign_currency, fx_rate
+        case source_amount, source_currency
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(user_id, forKey: .user_id)
+        try c.encodeIfPresent(account_id, forKey: .account_id)
+        try c.encode(amount, forKey: .amount)
+        try c.encode(amount_native, forKey: .amount_native)
+        try c.encodeIfPresent(currency, forKey: .currency)
+        try c.encodeIfPresent(foreign_amount, forKey: .foreign_amount)
+        try c.encodeIfPresent(foreign_currency, forKey: .foreign_currency)
+        try c.encodeIfPresent(fx_rate, forKey: .fx_rate)
+        try c.encode(type, forKey: .type)
+        try c.encode(date, forKey: .date)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(category_id, forKey: .category_id)
+        try c.encodeIfPresent(merchant_name, forKey: .merchant_name)
+        try c.encodeIfPresent(transfer_group_id, forKey: .transfer_group_id)
+        try c.encodeIfPresent(payment_source_account_id, forKey: .payment_source_account_id)
+        if encoder.userInfo[PersistenceManager.queuePersistenceKey] as? Bool == true {
+            try c.encodeIfPresent(source_amount, forKey: .source_amount)
+            try c.encodeIfPresent(source_currency, forKey: .source_currency)
+        }
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id)
         user_id = try c.decode(String.self, forKey: .user_id)
         account_id = try c.decodeIfPresent(String.self, forKey: .account_id)
         amount = try c.decode(Decimal.self, forKey: .amount)
@@ -394,8 +432,54 @@ struct CreateTransactionInput: Codable, Sendable {
         merchant_name = try c.decodeIfPresent(String.self, forKey: .merchant_name)
         transfer_group_id = try c.decodeIfPresent(String.self, forKey: .transfer_group_id)
         payment_source_account_id = try c.decodeIfPresent(String.self, forKey: .payment_source_account_id)
-        source_amount = nil
-        source_currency = nil
+        source_amount = try c.decodeIfPresent(Decimal.self, forKey: .source_amount)
+        source_currency = try c.decodeIfPresent(String.self, forKey: .source_currency)
+    }
+
+    /// Copy with a client-generated id when none is set yet.
+    func withClientId(_ newId: String = UUID().uuidString.lowercased()) -> CreateTransactionInput {
+        guard id == nil else { return self }
+        return CreateTransactionInput(
+            id: newId,
+            user_id: user_id, account_id: account_id,
+            amount: amount, amount_native: amount_native,
+            currency: currency,
+            foreign_amount: foreign_amount, foreign_currency: foreign_currency,
+            fx_rate: fx_rate,
+            type: type, date: date,
+            description: description, category_id: category_id,
+            merchant_name: merchant_name, transfer_group_id: transfer_group_id,
+            payment_source_account_id: payment_source_account_id,
+            source_amount: source_amount, source_currency: source_currency
+        )
+    }
+
+    /// Coalescing merge: fold a queued update into this queued create so a
+    /// single INSERT replays with the final field values. Mirrors the server
+    /// semantics of `UpdateTransactionInput` — patch non-nil fields, except
+    /// `replaceCurrencyFields` which overwrites the whole currency block
+    /// verbatim (nil clears).
+    func applying(_ u: UpdateTransactionInput) -> CreateTransactionInput {
+        CreateTransactionInput(
+            id: id,
+            user_id: user_id,
+            account_id: u.account_id ?? account_id,
+            amount: u.amount ?? amount,
+            amount_native: u.amount_native ?? (u.replaceCurrencyFields ? (u.amount ?? amount) : amount_native),
+            currency: u.currency ?? currency,
+            foreign_amount: u.replaceCurrencyFields ? u.foreign_amount : (u.foreign_amount ?? foreign_amount),
+            foreign_currency: u.replaceCurrencyFields ? u.foreign_currency : (u.foreign_currency ?? foreign_currency),
+            fx_rate: u.replaceCurrencyFields ? u.fx_rate : (u.fx_rate ?? fx_rate),
+            type: u.type ?? type,
+            date: u.date ?? date,
+            description: u.description ?? description,
+            category_id: u.category_id ?? category_id,
+            merchant_name: u.merchant_name ?? merchant_name,
+            transfer_group_id: transfer_group_id,
+            payment_source_account_id: payment_source_account_id,
+            source_amount: u.source_amount ?? source_amount,
+            source_currency: u.source_currency ?? source_currency
+        )
     }
 }
 
@@ -469,10 +553,15 @@ struct UpdateTransactionInput: Codable, Sendable {
     }
 
     // Keep `useAutoTransferUpdate` and `replaceCurrencyFields` out of the
-    // encoded payload — they're client-only routing flags.
+    // NETWORK payload — they're client-only routing flags. They DO persist
+    // to disk for the offline queue (gated by queuePersistenceKey): without
+    // them a queued auto-transfer edit that survives an app restart would
+    // replay as a plain UPDATE and desync the transfer legs.
     enum CodingKeys: String, CodingKey {
         case amount, currency, type, date, description, category_id, merchant_name, account_id
         case amount_native, foreign_amount, foreign_currency, fx_rate
+        case use_auto_transfer_update, replace_currency_fields
+        case source_amount, source_currency
     }
 
     init(from decoder: Decoder) throws {
@@ -489,15 +578,21 @@ struct UpdateTransactionInput: Codable, Sendable {
         category_id = try c.decodeIfPresent(String.self, forKey: .category_id)
         merchant_name = try c.decodeIfPresent(String.self, forKey: .merchant_name)
         account_id = try c.decodeIfPresent(String.self, forKey: .account_id)
-        // Flags never round-trip through the decoder.
-        useAutoTransferUpdate = false
-        replaceCurrencyFields = false
-        source_amount = nil
-        source_currency = nil
+        // Tolerant decode: legacy queue files (pre-offline-v2) lack these keys.
+        useAutoTransferUpdate = try c.decodeIfPresent(Bool.self, forKey: .use_auto_transfer_update) ?? false
+        replaceCurrencyFields = try c.decodeIfPresent(Bool.self, forKey: .replace_currency_fields) ?? false
+        source_amount = try c.decodeIfPresent(Decimal.self, forKey: .source_amount)
+        source_currency = try c.decodeIfPresent(String.self, forKey: .source_currency)
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        if encoder.userInfo[PersistenceManager.queuePersistenceKey] as? Bool == true {
+            try c.encode(useAutoTransferUpdate, forKey: .use_auto_transfer_update)
+            try c.encode(replaceCurrencyFields, forKey: .replace_currency_fields)
+            try c.encodeIfPresent(source_amount, forKey: .source_amount)
+            try c.encodeIfPresent(source_currency, forKey: .source_currency)
+        }
         if replaceCurrencyFields {
             // Always emit — nil → JSON null → DB column cleared.
             try c.encode(amount, forKey: .amount)

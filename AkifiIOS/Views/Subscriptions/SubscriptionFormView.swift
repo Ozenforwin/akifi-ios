@@ -4,7 +4,9 @@ struct SubscriptionFormView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
     /// Callback: (name, amountCents, period, color, currency, reminderDays, lastPayment?, nextPayment, categoryId?, accountId?)
-    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date, String?, String?) async -> Void
+    /// Returns nil on success, or a user-facing error message — the form
+    /// stays open and shows it, instead of silently dismissing a failed save.
+    let onSave: (String, Int64, BillingPeriod, String?, String, Int, Date?, Date, String?, String?) async -> String?
 
     @State private var name = ""
     @State private var amountText = ""
@@ -22,6 +24,7 @@ struct SubscriptionFormView: View {
         from: Calendar.current.startOfDay(for: Date()), period: .monthly
     )
     @State private var nextManuallyEdited = false
+    @State private var errorMessage: String?
 
     private let colors = ["#60A5FA", "#4ADE80", "#F472B6", "#FBBF24", "#A78BFA", "#FB923C", "#F87171", "#34D399"]
 
@@ -41,17 +44,18 @@ struct SubscriptionFormView: View {
                     TextField(String(localized: "transfer.amount"), text: $amountText)
                         .keyboardType(.decimalPad)
 
-                    Picker(String(localized: "subscriptions.period"), selection: $period) {
+                    // User-action bindings, NOT .onChange: onChange also fires
+                    // on programmatic assignments (prefill/recalc), which used
+                    // to permanently latch nextManuallyEdited and freeze the
+                    // auto-recalc of the next payment date.
+                    Picker(String(localized: "subscriptions.period"), selection: Binding(
+                        get: { period },
+                        set: { period = $0; recalcNextIfAuto() }
+                    )) {
                         Text(String(localized: "billingPeriod.weekly")).tag(BillingPeriod.weekly)
                         Text(String(localized: "billingPeriod.monthly")).tag(BillingPeriod.monthly)
                         Text(String(localized: "billingPeriod.quarterly")).tag(BillingPeriod.quarterly)
                         Text(String(localized: "billingPeriod.yearly")).tag(BillingPeriod.yearly)
-                    }
-                    .onChange(of: period) { _, newValue in
-                        if !nextManuallyEdited {
-                            let base = specifyLastPayment ? lastPaymentDate : Calendar.current.startOfDay(for: Date())
-                            nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: newValue)
-                        }
                     }
 
                     HStack {
@@ -78,27 +82,28 @@ struct SubscriptionFormView: View {
                 }
 
                 Section {
-                    Toggle(String(localized: "subscriptions.specifyLastPayment"), isOn: $specifyLastPayment)
+                    Toggle(String(localized: "subscriptions.specifyLastPayment"), isOn: Binding(
+                        get: { specifyLastPayment },
+                        set: { specifyLastPayment = $0; recalcNextIfAuto() }
+                    ))
                     if specifyLastPayment {
                         DatePicker(
                             String(localized: "subscriptions.lastPayment"),
-                            selection: $lastPaymentDate,
+                            selection: Binding(
+                                get: { lastPaymentDate },
+                                set: { lastPaymentDate = $0; recalcNextIfAuto() }
+                            ),
                             displayedComponents: .date
                         )
-                        .onChange(of: lastPaymentDate) { _, newValue in
-                            if !nextManuallyEdited {
-                                nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: newValue, period: period)
-                            }
-                        }
                     }
                     DatePicker(
                         String(localized: "subscriptions.nextPayment"),
-                        selection: $nextPaymentDate,
+                        selection: Binding(
+                            get: { nextPaymentDate },
+                            set: { nextPaymentDate = $0; nextManuallyEdited = true }
+                        ),
                         displayedComponents: .date
                     )
-                    .onChange(of: nextPaymentDate) { _, _ in
-                        nextManuallyEdited = true
-                    }
                 } header: {
                     Text(String(localized: "subscriptions.datesSection"))
                 } footer: {
@@ -149,18 +154,43 @@ struct SubscriptionFormView: View {
                     .disabled(name.isEmpty || amountText.isEmpty || isSaving)
                 }
             }
+            .alert(
+                String(localized: "common.error"),
+                isPresented: .init(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(String(localized: "common.ok")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
+    }
+
+    /// Recomputes the next payment date from the last-payment anchor (or
+    /// today) unless the user has explicitly overridden it by touching the
+    /// next-payment picker.
+    private func recalcNextIfAuto() {
+        guard !nextManuallyEdited else { return }
+        let base = specifyLastPayment ? lastPaymentDate : Calendar.current.startOfDay(for: Date())
+        nextPaymentDate = SubscriptionDateEngine.nextPaymentDate(from: base, period: period)
     }
 
     private func save() async {
         isSaving = true
+        defer { isSaving = false }
         guard let decimal = Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) else { return }
         let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
         let last: Date? = specifyLastPayment ? lastPaymentDate : nil
-        await onSave(
+        let error = await onSave(
             name, amountCents, period, selectedColor, selectedCurrency.code,
             reminderDays, last, nextPaymentDate, selectedCategoryId, selectedAccountId
         )
-        dismiss()
+        if let error {
+            errorMessage = error
+        } else {
+            dismiss()
+        }
     }
 }

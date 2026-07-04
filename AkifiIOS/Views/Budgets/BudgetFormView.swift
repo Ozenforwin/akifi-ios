@@ -23,6 +23,7 @@ struct BudgetFormView: View {
     @State private var customEndDate = Calendar.current.date(byAdding: .month, value: 1, to: Date())!
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showShareSheet = false
     /// Currency the budget's amount is denominated in. New budgets default
     /// to the linked account's ccy → user's display ccy → base ccy.
     /// Editing reads from `budget.currency` (or falls back to base for
@@ -244,6 +245,26 @@ struct BudgetFormView: View {
                     }
                 }
 
+                if let budget = editingBudget {
+                    Section(String(localized: "budget.sharing.section")) {
+                        Button {
+                            showShareSheet = true
+                        } label: {
+                            HStack {
+                                Label(String(localized: "common.share"), systemImage: "person.badge.plus")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                                    .font(.footnote)
+                            }
+                        }
+                    }
+                    .sheet(isPresented: $showShareSheet) {
+                        ShareBudgetView(budget: budget)
+                            .presentationBackground(.ultraThinMaterial)
+                    }
+                }
+
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
@@ -266,6 +287,20 @@ struct BudgetFormView: View {
                 }
             }
             .onAppear { prefill() }
+            // The error Section at the bottom is below the fold — an alert
+            // is the only way the user actually learns the save failed
+            // (otherwise "жму создать и ничего не происходит").
+            .alert(
+                String(localized: "common.error"),
+                isPresented: .init(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(String(localized: "common.ok")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
     }
 

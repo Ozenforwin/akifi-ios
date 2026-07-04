@@ -38,8 +38,20 @@ final class AuthManager {
             currentUser = session.user
             isAuthenticated = true
         } catch {
-            isAuthenticated = false
-            currentUser = nil
+            // `auth.session` refreshes when the access token is expired —
+            // offline that refresh can only fail. If the keychain still
+            // holds a session and the error isn't a definitive revocation,
+            // treat the user as authenticated: cached data renders, and the
+            // next foreground refresh fixes the token once network returns.
+            if !Self.isDefinitivelyExpired(error),
+               let localSession = supabase.auth.currentSession {
+                AppLogger.auth.info("Session check failed transiently, using local session (offline start)")
+                currentUser = localSession.user
+                isAuthenticated = true
+            } else {
+                isAuthenticated = false
+                currentUser = nil
+            }
         }
         isLoading = false
     }

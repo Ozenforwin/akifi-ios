@@ -387,6 +387,19 @@ struct ShareAccountView: View {
 // MARK: - Accept Invite View (for receiving user)
 
 struct AcceptInviteView: View {
+    /// What the invite joins. Same UI and error codes for both — only the
+    /// accepting RPC differs.
+    enum InviteKind {
+        case account, budget
+
+        var rpcName: String {
+            switch self {
+            case .account: "accept_account_invite"
+            case .budget: "accept_budget_invite"
+            }
+        }
+    }
+
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var code: String
@@ -394,12 +407,14 @@ struct AcceptInviteView: View {
     @State private var error: String?
     @State private var success: String?
     private let autoAccept: Bool
+    private let kind: InviteKind
 
     private let supabase = SupabaseManager.shared.client
 
-    init(initialCode: String = "") {
+    init(initialCode: String = "", kind: InviteKind = .account) {
         _code = State(initialValue: initialCode)
         autoAccept = !initialCode.isEmpty
+        self.kind = kind
     }
 
     var body: some View {
@@ -496,6 +511,24 @@ struct AcceptInviteView: View {
         let p_token: String
     }
 
+    /// Normalized accept-RPC outcome. The account RPC returns `success` as
+    /// a jsonb boolean, the budget RPC as the string "true" — parse both.
+    private struct AcceptOutcome {
+        let success: Bool
+        let errorCode: String?
+    }
+
+    private func callAcceptRPC(_ rpcName: String, token: String) async throws -> AcceptOutcome {
+        let data = try await supabase
+            .rpc(rpcName, params: AcceptParams(p_token: token))
+            .execute()
+            .data
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        let success = (json["success"] as? Bool)
+            ?? ((json["success"] as? String) == "true")
+        return AcceptOutcome(success: success, errorCode: json["error"] as? String)
+    }
+
     private func acceptInvite() async {
         let cleanCode = code.replacingOccurrences(of: " ", with: "").lowercased()
         guard cleanCode.count >= 16 else { return }
@@ -505,12 +538,21 @@ struct AcceptInviteView: View {
         success = nil
 
         do {
-            let response: [String: String] = try await supabase
-                .rpc("accept_account_invite", params: AcceptParams(p_token: cleanCode))
-                .execute()
-                .value
+            var outcome = try await callAcceptRPC(kind.rpcName, token: cleanCode)
 
-            if response["success"] == "true" {
+            // The user doesn't know (and shouldn't care) whether a code or
+            // link opens an account or a budget — both share the same
+            // "/invite/*" universal-link path. When the primary kind doesn't
+            // recognize the token, try the other one.
+            if !outcome.success, outcome.errorCode == "invite_not_found" {
+                let other: InviteKind = kind == .account ? .budget : .account
+                let secondTry = try await callAcceptRPC(other.rpcName, token: cleanCode)
+                if secondTry.success || secondTry.errorCode != "invite_not_found" {
+                    outcome = secondTry
+                }
+            }
+
+            if outcome.success {
                 success = String(localized: "invite.success")
                 await appViewModel.dataStore.loadAll()
                 code = ""
@@ -519,8 +561,7 @@ struct AcceptInviteView: View {
                     dismiss()
                 }
             } else {
-                let errCode = response["error"] ?? "unknown"
-                switch errCode {
+                switch outcome.errorCode ?? "unknown" {
                 case "invite_not_found": error = String(localized: "invite.errorNotFound")
                 case "invite_expired": error = String(localized: "invite.errorExpired")
                 case "already_member": error = String(localized: "invite.errorAlreadyMember")

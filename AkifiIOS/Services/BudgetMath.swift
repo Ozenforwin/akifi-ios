@@ -31,15 +31,18 @@ enum BudgetMath {
         budget: Budget,
         transactions: [Transaction],
         subscriptions: [SubscriptionTracker] = [],
+        categories: [Category] = [],
+        externalSpendRows: [ExternalSpendRow] = [],
         currencyContext: CurrencyContext
     ) -> BudgetMetrics {
         let period = currentPeriod(for: budget)
-        let spent = spentAmount(budget: budget, transactions: transactions, period: period, currencyContext: currencyContext)
+        let spent = spentAmount(budget: budget, transactions: transactions, period: period, categories: categories, currencyContext: currencyContext)
+            + externalSpent(rows: externalSpendRows, budget: budget, period: period, currencyContext: currencyContext)
         let limit = budget.amount
         let remaining = max(0, limit - spent)
 
         let subCommitted = subscriptionCommitted(
-            budget: budget, subscriptions: subscriptions, currencyContext: currencyContext
+            budget: budget, subscriptions: subscriptions, categories: categories, currencyContext: currencyContext
         )
         let freeRemaining = max(0, remaining - subCommitted)
 
@@ -144,6 +147,7 @@ enum BudgetMath {
         budget: Budget,
         transactions: [Transaction],
         period: (start: Date, end: Date),
+        categories: [Category] = [],
         currencyContext: CurrencyContext
     ) -> Int64 {
         let budgetCurrency: String = {
@@ -157,14 +161,16 @@ enum BudgetMath {
             return currencyContext.baseCode
         }()
 
+        let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
+
         let df = AppDateFormatters.isoDate
         return transactions.filter { tx in
             guard tx.type == .expense && !tx.isTransfer else { return false }
-            if let cats = budget.categoryIds, !cats.isEmpty {
-                guard let catId = tx.categoryId, cats.contains(catId) else { return false }
-            }
-            if let accId = budget.accountId {
-                guard tx.accountId == accId else { return false }
+            guard categoryMatcher.matches(tx.categoryId) else { return false }
+            // ALL linked accounts count, not just the first — a shared
+            // budget spanning several accounts must see spending on each.
+            if let accIds = budget.accountIds, !accIds.isEmpty {
+                guard let a = tx.accountId, accIds.contains(a) else { return false }
             }
             guard let d = df.date(from: tx.date) else { return false }
             return d >= period.start && d <= period.end
@@ -178,6 +184,110 @@ enum BudgetMath {
         }
     }
 
+    // MARK: - External spend (shared budgets)
+
+    /// A partner's budget-relevant expense that the caller's RLS can't see
+    /// (paid from an account not shared with the caller). Fetched via the
+    /// `get_budget_member_expenses` RPC — the server already applied the
+    /// budget's category/account rules and the visibility dedup, so the
+    /// client only re-buckets by period and FX-normalizes.
+    struct ExternalSpendRow: Codable, Sendable {
+        /// Main units (Decimal, matches the DB numeric).
+        let amountNative: Decimal
+        /// The paying account's currency (may be lowercase from legacy rows).
+        let currency: String
+        /// "yyyy-MM-dd"
+        let txDate: String
+
+        enum CodingKeys: String, CodingKey {
+            case amountNative = "amount_native"
+            case currency
+            case txDate = "tx_date"
+        }
+    }
+
+    /// Sums the partner rows falling into the budget's current period,
+    /// FX-normalized into the budget's currency — the invisible remainder
+    /// added on top of the locally computed `spentAmount`.
+    static func externalSpent(
+        rows: [ExternalSpendRow],
+        budget: Budget,
+        period: (start: Date, end: Date),
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        guard !rows.isEmpty else { return 0 }
+
+        let budgetCurrency: String = {
+            if let explicit = budget.currency, !explicit.isEmpty {
+                return explicit.uppercased()
+            }
+            if let accId = budget.accountId,
+               let acc = currencyContext.accountsById[accId] {
+                return acc.currency.uppercased()
+            }
+            return currencyContext.baseCode
+        }()
+
+        let df = AppDateFormatters.isoDate
+        var total: Int64 = 0
+        for row in rows {
+            guard let d = df.date(from: row.txDate),
+                  d >= period.start && d <= period.end else { continue }
+            total += NetWorthCalculator.convert(
+                amount: row.amountNative.kopecks,
+                from: row.currency.uppercased(),
+                to: budgetCurrency,
+                rates: currencyContext.fxRates
+            )
+        }
+        return total
+    }
+
+    /// Category filter that also matches by NAME, not only by id.
+    ///
+    /// On shared accounts (and now shared budgets) each user has their own
+    /// category rows — the partner's «Продукты» has a different id, so pure
+    /// id-matching silently drops their spending from the budget. Reports
+    /// already merge same-name categories (`ReportsViewModel.categoryBreakdown`);
+    /// this mirrors that rule. With no `categories` list supplied the matcher
+    /// degrades to the legacy id-only behavior.
+    struct CategoryMatcher {
+        private let budgetIds: Set<String>
+        private let budgetNames: Set<String>
+        private let nameById: [String: String]
+
+        init(budgetCategoryIds: [String]?, categories: [Category]) {
+            let ids = Set(budgetCategoryIds ?? [])
+            budgetIds = ids
+            guard !ids.isEmpty, !categories.isEmpty else {
+                budgetNames = []
+                nameById = [:]
+                return
+            }
+            var names: [String: String] = [:]
+            names.reserveCapacity(categories.count)
+            for cat in categories {
+                names[cat.id] = Self.normalized(cat.name)
+            }
+            nameById = names
+            budgetNames = Set(ids.compactMap { names[$0] })
+        }
+
+        /// True when the budget has no category filter, or the transaction's
+        /// category matches by id or by normalized name.
+        func matches(_ categoryId: String?) -> Bool {
+            guard !budgetIds.isEmpty else { return true }
+            guard let categoryId else { return false }
+            if budgetIds.contains(categoryId) { return true }
+            guard let name = nameById[categoryId] else { return false }
+            return budgetNames.contains(name)
+        }
+
+        private static func normalized(_ name: String) -> String {
+            name.lowercased().trimmingCharacters(in: .whitespaces)
+        }
+    }
+
     // MARK: - Subscription Committed
 
     /// Sum of the user's active subscriptions committed against this
@@ -188,6 +298,7 @@ enum BudgetMath {
     static func subscriptionCommitted(
         budget: Budget,
         subscriptions: [SubscriptionTracker],
+        categories: [Category] = [],
         currencyContext: CurrencyContext
     ) -> Int64 {
         let activeSubs = subscriptions.filter { $0.status == .active }
@@ -204,11 +315,11 @@ enum BudgetMath {
             return currencyContext.baseCode
         }()
 
+        let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
+
         var total: Int64 = 0
         for sub in activeSubs {
-            if let cats = budget.categoryIds, !cats.isEmpty {
-                guard let catId = sub.categoryId, cats.contains(catId) else { continue }
-            }
+            guard categoryMatcher.matches(sub.categoryId) else { continue }
             let periodNormalized = normalizedAmount(
                 sub.amount, from: sub.billingPeriod, to: budget.billingPeriod
             )

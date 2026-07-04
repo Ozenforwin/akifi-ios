@@ -56,6 +56,14 @@ struct TransactionRowView: View {
                     if let acc = resolvedAccount {
                         accountBadge(acc)
                     }
+
+                    // Queued offline, waiting for sync
+                    if transaction.status == "pending" {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel(String(localized: "tx.pendingSync"))
+                    }
                 }
 
                 // Row 3: Description or transfer direction

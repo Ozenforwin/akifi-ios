@@ -77,6 +77,10 @@ enum InsightEngine {
         let accountsById: [String: Account]
         let fxRates: [String: Decimal]
         let baseCode: String
+        /// Partners' invisible spending for shared budgets (see
+        /// `DataStore.externalSpendByBudget`). `var` with a default so the
+        /// memberwise init keeps existing call sites compiling.
+        var externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
 
         init(
             transactions: [Transaction],
@@ -88,7 +92,8 @@ enum InsightEngine {
             now: Date = Date(),
             accountsById: [String: Account] = [:],
             fxRates: [String: Decimal] = [:],
-            baseCode: String = "RUB"
+            baseCode: String = "RUB",
+            externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
         ) {
             self.transactions = transactions
             self.categories = categories
@@ -100,6 +105,7 @@ enum InsightEngine {
             self.accountsById = accountsById
             self.fxRates = fxRates
             self.baseCode = baseCode
+            self.externalSpendByBudget = externalSpendByBudget
         }
 
         func amountInBase(_ tx: Transaction) -> Int64 {
@@ -233,6 +239,8 @@ enum InsightEngine {
                 budget: budget,
                 transactions: input.transactions,
                 subscriptions: input.subscriptions,
+                categories: input.categories,
+                externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
                 currencyContext: (input.accountsById, input.fxRates, input.baseCode)
             )
             if metrics.utilization >= 85 && metrics.remainingDays > 0 {
@@ -265,6 +273,7 @@ enum InsightEngine {
             let committed = BudgetMath.subscriptionCommitted(
                 budget: budget,
                 subscriptions: input.subscriptions,
+                categories: input.categories,
                 currencyContext: (input.accountsById, input.fxRates, input.baseCode)
             )
             guard budget.amount > 0, committed > 0 else { continue }

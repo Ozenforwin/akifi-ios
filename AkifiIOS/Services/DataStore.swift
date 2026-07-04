@@ -86,9 +86,29 @@ final class DataStore {
     var subscriptions: [SubscriptionTracker] = []
     var profile: Profile?
     var profilesMap: [String: Profile] = [:]
+    /// Members of shared budgets, keyed by budget id. Single-member budgets
+    /// (just the owner) render no avatar stack.
+    var budgetMembersByBudget: [String: [BudgetMember]] = [:]
+    /// Partners' budget-relevant expenses invisible to this user's RLS
+    /// (paid from accounts not shared with them), keyed by budget id.
+    /// Added on top of the local spent so a shared budget's progress bar
+    /// reflects EVERYONE's spending, not just what this device can see.
+    var externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
 
-    private let cache = PersistenceManager.shared
-    let offlineQueue = OfflineQueue()
+    private let cache: PersistenceManager
+    let offlineQueue: OfflineQueue
+
+    /// Connectivity seam — tests override this instead of fighting the
+    /// NWPathMonitor singleton. Production always reads NetworkMonitor.
+    @ObservationIgnored var isConnectedProvider: @MainActor () -> Bool = {
+        NetworkMonitor.shared.isConnected
+    }
+    private var isOnline: Bool { isConnectedProvider() }
+
+    init(cache: PersistenceManager = .shared) {
+        self.cache = cache
+        self.offlineQueue = OfflineQueue(persistence: cache)
+    }
 
     // MARK: - Auto-match settings key
     static let autoMatchEnabledKey = "subscriptionsAutoMatchEnabled"
@@ -101,8 +121,17 @@ final class DataStore {
         loadFromCache()
         rebuildCaches()
 
+        // Offline: cached content is the app. Don't attempt fetches that
+        // can only fail, don't surface an error string — the offline banner
+        // already tells the story.
+        guard isOnline else {
+            writeWidgetSnapshot()
+            isLoading = false
+            return
+        }
+
         // 1b. Sync offline queue if we have pending operations
-        if offlineQueue.hasPending && NetworkMonitor.shared.isConnected {
+        if offlineQueue.hasPending {
             await offlineQueue.processQueue()
         }
 
@@ -134,10 +163,32 @@ final class DataStore {
         do { profile = try await profileFetch }
         catch { AppLogger.data.debug("profile: \(error)") }
 
+        // Budget members (shared budgets) — RLS scopes rows to budgets the
+        // user belongs to. Non-fatal: sharing UI just shows no members.
+        do {
+            let allMembers: [BudgetMember] = try await SupabaseManager.shared.client
+                .from("budget_members")
+                .select()
+                .execute()
+                .value
+            budgetMembersByBudget = Dictionary(grouping: allMembers, by: \.budgetId)
+        } catch {
+            AppLogger.data.debug("budget members: \(error)")
+        }
+
+        // Partners' invisible spending for shared budgets — the progress
+        // bar must reflect everyone's spending. Non-fatal per budget.
+        await loadExternalBudgetSpend()
+
         // Sequential: depends on transactions & profile being loaded
         do {
             let currentUserId = profile?.id ?? ""
-            let otherUserIds = Array(Set(transactions.map(\.userId)).filter { $0 != currentUserId })
+            // Hydrate partner profiles from transactions AND budget members —
+            // a budget partner may have no visible transactions yet, but
+            // their name/avatar must still resolve in the share sheet.
+            let txUserIds = Set(transactions.map(\.userId))
+            let memberUserIds = Set(budgetMembersByBudget.values.flatMap { $0 }.map(\.userId))
+            let otherUserIds = Array(txUserIds.union(memberUserIds).filter { $0 != currentUserId })
             if !otherUserIds.isEmpty {
                 let otherProfiles = try await profileRepo.fetchAll(ids: otherUserIds)
                 for p in otherProfiles {
@@ -149,16 +200,107 @@ final class DataStore {
             AppLogger.data.debug("profiles map: \(error)")
         }
 
-        if !errors.isEmpty {
+        if !errors.isEmpty && isOnline {
+            // isOnline re-check: connectivity lost mid-load (or the
+            // NWPathMonitor's optimistic initial value was wrong on cold
+            // start) — cached data is showing, an error string would only
+            // duplicate the offline banner.
             self.error = errors.joined(separator: "; ")
             AppLogger.data.warning("Load completed with errors: \(self.error!)")
         }
+
+        // Re-apply queued mutations on top of the fresh server rows so
+        // not-yet-synced placeholders survive the fetch overwrite.
+        applyPendingOverlay()
 
         // 3. Save fresh data to offline cache
         saveToCache()
         rebuildCaches()
         writeWidgetSnapshot()
         isLoading = false
+    }
+
+    /// Fetches partners' budget-relevant expenses for every budget with
+    /// more than one member, via the `get_budget_member_expenses` RPC.
+    /// The server applies the budget's rules + visibility dedup; rows here
+    /// are exactly the spending this user's RLS can't see.
+    private func loadExternalBudgetSpend() async {
+        struct Params: Encodable {
+            let p_budget_id: String
+        }
+        let sharedBudgetIds = budgetMembersByBudget
+            .filter { $0.value.count > 1 }
+            .map(\.key)
+        guard !sharedBudgetIds.isEmpty else {
+            externalSpendByBudget = [:]
+            return
+        }
+
+        var result: [String: [BudgetMath.ExternalSpendRow]] = [:]
+        for budgetId in sharedBudgetIds {
+            do {
+                let rows: [BudgetMath.ExternalSpendRow] = try await SupabaseManager.shared.client
+                    .rpc("get_budget_member_expenses", params: Params(p_budget_id: budgetId))
+                    .execute()
+                    .value
+                if !rows.isEmpty { result[budgetId] = rows }
+            } catch {
+                AppLogger.data.debug("external budget spend (\(budgetId)): \(error)")
+            }
+        }
+        externalSpendByBudget = result
+    }
+
+    /// Replays the offline queue and refreshes transactions afterwards so
+    /// placeholders get swapped for the server rows. Triggered by the
+    /// reconnect hook in `MainTabView` and safe to call at any time —
+    /// no-ops when offline, idle, or already processing.
+    func syncPendingOperations() async {
+        guard isOnline, offlineQueue.hasPending, !offlineQueue.isProcessing else { return }
+        await offlineQueue.processQueue()
+        do {
+            transactions = try await transactionRepo.fetchAll()
+            applyPendingOverlay()
+            cache.saveTransactions(transactions)
+            rebuildCaches()
+            writeWidgetSnapshot()
+        } catch {
+            AppLogger.data.warning("Post-sync transaction refresh failed: \(error)")
+        }
+    }
+
+    /// Re-applies queued-but-unsynced operations onto `transactions` after
+    /// a network fetch replaced the array. Without this, a fetch that lands
+    /// while ops are still queued (flaky connectivity, halted replay round)
+    /// would make the user's offline entries vanish from the UI.
+    /// Internal (not private) so tests can exercise the overlay directly.
+    func applyPendingOverlay() {
+        guard offlineQueue.hasPending else { return }
+        let nowISO = ISO8601DateFormatter().string(from: Date())
+        for op in offlineQueue.pendingOperations {
+            switch op.operation {
+            case .create(let input):
+                guard let clientId = input.id,
+                      !transactions.contains(where: { $0.id == clientId }) else { break }
+                let rows = input.routesToAutoTransferRPC
+                    ? Transaction.placeholderTriplet(for: input, nowISO: nowISO)
+                    : [Transaction.placeholder(for: input, nowISO: nowISO)]
+                transactions.insert(contentsOf: rows, at: 0)
+            case .update(let txId, let input):
+                if let idx = transactions.firstIndex(where: { $0.id == txId }) {
+                    transactions[idx] = transactions[idx].applying(input)
+                }
+            case .delete(let txId):
+                if let idx = transactions.firstIndex(where: { $0.id == txId }) {
+                    let tx = transactions[idx]
+                    if let groupId = tx.autoTransferGroupId {
+                        transactions.removeAll { $0.autoTransferGroupId == groupId }
+                    } else {
+                        transactions.remove(at: idx)
+                    }
+                }
+            }
+        }
     }
 
     /// Persist a fresh `SharedSnapshot` for the widget extension and ask
@@ -190,26 +332,55 @@ final class DataStore {
     }
 
     func addTransaction(_ input: CreateTransactionInput) async throws -> Transaction {
-        if !NetworkMonitor.shared.isConnected {
-            offlineQueue.enqueue(PendingOperation(operation: .create(input)))
-            let placeholder = Transaction(
-                id: UUID().uuidString, userId: input.user_id,
-                accountId: input.account_id,
-                amount: Int64(truncating: (input.amount * 100) as NSDecimalNumber),
-                currency: input.currency, description: input.description,
-                categoryId: input.category_id, type: TransactionType(rawValue: input.type) ?? .expense,
-                date: input.date, merchantName: input.merchant_name,
-                merchantFuzzy: nil, transferGroupId: input.transfer_group_id,
-                status: "pending", createdAt: nil, updatedAt: nil
-            )
-            transactions.insert(placeholder, at: 0)
-            rebuildCaches()
-            writeWidgetSnapshot()
-            return placeholder
+        // Stamp a client-generated id before anything else: the local
+        // placeholder and the server row share identity, so offline
+        // edits/deletes of a not-yet-synced row target the right id, and a
+        // duplicated replay fails with 23505 which the queue treats as
+        // "already synced".
+        let stamped = input.withClientId()
+
+        guard isOnline else {
+            return enqueueCreateLocally(stamped)
         }
 
-        let tx = try await transactionRepo.create(input)
-        transactions.insert(tx, at: 0)
+        do {
+            let tx = try await transactionRepo.create(stamped)
+            transactions.insert(tx, at: 0)
+            cache.saveTransactions(transactions)
+            rebuildCaches()
+            writeWidgetSnapshot()
+            AnalyticsService.logAddTransaction(
+                type: stamped.type,
+                amount: Double(truncating: stamped.amount as NSDecimalNumber),
+                category: stamped.category_id
+            )
+            await attemptAutoMatch(for: tx)
+            return tx
+        } catch {
+            // Lie-fi fallback: the monitor said "connected" but the request
+            // died in transit — queue it like a normal offline create.
+            // Exception: a timed-out RPC create may have already committed
+            // server-side with ids we don't know, so replaying it could
+            // duplicate the triplet. Surface the error instead.
+            let isTimeout = error is TimeoutError || (error as? URLError)?.code == .timedOut
+            guard OfflineQueue.isTransportError(error),
+                  !(stamped.routesToAutoTransferRPC && isTimeout) else { throw error }
+            AppLogger.data.warning("Create failed in transit, queueing offline: \(error)")
+            return enqueueCreateLocally(stamped)
+        }
+    }
+
+    /// Queues a create and inserts its full-fidelity local placeholder
+    /// (triplet for payment-source expenses) so balances and analytics stay
+    /// correct until the queue drains.
+    private func enqueueCreateLocally(_ input: CreateTransactionInput) -> Transaction {
+        offlineQueue.enqueue(PendingOperation(operation: .create(input)))
+        let nowISO = ISO8601DateFormatter().string(from: Date())
+        let rows = input.routesToAutoTransferRPC
+            ? Transaction.placeholderTriplet(for: input, nowISO: nowISO)
+            : [Transaction.placeholder(for: input, nowISO: nowISO)]
+        transactions.insert(contentsOf: rows, at: 0)
+        cache.saveTransactions(transactions)
         rebuildCaches()
         writeWidgetSnapshot()
         AnalyticsService.logAddTransaction(
@@ -217,8 +388,7 @@ final class DataStore {
             amount: Double(truncating: input.amount as NSDecimalNumber),
             category: input.category_id
         )
-        await attemptAutoMatch(for: tx)
-        return tx
+        return rows[0]
     }
 
     // MARK: - Subscription auto-match
@@ -497,10 +667,28 @@ final class DataStore {
     }
 
     func updateTransaction(id: String, _ input: UpdateTransactionInput) async throws {
-        try await transactionRepo.update(id: id, input)
+        guard isOnline else {
+            try applyUpdateOffline(id: id, input)
+            return
+        }
+
+        do {
+            try await transactionRepo.update(id: id, input)
+        } catch {
+            // Lie-fi fallback — UPDATEs are idempotent (same values on
+            // replay), so queueing after an in-transit failure is safe even
+            // if the server actually committed.
+            guard OfflineQueue.isTransportError(error) else { throw error }
+            AppLogger.data.warning("Update failed in transit, queueing offline: \(error)")
+            try applyUpdateOffline(id: id, input)
+            return
+        }
+
         // Reload only transactions instead of all data
         do {
             transactions = try await transactionRepo.fetchAll()
+            applyPendingOverlay()
+            cache.saveTransactions(transactions)
             rebuildCaches()
             writeWidgetSnapshot()
         } catch {
@@ -508,24 +696,104 @@ final class DataStore {
         }
     }
 
+    /// Offline edit: queue the update (coalesces into a queued create when
+    /// the row hasn't synced yet) and mirror the change locally.
+    private func applyUpdateOffline(id: String, _ input: UpdateTransactionInput) throws {
+        guard let idx = transactions.firstIndex(where: { $0.id == id }) else {
+            throw OfflineMutationError.transactionNotFound
+        }
+        let tx = transactions[idx]
+        // A payment-source expense still sitting in the queue gets its
+        // triplet created server-side with ids we can't predict — a queued
+        // update would replay against rows that don't exist. Block until
+        // the create syncs.
+        if tx.autoTransferGroupId != nil && offlineQueue.hasQueuedCreate(for: id) {
+            throw OfflineMutationError.pendingAutoTransferEdit
+        }
+
+        offlineQueue.enqueue(PendingOperation(operation: .update(transactionId: id, input)))
+        transactions[idx] = tx.applying(input)
+        if input.useAutoTransferUpdate, let groupId = tx.autoTransferGroupId {
+            patchAutoTransferLegsLocally(groupId: groupId, expenseId: id, input: input)
+        }
+        cache.saveTransactions(transactions)
+        rebuildCaches()
+        writeWidgetSnapshot()
+    }
+
+    /// Local mirror of `update_expense_with_auto_transfer`: when the main
+    /// expense of a synced triplet is edited offline, both transfer legs
+    /// move too — otherwise the source-account balance would be stale until
+    /// the queue drains. Out-leg takes `source_amount` (its own currency,
+    /// 11-arg overload semantics), in-leg takes `amount`.
+    private func patchAutoTransferLegsLocally(groupId: String, expenseId: String, input: UpdateTransactionInput) {
+        for idx in transactions.indices {
+            let leg = transactions[idx]
+            guard leg.autoTransferGroupId == groupId,
+                  leg.id != expenseId,
+                  leg.transferGroupId != nil else { continue }
+            let legAmount = leg.type == .expense
+                ? (input.source_amount ?? input.amount)
+                : input.amount
+            let legDescription = input.description.map {
+                "Авто-перевод: " + ($0.isEmpty ? "расход" : $0)
+            }
+            transactions[idx] = leg.applying(UpdateTransactionInput(
+                amount: legAmount,
+                amount_native: legAmount,
+                date: input.date,
+                description: legDescription
+            ))
+        }
+    }
+
     func deleteTransaction(_ transaction: Transaction) async {
+        guard isOnline else {
+            deleteOffline(transaction)
+            return
+        }
+
         do {
             try await transactionRepo.delete(id: transaction.id)
-            // If this row was part of an auto-transfer triplet, the RPC
-            // deleted ALL three server-side (expense + two transfer legs).
-            // Remove the sibling rows from local state too — otherwise the
-            // UI would optimistically drop only the swiped row and the other
-            // two would "come back" on the next recompute/rerender.
-            if let groupId = transaction.autoTransferGroupId {
-                transactions.removeAll { $0.autoTransferGroupId == groupId }
-            } else {
-                transactions.removeAll { $0.id == transaction.id }
-            }
+            removeLocal(transaction)
+            cache.saveTransactions(transactions)
             rebuildCaches()
             writeWidgetSnapshot()
             AnalyticsService.logDeleteTransaction()
         } catch {
-            self.error = error.localizedDescription
+            // Lie-fi fallback — a replayed delete of an already-deleted row
+            // resolves as synced (PGRST116), so queueing is safe.
+            if OfflineQueue.isTransportError(error) {
+                AppLogger.data.warning("Delete failed in transit, queueing offline: \(error)")
+                deleteOffline(transaction)
+            } else {
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// Offline delete: queue it (coalescing cancels a queued create outright
+    /// — nothing reaches the server for rows that never synced) and drop the
+    /// row(s) locally, mirroring the online triplet semantics.
+    private func deleteOffline(_ transaction: Transaction) {
+        offlineQueue.enqueue(PendingOperation(operation: .delete(transactionId: transaction.id)))
+        removeLocal(transaction)
+        cache.saveTransactions(transactions)
+        rebuildCaches()
+        writeWidgetSnapshot()
+        AnalyticsService.logDeleteTransaction()
+    }
+
+    /// If this row was part of an auto-transfer triplet, the server deletes
+    /// ALL three rows (expense + two transfer legs). Remove the sibling rows
+    /// from local state too — otherwise the UI would optimistically drop
+    /// only the swiped row and the other two would "come back" on the next
+    /// recompute/rerender.
+    private func removeLocal(_ transaction: Transaction) {
+        if let groupId = transaction.autoTransferGroupId {
+            transactions.removeAll { $0.autoTransferGroupId == groupId }
+        } else {
+            transactions.removeAll { $0.id == transaction.id }
         }
     }
 
@@ -771,6 +1039,8 @@ final class DataStore {
             .map { budget in
                 let metrics = BudgetMath.compute(
                     budget: budget, transactions: transactions, subscriptions: subscriptions,
+                    categories: categories,
+                    externalSpendRows: externalSpendByBudget[budget.id] ?? [],
                     currencyContext: ctx
                 )
                 return AssistantContext.BudgetSummary(

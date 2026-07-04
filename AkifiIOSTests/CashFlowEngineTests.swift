@@ -337,6 +337,42 @@ final class CashFlowEngineTests: XCTestCase {
         XCTAssertEqual(result.monthlySubscriptionCost, 499_00)
     }
 
+    // MARK: - Outlier robustness (median, not mean)
+
+    func testExpense_OneOffSpike_DoesNotBecomeMonthlyBurn() {
+        // The real-world bug: rent prepaid 3 months ahead (360k in one
+        // January transaction) turned the forecast permanently negative —
+        // the mean smeared it into every future month. The median must
+        // report the TYPICAL month instead.
+        let transactions = [
+            tx(id: "i1", amount: 100_000_00, type: .income, date: "2026-01-05"),
+            tx(id: "e1", amount: 440_000_00, type: .expense, date: "2026-01-14", merchant: "Аренда за 3 месяца"),
+            tx(id: "i2", amount: 100_000_00, type: .income, date: "2026-02-05"),
+            tx(id: "e2", amount: 80_000_00, type: .expense, date: "2026-02-15", merchant: "Store"),
+            tx(id: "i3", amount: 100_000_00, type: .income, date: "2026-03-05"),
+            tx(id: "e3", amount: 70_000_00, type: .expense, date: "2026-03-15", merchant: "Store")
+        ]
+        let result = CashFlowEngine.forecast(
+            startingBalance: 500_000_00,
+            transactions: transactions,
+            subscriptions: [],
+            monthsAhead: 3,
+            historyMonths: 3,
+            now: fixedNow,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(result.avgMonthlyExpense, 80_000_00, "median of [440k, 80k, 70k] is 80k — the spike must not dominate")
+        XCTAssertGreaterThan(result.netMonthly, 0, "typical month is net-positive; the one-off must not flip the forecast negative")
+        XCTAssertNil(result.monthsUntilEmpty)
+    }
+
+    func testMedian_EvenCount_AveragesCentralPair() {
+        XCTAssertEqual(CashFlowEngine.median(of: [10, 20, 30, 100]), 25)
+        XCTAssertEqual(CashFlowEngine.median(of: []), 0)
+        XCTAssertEqual(CashFlowEngine.median(of: [42]), 42)
+    }
+
     // MARK: - monthsUntilEmpty (new)
 
     func testMonthsUntilEmpty_NegativeNet_ReturnsBalanceDividedByBurn() {

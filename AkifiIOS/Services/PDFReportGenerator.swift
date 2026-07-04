@@ -38,6 +38,9 @@ enum PDFReportGenerator {
         /// "assume single currency" behaviour for callers that haven't
         /// migrated yet.
         var fxRates: [String: Decimal] = [:]
+        /// Partners' invisible spending for shared budgets (see
+        /// `DataStore.externalSpendByBudget`).
+        var externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
 
         var currencyContext: BudgetMath.CurrencyContext {
             let accountsById = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -442,6 +445,8 @@ enum PDFReportGenerator {
                 budget: budget,
                 transactions: input.transactions,
                 subscriptions: input.subscriptions,
+                categories: input.categories,
+                externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
                 currencyContext: ctxCurrency
             )
 

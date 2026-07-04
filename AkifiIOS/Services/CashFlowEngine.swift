@@ -5,7 +5,11 @@ import Foundation
 ///
 /// Approach:
 /// 1. Analyze the last N months of transactions to estimate typical monthly
-///    income and expenses (excluding transfers).
+///    income and expenses (excluding transfers). The monthly rate is the
+///    MEDIAN of non-empty month buckets, not the mean: a one-off spike
+///    (three months of rent prepaid in one transaction, a laptop, a
+///    security deposit) would otherwise be smeared into every future month
+///    as phantom recurring burn and flip the forecast permanently negative.
 /// 2. Layer in committed subscriptions, normalized to a monthly rate.
 /// 3. Compute end-of-month balance for the next 1-6 months, with a
 ///    confidence band based on historical variance.
@@ -27,7 +31,10 @@ enum CashFlowEngine {
 
     struct Forecast: Sendable, Equatable {
         let startingBalance: Int64
+        /// Typical monthly income — MEDIAN of non-empty history months.
         let avgMonthlyIncome: Int64
+        /// Typical monthly expense — MEDIAN of non-empty history months
+        /// (one-off spikes like prepaid rent don't inflate it).
         let avgMonthlyExpense: Int64
         let monthlySubscriptionCost: Int64
         let sampleMonths: Int          // how many *non-empty* months of history we used
@@ -77,14 +84,16 @@ enum CashFlowEngine {
     ///   - transactions: history (all accounts, all types)
     ///   - subscriptions: active committed subscriptions
     ///   - monthsAhead: horizon length (1-12)
-    ///   - historyMonths: how many past months to analyze (default 3)
+    ///   - historyMonths: how many past months to analyze (default 6 —
+    ///     a wider window makes the median robust: with only 3 buckets a
+    ///     single anomalous month is one step from becoming the median)
     ///   - now: injectable for deterministic tests
     static func forecast(
         startingBalance: Int64,
         transactions: [Transaction],
         subscriptions: [SubscriptionTracker],
         monthsAhead: Int = 3,
-        historyMonths: Int = 3,
+        historyMonths: Int = 6,
         now: Date = Date(),
         calendar: Calendar = .current,
         accountsById: [String: Account] = [:],
@@ -119,11 +128,10 @@ enum CashFlowEngine {
         let nonEmptyBuckets = buckets.filter { $0.income > 0 || $0.expense > 0 }
         let sampleMonths = nonEmptyBuckets.count
 
-        let totalIncome = nonEmptyBuckets.reduce(Int64(0)) { $0 + $1.income }
-        let totalExpense = nonEmptyBuckets.reduce(Int64(0)) { $0 + $1.expense }
-        let divisor = Int64(max(1, sampleMonths))
-        let avgIncome = totalIncome / divisor
-        let avgExpense = totalExpense / divisor
+        // Median, not mean — one month with prepaid rent must not become
+        // a permanent monthly burn rate (see the type-level doc).
+        let avgIncome = median(of: nonEmptyBuckets.map(\.income))
+        let avgExpense = median(of: nonEmptyBuckets.map(\.expense))
 
         // 3. Monthly subscription cost (active only, normalized to monthly).
         let monthlySubs = subscriptions
@@ -307,6 +315,18 @@ enum CashFlowEngine {
         case .yearly: return amount / 12
         case .custom: return amount
         }
+    }
+
+    /// Median of the values (mean of the two central elements for even
+    /// counts). Zero for an empty array.
+    static func median(of values: [Int64]) -> Int64 {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        let mid = sorted.count / 2
+        if sorted.count % 2 == 1 {
+            return sorted[mid]
+        }
+        return (sorted[mid - 1] + sorted[mid]) / 2
     }
 
     static func variance(values: [Int64], mean: Int64) -> Int64 {

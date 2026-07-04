@@ -15,7 +15,7 @@ struct DailyLimitWidgetView: View {
         let ctx = dataStore.currencyContext
         var minDaily: Decimal?
         for budget in budgets {
-            let metrics = BudgetMath.compute(budget: budget, transactions: transactions, currencyContext: ctx)
+            let metrics = BudgetMath.compute(budget: budget, transactions: transactions, categories: dataStore.categories, externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [], currencyContext: ctx)
             guard metrics.remainingDays > 0 else { continue }
             let daily = metrics.remaining.displayAmount / Decimal(metrics.remainingDays)
             if let current = minDaily {

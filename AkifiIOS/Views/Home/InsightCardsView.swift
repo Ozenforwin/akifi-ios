@@ -28,7 +28,8 @@ struct InsightCardsView: View {
                 },
                 accountsById: ctx.accountsById,
                 fxRates: ctx.fxRates,
-                baseCode: ctx.baseCode
+                baseCode: ctx.baseCode,
+                externalSpendByBudget: dataStore.externalSpendByBudget
             )
         )
         let skip = dismissedSet

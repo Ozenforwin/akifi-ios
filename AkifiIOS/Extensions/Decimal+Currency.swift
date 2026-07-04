@@ -15,3 +15,15 @@ extension Int64 {
         Decimal(self) / 100
     }
 }
+
+extension Decimal {
+    /// Main units → kopecks (×100, plain rounding). Counterpart of
+    /// `Int64.displayAmount`; used when a DTO Decimal has to land in a
+    /// local `Transaction.amountNative` without a server round-trip.
+    var kopecks: Int64 {
+        var scaled = self * 100
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &scaled, 0, .plain)
+        return Int64(truncating: rounded as NSDecimalNumber)
+    }
+}

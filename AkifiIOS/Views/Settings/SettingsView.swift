@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showReceiptScanner = false
     @State private var showDeleteFinalConfirmation = false
     @State private var deleteError: String?
+    @State private var showSignOutPendingWarning = false
 
     private var currentLanguageName: String {
         switch appLanguage {
@@ -239,10 +240,38 @@ struct SettingsView: View {
                     }
                 }
 
+                // Offline writes that gave up after repeated replay failures.
+                // Hidden entirely in the happy path.
+                if !appViewModel.dataStore.offlineQueue.deadLetterOperations.isEmpty {
+                    Section {
+                        HStack {
+                            SettingsRow(
+                                icon: "exclamationmark.icloud.fill",
+                                color: .red,
+                                title: String(
+                                    format: String(localized: "offline.syncFailed"),
+                                    appViewModel.dataStore.offlineQueue.deadLetterOperations.count
+                                )
+                            )
+                            Spacer()
+                            Button(String(localized: "offline.syncFailed.discard"), role: .destructive) {
+                                appViewModel.dataStore.offlineQueue.discardDeadLetters()
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+                }
+
                 Section {
                     Button(role: .destructive) {
-                        Task {
-                            try? await appViewModel.authManager.signOut()
+                        // Sign-out wipes the offline cache including queued
+                        // writes — never silently discard unsynced entries.
+                        if appViewModel.dataStore.offlineQueue.hasPending {
+                            showSignOutPendingWarning = true
+                        } else {
+                            Task {
+                                try? await appViewModel.authManager.signOut()
+                            }
                         }
                     } label: {
                         Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
@@ -258,6 +287,19 @@ struct SettingsView: View {
                 Color.clear.frame(height: 120)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+            }
+            .alert(String(localized: "signout.pendingWarning.title"), isPresented: $showSignOutPendingWarning) {
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+                Button(String(localized: "auth.signOut"), role: .destructive) {
+                    Task {
+                        try? await appViewModel.authManager.signOut()
+                    }
+                }
+            } message: {
+                Text(String(
+                    format: String(localized: "signout.pendingWarning"),
+                    appViewModel.dataStore.offlineQueue.pendingCount
+                ))
             }
             .alert(String(localized: "settings.deleteAccount.title"), isPresented: $showDeleteConfirmation) {
                 Button(String(localized: "common.cancel"), role: .cancel) {}
@@ -647,7 +689,8 @@ struct LanguagePickerView: View {
                 },
                 accountsById: ctx.accountsById,
                 fxRates: ctx.fxRates,
-                baseCode: ctx.baseCode
+                baseCode: ctx.baseCode,
+                externalSpendByBudget: dataStore.externalSpendByBudget
             )
         )
         await NotificationManager.scheduleWeeklyDigest(body: body)
