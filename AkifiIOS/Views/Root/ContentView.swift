@@ -61,9 +61,13 @@ struct ContentView: View {
             }
         }
         .task {
-            async let init_: () = appViewModel.initialize()
+            let initTask = Task { await appViewModel.initialize() }
             try? await Task.sleep(for: .seconds(1.5))
-            _ = await init_
+            // The splash must never be held hostage by the network: if
+            // init is still running after 12 s (offline cold start with an
+            // expired token stacks SDK retries), show the UI — cached data
+            // renders and init finishes in the background.
+            _ = try? await withTimeout(seconds: 12) { await initTask.value }
             withAnimation(.easeOut(duration: 0.4)) {
                 showSplash = false
             }
