@@ -373,6 +373,38 @@ enum BudgetMath {
         return plain.date(from: raw)
     }
 
+    // MARK: - Daily safe-to-spend across budgets
+
+    /// The recommended daily limit: the MINIMUM safe-to-spend-per-day across
+    /// all budgets (the most restrictive budget wins). Budgets whose period
+    /// already ended (`remainingDays == 0`) are skipped. Zero when there are
+    /// no budgets; never negative.
+    static func minDailySafeToSpend(
+        budgets: [Budget],
+        transactions: [Transaction],
+        categories: [Category] = [],
+        externalSpendByBudget: [String: [ExternalSpendRow]] = [:],
+        currencyContext: CurrencyContext
+    ) -> Decimal {
+        guard !budgets.isEmpty else { return 0 }
+
+        var minDaily: Decimal?
+        for budget in budgets {
+            let metrics = compute(
+                budget: budget,
+                transactions: transactions,
+                categories: categories,
+                externalSpendRows: externalSpendByBudget[budget.id] ?? [],
+                currencyContext: currencyContext
+            )
+            guard metrics.remainingDays > 0 else { continue }
+            let daily = metrics.remaining.displayAmount / Decimal(metrics.remainingDays)
+            minDaily = minDaily.map { min($0, daily) } ?? daily
+        }
+
+        return max(0, minDaily ?? 0)
+    }
+
     // MARK: - Progress (0–999 %)
 
     static func computeProgress(spent: Int64, limit: Int64) -> Int {

@@ -155,17 +155,26 @@ struct MainTabView: View {
     @State private var currentAccountContext = CurrentAccountContext()
     /// Debounced offline-queue sync fired when connectivity returns.
     @State private var reconnectSyncTask: Task<Void, Never>?
+    /// Tabs the user has visited at least once. Visited tabs stay alive
+    /// (hidden, not destroyed) so their panel caches, scroll positions and
+    /// navigation stacks survive switches — recreating Analytics from
+    /// scratch on every switch was a visible 1-2 s freeze.
+    @State private var visitedTabs: Set<AppTab> = [.home]
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Content area
-            Group {
-                switch selectedTab {
-                case .home: HomeTabView()
-                case .transactions: TransactionsTabView()
-                case .analytics: AnalyticsTabView()
-                case .journal: JournalTabView()
-                case .budgets: BudgetsTabView()
+            // Content area — lazily-populated keep-alive stack. A tab is
+            // built on first visit and then merely hidden; @Observable
+            // invalidations keep hidden tabs' caches warm in the background
+            // (cheap: every panel is memoized), so returning is instant.
+            ZStack {
+                ForEach(AppTab.allCases, id: \.self) { tab in
+                    if visitedTabs.contains(tab) {
+                        tabContent(for: tab)
+                            .opacity(selectedTab == tab ? 1 : 0)
+                            .allowsHitTesting(selectedTab == tab)
+                            .accessibilityHidden(selectedTab != tab)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -275,6 +284,9 @@ struct MainTabView: View {
             if let tab = spotlightManager.requiredTab, tab != selectedTab {
                 withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
             }
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            visitedTabs.insert(newTab)
         }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
             // Drain the offline queue as soon as connectivity returns.
@@ -438,6 +450,17 @@ struct MainTabView: View {
         )) {
             AcceptInviteView(initialCode: pendingBudgetInviteCode ?? "", kind: .budget)
                 .presentationBackground(.ultraThinMaterial)
+        }
+    }
+
+    @ViewBuilder
+    private func tabContent(for tab: AppTab) -> some View {
+        switch tab {
+        case .home: HomeTabView()
+        case .transactions: TransactionsTabView()
+        case .analytics: AnalyticsTabView()
+        case .journal: JournalTabView()
+        case .budgets: BudgetsTabView()
         }
     }
 

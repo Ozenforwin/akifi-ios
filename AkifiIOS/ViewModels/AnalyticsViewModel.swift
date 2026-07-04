@@ -74,55 +74,60 @@ final class AnalyticsViewModel {
             .reduce(Decimal.zero) { $0 + dataStore.amountInBaseDisplay($1) }
     }
 
+    /// "dd.MM" bucket label for week/month period modes.
+    private static let dayLabelFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale.current
+        df.dateFormat = "dd.MM"
+        return df
+    }()
+
+    /// "MM.yy" bucket label for quarter/year period modes.
+    private static let monthLabelFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale.current
+        df.dateFormat = "MM.yy"
+        return df
+    }()
+
     func cashflowData(from transactions: [Transaction], dataStore: DataStore) -> [CashflowPoint] {
         let calendar = Calendar.current
-        var grouped: [String: (income: Decimal, expense: Decimal)] = [:]
+        // Keyed by the bucket's anchor DATE (not its label) so the output
+        // can be sorted chronologically — dictionary order previously drove
+        // the bar order and charts could render buckets shuffled.
+        var grouped: [Date: (income: Decimal, expense: Decimal)] = [:]
 
-        let labelFormatter = DateFormatter()
-        labelFormatter.locale = Locale.current
-
-        let groupFormatter: DateFormatter
-        switch selectedPeriod {
-        case .week:
-            labelFormatter.dateFormat = "dd.MM"
-            groupFormatter = labelFormatter
-        case .month:
-            labelFormatter.dateFormat = "dd.MM"
-            groupFormatter = DateFormatter()
-            groupFormatter.dateFormat = "yyyy-MM-dd"
-        case .quarter, .year:
-            labelFormatter.dateFormat = "MM.yy"
-            groupFormatter = DateFormatter()
-            groupFormatter.dateFormat = "yyyy-MM"
-        }
+        let labelFormatter = selectedPeriod == .quarter || selectedPeriod == .year
+            ? Self.monthLabelFormatter
+            : Self.dayLabelFormatter
 
         for tx in transactions {
             guard !tx.isTransfer else { continue }
             guard let txDate = dateFormatter.date(from: tx.date) else { continue }
 
-            let key: String
+            let bucket: Date
             switch selectedPeriod {
             case .week:
-                key = labelFormatter.string(from: txDate)
+                bucket = calendar.startOfDay(for: txDate)
             case .month:
-                let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: txDate))!
-                key = labelFormatter.string(from: weekStart)
+                bucket = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: txDate))!
             case .quarter, .year:
-                let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: txDate))!
-                key = labelFormatter.string(from: monthStart)
+                bucket = calendar.date(from: calendar.dateComponents([.year, .month], from: txDate))!
             }
 
-            var entry = grouped[key, default: (income: .zero, expense: .zero)]
+            var entry = grouped[bucket, default: (income: .zero, expense: .zero)]
             let amount = dataStore.amountInBaseDisplay(tx)
             if tx.type == .income {
                 entry.income += amount
             } else if tx.type == .expense {
                 entry.expense += amount
             }
-            grouped[key] = entry
+            grouped[bucket] = entry
         }
 
-        return grouped.map { CashflowPoint(label: $0.key, income: $0.value.income, expense: $0.value.expense) }
+        return grouped
+            .sorted { $0.key < $1.key }
+            .map { CashflowPoint(label: labelFormatter.string(from: $0.key), income: $0.value.income, expense: $0.value.expense) }
     }
 
     func categoryBreakdown(from transactions: [Transaction], categories: [Category], dataStore: DataStore) -> [CategorySpending] {

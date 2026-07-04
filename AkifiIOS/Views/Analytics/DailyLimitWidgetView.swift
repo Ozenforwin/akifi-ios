@@ -5,38 +5,84 @@ struct DailyLimitWidgetView: View {
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
-    private var safeToSpend: Decimal {
-        let budgets = dataStore.budgets
-        let transactions = dataStore.transactions
-        guard !budgets.isEmpty else { return 0 }
+    // MARK: - Memoization
+    //
+    // BudgetMath.compute is O(transactions) per budget; running it in a
+    // computed property meant every body evaluation paid O(budgets × N).
+    // Same .task(id:)-promoted cache pattern as CategoryBreakdownView.
 
-        // Calculate safe-to-spend as minimum across all budgets
-        // (most restrictive budget determines daily limit)
-        let ctx = dataStore.currencyContext
-        var minDaily: Decimal?
-        for budget in budgets {
-            let metrics = BudgetMath.compute(budget: budget, transactions: transactions, categories: dataStore.categories, externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [], currencyContext: ctx)
-            guard metrics.remainingDays > 0 else { continue }
-            let daily = metrics.remaining.displayAmount / Decimal(metrics.remainingDays)
-            if let current = minDaily {
-                minDaily = min(current, daily)
-            } else {
-                minDaily = daily
-            }
+    private struct CacheKey: Equatable {
+        let txCount: Int
+        let txGeneration: UInt64
+        let budgetsFingerprint: Int
+        let externalSpendFingerprint: Int
+        /// Safe-to-spend divides by remaining days — the value legitimately
+        /// changes at midnight even when no data changed. With keep-alive
+        /// tabs nothing else would invalidate it overnight.
+        let dayKey: String
+    }
+
+    @State private var cachedKey: CacheKey?
+    @State private var cachedValue: Decimal = 0
+
+    private static let dayFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private var currentKey: CacheKey {
+        var budgetsHasher = Hasher()
+        for budget in dataStore.budgets {
+            budgetsHasher.combine(budget.id)
+            budgetsHasher.combine(budget.amount)
+            budgetsHasher.combine(budget.updatedAt)
+            budgetsHasher.combine(budget.isActive)
         }
+        var spendHasher = Hasher()
+        for (budgetId, rows) in dataStore.externalSpendByBudget.sorted(by: { $0.key < $1.key }) {
+            spendHasher.combine(budgetId)
+            spendHasher.combine(rows.count)
+        }
+        return CacheKey(
+            txCount: dataStore.transactions.count,
+            txGeneration: dataStore.txGenerationToken,
+            budgetsFingerprint: budgetsHasher.finalize(),
+            externalSpendFingerprint: spendHasher.finalize(),
+            dayKey: Self.dayFormatter.string(from: Date())
+        )
+    }
 
-        return max(0, minDaily ?? 0)
+    /// Memoized with a synchronous fallback on miss — the first frame after
+    /// an invalidation still shows the correct number, `.task(id:)` then
+    /// promotes it into @State so subsequent renders are O(1).
+    private var safeToSpend: Decimal {
+        if cachedKey == currentKey {
+            return cachedValue
+        }
+        return computeSafeToSpend()
+    }
+
+    private func computeSafeToSpend() -> Decimal {
+        BudgetMath.minDailySafeToSpend(
+            budgets: dataStore.budgets,
+            transactions: dataStore.transactions,
+            categories: dataStore.categories,
+            externalSpendByBudget: dataStore.externalSpendByBudget,
+            currencyContext: dataStore.currencyContext
+        )
     }
 
     var body: some View {
+        let value = safeToSpend
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "analytics.availableToday"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(appViewModel.currencyManager.formatAmount(safeToSpend))
+            Text(appViewModel.currencyManager.formatAmount(value))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(safeToSpend > 0 ? .primary : .red)
+                .foregroundColor(value > 0 ? .primary : .red)
 
             Text(String(localized: "analytics.recommendedDailyLimit"))
                 .font(.caption)
@@ -46,5 +92,9 @@ struct DailyLimitWidgetView: View {
         .padding()
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .task(id: currentKey) {
+            cachedValue = computeSafeToSpend()
+            cachedKey = currentKey
+        }
     }
 }

@@ -60,7 +60,10 @@ struct AnalyticsTabView: View {
                     .background(.bar)
 
                 ScrollView {
-                    VStack(spacing: 12) {
+                    // Lazy: only on-screen panels compute on first visit;
+                    // the rest prime as the user scrolls. Every panel has a
+                    // bounded height so laziness doesn't cause layout jumps.
+                    LazyVStack(spacing: 12) {
                         // Pre-aggregated 6-month series, scoped to the
                         // currently-selected account. For demo mode we
                         // can't get this from `DataStore` (those rows are
