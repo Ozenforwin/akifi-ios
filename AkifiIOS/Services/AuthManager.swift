@@ -56,6 +56,21 @@ final class AuthManager {
         isLoading = false
     }
 
+    /// Last-resort resolve when `checkSession()` blew through the splash
+    /// deadline (hung SDK call on an offline cold start): trust the keychain
+    /// session if one exists and unblock the UI. No-op once resolved.
+    func forceResolveFromLocalSession() {
+        guard isLoading else { return }
+        if let local = supabase.auth.currentSession {
+            currentUser = local.user
+            isAuthenticated = true
+        } else {
+            isAuthenticated = false
+            currentUser = nil
+        }
+        isLoading = false
+    }
+
     /// Force-refresh the access token. Call on app foreground to avoid stale
     /// tokens after long background suspension. Silent no-op if no session.
     ///

@@ -68,6 +68,15 @@ struct ContentView: View {
             // expired token stacks SDK retries), show the UI — cached data
             // renders and init finishes in the background.
             _ = try? await withTimeout(seconds: 12) { await initTask.value }
+            if appViewModel.authManager.isLoading {
+                // Init blew the deadline before auth resolved — decide from
+                // the keychain and load cached data so the screen behind
+                // the splash is never empty (black screen).
+                appViewModel.authManager.forceResolveFromLocalSession()
+                if appViewModel.authManager.isAuthenticated {
+                    await appViewModel.loadAfterAuth()
+                }
+            }
             withAnimation(.easeOut(duration: 0.4)) {
                 showSplash = false
             }
