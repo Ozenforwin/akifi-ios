@@ -39,6 +39,7 @@ final class AppViewModel {
         // never ran without a network. Rates fall back to their cache,
         // premium to non-premium (rechecked on next launch), loadAll
         // short-circuits to the offline cache internally.
+        await NetworkMonitor.shared.waitForFirstUpdate()
         let online = NetworkMonitor.shared.isConnected
 
         async let data: () = dataStore.loadAll()

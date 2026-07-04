@@ -28,6 +28,21 @@ final class AuthManager {
     }
 
     func checkSession() async {
+        // Fast local path — no network round-trip on the splash screen.
+        // A keychain session with a still-valid access token is enough to
+        // start; offline we accept even an expired one (the refresh can
+        // only fail without a network, and the next foreground refresh
+        // fixes the token once connectivity returns). Without this, an
+        // airplane-mode cold start ate the full 5 s timeout below.
+        await NetworkMonitor.shared.waitForFirstUpdate()
+        if let local = supabase.auth.currentSession,
+           !local.isExpired || !NetworkMonitor.shared.isConnected {
+            currentUser = local.user
+            isAuthenticated = true
+            isLoading = false
+            return
+        }
+
         do {
             // Capture supabase locally so the @Sendable closure inside
             // withTimeout does not capture @MainActor-isolated self.

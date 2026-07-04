@@ -5,6 +5,10 @@ import Network
 final class NetworkMonitor {
     static let shared = NetworkMonitor()
     private(set) var isConnected = true
+    /// False until NWPathMonitor delivers its first path update. Before
+    /// that, `isConnected` is an optimistic default — cold-start code that
+    /// branches on connectivity should `waitForFirstUpdate()` first.
+    private(set) var hasReceivedFirstUpdate = false
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
@@ -15,9 +19,21 @@ final class NetworkMonitor {
             let satisfied = path.status == .satisfied
             Task { @MainActor [weak self] in
                 self?.isConnected = satisfied
+                self?.hasReceivedFirstUpdate = true
             }
         }
         monitor.start(queue: queue)
+    }
+
+    /// Waits (briefly) for the first real path update so cold-start
+    /// connectivity checks don't act on the optimistic default. The monitor
+    /// typically reports within tens of milliseconds; the cap keeps this
+    /// harmless if it ever doesn't.
+    func waitForFirstUpdate(maxWait: Duration = .milliseconds(500)) async {
+        let deadline = ContinuousClock.now + maxWait
+        while !hasReceivedFirstUpdate && ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
     }
 }
 
