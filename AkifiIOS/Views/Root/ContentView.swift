@@ -287,6 +287,7 @@ struct MainTabView: View {
         }
         .onChange(of: selectedTab) { _, newTab in
             visitedTabs.insert(newTab)
+            AnalyticsService.logScreen(newTab.screenName)
         }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
             // Drain the offline queue as soon as connectivity returns.
@@ -573,8 +574,11 @@ private struct CustomTabBar: View {
     private func tabButton(_ icon: String, _ label: String, _ tab: AppTab) -> some View {
         Button {
             if hapticEnabled { HapticManager.light() }
+            // Screen logging lives in MainTabView's onChange(selectedTab):
+            // one point covers taps AND programmatic switches (deep links,
+            // spotlight, push taps), and re-tapping the active tab no
+            // longer emits duplicate screen events.
             selectedTab = tab
-            AnalyticsService.logScreen(tab.screenName)
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: icon)

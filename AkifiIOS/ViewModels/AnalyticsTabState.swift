@@ -40,12 +40,6 @@ final class AnalyticsTabState {
     @ObservationIgnored private var cachedPeriodKey: CacheKey?
     @ObservationIgnored private var cachedPeriod: [Transaction]?
 
-    private static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     init(dataStore: DataStore) {
         self.dataStore = dataStore
     }
@@ -89,7 +83,7 @@ final class AnalyticsTabState {
             return cached
         }
         let startDate = selectedPeriod.startDate()
-        let df = Self.isoDateFormatter
+        let df = AppDateFormatters.isoDate
         let scoped = scopedTransactions
         let result = scoped.filter { tx in
             guard let date = df.date(from: tx.date) else { return false }

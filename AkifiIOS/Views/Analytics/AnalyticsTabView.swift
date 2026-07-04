@@ -24,15 +24,9 @@ struct AnalyticsTabView: View {
         tabState?.periodTransactions ?? []
     }
 
-    private static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     private func demoFilteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
         let startDate = period.startDate()
-        let df = Self.isoDateFormatter
+        let df = AppDateFormatters.isoDate
         return DemoData.transactions.filter { tx in
             guard let date = df.date(from: tx.date) else { return false }
             return date >= startDate
@@ -86,8 +80,11 @@ struct AnalyticsTabView: View {
                                 .spotlight(.analyticsChart)
                         }
 
-                        // 2. Daily Limit Widget
-                        if !dataStore.budgets.isEmpty {
+                        // 2. Daily Limit Widget. Hidden for demo-mode users:
+                        // unlike sibling panels it has no demoBlur variant,
+                        // and real zero-ish numbers next to blurred demo
+                        // content read as broken.
+                        if !isNewUser && !dataStore.budgets.isEmpty {
                             DailyLimitWidgetView()
                         }
 
@@ -158,7 +155,7 @@ struct AnalyticsTabView: View {
 
                         // 8. Cash Flow Forecast — parked at the bottom until
                         //    the visual polish + content density is improved.
-                        if !isNewUser && !dataStore.transactions.isEmpty {
+                        if !isNewUser {
                             CashFlowForecastView()
                         }
                     }

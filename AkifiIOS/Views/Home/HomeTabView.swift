@@ -162,7 +162,10 @@ struct HomeTabView: View {
                     categories: dataStore.displayCategories,
                     accounts: dataStore.accounts
                 ) {
-                    dataStore.rebuildCaches()
+                    // loadAll (not just rebuildCaches) — matches every other
+                    // form completion: picks up server-side effects like
+                    // auto-transfer triplets and subscription auto-match.
+                    await dataStore.loadAll()
                 }
                 .presentationBackground(.ultraThinMaterial)
             }
