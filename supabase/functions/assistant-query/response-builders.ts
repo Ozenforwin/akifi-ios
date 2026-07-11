@@ -188,7 +188,10 @@ export function buildTopExpensesResponse(
 ): { answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] } {
   const currentExpenses = transactions
     .filter((tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, window))
-    .sort((a, b) => safeNumber(b.amount) - safeNumber(a.amount));
+    // Sort in base currency — legacy `amount` ranked a 3 380 USD expense
+    // below a 15 000 RUB one.
+    .sort((a, b) => safeNumber(b.amount_in_base ?? b.amount_native ?? b.amount)
+      - safeNumber(a.amount_in_base ?? a.amount_native ?? a.amount));
 
   if (currentExpenses.length === 0) {
     return {
@@ -207,7 +210,7 @@ export function buildTopExpensesResponse(
     return `${idx + 1}. ${catName}: ${formatMoney(safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount))} (${tx.date.slice(0, 10)})`;
   });
 
-  const topAmount = safeNumber(top5[0].amount);
+  const topAmount = safeNumber(top5[0].amount_in_base ?? top5[0].amount_native ?? top5[0].amount);
   const topCat = top5[0].category?.name?.trim() || 'Без категории';
 
   return {

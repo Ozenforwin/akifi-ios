@@ -352,6 +352,11 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_MAX_SIZE = 200;
 const responseCache = new Map<string, { payload: unknown; ts: number }>();
 
+/** ISO date → «DD.MM.YYYY» for user-facing period labels. */
+function fmtRuDate(iso: string): string {
+  return iso.split('-').reverse().join('.');
+}
+
 function cacheKey(userId: string, intent: string, period: string, entity?: string): string {
   return `${userId}:${intent}:${period}:${entity ?? ''}`;
 }
@@ -771,7 +776,11 @@ Deno.serve(async (req) => {
     const userSettings = await loadUserSettings(serviceClient, userId);
 
     const today = toDateOnly(new Date());
-    const currentWindow = getWindow(period, today, customDays);
+    // Explicit date/range queries («вчера», «7 июля», «в 2025 году»)
+    // override the period-derived window — the regex date is exact.
+    const currentWindow = classification.explicitDate
+      ? { start: classification.explicitDate, end: classification.explicitEndDate ?? classification.explicitDate }
+      : getWindow(period, today, customDays);
     const previousWindow = getPreviousWindow(currentWindow);
     const lookbackStart = (intent === 'trend_compare' || intent === 'anomalies')
       ? previousWindow.start
@@ -806,12 +815,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Display names of co-members — «сколько потратила Оля» is answerable
+    // only when the per-member split in the context carries a real name.
+    const memberNames: Record<string, string> = {};
+    const coMemberIds = Array.from(allMemberUserIds).filter((id) => id !== userId);
+    if (coMemberIds.length > 0) {
+      const { data: profileRows } = await anonClient
+        .from('profiles')
+        .select('id,full_name')
+        .in('id', coMemberIds);
+      for (const row of (profileRows ?? []) as Array<{ id: string; full_name: string | null }>) {
+        if (row.full_name) memberNames[row.id] = row.full_name;
+      }
+    }
+
     // Fetch transactions from all accessible accounts
     let txQuery = anonClient
       .from('transactions')
-      .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description')
+      .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description')
       .gte('date', lookbackStart)
-      .lte('date', currentWindow.end)
+      // `date` is timestamptz; a date-only upper bound casts to midnight
+      // and silently drops every transaction ON the window's last day.
+      .lt('date', addDays(currentWindow.end, 1))
       .order('date', { ascending: false })
       .limit(5000);
 
@@ -836,9 +861,9 @@ Deno.serve(async (req) => {
     ) {
       let fallbackQuery = anonClient
         .from('transactions')
-        .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,transfer_group_id,category:categories(name),description')
+        .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,transfer_group_id,category:categories(name),description')
         .gte('date', lookbackStart)
-        .lte('date', currentWindow.end)
+        .lt('date', addDays(currentWindow.end, 1))
         .order('date', { ascending: false })
         .limit(5000);
 
@@ -1022,13 +1047,47 @@ Deno.serve(async (req) => {
 
       let budgets: import('./types.ts').BudgetRow[] = [];
       if (['budget_remaining', 'budget_risk', 'smart_budget_create'].includes(intent)) {
+        const BUDGET_COLS = 'id,name,amount,currency,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active';
         const { data: budgetData } = await anonClient
           .from('budgets')
-          .select('id,amount,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active')
+          .select(BUDGET_COLS)
           .eq('user_id', userId)
           .eq('is_active', true)
           .limit(20);
         budgets = (budgetData ?? []) as import('./types.ts').BudgetRow[];
+
+        // Shared budgets: the app shows budgets the user joined via
+        // budget_members — without them «как дела с бюджетом на питание»
+        // answered «нет бюджетов» while three cards sat on the Budgets tab.
+        const { data: memberBudgetRows } = await anonClient
+          .from('budget_members')
+          .select('budget_id')
+          .eq('user_id', userId);
+        const memberBudgetIds = (memberBudgetRows ?? [])
+          .map((r: { budget_id: string }) => r.budget_id)
+          .filter((id: string) => !budgets.some((b) => b.id === id));
+        if (memberBudgetIds.length > 0) {
+          const { data: sharedBudgetData } = await anonClient
+            .from('budgets')
+            .select(BUDGET_COLS)
+            .in('id', memberBudgetIds)
+            .eq('is_active', true)
+            .limit(20);
+          budgets = budgets.concat((sharedBudgetData ?? []) as import('./types.ts').BudgetRow[]);
+        }
+      }
+
+      // Subscription tracker rows — the source of truth for «какие у меня
+      // подписки»; transaction history alone misses annual/quiet ones.
+      let subscriptions: import('./data-context-builder.ts').SubscriptionRow[] = [];
+      if (intent === 'recurring_patterns') {
+        const { data: subsData } = await anonClient
+          .from('subscriptions')
+          .select('service_name,amount,currency,billing_period,status')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .limit(50);
+        subscriptions = (subsData ?? []) as import('./data-context-builder.ts').SubscriptionRow[];
       }
 
       let savingsGoals: Array<{ name: string; target_amount: number; current_amount: number; deadline: string | null; status: string }> = [];
@@ -1041,6 +1100,19 @@ Deno.serve(async (req) => {
           .limit(20);
         savingsGoals = (goalsData ?? []) as typeof savingsGoals;
       }
+
+      // FX-converted net worth across accounts — computed here where the
+      // rates live, so the LLM never adds USD to RUB itself.
+      const accountsTotalBase = accounts.reduce((sum, a) => {
+        const bal = Number(a.balance ?? 0);
+        if (!Number.isFinite(bal) || bal === 0) return sum;
+        const cur = (a.currency ?? displayCurrency).toUpperCase();
+        if (cur === displayCurrency) return sum + bal;
+        const rateAcc = fxRates.get(cur);
+        const rateBase = fxRates.get(displayCurrency);
+        if (!rateAcc || !rateBase || rateAcc <= 0) return sum + bal;
+        return sum + Math.round(bal * (rateBase / rateAcc));
+      }, 0);
 
       // Build structured data context for LLM
       const dataContext = buildDataContext({
@@ -1055,6 +1127,10 @@ Deno.serve(async (req) => {
         accounts,
         budgets,
         savingsGoals,
+        subscriptions,
+        currentUserId: userId,
+        memberNames,
+        accountsTotalBase,
       });
 
       // Load user settings for tone
@@ -1106,6 +1182,20 @@ Deno.serve(async (req) => {
           computed = buildSpendingOptimizationResponse(transactions, currentWindow);
         } else {
           computed = buildSpendSummaryResponse(transactions, currentWindow, period);
+        }
+      }
+
+      // The user must always see the exact «от и до» range behind any
+      // amounts. Appended deterministically — prompts alone drift.
+      // spending_optimization aggregates over its own 90-day lookback,
+      // not currentWindow, so it keeps its hardcoded label instead.
+      if (intent !== 'spending_optimization'
+          && computed && Array.isArray(computed.facts) && computed.facts.length > 0) {
+        const range = currentWindow.start === currentWindow.end
+          ? fmtRuDate(currentWindow.start)
+          : `${fmtRuDate(currentWindow.start)} — ${fmtRuDate(currentWindow.end)}`;
+        if (!computed.facts.some((f: string) => typeof f === 'string' && f.includes(range))) {
+          computed.facts = [...computed.facts, `Период: ${range}`];
         }
       }
     } else if (intent === 'create_transaction') {
@@ -1228,7 +1318,9 @@ Deno.serve(async (req) => {
       // spending_optimization uses a fixed 90-day window, not the parsed `period`.
       const nlgPeriodLabel = intent === 'spending_optimization'
         ? 'за последние 90 дней'
-        : periodLabel(period, customDays);
+        : `${periodLabel(period, customDays)} (${currentWindow.start === currentWindow.end
+            ? fmtRuDate(currentWindow.start)
+            : `${fmtRuDate(currentWindow.start)} — ${fmtRuDate(currentWindow.end)}`})`;
       const rephrased = await nlgRephrase(computed, rawQuery, userSettings.tone, nlgPeriodLabel);
       if (rephrased) {
         payload.answer = rephrased;

@@ -19,6 +19,7 @@ import {
   inWindow,
   safeNumber,
   formatMoney,
+  formatMoneyIn,
   periodLabel,
 } from './utils.ts';
 
@@ -67,6 +68,14 @@ function getConfig(intent: string): DataContextConfig {
 
 // ── Main builder ──
 
+export interface SubscriptionRow {
+  service_name: string;
+  amount: number;
+  currency: string | null;
+  billing_period: string | null;
+  status: string;
+}
+
 export interface DataContextInput {
   intent: string;
   period: string;
@@ -79,6 +88,16 @@ export interface DataContextInput {
   accounts?: AccountRow[];
   budgets?: BudgetRow[];
   savingsGoals?: Array<{ name: string; target_amount: number; current_amount: number; deadline: string | null; status: string }>;
+  subscriptions?: SubscriptionRow[];
+  /// Caller's user id — lets the context split shared-account activity
+  /// into «ваши» vs «партнёра» instead of silently merging both.
+  currentUserId?: string;
+  /// user_id → display name for co-members of shared accounts.
+  memberNames?: Record<string, string>;
+  /// FX-converted sum of all account balances in base currency, computed
+  /// by the caller (who owns the fx rates). The LLM must not add USD to
+  /// RUB itself — it did, and produced a 5× understated net worth.
+  accountsTotalBase?: number;
 }
 
 export function buildDataContext(input: DataContextInput): string {
@@ -94,9 +113,16 @@ export function buildDataContext(input: DataContextInput): string {
   // ── Tier 1: Summary for current window ──
   parts.push(buildSummary(currentTxs, input.currentWindow, input.period, input.customDays));
 
+  // ── Tier 1a: Per-member split on shared accounts ──
+  // Totals include partner activity on shared accounts; without this
+  // line «сколько потратила Оля» got answered with the OVERALL total.
+  if (input.currentUserId) {
+    parts.push(buildMemberSplit(currentTxs, input.currentUserId, input.memberNames));
+  }
+
   // ── Tier 1b: Account context (always included — small and critical for filtering) ──
   if (input.accounts?.length) {
-    parts.push(buildAccountContext(input.accounts, allTxs, input.currentWindow));
+    parts.push(buildAccountContext(input.accounts, allTxs, input.currentWindow, input.accountsTotalBase));
   }
 
   // ── Tier 2: Category breakdown for current window ──
@@ -105,7 +131,14 @@ export function buildDataContext(input: DataContextInput): string {
   // ── Tier 3: Raw transactions — search ALL loaded data, not just current window ──
   // This allows LLM to answer questions about any date range mentioned by the user
   if (config.includeRawTx) {
-    const filtered = filterByEntity(allTxs, input.entity, input.categories, config.includeMerchants);
+    let filtered = filterByEntity(allTxs, input.entity, input.categories, config.includeMerchants);
+    // «Самая большая трата» needs the LARGEST rows in view — recency
+    // order hid an April rent payment behind 15 recent coffees.
+    if (input.intent === 'top_expenses') {
+      filtered = [...filtered].sort((a, b) =>
+        safeNumber(b.amount_in_base ?? b.amount_native ?? b.amount)
+        - safeNumber(a.amount_in_base ?? a.amount_native ?? a.amount));
+    }
     const limited = filtered.slice(0, config.maxTx);
     if (limited.length > 0) {
       parts.push(buildRawTransactions(limited, input.entity, filtered.length));
@@ -128,10 +161,19 @@ export function buildDataContext(input: DataContextInput): string {
     parts.push(buildSavingsContext(input.savingsGoals));
   }
 
+  // ── Tier 4: Subscription tracker (source of truth for «мои подписки») ──
+  if (input.subscriptions?.length) {
+    parts.push(buildSubscriptionsContext(input.subscriptions));
+  }
+
   // ── Data range note for LLM ──
   if (allTxs.length > 0) {
     const dates = allTxs.map((tx) => tx.date.slice(0, 10)).sort();
     parts.push(`Доступные данные: с ${dates[0]} по ${dates[dates.length - 1]} (${allTxs.length} операций без переводов)`);
+  } else {
+    // No rows loaded at all (e.g. the user asked about a future year) —
+    // say so explicitly, or the LLM praises «zero spending».
+    parts.push(`Доступные данные: в диапазоне ${input.currentWindow.start} — ${input.currentWindow.end} операций НЕТ. Если запрошенный период в будущем или вне истории пользователя — скажи об этом прямо, не выдумывай выводы из нулей.`);
   }
 
   return parts.filter(Boolean).join('\n\n');
@@ -143,8 +185,8 @@ function buildSummary(txs: TxRow[], window: PeriodWindow, period: string, custom
   const expenses = txs.filter((tx) => tx.type === 'expense');
   const income = txs.filter((tx) => tx.type === 'income');
 
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
-  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   const net = totalIncome - totalExpense;
 
   const days = daysBetween(window.start, window.end);
@@ -160,18 +202,62 @@ function buildSummary(txs: TxRow[], window: PeriodWindow, period: string, custom
   ].filter(Boolean).join('\n');
 }
 
+// ── Tier 1a: Per-member split (shared accounts) ──
+
+function buildMemberSplit(
+  txs: TxRow[],
+  currentUserId: string,
+  memberNames?: Record<string, string>,
+): string {
+  const partner = txs.filter((tx) => tx.user_id && tx.user_id !== currentUserId);
+  if (partner.length === 0) return '';
+
+  const own = txs.filter((tx) => !tx.user_id || tx.user_id === currentUserId);
+  const sum = (rows: TxRow[], type: 'income' | 'expense') =>
+    rows.filter((tx) => tx.type === type)
+      .reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+
+  const byUser = new Map<string, TxRow[]>();
+  for (const tx of partner) {
+    const uid = tx.user_id as string;
+    byUser.set(uid, [...(byUser.get(uid) ?? []), tx]);
+  }
+  const partnerLines = [...byUser.entries()].map(([uid, rows]) => {
+    const name = memberNames?.[uid] ?? 'Партнёр';
+    return `  ${name} (операции на общих счетах): расходы ${formatMoney(sum(rows, 'expense'))} (${rows.filter((t) => t.type === 'expense').length} оп.), доходы ${formatMoney(sum(rows, 'income'))}`;
+  });
+
+  return [
+    'Разбивка по участникам (общие счета входят в итоги выше):',
+    `  Ваши операции: расходы ${formatMoney(sum(own, 'expense'))} (${own.filter((t) => t.type === 'expense').length} оп.), доходы ${formatMoney(sum(own, 'income'))}`,
+    ...partnerLines,
+    '  Вопрос о тратах конкретного человека — отвечай этой разбивкой, а не транзакциями, где имя встречается в описании.',
+  ].join('\n');
+}
+
+// ── Tier 4: Subscription tracker ──
+
+function buildSubscriptionsContext(subs: SubscriptionRow[]): string {
+  const lines = subs.map((s) => {
+    const cur = (s.currency ?? 'RUB').toUpperCase();
+    const period = s.billing_period === 'yearly' ? 'год' : s.billing_period === 'weekly' ? 'нед' : 'мес';
+    return `  ${s.service_name}: ${s.amount} ${cur}/${period}`;
+  });
+  return `Активные подписки из трекера (${subs.length}):\n${lines.join('\n')}`;
+}
+
 // ── Tier 2: Category Breakdown ──
 
 function buildCategoryBreakdown(txs: TxRow[], categories?: CategoryRow[]): string {
   const expenses = txs.filter((tx) => tx.type === 'expense');
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
   if (totalExpense <= 0) return '';
 
   const catMap = new Map<string, { name: string; amount: number; count: number }>();
   for (const tx of expenses) {
     const catName = resolveCategoryName(tx, categories);
     const entry = catMap.get(catName) ?? { name: catName, amount: 0, count: 0 };
-    entry.amount += safeNumber(tx.amount_native ?? tx.amount);
+    entry.amount += safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount);
     entry.count += 1;
     catMap.set(catName, entry);
   }
@@ -206,6 +292,12 @@ function filterByEntity(
       if (merchant.includes(needle)) return true;
     }
 
+    // User-typed descriptions carry entities that never became a
+    // category — «Байк июль» sits in Транспорт, so a «на байк» query
+    // found nothing by category or merchant alone.
+    const descr = (tx.description ?? '').toLowerCase();
+    if (descr.includes(needle)) return true;
+
     return false;
   });
 }
@@ -217,7 +309,7 @@ function buildRawTransactions(txs: TxRow[], entity: string | undefined, totalFou
 
   const rows = txs.map((tx) => {
     const date = tx.date.slice(5); // MM-DD
-    const amount = formatMoney(safeNumber(tx.amount_native ?? tx.amount));
+    const amount = formatMoney(safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
     const merchant = tx.merchant_name ?? tx.merchant_normalized ?? '';
     const cat = tx.category?.name ?? '';
     const parts = [date, amount, tx.type === 'income' ? '+' : '-'];
@@ -235,13 +327,13 @@ function buildPreviousPeriodSummary(txs: TxRow[], window: PeriodWindow): string 
   const expenses = txs.filter((tx) => tx.type === 'expense');
   const income = txs.filter((tx) => tx.type === 'income');
 
-  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
-  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+  const totalExpense = expenses.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
+  const totalIncome = income.reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
   const catMap = new Map<string, number>();
   for (const tx of expenses) {
     const catName = tx.category?.name?.trim() || 'Другое';
-    catMap.set(catName, (catMap.get(catName) ?? 0) + safeNumber(tx.amount_native ?? tx.amount));
+    catMap.set(catName, (catMap.get(catName) ?? 0) + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount));
   }
 
   const sorted = [...catMap.entries()].sort((a, b) => b[1] - a[1]);
@@ -271,14 +363,19 @@ function buildBudgetContext(
 
     const spent = currentTxs
       .filter((tx) => tx.type === 'expense' && b.category_ids.includes(tx.category_id))
-      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
 
-    const pct = b.amount > 0 ? Math.round((spent / b.amount) * 100) : 0;
+    // Budget limits are denominated in the budget's own currency (may be
+    // VND/USD) — spent is in base. Label each with its real currency and
+    // skip the % when they differ, a VND/RUB ratio is meaningless.
+    const sameCurrency = !b.currency || b.currency.toUpperCase() === 'RUB';
+    const pct = sameCurrency && b.amount > 0 ? ` (${Math.round((spent / b.amount) * 100)}%)` : '';
+    const label = b.name ? `${b.name} [${catNames}]` : catNames;
 
-    return `  ${catNames}: ${formatMoney(spent)} / ${formatMoney(b.amount)} (${pct}%)`;
+    return `  ${label}: потрачено ${formatMoney(spent)}, лимит ${formatMoneyIn(b.amount, b.currency)}${pct}`;
   });
 
-  return `Бюджеты:\n${lines.join('\n')}`;
+  return `Бюджеты (включая общие с партнёром):\n${lines.join('\n')}`;
 }
 
 // ── Tier 4: Savings ──
@@ -301,6 +398,7 @@ function buildAccountContext(
   accounts: AccountRow[],
   allTxs: TxRow[],
   currentWindow: PeriodWindow,
+  accountsTotalBase?: number,
 ): string {
   if (!accounts.length) return '';
 
@@ -310,10 +408,10 @@ function buildAccountContext(
     const accTxs = currentTxs.filter((tx) => tx.account_id === acc.id);
     const expenses = accTxs
       .filter((tx) => tx.type === 'expense')
-      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
     const income = accTxs
       .filter((tx) => tx.type === 'income')
-      .reduce((s, tx) => s + safeNumber(tx.amount_native ?? tx.amount), 0);
+      .reduce((s, tx) => s + safeNumber(tx.amount_in_base ?? tx.amount_native ?? tx.amount), 0);
     const txCount = accTxs.length;
 
     const sharedTag = acc.is_shared
@@ -321,7 +419,9 @@ function buildAccountContext(
       : '';
     const parts: string[] = [`${i + 1}. ${acc.name}${sharedTag} (id: ${acc.id})`];
     if (acc.balance !== undefined) {
-      parts.push(`баланс: ${formatMoney(acc.balance)}`);
+      // Balance is native to the account — a 4 450 USD ByBit balance
+      // must not read as «4 450 ₽».
+      parts.push(`баланс: ${formatMoneyIn(acc.balance, acc.currency)}`);
     }
     parts.push(`расходы: ${formatMoney(expenses)}`);
     parts.push(`доходы: ${formatMoney(income)}`);
@@ -329,7 +429,10 @@ function buildAccountContext(
     return parts.join(', ');
   });
 
-  return `Счета пользователя (включая общие):\n${lines.join('\n')}`;
+  const totalLine = accountsTotalBase !== undefined
+    ? `\nИтого по всем счетам (с конвертацией валют): ${formatMoney(accountsTotalBase)}. Используй именно эту сумму — не складывай валюты сам.`
+    : '';
+  return `Счета пользователя (включая общие):\n${lines.join('\n')}${totalLine}`;
 }
 
 // ── Helpers ──

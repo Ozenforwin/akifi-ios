@@ -110,6 +110,61 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
   let period: AssistantPeriod = 'month';
   let customDays: number | undefined;
 
+  // ── Explicit single-day references: «вчера», «позавчера», «7 июля» ──
+  // Without this, «вчера» resolved to today's (empty) window and specific
+  // dates fell into a wrong custom range — both produced a confident «0 ₽».
+  let explicitDate: string | undefined;
+  let explicitEndDate: string | undefined;
+  {
+    const now = new Date();
+    const isoDay = (offset: number): string => {
+      const d = new Date(now);
+      d.setUTCDate(d.getUTCDate() - offset);
+      return d.toISOString().slice(0, 10);
+    };
+    // Whole-year references: «в 2030 году», «за 2025 год», «in 2024».
+    // Preposition required and currency words excluded — «за 2000 рублей»
+    // is an amount, not the year 2000.
+    const yearMatch = normalized.match(
+      /(^|\s)(?:в|за|in)\s+((?:19|20)\d{2})(?!\s*(?:руб|₽|\$|дол|евр|тыс|млн|раз))(?:\s*(?:год[ауе]?|г\.?))?(?=\s|$|\?|\.|,|!)/u,
+    );
+    if (/(^|\s)позавчера/u.test(normalized)) {
+      explicitDate = isoDay(2);
+    } else if (/(^|\s)(вчера|yesterday)/u.test(normalized)) {
+      explicitDate = isoDay(1);
+    } else if (yearMatch && !/\d{1,2}\s+(январ|феврал|март|апрел|ма[ея]|июн|июл|август|сентябр|октябр|ноябр|декабр)/u.test(normalized)) {
+      const year = parseInt(yearMatch[2], 10);
+      explicitDate = `${year}-01-01`;
+      explicitEndDate = `${year}-12-31`;
+    } else {
+      const m = normalized.match(
+        /(^|\s)(\d{1,2})\s+(январ\S*|феврал\S*|март\S*|апрел\S*|ма[ея]|июн\S*|июл\S*|август\S*|сентябр\S*|октябр\S*|ноябр\S*|декабр\S*)(?:\s+(\d{4}))?/u,
+      );
+      if (m) {
+        const day = parseInt(m[2], 10);
+        const monthWord = m[3];
+        const prefixes = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+        const monthIdx = prefixes.findIndex((p) => monthWord.startsWith(p));
+        if (day >= 1 && day <= 31 && monthIdx >= 0) {
+          let year = m[4] ? parseInt(m[4], 10) : now.getUTCFullYear();
+          const mm = String(monthIdx + 1).padStart(2, '0');
+          const dd = String(day).padStart(2, '0');
+          let candidate = `${year}-${mm}-${dd}`;
+          // «7 декабря» asked in July means last December, not the future.
+          if (!m[4] && candidate > now.toISOString().slice(0, 10)) {
+            year -= 1;
+            candidate = `${year}-${mm}-${dd}`;
+          }
+          explicitDate = candidate;
+        }
+      }
+    }
+    if (explicitDate) {
+      period = 'custom_days';
+      customDays = explicitEndDate ? 365 : 1;
+    }
+  }
+
   // ── Custom relative periods: "за N дней/недель/месяцев" ──
   const customPeriodPatterns: Array<{ regex: RegExp; multiplier: number; group: number }> = [
     // "за последние 15 дней", "за последних 15 дней"
@@ -120,8 +175,9 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     { regex: /(?:за\s+)?(?:последн(?:ие|их|ей)\s+)?(\d+)\s*недел/u, multiplier: 7, group: 1 },
     // "за последние 3 месяца", "за 3 месяца"
     { regex: /(?:за\s+)?(?:последн(?:ие|их|ей)\s+)?(\d+)\s*месяц/u, multiplier: 30, group: 1 },
-    // "за последний год", "за 2 года"
-    { regex: /(?:за\s+)?(?:последн(?:ие|их|ей|ий)\s+)?(\d+)\s*(?:год|лет)/u, multiplier: 365, group: 1 },
+    // "за последний год", "за 2 года" — 1-2 digits only; a 4-digit
+    // number before «год» is a calendar year, handled above.
+    { regex: /(?:за\s+)?(?:последн(?:ие|их|ей|ий)\s+)?(\d{1,2})\s*(?:год|лет)(?!\d)/u, multiplier: 365, group: 1 },
     // English: "last 15 days", "past 15 days"
     { regex: /(?:last|past)\s+(\d+)\s*days?/iu, multiplier: 1, group: 1 },
     // English: "last 2 weeks"
@@ -130,16 +186,18 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     { regex: /(?:last|past)\s+(\d+)\s*months?/iu, multiplier: 30, group: 1 },
   ];
 
-  let customPeriodMatched = false;
-  for (const { regex, multiplier, group } of customPeriodPatterns) {
-    const match = normalized.match(regex);
-    if (match?.[group]) {
-      const n = parseInt(match[group], 10);
-      if (n > 0 && n <= 3650) {
-        customDays = n * multiplier;
-        period = 'custom_days';
-        customPeriodMatched = true;
-        break;
+  let customPeriodMatched = explicitDate !== undefined;
+  if (!explicitDate) {
+    for (const { regex, multiplier, group } of customPeriodPatterns) {
+      const match = normalized.match(regex);
+      if (match?.[group]) {
+        const n = parseInt(match[group], 10);
+        if (n > 0 && n <= 3650) {
+          customDays = n * multiplier;
+          period = 'custom_days';
+          customPeriodMatched = true;
+          break;
+        }
       }
     }
   }
@@ -163,6 +221,8 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
     period,
     ...(entity ? { entity } : {}),
     ...(customDays ? { customDays } : {}),
+    ...(explicitDate ? { explicitDate } : {}),
+    ...(explicitEndDate ? { explicitEndDate } : {}),
   });
 
   // ── Coaching intents (before analytical intents) ──
@@ -498,6 +558,8 @@ export async function classifyIntent(
       period: regexResult.period,
       entity: regexResult.entity,
       ...(regexResult.customDays ? { customDays: regexResult.customDays } : {}),
+      ...(regexResult.explicitDate ? { explicitDate: regexResult.explicitDate } : {}),
+      ...(regexResult.explicitEndDate ? { explicitEndDate: regexResult.explicitEndDate } : {}),
       source: 'regex',
       confidence: 1,
       regexIntent: regexResult.intent,
@@ -511,7 +573,15 @@ export async function classifyIntent(
     const cck = classifyCacheKey(userId, rawQuery);
     const cachedClassify = getClassifyCached(cck);
     if (cachedClassify) {
-      return { ...cachedClassify, regexIntent: regexResult.intent, regexPeriod: regexResult.period };
+      // explicitDate is query-relative («вчера» drifts daily) — always
+      // recompute from the fresh regex parse, never trust the cache.
+      return {
+        ...cachedClassify,
+        explicitDate: regexResult.explicitDate,
+        explicitEndDate: regexResult.explicitEndDate,
+        regexIntent: regexResult.intent,
+        regexPeriod: regexResult.period,
+      };
     }
   }
 
@@ -535,6 +605,8 @@ export async function classifyIntent(
       period: llmResult.period,
       entity,
       ...(resolvedCustomDays ? { customDays: resolvedCustomDays } : {}),
+      ...(regexResult.explicitDate ? { explicitDate: regexResult.explicitDate } : {}),
+      ...(regexResult.explicitEndDate ? { explicitEndDate: regexResult.explicitEndDate } : {}),
       source: 'llm',
       confidence: llmResult.confidence,
       llmLatencyMs,
@@ -557,6 +629,8 @@ export async function classifyIntent(
     period: regexResult.period,
     entity: regexResult.entity,
     ...(regexResult.customDays ? { customDays: regexResult.customDays } : {}),
+    ...(regexResult.explicitDate ? { explicitDate: regexResult.explicitDate } : {}),
+    ...(regexResult.explicitEndDate ? { explicitEndDate: regexResult.explicitEndDate } : {}),
     source: llmResult ? 'llm+regex_fallback' : 'regex',
     confidence: llmResult?.confidence ?? 0,
     llmLatencyMs,

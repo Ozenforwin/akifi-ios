@@ -78,6 +78,13 @@ export function formatMoney(value: number): string {
   return _formatMoney(value, DEFAULT_CURRENCY);
 }
 
+/// Format in a specific currency (account/budget-local amounts). Falls
+/// back to the default when the code is missing — never label a foreign
+/// amount with the base symbol.
+export function formatMoneyIn(value: number, currency?: string | null): string {
+  return _formatMoney(value, (currency || DEFAULT_CURRENCY).toUpperCase());
+}
+
 export function periodLabel(period: AssistantPeriod | string, customDays?: number): string {
   if (period === 'today') return 'сегодня';
   if (period === 'week') return 'за неделю';

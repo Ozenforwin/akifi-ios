@@ -54,6 +54,10 @@ export interface TxRow {
   merchant_name?: string | null;
   merchant_normalized?: string | null;
   transfer_group_id?: string | null;
+  /// Author of the row. On shared accounts differs from the caller —
+  /// used for the per-member split in the LLM context.
+  user_id?: string | null;
+  description?: string | null;
   category?: { name?: string | null } | null;
 }
 
@@ -66,6 +70,11 @@ export interface BudgetRow {
   custom_start_date: string | null;
   custom_end_date: string | null;
   is_active: boolean;
+  /// Budget display name (needed since shared budgets joined the list —
+  /// category ids alone don't identify a partner's budget).
+  name?: string | null;
+  /// ISO code the `amount` is denominated in; null = user's base currency.
+  currency?: string | null;
 }
 
 export interface CategoryRow {
@@ -94,6 +103,12 @@ export interface ParsedIntent {
   period: AssistantPeriod;
   entity?: string;
   customDays?: number;
+  /// Window-start override (ISO date) for queries like «вчера»,
+  /// «7 июля» or «в 2025 году». Detected by regex; trusted over LLM period.
+  explicitDate?: string;
+  /// Window-end override — set for range queries (a whole year);
+  /// defaults to `explicitDate` (single day) when absent.
+  explicitEndDate?: string;
 }
 
 export interface ConversationMessage {
@@ -132,6 +147,9 @@ export interface ClassificationResult {
   regexPeriod?: AssistantPeriod;
   classifyUsage?: OpenAIUsage | null;
   llmEntities?: LLMClassificationResult['entities'];
+  /// Window override from the regex parser («вчера», «7 июля», «в 2025 году»).
+  explicitDate?: string;
+  explicitEndDate?: string;
 }
 
 export interface SavingsGoalRow {
