@@ -205,4 +205,38 @@ final class BudgetMathTests: XCTestCase {
         )
         XCTAssertEqual(metrics.subscriptionCommitted, 500_00)
     }
+
+    // MARK: - amountInBase (cross-currency aggregation)
+
+    func testAmountInBase_ExplicitCurrencyConvertsToBase() {
+        // USD-pivot rates: 80 RUB and 25 000 VND per dollar.
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 80, "VND": 25_000], "RUB")
+
+        var vndBudget = makeBudget(amount: 4_000_000_00)
+        vndBudget.currency = "VND"
+        // 4 000 000 VND / 25 000 * 80 = 12 800 RUB.
+        XCTAssertEqual(
+            BudgetMath.amountInBase(4_000_000_00, budget: vndBudget, currencyContext: ctx),
+            12_800_00
+        )
+    }
+
+    func testAmountInBase_LegacyNilCurrencyIsAlreadyBase() {
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 80], "RUB")
+        let legacy = makeBudget(amount: 40_000_00)
+        XCTAssertEqual(
+            BudgetMath.amountInBase(40_000_00, budget: legacy, currencyContext: ctx),
+            40_000_00
+        )
+    }
+
+    func testAmountInBase_MissingRateFailsSafeUnchanged() {
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 80], "RUB")
+        var chfBudget = makeBudget()
+        chfBudget.currency = "CHF"
+        XCTAssertEqual(
+            BudgetMath.amountInBase(1_000_00, budget: chfBudget, currencyContext: ctx),
+            1_000_00
+        )
+    }
 }

@@ -5,9 +5,21 @@ struct BudgetHealthSummaryView: View {
     let budgets: [Budget]
     let allMetrics: [BudgetMetrics]
 
-    private var totalLimit: Int64 { allMetrics.reduce(0) { $0 + $1.effectiveLimit } }
-    private var totalSpent: Int64 { allMetrics.reduce(0) { $0 + $1.spent } }
-    private var totalSubCommitted: Int64 { allMetrics.reduce(0) { $0 + $1.subscriptionCommitted } }
+    private var ctx: BudgetMath.CurrencyContext { appViewModel.dataStore.currencyContext }
+
+    /// Each budget's metrics are denominated in that budget's own currency —
+    /// convert to base before summing, or a 4 000 000 VND limit gets added
+    /// to RUB kopecks as-is and the header total explodes.
+    private var baseLimits: [Int64] {
+        zip(budgets, allMetrics).map { BudgetMath.amountInBase($1.effectiveLimit, budget: $0, currencyContext: ctx) }
+    }
+    private var totalLimit: Int64 { baseLimits.reduce(0, +) }
+    private var totalSpent: Int64 {
+        zip(budgets, allMetrics).map { BudgetMath.amountInBase($1.spent, budget: $0, currencyContext: ctx) }.reduce(0, +)
+    }
+    private var totalSubCommitted: Int64 {
+        zip(budgets, allMetrics).map { BudgetMath.amountInBase($1.subscriptionCommitted, budget: $0, currencyContext: ctx) }.reduce(0, +)
+    }
     private var overallUtilization: Int {
         guard totalLimit > 0 else { return 0 }
         return min(999, Int(Double(totalSpent) / Double(totalLimit) * 100))
@@ -48,14 +60,15 @@ struct BudgetHealthSummaryView: View {
 
             // Segmented progress bar
             GeometryReader { geo in
+                let limits = baseLimits
                 HStack(spacing: 2) {
-                    ForEach(Array(zip(budgets, allMetrics)), id: \.0.id) { budget, metrics in
+                    ForEach(Array(zip(budgets, allMetrics).enumerated()), id: \.element.0.id) { index, pair in
                         let proportion = totalLimit > 0
-                            ? CGFloat(metrics.effectiveLimit) / CGFloat(totalLimit)
+                            ? CGFloat(limits[index]) / CGFloat(totalLimit)
                             : 1.0 / CGFloat(max(1, allMetrics.count))
                         let segmentWidth = max(4, (geo.size.width - CGFloat(max(0, allMetrics.count - 1)) * 2) * proportion)
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(hex: metrics.progressColor).gradient)
+                            .fill(Color(hex: pair.1.progressColor).gradient)
                             .frame(width: segmentWidth)
                     }
                 }

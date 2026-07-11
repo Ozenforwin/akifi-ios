@@ -27,6 +27,35 @@ enum BudgetMath {
     /// canonical spelling lives with the math helper itself.
     typealias CurrencyContext = TransactionMath.CurrencyContext
 
+    /// The currency the budget's `amount` — and therefore every value in
+    /// its `BudgetMetrics` — is denominated in. Resolution order:
+    ///   1. `budget.currency` — set explicitly in `BudgetFormView`.
+    ///   2. The linked account's currency, when `budget.accountId` is set.
+    ///   3. The user's base currency — legacy default.
+    static func budgetCurrency(for budget: Budget, currencyContext: CurrencyContext) -> String {
+        if let explicit = budget.currency, !explicit.isEmpty {
+            return explicit.uppercased()
+        }
+        if let accId = budget.accountId,
+           let acc = currencyContext.accountsById[accId] {
+            return acc.currency.uppercased()
+        }
+        return currencyContext.baseCode
+    }
+
+    /// Converts a budget-local amount (minor units in the budget's own
+    /// currency) into the base currency. Required before aggregating
+    /// across budgets — their metrics are denominated per budget, so a
+    /// 4 000 000 VND limit must not be added to RUB kopecks as-is.
+    static func amountInBase(_ amount: Int64, budget: Budget, currencyContext: CurrencyContext) -> Int64 {
+        NetWorthCalculator.convert(
+            amount: amount,
+            from: budgetCurrency(for: budget, currencyContext: currencyContext),
+            to: currencyContext.baseCode,
+            rates: currencyContext.fxRates
+        )
+    }
+
     static func compute(
         budget: Budget,
         transactions: [Transaction],
@@ -150,16 +179,7 @@ enum BudgetMath {
         categories: [Category] = [],
         currencyContext: CurrencyContext
     ) -> Int64 {
-        let budgetCurrency: String = {
-            if let explicit = budget.currency, !explicit.isEmpty {
-                return explicit.uppercased()
-            }
-            if let accId = budget.accountId,
-               let acc = currencyContext.accountsById[accId] {
-                return acc.currency.uppercased()
-            }
-            return currencyContext.baseCode
-        }()
+        let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
         let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
 
@@ -217,16 +237,7 @@ enum BudgetMath {
     ) -> Int64 {
         guard !rows.isEmpty else { return 0 }
 
-        let budgetCurrency: String = {
-            if let explicit = budget.currency, !explicit.isEmpty {
-                return explicit.uppercased()
-            }
-            if let accId = budget.accountId,
-               let acc = currencyContext.accountsById[accId] {
-                return acc.currency.uppercased()
-            }
-            return currencyContext.baseCode
-        }()
+        let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
         let df = AppDateFormatters.isoDate
         var total: Int64 = 0
@@ -304,16 +315,7 @@ enum BudgetMath {
         let activeSubs = subscriptions.filter { $0.status == .active }
         guard !activeSubs.isEmpty else { return 0 }
 
-        let budgetCurrency: String = {
-            if let explicit = budget.currency, !explicit.isEmpty {
-                return explicit.uppercased()
-            }
-            if let accId = budget.accountId,
-               let acc = currencyContext.accountsById[accId] {
-                return acc.currency.uppercased()
-            }
-            return currencyContext.baseCode
-        }()
+        let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
         let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
 
