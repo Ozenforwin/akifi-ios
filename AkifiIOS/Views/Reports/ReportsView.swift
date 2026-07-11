@@ -500,8 +500,14 @@ struct ReportsView: View {
             ForEach(items, id: \.category.name) { item in
                 Button {
                     let catName = item.category.name
-                    let catTxs = periodTxs.filter {
-                        let resolved = $0.categoryId.flatMap { categoryIndex[$0] }
+                    // Mirror categoryBreakdown's type filter — the header sum only
+                    // counts the selected type, so the list must match.
+                    let catTxs = periodTxs.filter { tx in
+                        guard !tx.isTransfer,
+                              (vm.selectedType == .expense && tx.type == .expense) ||
+                              (vm.selectedType == .income && tx.type == .income)
+                        else { return false }
+                        let resolved = tx.categoryId.flatMap { categoryIndex[$0] }
                         return (resolved?.name ?? String(localized: "transaction.noCategory")) == catName
                     }
                     sheetData = CategorySheetData(item: item, transactions: catTxs)
