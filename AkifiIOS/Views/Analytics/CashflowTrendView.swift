@@ -26,12 +26,24 @@ struct CashflowTrendView: View {
         return df
     }()
 
+    private static let axisNumberFormatter: NumberFormatter = {
+        let nf = NumberFormatter()
+        nf.numberStyle = .decimal
+        nf.maximumFractionDigits = 0
+        return nf
+    }()
+
     /// Convert each `MonthlyAggregate` directly into a `TrendPoint`.
     /// Single O(N) pass — N is at most 6 — replaces the previous nested
     /// month × tx loop that called `DateFormatter.date(from:)` per row.
+    ///
+    /// Points are converted into the *display* currency here, so the
+    /// Y-axis magnitudes follow the currency toggle instead of always
+    /// showing base-currency values.
     private var trendData: [TrendPoint] {
         let keyFmt = Self.monthKeyFormatter
         let labelFmt = Self.monthLabelFormatter
+        let cm = appViewModel.currencyManager
         return aggregates.map { agg in
             let label: String
             if let date = keyFmt.date(from: agg.monthKey) {
@@ -41,8 +53,8 @@ struct CashflowTrendView: View {
             }
             return TrendPoint(
                 label: label,
-                income: Decimal(agg.income) / Decimal(100),
-                expense: Decimal(agg.expense) / Decimal(100)
+                income: cm.convert(Decimal(agg.income) / Decimal(100)),
+                expense: cm.convert(Decimal(agg.expense) / Decimal(100))
             )
         }
     }
@@ -107,7 +119,14 @@ struct CashflowTrendView: View {
         }
         .chartLegend(.hidden)
         .chartYAxis {
-            AxisMarks(position: .leading)
+            AxisMarks(position: .leading) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text("\(Self.axisNumberFormatter.string(from: NSNumber(value: v)) ?? "0") \(appViewModel.currencyManager.selectedCurrency.symbol)")
+                    }
+                }
+            }
         }
         .chartOverlay { proxy in
             GeometryReader { geo in
@@ -157,11 +176,13 @@ struct CashflowTrendView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.primary)
 
-            Text("+\(appViewModel.currencyManager.formatAmount(point.income))")
+            // Points are already in display currency — format without a
+            // second conversion (`formatAmount` would convert again).
+            Text("+\(appViewModel.currencyManager.formatInCurrency(point.income, currency: appViewModel.currencyManager.selectedCurrency))")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Color.income)
 
-            Text("-\(appViewModel.currencyManager.formatAmount(point.expense))")
+            Text("-\(appViewModel.currencyManager.formatInCurrency(point.expense, currency: appViewModel.currencyManager.selectedCurrency))")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Color.expense)
         }

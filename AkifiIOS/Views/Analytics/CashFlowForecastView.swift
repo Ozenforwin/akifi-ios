@@ -44,6 +44,13 @@ struct CashFlowForecastView: View {
     private var dataStore: DataStore { appViewModel.dataStore }
     private var fmt: CurrencyManager { appViewModel.currencyManager }
 
+    private static let axisNumberFormatter: NumberFormatter = {
+        let nf = NumberFormatter()
+        nf.numberStyle = .decimal
+        nf.maximumFractionDigits = 0
+        return nf
+    }()
+
     private var startingBalance: Int64 {
         dataStore.accounts.reduce(Int64(0)) { $0 + dataStore.balance(for: $1) }
     }
@@ -204,6 +211,13 @@ struct CashFlowForecastView: View {
         .pickerStyle(.segmented)
     }
 
+    /// Base-currency kopecks → display-currency major units, so the plotted
+    /// values (and the Y axis derived from them) follow the currency toggle
+    /// instead of always showing base-currency magnitudes.
+    private func displayY(_ kopecks: Int64) -> Decimal {
+        fmt.convert(kopecks.displayAmount)
+    }
+
     @ViewBuilder
     private var chart: some View {
         Chart {
@@ -215,7 +229,7 @@ struct CashFlowForecastView: View {
             // Starting ("today") anchor — point + label + bridge to first projected point
             PointMark(
                 x: .value("date", todayAnchor),
-                y: .value("balance", startingBalance.displayAmount)
+                y: .value("balance", displayY(startingBalance))
             )
             .foregroundStyle(Color.accent)
             .symbolSize(80)
@@ -231,7 +245,7 @@ struct CashFlowForecastView: View {
             if let first = forecast.points.first {
                 LineMark(
                     x: .value("date", todayAnchor),
-                    y: .value("balance", startingBalance.displayAmount),
+                    y: .value("balance", displayY(startingBalance)),
                     series: .value("series", "projection")
                 )
                 .foregroundStyle(Color.accent)
@@ -240,7 +254,7 @@ struct CashFlowForecastView: View {
 
                 LineMark(
                     x: .value("date", first.date),
-                    y: .value("balance", first.projectedBalance.displayAmount),
+                    y: .value("balance", displayY(first.projectedBalance)),
                     series: .value("series", "projection")
                 )
                 .foregroundStyle(Color.accent)
@@ -252,8 +266,8 @@ struct CashFlowForecastView: View {
             ForEach(forecast.points, id: \.date) { point in
                 AreaMark(
                     x: .value("date", point.date),
-                    yStart: .value("low", point.pessimistic.displayAmount),
-                    yEnd: .value("high", point.optimistic.displayAmount)
+                    yStart: .value("low", displayY(point.pessimistic)),
+                    yEnd: .value("high", displayY(point.optimistic))
                 )
                 .foregroundStyle(Color.accent.opacity(0.15))
                 .interpolationMethod(.catmullRom)
@@ -263,7 +277,7 @@ struct CashFlowForecastView: View {
             ForEach(forecast.points, id: \.date) { point in
                 LineMark(
                     x: .value("date", point.date),
-                    y: .value("balance", point.projectedBalance.displayAmount),
+                    y: .value("balance", displayY(point.projectedBalance)),
                     series: .value("series", "projection")
                 )
                 .foregroundStyle(Color.accent)
@@ -272,7 +286,7 @@ struct CashFlowForecastView: View {
 
                 PointMark(
                     x: .value("date", point.date),
-                    y: .value("balance", point.projectedBalance.displayAmount)
+                    y: .value("balance", displayY(point.projectedBalance))
                 )
                 .foregroundStyle(point.projectedBalance < 0 ? Color.expense : Color.accent)
                 .symbolSize(50)
@@ -292,8 +306,12 @@ struct CashFlowForecastView: View {
             }
         }
         .chartYAxis {
-            AxisMarks(position: .leading) { _ in
-                AxisValueLabel()
+            AxisMarks(position: .leading) { value in
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        Text("\(Self.axisNumberFormatter.string(from: NSNumber(value: v)) ?? "0") \(fmt.selectedCurrency.symbol)")
+                    }
+                }
                 AxisGridLine()
             }
         }
