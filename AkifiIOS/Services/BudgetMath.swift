@@ -181,20 +181,9 @@ enum BudgetMath {
     ) -> Int64 {
         let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
-        let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
-
-        let df = AppDateFormatters.isoDate
-        return transactions.filter { tx in
-            guard tx.type == .expense && !tx.isTransfer else { return false }
-            guard categoryMatcher.matches(tx.categoryId) else { return false }
-            // ALL linked accounts count, not just the first — a shared
-            // budget spanning several accounts must see spending on each.
-            if let accIds = budget.accountIds, !accIds.isEmpty {
-                guard let a = tx.accountId, accIds.contains(a) else { return false }
-            }
-            guard let d = df.date(from: tx.date) else { return false }
-            return d >= period.start && d <= period.end
-        }.reduce(Int64(0)) { acc, tx in
+        return matchingTransactions(
+            budget: budget, transactions: transactions, period: period, categories: categories
+        ).reduce(Int64(0)) { acc, tx in
             acc + TransactionMath.amountInBase(
                 tx,
                 accountsById: currencyContext.accountsById,
@@ -202,6 +191,45 @@ enum BudgetMath {
                 baseCode: budgetCurrency
             )
         }
+    }
+
+    /// The expenses that make up `spentAmount` — same category, account and
+    /// period rules, newest first. `spentAmount` sums exactly this list, so
+    /// the budget's history sheet can never disagree with the number on the
+    /// card (the failure mode the reports drill-down had).
+    ///
+    /// Note the amounts are NOT FX-normalized here: rows keep their own
+    /// currency for display, and only the sum needs a common denominator.
+    static func matchingTransactions(
+        budget: Budget,
+        transactions: [Transaction],
+        period: (start: Date, end: Date),
+        categories: [Category] = []
+    ) -> [Transaction] {
+        let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
+        // `Transaction.date` is stored as "yyyy-MM-dd" (truncated on decode),
+        // so lexicographic order IS chronological order. Comparing strings
+        // avoids a DateFormatter parse per row — this runs for every budget
+        // on every render, and parsing ~1500 dates each time showed up as
+        // stutter on the budgets tab.
+        let startKey = AppDateFormatters.isoDate.string(from: period.start)
+        let endKey = AppDateFormatters.isoDate.string(from: period.end)
+        // A linked-account list is usually 1-2 entries, but Set lookup keeps
+        // the inner loop O(1) regardless.
+        let accountIds = budget.accountIds.map(Set.init) ?? []
+
+        return transactions.filter { tx in
+            guard tx.type == .expense && !tx.isTransfer else { return false }
+            guard tx.date >= startKey && tx.date <= endKey else { return false }
+            guard categoryMatcher.matches(tx.categoryId) else { return false }
+            // ALL linked accounts count, not just the first — a shared
+            // budget spanning several accounts must see spending on each.
+            if !accountIds.isEmpty {
+                guard let a = tx.accountId, accountIds.contains(a) else { return false }
+            }
+            return true
+        }
+        .sorted { $0.date > $1.date }
     }
 
     // MARK: - External spend (shared budgets)
@@ -335,6 +363,28 @@ enum BudgetMath {
             total += fxNormalized
         }
         return total
+    }
+
+    /// Monthly-equivalent total of every **active** subscription,
+    /// FX-normalized into the base currency. Paused and cancelled trackers
+    /// are not billing, so they stay out — same rule as
+    /// `subscriptionCommitted`. The FX step is not optional: without it a
+    /// $200/mo tracker lands in RUB kopecks as 200 ₽ (ADR-001).
+    static func activeSubscriptionsMonthlyTotalInBase(
+        subscriptions: [SubscriptionTracker],
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        subscriptions
+            .filter { $0.status == .active }
+            .reduce(Int64(0)) { total, sub in
+                let monthly = normalizedAmount(sub.amount, from: sub.billingPeriod, to: .monthly)
+                return total + NetWorthCalculator.convert(
+                    amount: monthly,
+                    from: (sub.currency ?? currencyContext.baseCode).uppercased(),
+                    to: currencyContext.baseCode,
+                    rates: currencyContext.fxRates
+                )
+            }
     }
 
     static func normalizedAmount(_ amount: Int64, from: BillingPeriod, to: BillingPeriod) -> Int64 {

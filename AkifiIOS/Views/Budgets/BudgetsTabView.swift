@@ -7,9 +7,29 @@ struct BudgetsTabView: View {
     @State private var editingSubscription: SubscriptionTracker?
     @State private var subscriptionsVM = SubscriptionsViewModel()
     @State private var sharingBudget: Budget?
+    @State private var historyBudget: BudgetHistoryTarget?
+
+    /// Metrics travel with the budget so the sheet's header matches the
+    /// card that was tapped without recomputing them.
+    struct BudgetHistoryTarget: Identifiable {
+        let budget: Budget
+        let metrics: BudgetMetrics
+        var id: String { budget.id }
+    }
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
+
+    /// Monthly-equivalent commitment of the active subscriptions, in base
+    /// currency kopecks (the display currency conversion happens in
+    /// `formatAmount`). Mixed-currency lists must be FX-normalized before
+    /// summing — see `BudgetMath.activeSubscriptionsMonthlyTotalInBase`.
+    private var activeSubscriptionsMonthlyTotal: Int64 {
+        BudgetMath.activeSubscriptionsMonthlyTotalInBase(
+            subscriptions: isNewUser ? DemoData.subscriptions : dataStore.subscriptions,
+            currencyContext: dataStore.currencyContext
+        )
+    }
 
     /// Budgets sorted by criticality: overLimit first, then nearLimit, warning, onTrack
     private var sortedBudgetsWithMetrics: [(budget: Budget, metrics: BudgetMetrics)] {
@@ -35,7 +55,12 @@ struct BudgetsTabView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        // Evaluated ONCE per render. As a computed property referenced three
+        // times inside `body`, the metrics (O(budgets × transactions)) were
+        // recomputed three times per frame — visible as tab-switch lag.
+        let budgetsWithMetrics = sortedBudgetsWithMetrics
+
+        return NavigationStack {
             List {
                 // MARK: - Budgets
                 if isNewUser {
@@ -56,11 +81,11 @@ struct BudgetsTabView: View {
                         .listRowSeparator(.hidden)
                 } else if !dataStore.budgets.isEmpty {
                     // Health summary
-                    if sortedBudgetsWithMetrics.count > 1 {
+                    if budgetsWithMetrics.count > 1 {
                         Section {
                             BudgetHealthSummaryView(
-                                budgets: sortedBudgetsWithMetrics.map(\.budget),
-                                allMetrics: sortedBudgetsWithMetrics.map(\.metrics)
+                                budgets: budgetsWithMetrics.map(\.budget),
+                                allMetrics: budgetsWithMetrics.map(\.metrics)
                             )
                         }
                         .listRowSeparator(.hidden)
@@ -69,7 +94,7 @@ struct BudgetsTabView: View {
                     }
 
                     Section {
-                        ForEach(Array(sortedBudgetsWithMetrics.enumerated()), id: \.element.budget.id) { index, item in
+                        ForEach(Array(budgetsWithMetrics.enumerated()), id: \.element.budget.id) { index, item in
                             let budget = item.budget
                             let metrics = item.metrics
                             BudgetCardView(budget: budget, metrics: metrics, categories: dataStore.categories)
@@ -77,6 +102,10 @@ struct BudgetsTabView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 .listRowBackground(Color.clear)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    historyBudget = BudgetHistoryTarget(budget: budget, metrics: metrics)
+                                }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         Task {
@@ -125,8 +154,16 @@ struct BudgetsTabView: View {
                 // MARK: - Subscriptions
                 Section {
                     HStack {
-                        Text(String(localized: "subscriptions.title"))
-                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(localized: "subscriptions.title"))
+                                .font(.headline)
+                            if activeSubscriptionsMonthlyTotal > 0 {
+                                Text(String(localized: "subscriptions.monthlyTotal.\(appViewModel.currencyManager.formatAmount(activeSubscriptionsMonthlyTotal.displayAmount, wholeUnits: true))"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                        }
                         Spacer()
                         Button {
                             showSubscriptionForm = true
@@ -236,7 +273,6 @@ struct BudgetsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $viewModel.editingBudget) { budget in
                 BudgetFormView(
@@ -246,7 +282,9 @@ struct BudgetsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
+            }
+            .sheet(item: $historyBudget) { target in
+                BudgetTransactionsSheet(budget: target.budget, metrics: target.metrics)
             }
             .sheet(isPresented: $showSubscriptionForm) {
                 SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId, accountId in
@@ -263,17 +301,14 @@ struct BudgetsTabView: View {
                     await dataStore.loadAll()
                     return nil
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingSubscription) { sub in
                 EditSubscriptionFormView(subscription: sub) {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $sharingBudget) { budget in
                 ShareBudgetView(budget: budget)
-                    .presentationBackground(.ultraThinMaterial)
             }
         }
     }
@@ -576,7 +611,6 @@ struct EditSubscriptionFormView: View {
                 SubscriptionPaymentsHistoryView(subscription: subscription) {
                     await onSave()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .alert(
                 String(localized: "common.error"),
