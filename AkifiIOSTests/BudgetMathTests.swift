@@ -230,6 +230,82 @@ final class BudgetMathTests: XCTestCase {
         )
     }
 
+    /// The «Всего бюджетов» header sums per-budget metrics that are each
+    /// denominated in their own currency. Fixture mirrors the real list:
+    /// two VND budgets on a VND account plus a USD one, base RUB.
+    func testHeaderTotal_MixedCurrencyBudgets_SumInBaseNotRaw() {
+        // 1 USD = 83.7 RUB = 26 170 VND.
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 83.7, "VND": 26_170], "RUB")
+
+        var bike = makeBudget(id: "bike", amount: 3_000_000_00)
+        bike.currency = "VND"
+        var sport = makeBudget(id: "sport", amount: 4_000_000_00)
+        sport.currency = "VND"
+        var food = makeBudget(id: "food", amount: 400_00)
+        food.currency = "USD"
+
+        let totalInBase = [bike, sport, food].reduce(Int64(0)) { acc, budget in
+            acc + BudgetMath.amountInBase(budget.amount, budget: budget, currencyContext: ctx)
+        }
+
+        // 7 000 000 ₫ ≈ 22 388 ₽ + 400 $ = 33 480 ₽ → ≈ 55 868 ₽.
+        XCTAssertEqual(Double(totalInBase), 55_868_00, accuracy: 100_00)
+        // The bug rendered 7 040 000 ₽ (≈84 100 $) by adding ₫ to ₽ as-is.
+        XCTAssertLessThan(totalInBase, 1_000_000_00,
+                          "VND limits were summed as roubles — the header explodes")
+    }
+
+    // MARK: - activeSubscriptionsMonthlyTotalInBase
+
+    func testActiveSubscriptionsMonthlyTotal_SumsOnlyActive() {
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 83.7], "RUB")
+        let subs = [
+            makeSub(id: "s1", amount: 200_00, status: .active),
+            makeSub(id: "s2", amount: 1_000_00, status: .paused),
+            makeSub(id: "s3", amount: 500_00, status: .cancelled)
+        ]
+
+        XCTAssertEqual(
+            BudgetMath.activeSubscriptionsMonthlyTotalInBase(subscriptions: subs, currencyContext: ctx),
+            200_00
+        )
+    }
+
+    /// Real list shape: five USD trackers totalling $255/mo, read on a
+    /// RUB base — the total must be roubles, not a raw dollar sum.
+    func testActiveSubscriptionsMonthlyTotal_FXNormalizesForeignCurrency() {
+        let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 83.7], "RUB")
+        let usd = [10_00, 200_00, 9_00, 25_00, 11_00].enumerated().map { index, amount in
+            SubscriptionTracker(
+                id: "s\(index)", userId: "u1", serviceName: "svc\(index)",
+                amount: Int64(amount), currency: "USD", billingPeriod: .monthly,
+                startDate: "2026-01-01"
+            )
+        }
+
+        let total = BudgetMath.activeSubscriptionsMonthlyTotalInBase(subscriptions: usd, currencyContext: ctx)
+
+        // $255 × 83.7 ≈ 21 343 ₽.
+        XCTAssertEqual(Double(total), 21_343_00, accuracy: 50_00)
+    }
+
+    /// Weekly and yearly trackers are billed on their own cadence — the
+    /// header advertises a MONTHLY figure.
+    func testActiveSubscriptionsMonthlyTotal_NormalizesBillingPeriods() {
+        let ctx: BudgetMath.CurrencyContext = ([:], [:], "RUB")
+        let subs = [
+            makeSub(id: "yearly", amount: 12_000_00, period: .yearly),
+            makeSub(id: "quarterly", amount: 3_000_00, period: .quarterly),
+            makeSub(id: "monthly", amount: 500_00, period: .monthly)
+        ]
+
+        // 1 000 + 1 000 + 500.
+        XCTAssertEqual(
+            BudgetMath.activeSubscriptionsMonthlyTotalInBase(subscriptions: subs, currencyContext: ctx),
+            2_500_00
+        )
+    }
+
     func testAmountInBase_MissingRateFailsSafeUnchanged() {
         let ctx: BudgetMath.CurrencyContext = ([:], ["USD": 1, "RUB": 80], "RUB")
         var chfBudget = makeBudget()
