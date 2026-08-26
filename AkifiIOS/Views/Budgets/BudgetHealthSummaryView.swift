@@ -44,9 +44,9 @@ struct BudgetHealthSummaryView: View {
                     Text(String(localized: "budget.summary.total"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(fmt.formatAmount(totalSpent.displayAmount))
+                    Text(fmt.formatAmount(totalSpent.displayAmount, wholeUnits: true))
                         .font(.title3.weight(.bold).monospacedDigit())
-                    + Text(" / \(fmt.formatAmount(totalLimit.displayAmount))")
+                    + Text(" / \(fmt.formatAmount(totalLimit.displayAmount, wholeUnits: true))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -96,7 +96,7 @@ struct BudgetHealthSummaryView: View {
                     Image(systemName: "repeat.circle.fill")
                         .font(.caption)
                         .foregroundStyle(Color.budget)
-                    Text(String(localized: "budget.summary.subscriptions.\(fmt.formatAmount(totalSubCommitted.displayAmount))"))
+                    Text(String(localized: "budget.summary.subscriptions.\(fmt.formatAmount(totalSubCommitted.displayAmount, wholeUnits: true))"))
                         .font(.caption)
                         .foregroundStyle(.primary)
                     if totalLimit > 0 {

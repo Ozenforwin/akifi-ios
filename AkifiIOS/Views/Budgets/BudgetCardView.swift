@@ -16,6 +16,29 @@ struct BudgetCardView: View {
         return df
     }()
 
+    // DateFormatter init costs ~ms — creating them inside `periodLabel` on
+    // every render of every card was a scroll-jank contributor.
+    private static let dayMonthFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale.current
+        df.dateFormat = "d MMM"
+        return df
+    }()
+
+    private static let monthYearFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale.current
+        df.dateFormat = "LLLL yyyy"
+        return df
+    }()
+
+    private static let dayMonthYearFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale.current
+        df.dateFormat = "d MMM yyyy"
+        return df
+    }()
+
     // MARK: - Shared budget members
 
     private var sharedMembers: [BudgetMember] {
@@ -105,16 +128,13 @@ struct BudgetCardView: View {
 
     private var periodLabel: String {
         let cal = Calendar.current
-        let df = DateFormatter()
-        df.locale = Locale.current
         switch budget.billingPeriod {
         case .weekly:
             let period = BudgetMath.currentPeriod(for: budget)
-            df.dateFormat = "d MMM"
+            let df = Self.dayMonthFormatter
             return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
         case .monthly:
-            df.dateFormat = "LLLL yyyy"
-            return df.string(from: Date()).capitalized
+            return Self.monthYearFormatter.string(from: Date()).capitalized
         case .quarterly:
             let month = cal.component(.month, from: Date())
             let quarter = (month - 1) / 3 + 1
@@ -124,7 +144,7 @@ struct BudgetCardView: View {
             return String(cal.component(.year, from: Date()))
         case .custom:
             let period = BudgetMath.currentPeriod(for: budget)
-            df.dateFormat = "d MMM yyyy"
+            let df = Self.dayMonthYearFormatter
             return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
         }
     }
@@ -141,12 +161,14 @@ struct BudgetCardView: View {
     /// is RUB; otherwise the card silently FX-converts and stops matching
     /// the value the user typed in. Legacy budgets (currency == nil) keep
     /// the old behavior — base-ccy amount converted to display ccy.
+    /// Rendered without cents: against a monthly limit the fractional part
+    /// is noise, and "2 916 653 ₫ из 3 000 000 ₫" has to stay readable.
     private func budgetFmt(_ kopecks: Int64) -> String {
         if let raw = budget.currency,
            let code = Currency(code: raw.uppercased()) {
-            return fmt.formatInCurrency(abs(kopecks).displayAmount, currency: code)
+            return fmt.formatInCurrency(abs(kopecks).displayAmount, currency: code, wholeUnits: true)
         }
-        return fmt.formatAmount(kopecks.displayAmount)
+        return fmt.formatAmount(kopecks.displayAmount, wholeUnits: true)
     }
 
     // MARK: - Accessibility

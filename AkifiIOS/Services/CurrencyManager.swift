@@ -15,10 +15,13 @@ final class CurrencyManager {
     // Cached formatters — NumberFormatter is expensive to create
     private var currencyFormatter: NumberFormatter
     private var decimalFormatter: NumberFormatter
+    /// Same as `decimalFormatter` minus the fractional part.
+    private var wholeFormatter: NumberFormatter
 
     init() {
         currencyFormatter = NumberFormatter()
         decimalFormatter = NumberFormatter()
+        wholeFormatter = NumberFormatter()
 
         if let saved = UserDefaults.standard.string(forKey: "selected_currency"),
            let code = Currency(code: saved) {
@@ -48,6 +51,12 @@ final class CurrencyManager {
         decimalFormatter.numberStyle = .decimal
         decimalFormatter.maximumFractionDigits = selectedCurrency.decimals
         decimalFormatter.minimumFractionDigits = selectedCurrency.decimals
+
+        wholeFormatter = NumberFormatter()
+        wholeFormatter.numberStyle = .decimal
+        wholeFormatter.maximumFractionDigits = 0
+        wholeFormatter.minimumFractionDigits = 0
+        wholeFormatter.roundingMode = .halfUp
     }
 
     /// Convert amount from data currency to selected display currency.
@@ -99,10 +108,13 @@ final class CurrencyManager {
         return currencyFormatter.string(from: converted as NSDecimalNumber) ?? "0"
     }
 
-    func formatAmount(_ amount: Decimal) -> String {
+    /// `wholeUnits: true` drops the fractional part — budgets read as
+    /// «319 $ из 478 $», where cents are noise against a monthly limit.
+    func formatAmount(_ amount: Decimal, wholeUnits: Bool = false) -> String {
         let absAmount = abs(amount)
         let converted = convert(absAmount)
-        let formatted = decimalFormatter.string(from: converted as NSDecimalNumber) ?? "0"
+        let formatter = wholeUnits ? wholeFormatter : decimalFormatter
+        let formatted = formatter.string(from: converted as NSDecimalNumber) ?? "0"
         return "\(formatted) \(selectedCurrency.symbol)"
     }
 
@@ -110,11 +122,12 @@ final class CurrencyManager {
     /// conversion. Caller is responsible for having the value in that
     /// currency already. Used by the multi-currency preview labels
     /// (e.g. the "≈ 1 900 ₽" hint under a foreign-currency input).
-    func formatInCurrency(_ amount: Decimal, currency: Currency) -> String {
+    func formatInCurrency(_ amount: Decimal, currency: Currency, wholeUnits: Bool = false) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = currency.decimals
-        formatter.minimumFractionDigits = currency.decimals
+        let digits = wholeUnits ? 0 : currency.decimals
+        formatter.maximumFractionDigits = digits
+        formatter.minimumFractionDigits = digits
         let absAmount = abs(amount)
         let formatted = formatter.string(from: absAmount as NSDecimalNumber) ?? "0"
         return "\(formatted) \(currency.symbol)"
