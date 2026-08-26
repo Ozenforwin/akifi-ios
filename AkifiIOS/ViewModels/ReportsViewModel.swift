@@ -10,8 +10,44 @@ final class ReportsViewModel {
         return cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
     }()
     var selectedSegment: ReportSegment = .expense
-    var selectedAccountId: String?
     var periodMode: PeriodMode = .month
+
+    /// Accounts switched OFF by the user. Empty = every account counts.
+    ///
+    /// Modelled as an exclusion set rather than a selection because the
+    /// actual ask is «everything except that one card» — with a selection
+    /// set, adding an account would silently drop it out of every report.
+    var excludedAccountIds: Set<String> = []
+
+    /// Categories switched OFF, by id. The filter UI works on names (the
+    /// report groups by name, and the same name can exist under several
+    /// ids), so toggling «Подарки» excludes every id carrying that name.
+    var excludedCategoryIds: Set<String> = []
+
+    /// Sentinel id for rows with no category — lets «Без категории» be
+    /// filtered like any other entry.
+    static let uncategorizedId = "uncategorized"
+
+    /// Oldest transaction the user has. The pager refuses to step past the
+    /// period containing it: walking back into empty 2025 meant paging all
+    /// the way forward again to get home.
+    var earliestDataDate: Date?
+
+    func includesAccount(_ accountId: String?) -> Bool {
+        guard let accountId else { return true }
+        return !excludedAccountIds.contains(accountId)
+    }
+
+    func includesCategory(_ categoryId: String?) -> Bool {
+        !excludedCategoryIds.contains(categoryId ?? Self.uncategorizedId)
+    }
+
+    /// A single remaining account — used to label the filter chip and to
+    /// pick the PDF's currency. nil when several (or none) are active.
+    func soleIncludedAccount(from accounts: [Account]) -> Account? {
+        let included = accounts.filter { includesAccount($0.id) }
+        return included.count == 1 ? included.first : nil
+    }
 
     /// Custom period bounds (used when `periodMode == .custom`).
     /// Defaults: current month start … today.
@@ -69,10 +105,45 @@ final class ReportsViewModel {
     }
 
     func previousPeriod() {
-        guard let step = periodStep else { return }
+        guard let step = periodStep, canGoPrevious else { return }
         let cal = Calendar.current
         if let prev = cal.date(byAdding: step.component, value: -step.value, to: selectedMonth) {
             selectedMonth = prev
+        }
+    }
+
+    /// False once the previous period lies entirely before the user's
+    /// oldest transaction — there is nothing to show back there, and
+    /// walking in means paging all the way back out.
+    var canGoPrevious: Bool {
+        guard periodStep != nil else { return false }
+        guard let earliest = earliestDataDate else { return true }
+        let prevEnd = periodBounds(for: prevPeriodDate()).end
+        return prevEnd >= Calendar.current.startOfDay(for: earliest)
+    }
+
+    /// Start/end of the period `date` falls into, under the current mode.
+    func periodBounds(for date: Date) -> (start: Date, end: Date) {
+        let cal = Calendar.current
+        switch periodMode {
+        case .month:
+            let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
+            let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
+            return (start, end)
+        case .quarter:
+            let month = cal.component(.month, from: date)
+            var comps = cal.dateComponents([.year], from: date)
+            comps.month = ((month - 1) / 3) * 3 + 1
+            comps.day = 1
+            let start = cal.date(from: comps)!
+            let end = cal.date(byAdding: DateComponents(month: 3, day: -1), to: start)!
+            return (start, end)
+        case .year:
+            let start = cal.date(from: cal.dateComponents([.year], from: date))!
+            let end = cal.date(byAdding: DateComponents(year: 1, day: -1), to: start)!
+            return (start, end)
+        case .custom:
+            return (customStart, customEnd)
         }
     }
 
@@ -148,6 +219,11 @@ final class ReportsViewModel {
         return df
     }()
 
+    /// Parses a stored `yyyy-MM-dd` transaction date.
+    static func parseDate(_ raw: String) -> Date? {
+        txDateFormatter.date(from: raw)
+    }
+
     private static let monthLabelFormatter: DateFormatter = {
         let df = DateFormatter()
         df.locale = Locale.current
@@ -180,7 +256,7 @@ final class ReportsViewModel {
 
     func monthTransactions(from all: [Transaction]) -> [Transaction] {
         all.filter { tx in
-            if let accountId = selectedAccountId, tx.accountId != accountId { return false }
+            guard includesAccount(tx.accountId), includesCategory(tx.categoryId) else { return false }
             guard let txDate = Self.txDateFormatter.date(from: tx.date) else { return false }
             return isInSelectedPeriod(txDate)
         }
@@ -308,6 +384,31 @@ final class ReportsViewModel {
         .sorted { $0.amount > $1.amount }
     }
 
+    /// The transactions behind one slice of the category breakdown.
+    ///
+    /// Mirrors `categoryBreakdown`'s filters exactly — same period, same
+    /// account, same transaction type. The type check is the load-bearing
+    /// one: categories are grouped by NAME, and an expense category can
+    /// share its name with an income one ("Подарки"). Without it the
+    /// Income drill-down lists expenses rendered with a "+" and green,
+    /// contradicting the header total that correctly excluded them.
+    func transactions(
+        inCategoryNamed name: String,
+        from transactions: [Transaction],
+        categories: [Category]
+    ) -> [Transaction] {
+        let categoryIndex = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let fallbackName = String(localized: "transaction.noCategory")
+        return monthTransactions(from: transactions).filter { tx in
+            guard !tx.isTransfer,
+                  (selectedType == .expense && tx.type == .expense) ||
+                  (selectedType == .income && tx.type == .income)
+            else { return false }
+            let resolved = tx.categoryId.flatMap { categoryIndex[$0] }
+            return (resolved?.name ?? fallbackName) == name
+        }
+    }
+
     // MARK: - Computed: transfer breakdown (directions between accounts)
 
     struct TransferBreakdownItem: Identifiable, Sendable {
@@ -384,10 +485,12 @@ final class ReportsViewModel {
             }
         }
 
-        // Account filter: a direction passes when EITHER endpoint matches.
-        let visible = selectedAccountId == nil
+        // Account filter: a direction drops out as soon as one of its known
+        // endpoints is switched off — an excluded account should not have
+        // its movements surface through the other leg either.
+        let visible = excludedAccountIds.isEmpty
             ? directions
-            : directions.filter { $0.from == selectedAccountId || $0.to == selectedAccountId }
+            : directions.filter { includesAccount($0.from) && includesAccount($0.to) }
 
         var amountByKey: [String: Int64] = [:]
         var countByKey: [String: Int] = [:]

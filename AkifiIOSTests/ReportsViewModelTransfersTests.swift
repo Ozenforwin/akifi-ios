@@ -141,8 +141,7 @@ final class ReportsViewModelTransfersTests: XCTestCase {
 
     // MARK: - Account filter
 
-    func test_accountFilter_matchesEitherLeg() {
-        vm.selectedAccountId = "acc-b"
+    func test_accountFilter_keepsDirectionWhenNothingExcluded() {
         let txs = [
             makeLeg(id: "t1", accountId: "acc-a", type: .expense, transferGroupId: "g1"),
             makeLeg(id: "t2", accountId: "acc-b", type: .income, transferGroupId: "g1")
@@ -150,11 +149,11 @@ final class ReportsViewModelTransfersTests: XCTestCase {
 
         let items = vm.transferBreakdown(from: txs, dataStore: store)
 
-        XCTAssertEqual(items.count, 1, "direction passes when EITHER endpoint is the selected account")
+        XCTAssertEqual(items.count, 1, "empty exclusion set means every account counts")
     }
 
-    func test_accountFilter_dropsUnrelatedDirections() {
-        vm.selectedAccountId = "acc-c"
+    func test_accountFilter_dropsDirectionTouchingExcludedAccount() {
+        vm.excludedAccountIds = ["acc-a"]
         let txs = [
             makeLeg(id: "t1", accountId: "acc-a", type: .expense, transferGroupId: "g1"),
             makeLeg(id: "t2", accountId: "acc-b", type: .income, transferGroupId: "g1")
@@ -162,7 +161,19 @@ final class ReportsViewModelTransfersTests: XCTestCase {
 
         let items = vm.transferBreakdown(from: txs, dataStore: store)
 
-        XCTAssertTrue(items.isEmpty)
+        XCTAssertTrue(items.isEmpty, "an excluded account must not surface through its partner leg")
+    }
+
+    func test_accountFilter_ignoresExclusionsOfUninvolvedAccounts() {
+        vm.excludedAccountIds = ["acc-c"]
+        let txs = [
+            makeLeg(id: "t1", accountId: "acc-a", type: .expense, transferGroupId: "g1"),
+            makeLeg(id: "t2", accountId: "acc-b", type: .income, transferGroupId: "g1")
+        ]
+
+        let items = vm.transferBreakdown(from: txs, dataStore: store)
+
+        XCTAssertEqual(items.count, 1)
     }
 
     // MARK: - Period filter
