@@ -455,6 +455,13 @@ workflows:
           VERSION=$(echo "$CM_TAG" | sed 's|release/v||')
           echo "Version: $VERSION"
 
+          # Codemagic clones shallow on tag builds — without this the previous
+          # release tag (and the whole commit range) is missing, git log sees
+          # only HEAD, and Claude generates "Performance and stability
+          # improvements" as the ENTIRE What's New (the 1.5.2 incident).
+          git fetch --tags --unshallow 2>/dev/null || git fetch --tags
+          echo "Commits reachable: $(git rev-list --count HEAD)"
+
           # Generate changelog from git
           PREV_TAG=$(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')
           if [ -n "$PREV_TAG" ]; then
@@ -465,6 +472,13 @@ workflows:
             RAW_LOG=$(git log --pretty="%s" -15 --no-merges)
           fi
           echo "$RAW_LOG"
+
+          # Loud guard: a release with zero user-facing commits is almost
+          # always a broken changelog range, not a real chore-only release.
+          if ! echo "$RAW_LOG" | grep -qE '^(feat|fix|perf)'; then
+            echo "⚠️  WARNING: no feat/fix/perf commits in range — What's New will be generic."
+            echo "⚠️  Check that the clone has full history and PREV_TAG=$PREV_TAG is correct."
+          fi
 
           pip3 install PyJWT cryptography requests anthropic --quiet
 
