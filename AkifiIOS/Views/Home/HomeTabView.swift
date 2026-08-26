@@ -121,21 +121,17 @@ struct HomeTabView: View {
                 AccountFormView {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $sharingAccount) { account in
                 ShareAccountView(account: account)
-                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showSearch) {
                 SearchView()
-                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingAccount) { account in
                 AccountFormView(editingAccount: account) {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingTransaction) { transaction in
                 if transaction.isTransfer {
@@ -145,7 +141,6 @@ struct HomeTabView: View {
                     ) {
                         await dataStore.loadAll()
                     }
-                    .presentationBackground(.ultraThinMaterial)
                 } else {
                     TransactionFormView(
                         categories: dataStore.displayCategories,
@@ -154,7 +149,6 @@ struct HomeTabView: View {
                     ) {
                         await dataStore.loadAll()
                     }
-                    .presentationBackground(.ultraThinMaterial)
                 }
             }
             .sheet(isPresented: $showAddTransaction) {
@@ -167,19 +161,16 @@ struct HomeTabView: View {
                     // auto-transfer triplets and subscription auto-match.
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showBankImport) {
                 NavigationStack {
                     BankImportView()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showReceiptScanner) {
                 ReceiptScannerView {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             // Mirror the carousel's selected account into the shared
             // FAB context so the new-transaction sheet can pre-fill the

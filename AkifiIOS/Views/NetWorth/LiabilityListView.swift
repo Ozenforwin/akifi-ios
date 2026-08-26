@@ -66,7 +66,6 @@ struct LiabilityListView: View {
                     await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $editingLiability) { liability in
             LiabilityFormView(
@@ -76,7 +75,6 @@ struct LiabilityListView: View {
                     await viewModel.updateLiability(id: id, input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

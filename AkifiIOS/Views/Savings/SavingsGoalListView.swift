@@ -116,7 +116,6 @@ struct SavingsGoalListView: View {
                     targetAmount: amount, deadline: deadline, accountId: accountId
                 )
             }
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 }

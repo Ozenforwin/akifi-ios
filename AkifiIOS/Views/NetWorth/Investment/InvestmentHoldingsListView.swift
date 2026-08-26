@@ -71,7 +71,6 @@ struct InvestmentHoldingsListView: View {
                     await viewModel.create(input, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $editingHolding) { h in
             InvestmentHoldingFormView(
@@ -83,7 +82,6 @@ struct InvestmentHoldingsListView: View {
                     await viewModel.update(id: id, input, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

@@ -55,11 +55,9 @@ struct JournalTabView: View {
             }
             .sheet(isPresented: $showNoteForm) {
                 JournalNoteFormView(viewModel: viewModel, initialType: .note)
-                    .presentationBackground(.regularMaterial)
             }
             .sheet(isPresented: $showReflectionForm) {
                 JournalNoteFormView(viewModel: viewModel, initialType: .reflection)
-                    .presentationBackground(.regularMaterial)
             }
             .sheet(isPresented: $showTagSheet) {
                 TagFilterSheet(viewModel: viewModel)

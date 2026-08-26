@@ -109,7 +109,6 @@ struct SharedAccountDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showShareSheet) {
             ShareAccountView(account: account)
-                .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $sheetTxn) { tx in
             TxnSettlementSheetView(
@@ -119,7 +118,6 @@ struct SharedAccountDetailView: View {
                 payerUserId: payerUserId(for: tx),
                 viewModel: settlementVM
             )
-            .presentationBackground(.regularMaterial)
         }
         .task(id: account.id) {
             await loadMemberWeights()

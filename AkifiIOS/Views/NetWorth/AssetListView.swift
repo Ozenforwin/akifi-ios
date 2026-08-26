@@ -70,7 +70,6 @@ struct AssetListView: View {
                     try await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $editingAsset) { asset in
             AssetFormView(
@@ -80,7 +79,6 @@ struct AssetListView: View {
                     try await viewModel.updateAsset(id: id, input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

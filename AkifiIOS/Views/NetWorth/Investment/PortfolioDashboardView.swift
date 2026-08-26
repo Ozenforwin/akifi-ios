@@ -66,7 +66,6 @@ struct PortfolioDashboardView: View {
                     await viewModel.create(input, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $editingHolding) { h in
             InvestmentHoldingFormView(
@@ -78,11 +77,9 @@ struct PortfolioDashboardView: View {
                     await viewModel.update(id: id, input, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: $showRebalance) {
             RebalanceHintView(viewModel: viewModel)
-                .presentationBackground(.ultraThinMaterial)
         }
     }
 

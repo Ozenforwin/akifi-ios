@@ -103,7 +103,6 @@ struct DepositListView: View {
         }
         .sheet(isPresented: $showForm) {
             DepositFormView(viewModel: viewModel)
-                .presentationBackground(.ultraThinMaterial)
         }
         .alert(
             String(localized: "deposit.closeEarly.confirmTitle"),

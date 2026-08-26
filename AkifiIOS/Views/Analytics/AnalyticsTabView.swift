@@ -175,7 +175,6 @@ struct AnalyticsTabView: View {
                 ) {
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .task {
                 // Lazy one-shot init — `appViewModel.dataStore` isn't available

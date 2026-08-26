@@ -227,7 +227,6 @@ struct TransactionsTabView: View {
                     transactions: dataStore.transactions,
                     categories: dataStore.categories
                 )
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
@@ -239,7 +238,6 @@ struct TransactionsTabView: View {
                     // auto-transfer triplets and subscription auto-match.
                     await dataStore.loadAll()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(item: $editingTransaction) { tx in
                 if tx.isTransfer {
@@ -249,7 +247,6 @@ struct TransactionsTabView: View {
                     ) {
                         await dataStore.loadAll()
                     }
-                    .presentationBackground(.ultraThinMaterial)
                 } else {
                     TransactionFormView(
                         categories: dataStore.displayCategories,
@@ -258,14 +255,12 @@ struct TransactionsTabView: View {
                     ) {
                         await dataStore.loadAll()
                     }
-                    .presentationBackground(.ultraThinMaterial)
                 }
             }
             .sheet(isPresented: $showTransfer) {
                 TransferFormView(accounts: dataStore.accounts) {
                     dataStore.rebuildCaches()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $showFilters) {
                 TransactionFilterSheet(
@@ -279,7 +274,6 @@ struct TransactionsTabView: View {
                 )
                 .presentationDetents([.fraction(0.75), .large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(.ultraThinMaterial)
             }
         }
     }

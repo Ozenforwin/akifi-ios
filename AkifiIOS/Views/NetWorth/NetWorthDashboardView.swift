@@ -63,7 +63,6 @@ struct NetWorthDashboardView: View {
                     try await viewModel.createAsset(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: $showLiabilityForm) {
             LiabilityFormView(
@@ -71,7 +70,6 @@ struct NetWorthDashboardView: View {
                     await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

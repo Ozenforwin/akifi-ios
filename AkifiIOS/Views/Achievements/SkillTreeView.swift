@@ -34,7 +34,6 @@ struct SkillTreeView: View {
         .sheet(item: $selectedNode) { node in
             SkillNodeDetailSheet(node: node, isUnlocked: unlockedIds.contains(node.id))
                 .presentationDetents([.medium])
-                .presentationBackground(.ultraThinMaterial)
         }
     }
 

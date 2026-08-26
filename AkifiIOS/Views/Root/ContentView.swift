@@ -342,7 +342,6 @@ struct MainTabView: View {
             AssistantView(viewModel: assistantVM) { target in
                 handleNavigationTarget(target)
             }
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $activeSheet) { sheet in
             Group {
@@ -378,7 +377,6 @@ struct MainTabView: View {
                     }
                 }
             }
-            .presentationBackground(.ultraThinMaterial)
         }
         .task { await checkNewAchievements() }
         .onOpenURL { url in
@@ -443,14 +441,12 @@ struct MainTabView: View {
             set: { if !$0 { pendingInviteCode = nil } }
         )) {
             AcceptInviteView(initialCode: pendingInviteCode ?? "")
-                .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: Binding(
             get: { pendingBudgetInviteCode != nil },
             set: { if !$0 { pendingBudgetInviteCode = nil } }
         )) {
             AcceptInviteView(initialCode: pendingBudgetInviteCode ?? "", kind: .budget)
-                .presentationBackground(.ultraThinMaterial)
         }
     }
 

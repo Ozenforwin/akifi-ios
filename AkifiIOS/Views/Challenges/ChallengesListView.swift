@@ -65,7 +65,6 @@ struct ChallengesListView: View {
                     await vm.reconcileProgress(transactions: dataStore.transactions, currencyContext: dataStore.currencyContext)
                 }
             }
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: $selectedChallenge) { ch in
             ChallengeDetailView(
@@ -83,7 +82,6 @@ struct ChallengesListView: View {
                     }
                 }
             )
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

@@ -162,7 +162,6 @@ struct FABView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.ultraThinMaterial)
         }
     }
 

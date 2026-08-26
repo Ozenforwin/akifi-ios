@@ -261,7 +261,6 @@ struct BudgetFormView: View {
                     }
                     .sheet(isPresented: $showShareSheet) {
                         ShareBudgetView(budget: budget)
-                            .presentationBackground(.ultraThinMaterial)
                     }
                 }
 

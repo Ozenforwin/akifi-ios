@@ -179,7 +179,6 @@ struct CategoryBreakdownView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.ultraThinMaterial)
         }
         // Promote the freshly-computed data into `@State` once per key
         // transition. Subsequent reads of `data` / `filteredTransactions`

@@ -173,12 +173,10 @@ struct AssistantView: View {
             .sheet(isPresented: $showShareSheet) {
                 if let conv = viewModel.currentConversation {
                     ShareConversationSheet(conversation: conv)
-                        .presentationBackground(.ultraThinMaterial)
                 }
             }
             .sheet(isPresented: $viewModel.showConversations) {
                 ConversationListView(viewModel: viewModel)
-                    .presentationBackground(.ultraThinMaterial)
             }
             .sheet(isPresented: $viewModel.showActionPreview) {
                 if let action = viewModel.pendingAction,
@@ -194,7 +192,6 @@ struct AssistantView: View {
                             viewModel.cancelAction()
                         }
                     )
-                    .presentationBackground(.ultraThinMaterial)
                 }
             }
             .sheet(isPresented: $showFeedbackSheet) {
@@ -313,7 +310,6 @@ struct FeedbackSheet: View {
             }
         }
         .presentationDetents([.medium])
-        .presentationBackground(.ultraThinMaterial)
     }
 }
 

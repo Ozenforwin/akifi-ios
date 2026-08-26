@@ -31,7 +31,6 @@ struct InfoTooltipButton: View {
         .sheet(isPresented: $isPresented) {
             InfoSheet(titleKey: titleKey, bodyKey: bodyKey, isPresented: $isPresented)
                 .presentationDetents([.medium])
-                .presentationBackground(.ultraThinMaterial)
         }
     }
 }

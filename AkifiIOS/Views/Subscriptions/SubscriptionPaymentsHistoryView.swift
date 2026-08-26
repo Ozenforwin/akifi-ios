@@ -64,7 +64,6 @@ struct SubscriptionPaymentsHistoryView: View {
                     await load()
                     await onChange()
                 }
-                .presentationBackground(.ultraThinMaterial)
             }
             .alert(
                 String(localized: "common.error"),

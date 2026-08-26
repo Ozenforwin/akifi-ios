@@ -46,7 +46,6 @@ struct RebalanceHintView: View {
             }
             .sheet(isPresented: $showingTargetEditor) {
                 TargetAllocationView(viewModel: viewModel)
-                    .presentationBackground(.ultraThinMaterial)
             }
         }
     }

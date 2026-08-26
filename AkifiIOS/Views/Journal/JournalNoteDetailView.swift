@@ -76,7 +76,6 @@ struct JournalNoteDetailView: View {
         }
         .sheet(isPresented: $showEditSheet) {
             JournalNoteFormView(viewModel: viewModel, editingNote: note)
-                .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: Binding(
             get: { photoViewerIndex.map { PhotoViewerRoute(index: $0) } },

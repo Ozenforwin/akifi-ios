@@ -46,7 +46,6 @@ struct DepositDetailView: View {
                     depositAccount: acc,
                     viewModel: viewModel
                 )
-                .presentationBackground(.ultraThinMaterial)
             }
         }
         .alert(
