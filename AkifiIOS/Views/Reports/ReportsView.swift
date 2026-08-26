@@ -7,6 +7,8 @@ struct ReportsView: View {
     @State private var vm = ReportsViewModel()
     @State private var sheetData: CategorySheetData?
     @State private var showCustomPeriodSheet = false
+    @State private var showAccountFilter = false
+    @State private var showCategoryFilter = false
     @State private var draftCustomStart = Calendar.current.date(
         from: Calendar.current.dateComponents([.year, .month], from: Date())
     ) ?? Date()
@@ -83,13 +85,35 @@ struct ReportsView: View {
                 isExpense: vm.selectedType == .expense,
                 cm: appViewModel.currencyManager
             )
-            .presentationBackground(.ultraThinMaterial)
         }
         .sheet(item: Binding(
             get: { pdfURL.map { PDFShareItem(url: $0) } },
             set: { pdfURL = $0?.url }
         )) { item in
             ActivityViewController(items: [item.url])
+        }
+        .sheet(isPresented: $showAccountFilter) {
+            ReportFilterSheet(
+                title: String(localized: "report.filter.accounts.title"),
+                rows: accountFilterRows,
+                excluded: Binding(get: { vm.excludedAccountIds }, set: { vm.excludedAccountIds = $0 })
+            )
+        }
+        .sheet(isPresented: $showCategoryFilter) {
+            ReportFilterSheet(
+                title: String(localized: "report.filter.categories.title"),
+                rows: categoryFilterRows,
+                excluded: Binding(get: { vm.excludedCategoryIds }, set: { vm.excludedCategoryIds = $0 })
+            )
+        }
+        // The pager's back edge depends on the oldest row the user has.
+        // Dates are "yyyy-MM-dd" strings, so the lexicographic minimum IS
+        // the chronological one — one parse instead of one per row.
+        .task(id: dataStore.transactions.count) {
+            vm.earliestDataDate = dataStore.transactions
+                .map(\.date)
+                .min()
+                .flatMap(ReportsViewModel.parseDate)
         }
         .sheet(isPresented: $showCustomPeriodSheet) {
             NavigationStack {
@@ -124,7 +148,6 @@ struct ReportsView: View {
                 }
             }
             .presentationDetents([.medium])
-            .presentationBackground(.ultraThinMaterial)
         }
         .alert(String(localized: "reports.pdfError"), isPresented: .init(
             get: { pdfError != nil }, set: { _ in pdfError = nil }
@@ -206,9 +229,9 @@ struct ReportsView: View {
             vm.selectedMonth = savedSelected
         }
 
-        let account = vm.selectedAccountId.flatMap { id in
-            dataStore.accounts.first(where: { $0.id == id })
-        }
+        // A single remaining account pins the PDF's currency and header;
+        // with several active there is no one account to name.
+        let account = vm.soleIncludedAccount(from: dataStore.accounts)
         let currency = (account?.currency ?? dataStore.accounts.first?.currency ?? "RUB").uppercased()
 
         let input = PDFReportGenerator.Input(
@@ -270,28 +293,13 @@ struct ReportsView: View {
 
     private var filtersBar: some View {
         HStack(spacing: 8) {
-            Menu {
-                Button(String(localized: "budget.allAccounts")) {
-                    vm.selectedAccountId = nil
-                }
-                ForEach(dataStore.accounts) { acc in
-                    Button("\(acc.icon) \(acc.name)") {
-                        vm.selectedAccountId = acc.id
-                    }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(accountLabel)
-                        .font(.caption.weight(.medium))
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(.systemGray6))
-                .clipShape(Capsule())
+            filterChip(label: accountLabel, isActive: !vm.excludedAccountIds.isEmpty) {
+                showAccountFilter = true
             }
-            .foregroundStyle(.primary)
+
+            filterChip(label: categoryLabel, isActive: !vm.excludedCategoryIds.isEmpty) {
+                showCategoryFilter = true
+            }
 
             Menu {
                 ForEach(ReportsViewModel.PeriodMode.allCases, id: \.self) { mode in
@@ -324,12 +332,80 @@ struct ReportsView: View {
         .padding(.vertical, 8)
     }
 
-    private var accountLabel: String {
-        if let id = vm.selectedAccountId,
-           let acc = dataStore.accounts.first(where: { $0.id == id }) {
-            return "\(acc.icon) \(acc.name)"
+    private func filterChip(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isActive ? Color.accent.opacity(0.15) : Color(.systemGray6))
+            .clipShape(Capsule())
         }
-        return String(localized: "budget.allAccounts")
+        .foregroundStyle(isActive ? Color.accent : .primary)
+    }
+
+    private var accountLabel: String {
+        if vm.excludedAccountIds.isEmpty {
+            return String(localized: "budget.allAccounts")
+        }
+        if let sole = vm.soleIncludedAccount(from: dataStore.accounts) {
+            return "\(sole.icon) \(sole.name)"
+        }
+        let included = dataStore.accounts.filter { vm.includesAccount($0.id) }.count
+        return String(localized: "report.filter.accounts.\(included)")
+    }
+
+    /// Category rows the filter offers: distinct display names for the
+    /// segment in view, plus the "no category" bucket. Grouping by name
+    /// mirrors `categoryBreakdown`, so the chip matches the donut.
+    private var categoryFilterRows: [ReportFilterSheet.Row] {
+        var byName: [String: [Category]] = [:]
+        for cat in dataStore.categories where cat.type == vm.selectedType {
+            byName[cat.name, default: []].append(cat)
+        }
+        var rows = byName
+            .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+            .map { name, cats in
+                ReportFilterSheet.Row(
+                    id: name,
+                    title: "\(cats.first?.icon ?? "") \(name)",
+                    memberIds: cats.map(\.id)
+                )
+            }
+        rows.append(
+            ReportFilterSheet.Row(
+                id: ReportsViewModel.uncategorizedId,
+                title: String(localized: "transaction.noCategory"),
+                memberIds: [ReportsViewModel.uncategorizedId]
+            )
+        )
+        return rows
+    }
+
+    private var accountFilterRows: [ReportFilterSheet.Row] {
+        dataStore.accounts.map { acc in
+            ReportFilterSheet.Row(
+                id: acc.id,
+                title: "\(acc.icon) \(acc.name)",
+                subtitle: acc.currency.uppercased(),
+                memberIds: [acc.id]
+            )
+        }
+    }
+
+    private var categoryLabel: String {
+        guard !vm.excludedCategoryIds.isEmpty else {
+            return String(localized: "report.filter.allCategories")
+        }
+        let included = categoryFilterRows.filter { row in
+            !row.memberIds.allSatisfy { vm.excludedCategoryIds.contains($0) }
+        }.count
+        return String(localized: "report.filter.categories.\(included)")
     }
 
     // MARK: - Period Pager (3 columns)
@@ -363,18 +439,26 @@ struct ReportsView: View {
     }
 
     private var standardPeriodPager: some View {
-        let prev = vm.prevPeriodDate()
+        // nil once there is no data further back — the label disappears
+        // instead of inviting a trip into empty months.
+        let prev = vm.canGoPrevious ? vm.prevPeriodDate() : nil
         let next = vm.nextPeriodDate()
 
         return HStack(spacing: 0) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { vm.previousPeriod() }
-            } label: {
-                Text(vm.periodLabel(prev))
+            if let prev {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { vm.previousPeriod() }
+                } label: {
+                    Text(vm.periodLabel(prev))
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                }
+            } else {
+                Text("")
                     .font(.footnote)
-                    .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity)
-                    .lineLimit(1)
             }
 
             Text(vm.periodLabel(vm.selectedMonth))
@@ -493,23 +577,17 @@ struct ReportsView: View {
 
     private func categoryList(items: [ReportsViewModel.CategoryBreakdownItem]) -> some View {
         let lastName = items.last?.category.name
-        let periodTxs = vm.monthTransactions(from: dataStore.transactions)
-        let categoryIndex = Dictionary(uniqueKeysWithValues: dataStore.categories.map { ($0.id, $0) })
 
         return VStack(spacing: 0) {
             ForEach(items, id: \.category.name) { item in
                 Button {
-                    let catName = item.category.name
-                    // Mirror categoryBreakdown's type filter — the header sum only
-                    // counts the selected type, so the list must match.
-                    let catTxs = periodTxs.filter { tx in
-                        guard !tx.isTransfer,
-                              (vm.selectedType == .expense && tx.type == .expense) ||
-                              (vm.selectedType == .income && tx.type == .income)
-                        else { return false }
-                        let resolved = tx.categoryId.flatMap { categoryIndex[$0] }
-                        return (resolved?.name ?? String(localized: "transaction.noCategory")) == catName
-                    }
+                    // Filtering lives in the VM so it stays in lockstep with
+                    // `categoryBreakdown` (and is covered by tests).
+                    let catTxs = vm.transactions(
+                        inCategoryNamed: item.category.name,
+                        from: dataStore.transactions,
+                        categories: dataStore.categories
+                    )
                     sheetData = CategorySheetData(item: item, transactions: catTxs)
                 } label: {
                     HStack(spacing: 12) {
