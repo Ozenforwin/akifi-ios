@@ -7,11 +7,12 @@
 
 ## Текущее состояние проекта
 
-- **Версия:** 1.2.6 (TestFlight)
-- **Кодовая база:** ~30K строк Swift 6, 180+ файлов
+- **Версия:** 1.5.0 (`project.yml`)
+- **Кодовая база:** ~60K строк Swift 6, 298 Swift-файлов
 - **Стек:** SwiftUI, Supabase (Auth + DB + Edge Functions + Storage), Firebase (Analytics + Crashlytics + Messaging + Performance)
 - **Платформа:** iOS 18.0+
-- **Языки:** ru, en, es (1000+ ключей локализации)
+- **Языки:** ru, en, es (1586 ключей локализации)
+- **Тестовая база:** 361 XCTest-метод в `AkifiIOSTests`
 
 ### Уже реализовано (до этого роадмапа):
 - Счета (мульти, совместные с ролями)
@@ -19,10 +20,14 @@
 - Бюджеты (BudgetMath: pace, risk, safe-to-spend, rollover)
 - Подписки (auto-match, SubscriptionDateEngine, история платежей)
 - Цели накоплений (compound interest, contributions)
+- Депозиты / вклады (compound/simple interest, contributions, close flow)
 - AI-ассистент (чат, голос, действия, аномалии)
 - Сканирование чеков
 - Геймификация (ачивки, стрики, тиры)
 - Мультивалютность (6 валют + конвертация)
+- Общие бюджеты (members, invites, external spend)
+- iOS виджеты (balance, daily limit, streak, day summary)
+- Net Worth + инвест-портфель + FIRE projection
 - Экспорт CSV, импорт выписок
 - Push-уведомления (Firebase)
 - Онбординг (6 шагов + spotlight)
@@ -94,7 +99,7 @@
 | Обновить модель `SubscriptionTracker` | **DONE** | `Models/Subscription.swift` |
 | Обновить `CreateSubscriptionInput` / `UpdateSubscriptionInput` | **DONE** | `Repositories/SubscriptionTrackerRepository.swift` |
 | Обновить `create()` / `update()` в ViewModel | **DONE** | `ViewModels/SubscriptionsViewModel.swift` |
-| Выбор категории в форме создания подписки | **DONE** | `Views/Subscriptions/SubscriptionListView.swift` |
+| Выбор категории в форме создания/редактирования подписки | **DONE** | `Views/Subscriptions/SubscriptionFormView.swift`, `Views/Budgets/BudgetsTabView.swift` |
 | Выбор категории в форме редактирования подписки | **DONE** | `Views/Budgets/BudgetsTabView.swift` (EditSubscriptionFormView) |
 | Локализация ключей (ru/en/es) | **DONE** | `Localizable.xcstrings` |
 
@@ -200,15 +205,15 @@
 
 ## ФАЗА 5: iOS Виджеты + Net Worth (RICE 3.60 + 1.88, ~3 спринта)
 
-### 5.1 iOS Виджеты
+### 5.1 iOS Виджеты — DONE
 | Задача | Статус | Файлы |
 |--------|--------|-------|
-| Новый target `AkifiWidget` (WidgetKit) | TODO | Xcode target |
-| App Groups для shared data | TODO | `project.yml`, entitlements |
-| Small widget: баланс | TODO | |
-| Small widget: дневной лимит (из BudgetMath) | TODO | |
-| Circular widget: стрик | TODO | |
-| Medium widget: сводка дня (доход/расход/баланс) | TODO | |
+| Новый target `AkifiWidget` (WidgetKit) | **DONE** | `project.yml`, `AkifiWidget/` |
+| App Groups для shared data | **DONE** | `project.yml`, entitlements, `AkifiIOS/Shared/Widget/` |
+| Small widget: баланс | **DONE** | `AkifiWidget/Views/BalanceWidget.swift` |
+| Small widget: дневной лимит (из BudgetMath) | **DONE** | `AkifiWidget/Views/DailyLimitWidget.swift` |
+| Circular/accessory widget: стрик | **DONE** | `AkifiWidget/Views/StreakWidget.swift` |
+| Medium widget: сводка дня (доход/расход/баланс) | **DONE** | `AkifiWidget/Views/DaySummaryWidget.swift` |
 
 ### 5.2 Net Worth трекер — DONE (BETA)
 | Задача | Статус | Файлы |
@@ -343,9 +348,10 @@
 | **S3-S5** (нед 3-5) | AI 2.0 + Cash Flow | Nudges + InsightEngine + CashFlowEngine + ForecastView + дайджест | **DONE** |
 | **S5.5** (внеплан, 2 дня) | Stability | Session refresh coordinator + verify_jwt + Universal Links + Landing update | **DONE** |
 | **S6-S8** (нед 6-8) | Reports + Gamification | PDF-отчёты + Savings Challenges + Streak milestones + Skill tree MVP | **DONE** |
-| **S9-S10** (нед 9-10) | Widgets | WidgetKit (4 виджета) | TODO |
-| **S11-S12** (нед 11-12) | Net Worth | Активы, долги, дашборд | TODO |
-| **S13** (нед 13, опционально) | Phase 4 polish | Skill tree v2 (canvas + zoom/pan) + bonus streak badges + push-напоминания челленджей | TODO |
+| **S9-S10** (нед 9-10) | Widgets | WidgetKit (4 виджета) | **DONE** |
+| **S11-S12** (нед 11-12) | Net Worth | Активы, долги, дашборд | **DONE (BETA)** |
+| **S12+** | Investments / FIRE | Holdings, price feed, rebalance, FIRE projection, FIRE-impact | **DONE (BETA)** |
+| **S13** (опционально) | Phase 4 polish | Skill tree v2 (canvas + zoom/pan) + bonus streak badges + push-напоминания челленджей | TODO |
 
 ---
 
@@ -367,8 +373,9 @@
 | Savings challenges | **Есть** | Лучше Cleo (4 типа, привязка к целям) |
 | Skill tree навыков | **Есть (MVP)** | **НИ У КОГО нет** (Gap #11 рынка) |
 | Streak milestones с celebration | **Есть** | Сильнее чем у большинства |
-| iOS Виджеты | TODO | Есть у многих |
-| Net worth | TODO | Есть у Monarch/YNAB |
+| iOS Виджеты | **Есть** | Есть у многих |
+| Net worth | **Есть (BETA)** | Есть у Monarch/YNAB |
+| Инвест-портфель + FIRE | **Есть (BETA)** | Частично есть у отдельных инвест-приложений, редко вместе с budgeting |
 
 ---
 
@@ -381,9 +388,9 @@
 | Unit-тесты CashFlowEngine | **DONE** | 14 тестов (confidence, averages, stdDev fallback, subscription dedup) |
 | Unit-тесты ChallengeProgressEngine | **DONE** | 10 тестов (noCafe, categoryLimit, transitions, range clipping) |
 | Unit-тесты StreakTracker + SkillTreeEngine | **DONE** | 12 + 5 тестов |
-| Unit-тесты DataStore/ViewModels | Medium | Покрыты: CashFlow, BudgetMath, Challenge, Streak, SkillTree, SubscriptionDate, SubscriptionMatcher. Не покрыты: DataStore.balance, displayCategories merging, JournalViewModel |
-| Декомпозиция ContentView | Low | 400+ строк, можно разбить |
-| Декомпозиция SettingsView | Low | 587 строк, 5 под-View внутри |
+| Unit-тесты DataStore/ViewModels | Medium | Добавлены DataStore/offline, analytics, reports, portfolio, settlement, multi-currency contract tests; UI/ViewModel coverage всё ещё можно расширять |
+| Декомпозиция ContentView | Low | ~595 строк, можно разбить root router / tab shell / deep links / overlays |
+| Декомпозиция SettingsView | Low | ~698 строк, часть beta entrypoint вынесена в `BetaFeaturesView`, но экран всё ещё крупный |
 | PaymentManager (StoreKit) | **High** | Заглушка, нет In-App Purchases — блокирует монетизацию |
 | OfflineQueue для всех сущностей | Medium | Сейчас только транзакции |
 | NetworkMonitor → DataStore интеграция | Medium | Автосинхронизация при восстановлении сети |
@@ -393,12 +400,12 @@
 
 ---
 
-*Последнее обновление: 2026-04-19*
+*Последнее обновление: 2026-07-06*
 *Анализ рынка: топ-10 конкурентов (Monarch, YNAB, Copilot, Rocket Money, PocketGuard, Cleo, EveryDollar, MoneyWiz, Goodbudget, Fina)*
 
 ## Следующий шаг (рекомендация)
 
-1. **Phase 5.1 — iOS Widgets** (WidgetKit + App Groups): высокая видимость на home screen iPhone, retention-booster. ~2 спринта, требует нового Xcode target.
-2. **Phase 5.2 — Net Worth трекер**: активы/долги/дашборд, ~2 спринта, новая БД-схема.
-3. **Параллельно — Phase 4 polish** (1 неделя дополнительно): goal-picker в челленджах, push-напоминания, bonus streak badges, skill tree v2.
-4. **Блокер для релиза v1.3** — реализовать StoreKit в `PaymentManager` (сейчас заглушка).
+1. **Монетизация / StoreKit** — `PaymentManager` всё ещё заглушка, это главный продуктовый блокер Premium.
+2. **Phase 4 polish** — goal-picker в челленджах, push-напоминания, bonus streak badges, skill tree v2 canvas.
+3. **Инвест-портфель Phase 3** — TWR/IRR, dividends, tax lots, broker CSV import, shared portfolio.
+4. **OfflineQueue расширить за пределы транзакций** — бюджеты/подписки/журнал/активы пока завязаны на online CRUD.

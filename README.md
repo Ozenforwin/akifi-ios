@@ -2,7 +2,7 @@
 
 Нативное iOS-приложение для управления личными финансами. Построено на SwiftUI с бэкендом Supabase и Firebase. Работает параллельно с Telegram Mini App версией Akifi.
 
-**Актуальная версия:** 1.3.0 (TestFlight) · **Тесты:** 224/224 green
+**Актуальная версия:** 1.5.0 (`project.yml`) · **Кодовая база:** 298 Swift-файлов / ~60K Swift LOC · **Тестовая база:** 361 XCTest-метод
 
 ## Tech Stack
 
@@ -10,13 +10,14 @@
 |-----------|-----------|
 | Язык | Swift 6 (strict concurrency) |
 | UI | SwiftUI (iOS 18+) |
+| Widgets | WidgetKit extension + App Groups snapshot |
 | Min Deployment | iOS 18.0 |
 | IDE | Xcode 16+ |
-| Backend | Supabase (supabase-swift v2.43+) |
+| Backend | Supabase Auth/DB/Storage/Edge Functions (supabase-swift v2.43+) |
 | Analytics & Push | Firebase (Analytics, Crashlytics, FCM, Performance) |
 | Графики | Swift Charts (нативный) |
 | Auth | Sign in with Apple, Google Sign-In, Email/Password, Telegram migration |
-| Локализация | 3 языка: Русский, English, Español (1100+ ключей) |
+| Локализация | 3 языка: Русский, English, Español (1586 ключей) |
 | Project Gen | XcodeGen (project.yml) |
 | CI/CD | Codemagic (TestFlight) |
 
@@ -65,9 +66,12 @@
 - **Shared account category merging** — ID-based dedup в DataStore, name-based grouping в Reports
 - **SessionCoordinator** — actor в `SupabaseManager` дедуплицирует concurrent refresh'ы (single-use refresh_token protection)
 - **RPC encode(to:)** — custom encoder emit'ит JSON null для optional ключей чтобы PostgREST матчил сигнатуру функции (иначе argument-name dropping ломает routing)
-- **Postgres functions для атомарных multi-row операций** — `create/update/delete_expense_with_auto_transfer` (payment source → auto-transfer triplet), edge functions только для LLM/внешних API
+- **Offline-first DataStore** — мгновенный старт из JSON-кэша, `OfflineQueue` для транзакций, overlay pending-операций поверх свежих server rows
+- **Widget snapshot bridge** — `SharedSnapshotWriter` пишет агрегаты в App Group, WidgetKit extension не ходит в сеть и читает только snapshot
+- **Postgres functions для атомарных multi-row операций** — `create/update/delete_expense_with_auto_transfer`, invite RPC, budget-sharing RPC и external-spend RPC; edge functions — для AI/voice/OCR/import/quotes/notifications
 - **Multi-currency (ADR-001)** — `transactions.amount_native` в валюте счёта как single source of truth; `foreign_amount`/`foreign_currency`/`fx_rate` для оригинального ввода; trigger `transactions_fill_amount_native` обеспечивает обратную совместимость с legacy клиентами
 - **TransactionMath.amountInBase** — единая утилита FX-нормализации для cross-account aggregations (InsightEngine / CashFlowEngine / Analytics / Reports), чтобы USD и RUB суммы не складывались сырыми
+- **Portfolio / FIRE beta layer** — holdings поверх `Asset`, price cache через edge functions, no-sell rebalance, FIRE projection и impact крупных трат
 
 ## Структура проекта
 
@@ -92,9 +96,14 @@ AkifiIOS/
 │   ├── Achievement.swift             # Достижения (9 категорий, 4 тира)
 │   ├── SkillNode.swift               # Дерево навыков (15 узлов в 5 треках)
 │   ├── Asset.swift                   # Активы (real_estate/vehicle/crypto/investment/...)
+│   ├── InvestmentHolding.swift       # Позиции инвест-портфеля + current value / ROI / CAGR
+│   ├── Deposit.swift                 # Депозиты / вклады с immutable rate и compound frequency
+│   ├── DepositContribution.swift     # Пополнения депозитов
 │   ├── Liability.swift               # Долги (mortgage/loan/credit_card/...)
 │   ├── NetWorthSnapshot.swift        # Дневные snapshots чистой стоимости
 │   ├── Settlement.swift              # Закрытые расчёты между участниками shared-счёта
+│   ├── BudgetMember.swift            # Участники shared budget
+│   ├── TransactionMemberSettlement.swift # Per-transaction settlement attribution
 │   ├── UserAccountDefault.swift      # Per-user дефолтный source для каждого счёта
 │   ├── AssistantModels.swift         # AI request/response + AnyCodableValue + error classification
 │   ├── AiConversation.swift          # AI чат-сессии
@@ -107,10 +116,9 @@ AkifiIOS/
 ├── Services/
 │   ├── AuthManager.swift             # Auth: Apple/Google/Email/Telegram + refreshSessionIfNeeded()
 │   ├── SupabaseManager.swift         # Singleton + SessionCoordinator actor (dedup refresh)
-│   ├── DataStore.swift               # Shared state + параллельная загрузка + displayCategories
+│   ├── DataStore.swift               # Shared state + offline cache/queue + budget sharing + widget snapshot
 │   ├── CurrencyManager.swift         # Мультивалюта, курсы, форматирование, formatInCurrency
 │   ├── TransactionMath.swift         # ADR-001 FX-нормализация в base (cross-account aggregations)
-│   ├── FeatureFlags.swift            # Local feature flags (UserDefaults) + multi_currency_v2 toggle
 │   ├── PaymentManager.swift          # Premium-подписка (заглушка, StoreKit отключён)
 │   ├── ThemeManager.swift            # Тема (light/dark)
 │   ├── BudgetMath.swift              # Вычисление метрик бюджетов
@@ -119,6 +127,12 @@ AkifiIOS/
 │   ├── SettlementCalculator.swift    # «Кто кому должен» для shared-счетов (weighted split + FX)
 │   ├── ChallengeProgressEngine.swift # Расчёт прогресса челленджей (pure, idempotent)
 │   ├── NetWorthCalculator.swift      # sum(accounts) + sum(assets) − sum(liabilities) с FX
+│   ├── PortfolioCalculator.swift     # Aggregation / ROI / allocation / rebalance for holdings
+│   ├── PriceFeedService.swift        # fetch-price edge function wrapper
+│   ├── InterestCalculator.swift      # Deposit interest accrual
+│   ├── SavingsRateCalculator.swift   # Savings rate поверх cashflow
+│   ├── FIREProjector.swift           # FIRE projection scenarios
+│   ├── FIREImpactCalculator.swift    # Impact крупных трат на FIRE date
 │   ├── StreakTracker.swift           # Streak + milestone-dedup в UserDefaults
 │   ├── SkillTreeEngine.swift         # Multi-pass evaluator для дерева навыков
 │   ├── PDFReportGenerator.swift      # A4 многосекционный PDF через UIGraphicsPDFRenderer
@@ -134,6 +148,7 @@ AkifiIOS/
 │   ├── NetworkMonitor.swift          # Мониторинг подключения к сети
 │   ├── OfflineQueue.swift            # Очередь операций при отсутствии сети
 │   ├── PersistenceManager.swift      # Локальное хранение (JSON encode/decode)
+│   ├── SharedSnapshotWriter.swift    # Main app → App Group snapshot для виджетов
 │   ├── SubscriptionDateEngine.swift  # Расчёт дат подписок (billing period, next payment)
 │   ├── SubscriptionMatcher.swift     # Авто-сопоставление транзакций с подписками
 │   ├── JournalPhotoUploader.swift    # Загрузка фото в Supabase Storage (resize, JPEG)
@@ -149,9 +164,13 @@ AkifiIOS/
 │   ├── SubscriptionTrackerRepository.swift
 │   ├── AchievementRepository.swift
 │   ├── AssetRepository.swift         # Активы
+│   ├── InvestmentHoldingRepository.swift # Позиции инвест-портфеля
+│   ├── DepositRepository.swift       # Депозиты
+│   ├── DepositContributionRepository.swift
 │   ├── LiabilityRepository.swift     # Долги
 │   ├── NetWorthSnapshotRepository.swift # История net worth (UNIQUE по дате)
 │   ├── SettlementRepository.swift    # Закрытые расчёты
+│   ├── TransactionMemberSettlementRepository.swift
 │   ├── UserAccountDefaultsRepository.swift # Дефолтный source per account
 │   ├── AiRepository.swift            # AI edge functions + invokeWithAuthRetry
 │   ├── FinancialNoteRepository.swift # Журнал CRUD + fetchAllTags
@@ -174,6 +193,10 @@ AkifiIOS/
 │   ├── SettlementViewModel.swift     # Facade над SettlementCalculator
 │   ├── PaymentDefaultsViewModel.swift # Per-shared-account дефолтный source
 │   ├── NetWorthViewModel.swift       # Net worth + snapshot auto-capture
+│   ├── PortfolioViewModel.swift      # Investment holdings + price pulls + allocation
+│   ├── DepositsViewModel.swift       # Депозиты, пополнения, закрытие
+│   ├── FIREViewModel.swift           # FIRE projection state + manual overrides
+│   ├── AnalyticsTabState.swift       # Memoized analytics panels
 │   └── HomeViewModel.swift           # Home tab
 │
 ├── Views/
@@ -248,6 +271,7 @@ AkifiIOS/
 │   │   └── MigrationCodeView.swift    # Миграция из Telegram
 │   ├── Settings/
 │   │   ├── SettingsView.swift         # Все настройки + BETA-бейджи для Reports/Challenges
+│   │   ├── BetaFeaturesView.swift     # BETA entrypoint: net worth, investing, planning, reports
 │   │   ├── ProfileEditView.swift      # Редактирование профиля + аватар
 │   │   ├── CategoriesManagementView.swift
 │   │   ├── TagManagementView.swift    # Управление тегами журнала
@@ -259,7 +283,7 @@ AkifiIOS/
 │   │   ├── CurrencyReconciliationView.swift # ADR-001 Phase 4: audit legacy cross-currency rows
 │   │   └── PremiumPaywallView.swift   # Paywall
 │   ├── Subscriptions/
-│   │   ├── SubscriptionListView.swift # Список подписок
+│   │   ├── SubscriptionFormView.swift # Создание/редактирование подписки
 │   │   └── SubscriptionPaymentsHistoryView.swift # История платежей
 │   ├── Shared/
 │   │   ├── FAB/
@@ -296,7 +320,19 @@ AkifiIOS/
 │   │   ├── AssetListView.swift         # Sectioned by category, swipe-to-delete
 │   │   ├── AssetFormView.swift         # Create/edit актива
 │   │   ├── LiabilityListView.swift     # Sectioned by category
-│   │   └── LiabilityFormView.swift     # Create/edit долга
+│   │   ├── LiabilityFormView.swift     # Create/edit долга
+│   │   └── Investment/                 # Portfolio dashboard, holdings, target allocation, rebalance
+│   ├── Deposits/
+│   │   ├── DepositListView.swift
+│   │   ├── DepositDetailView.swift
+│   │   ├── DepositFormView.swift
+│   │   ├── DepositCardView.swift
+│   │   ├── DepositContributeSheet.swift
+│   │   └── DepositsShortcutCard.swift
+│   ├── Planning/
+│   │   ├── FIREProjectionView.swift
+│   │   ├── CompoundCalculatorView.swift
+│   │   └── InfoTooltipButton.swift
 │   └── Challenges/ (BETA, в Settings)
 │       ├── ChallengesListView.swift    # Active/completed секции
 │       ├── ChallengeDetailView.swift   # Прогресс + abandon/delete
@@ -312,7 +348,7 @@ AkifiIOS/
 │   └── String+Nonce.swift            # Nonce для Apple Sign In
 │
 ├── Localization/
-│   └── Localizable.xcstrings         # 1000+ ключей, 3 языка (RU/EN/ES)
+│   └── Localizable.xcstrings         # 1586 ключей, 3 языка (RU/EN/ES)
 │
 ├── Assets.xcassets/
 │   ├── AppIcon.appiconset
@@ -324,13 +360,25 @@ AkifiIOS/
     └── PreviewData.swift             # Preview fixtures
 ```
 
+Отдельный target:
+
+```
+AkifiWidget/
+├── AkifiWidget.swift                 # WidgetBundle: Balance, DailyLimit, Streak, DaySummary
+├── Providers/                        # Timeline providers over SharedSnapshot
+├── Views/                            # Widget views
+└── Shared/WidgetFormatters.swift     # Formatting without linking app services
+```
+
 ## Основные функции
 
 ### Финансы
 - **Мультисчета** — карусель с круговой прокруткой, frosted glass эффект, стек-подложки
 - **Транзакции** — CRUD с категориями, описанием, датой+временем, мультивалютой
 - **Переводы** между счетами с group tracking
-- **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer), корректный merge категорий в отчётах
+- **Общие счета** — бейдж "Общая", аватары участников, роли (owner/editor/viewer), payment source, weighted settlement и корректный merge категорий в отчётах
+- **Общие бюджеты** — budget members, invite links/short codes, fallback accept flow и external-spend RPC для расходов партнёров, невидимых через RLS
+- **Депозиты** — вклад как отдельный account type, immutable ставка, compound/simple accrual, пополнения и закрытие
 - **Мультивалюта (ADR-001)** — `amount_native` в валюте счёта как канон, `foreign_amount`/`foreign_currency`/`fx_rate` для оригинального ввода; FX-нормализация только на финальной агрегации
 
 ### Multi-currency архитектура (ADR-001)
@@ -390,6 +438,7 @@ DB layer:
 
 ### Бюджеты
 - **Гибкие периоды** — недельные, месячные, квартальные, годовые, произвольные
+- **Шаринг бюджетов** — участники, короткие invite-коды и учёт spending всех участников
 - **Прогресс-бар** с цветовой индикацией (зелёный → оранжевый → красный)
 - **Статусы** — В норме → Внимание → Близко к лимиту → Превышен
 - **Rollover** — перенос остатка на следующий период
@@ -409,6 +458,7 @@ DB layer:
 - **Трекер** с прогресс-баром обратного отсчёта до списания
 - **Reminder days** — уведомления за N дней
 - **Авто-транзакции** при списании
+- **Quarterly billing** — quarterly-период поддержан в модели/миграции
 - **Мультивалюта**
 - **Авто-сопоставление** — банковские транзакции привязываются к подпискам (SubscriptionMatcher)
 - **История платежей** — отдельный экран с хронологией
@@ -421,6 +471,13 @@ DB layer:
 - **По категориям** — donut chart, сворачиваемый список, тап→sheet с транзакциями
 - **Дневной лимит** — рекомендуемый расход на сегодня
 - **Summary карточки** — доходы/расходы за текущий месяц
+
+### iOS Виджеты
+- **BalanceWidget** — общий баланс и количество счетов
+- **DailyLimitWidget** — safe-to-spend today, потрачено сегодня и цветовой utilization ring
+- **StreakWidget** — home-screen и accessory варианты с текущим streak и next milestone
+- **DaySummaryWidget** — доход/расход/net за день
+- **SharedSnapshot** — виджеты читают JSON из App Group `group.ru.akifi.app`; сеть и Supabase SDK в extension не линкуются
 
 ### Отчёты
 - **Donut chart** по категориям с иконками на линиях
@@ -461,7 +518,7 @@ DB layer:
 - **AI OCR** через analyze-receipt edge function (OpenAI Vision)
 - **Извлечение**: магазин, сумма, валюта, дата, товары
 - **Умные подсказки**: история мерчанта, автоопределение категории
-- **Подтверждение** → finalize-receipt создаёт транзакцию
+- **Подтверждение** → клиент создаёт транзакцию через `TransactionRepository` с ADR-001 foreign fields
 
 ### Импорт/Экспорт
 - **Импорт банковских выписок** (PDF) — AI парсинг, превью транзакций с чекбоксами, дубликаты
@@ -495,7 +552,7 @@ DB layer:
 
 ## Локализация
 
-1000+ ключей на 3 языка:
+1586 ключей на 3 языка:
 - Русский (основной)
 - English
 - Español
@@ -518,7 +575,7 @@ DB layer:
 
 | Сервис | Назначение |
 |--------|-----------|
-| Analytics | 18 типов событий (auth, transactions, budgets, savings, AI, scanner, import/export, settings, screens) |
+| Analytics | 20+ типов событий (auth, transactions, budgets, savings, AI, scanner, import/export, settings, screens) |
 | Crashlytics | Автоматический сбор крашей |
 | Cloud Messaging | Push-уведомления через FCM + APNs |
 | Performance | Мониторинг скорости |
@@ -526,16 +583,22 @@ DB layer:
 ## Supabase
 
 ### Таблицы
-`profiles`, `accounts`, `account_members`, `transactions` (+ ADR-001: `amount_native`/`foreign_amount`/`foreign_currency`/`fx_rate`), `categories`, `budgets`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `savings_challenges`, `subscriptions`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`, `assets`, `liabilities`, `net_worth_snapshots`, `deposits`, `deposit_contributions`, `settlements`, `user_account_defaults`, `investment_holdings`, `price_cache`
+`profiles`, `accounts`, `account_members`, `account_invites`, `transactions` (+ ADR-001: `amount_native`/`foreign_amount`/`foreign_currency`/`fx_rate`), `transaction_member_settlements`, `categories`, `budgets`, `budget_members`, `budget_invites`, `budget_rollovers`, `budget_alerts`, `savings_goals`, `savings_contributions`, `savings_challenges`, `subscriptions`, `subscription_payments`, `subscription_reminder_events`, `subscription_charge_events`, `achievements`, `user_achievements`, `ai_conversations`, `ai_conversation_shares`, `ai_messages`, `ai_feedback`, `ai_action_runs`, `ai_user_settings`, `notification_settings`, `notification_log`, `receipt_scans`, `migration_codes`, `financial_notes`, `assets`, `liabilities`, `net_worth_snapshots`, `deposits`, `deposit_contributions`, `settlements`, `user_account_defaults`, `investment_holdings`, `price_cache`
 
 ### RPC функции
 - `create_expense_with_auto_transfer` (8/10/13-arg overloads) — атомарное создание expense + transfer triplet, с cross-currency source и foreign-entry поддержкой
-- `update_expense_with_auto_transfer` (6/9-arg overloads) — синхронизированный update триплета + foreign_* fields
+- `update_expense_with_auto_transfer` (6/9/11-arg overloads) — синхронизированный update триплета + foreign/source fields
 - `delete_expense_with_auto_transfer` — atomic delete всех трёх row'ов триплета
+- `create_account_invite` / `accept_account_invite` — invite short codes для shared accounts; свежая версия умеет fallback в `accept_budget_invite`
+- `create_budget_invite` / `accept_budget_invite` — invite short codes для shared budgets
+- `get_budget_member_expenses` — partner spending, невидимый текущему user через RLS, для корректного progress shared budget
+- `set_my_primary_account` — смена primary account
 
 ### Triggers
 - `transactions_fill_amount_native` BEFORE INSERT/UPDATE — ADR-001 compat для legacy клиентов
+- `subscriptions_sync_is_active` — синхронизация статуса подписки
 - `recompute_asset_value_on_holding_change` AFTER STATEMENT (insert/update/delete на `investment_holdings`) — пересчитывает `assets.current_value = ROUND(SUM(quantity*last_price)*100)` для затронутых `asset_id` одним UPDATE; саттурируется при BIGINT max
+- `set_*_updated_at` — updated_at для assets/liabilities/deposits/holdings/challenges/user defaults
 
 ### Storage Buckets
 - `avatars` — аватары пользователей (public)
@@ -543,23 +606,17 @@ DB layer:
 
 ### Edge Functions
 
+Исходники в этом репозитории:
+
 | Функция | Назначение |
 |---------|-----------|
 | `assistant-query` | AI-ассистент (intent classification + coaching LLM), --no-verify-jwt + JWT grace period |
-| `assistant-action` | Действия ассистента (preview/confirm) |
-| `transcribe-voice` | Голосовая транскрипция (Whisper) |
-| `analyze-receipt` | OCR чеков (OpenAI Vision) |
-| `finalize-receipt` | Создание транзакции из чека |
-| `parse-bank-statement` | Парсинг PDF выписок |
-| `import-bank-statement` | Импорт транзакций из выписки |
 | `smart-notifications` | Серверные push (FCM + Telegram) |
-| `coaching-reminders` | Коучинговые напоминания |
-| `check-subscriptions` | Напоминания о подписках + авто-транзакции |
 | `send-weekly-digest` | Еженедельная сводка |
-| `ios-migrate-auth` | Миграция из Telegram |
-| `delete-account` | Удаление аккаунта (Apple compliance) |
 | `fetch-price` | On-demand котировки для `InvestmentHolding` (CoinGecko + Twelve Data, 30-мин кеш через `price_cache`, JWT-gated) |
 | `refresh-portfolio-prices` | Daily prefetch цен по всем holdings, x-cron-secret-gated (без JWT), 250ms throttle между запросами; вызывается через pg_cron в 06:00 UTC |
+
+Клиент также ожидает деплой внешних/общих edge functions, исходников которых в этом iOS-репозитории нет: `assistant-action`, `transcribe-voice`, `analyze-receipt`, `parse-bank-statement`, `ios-migrate-auth`, `delete-account`.
 
 ### RLS
 Все таблицы защищены Row Level Security. Данные фильтруются по `user_id`. Shared accounts имеют отдельные policies для чтения данных участников.
