@@ -98,6 +98,16 @@ git push origin main
 
 Поправить промпт в `codemagic.yaml`, push в main, retag версии (через `git tag -d` + push с двоеточием для удаления, потом новый тег).
 
+### What's New = «Performance and stability improvements» и больше ничего
+
+Три независимые причины, все всплыли на 1.5.2 (2026-08-26):
+
+1. **Shallow clone.** На тег-билдах Codemagic клонирует неглубоко — предыдущий `release/v*` тег отсутствует, `git log PREV..HEAD` видит один коммит. Лечится `git fetch --tags --unshallow` перед подсчётом changelog (уже в `codemagic.yaml`). В логе теперь печатается `Commits reachable: N` — если там 1-2, диапазон сломан.
+2. **`[skip ci]` в коммите под тегом.** Codemagic применяет skip-директиву и к тег-билдам. Если тег указывает на коммит с `[skip ci]` в сообщении — `ios-submit-review` НЕ запустится молча. Тегай только коммиты без skip-маркера (или стартуй воркфлоу вручную из UI — ручной запуск игнорирует skip).
+3. **Метаданные заморожены в WAITING_FOR_REVIEW.** Apple отказывает в PATCH `whatsNew`, когда версия уже в очереди (`promotionalText` при этом патчится всегда — отсюда обманчивая картина «промо обновилось, а заметки нет»). Шаг 4b теперь отменяет заявку перед патчем и подаёт заново; если все локали отказали — билд падает с `SUBMISSION ABORTED`, а не отправляет чужой текст.
+
+Ручной путь, если версия уже в очереди: App Store Connect → версия → **Remove from Review** → вставить текст → **Add for Review**.
+
 ### Submit-review упал «No processed builds found»
 Тегнули слишком рано — TestFlight ещё processing. Удалить тег и пере-создать:
 ```bash

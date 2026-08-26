@@ -548,17 +548,22 @@ workflows:
                   print(f"2. Failed to create version: {r.text[:300]}")
                   sys.exit(1)
 
-          # ── 3. Find latest processed build ──
-          r = api("get", f"builds?filter[app]={app_id}&filter[processingState]=VALID&sort=-uploadedDate&limit=1")
+          # ── 3. Find the processed build FOR THIS VERSION ──
+          # Filtering by marketing version, not just "latest uploaded":
+          # a newer train already in TestFlight (1.5.3 while 1.5.2 is in
+          # review) would otherwise be attached to the wrong version.
+          r = api("get", f"builds?filter[app]={app_id}&filter[processingState]=VALID"
+                         f"&filter[preReleaseVersion.version]={version}&sort=-uploadedDate&limit=1")
           r.raise_for_status()
           builds = r.json()["data"]
           if not builds:
-              print("3. No processed builds found! Wait for TestFlight build to finish processing.")
+              print(f"3. No processed build found for version {version}!")
+              print("   Wait for the TestFlight build to finish processing, then re-push the tag.")
               sys.exit(1)
 
           build_id = builds[0]["id"]
-          build_version = builds[0]["attributes"].get("version", "?")
-          print(f"3. Latest build: {build_id} (version {build_version})")
+          build_number = builds[0]["attributes"].get("version", "?")
+          print(f"3. Build for {version}: {build_id} (build number {build_number})")
 
           # ── 4. Select build for this version ──
           payload = {
@@ -571,6 +576,37 @@ workflows:
               print(f"4. Build already selected (conflict ok)")
           else:
               print(f"4. Warning: could not select build: {r.status_code}")
+
+          # ── 4b. Unlock metadata if the version is already queued ──
+          # Apple freezes whatsNew the moment a version goes
+          # WAITING_FOR_REVIEW: the PATCH below comes back refused and the
+          # App Store keeps whatever text the previous run wrote. That is
+          # how 1.5.2 shipped with a bare "Performance and stability
+          # improvements" while promotionalText (never frozen) updated fine.
+          # Cancelling the pending submission returns the version to
+          # PREPARE_FOR_SUBMISSION; step 6 submits it again afterwards.
+          r = api("get", f"appStoreVersions/{version_id}")
+          current_state = r.json()["data"]["attributes"]["appStoreState"] if r.ok else "UNKNOWN"
+          print(f"4b. Version state: {current_state}")
+
+          if current_state == "WAITING_FOR_REVIEW":
+              r = api("get", f"apps/{app_id}/reviewSubmissions?filter[platform]=IOS")
+              pending = [
+                  s for s in (r.json().get("data", []) if r.ok else [])
+                  if s["attributes"].get("state") in {"WAITING_FOR_REVIEW", "READY_FOR_REVIEW"}
+              ]
+              for s in pending:
+                  rc = api("patch", f"reviewSubmissions/{s['id']}", json={
+                      "data": {"type": "reviewSubmissions", "id": s["id"],
+                               "attributes": {"canceled": True}}
+                  })
+                  print(f"4b. Cancelled queued submission {s['id']}: {'OK' if rc.ok else rc.status_code}")
+              if not pending:
+                  print("4b. No cancellable submission found — metadata may stay locked.")
+          elif current_state == "IN_REVIEW":
+              # Apple is actively reviewing. Cancelling restarts the whole
+              # queue, so that stays a human decision.
+              print("4b. WARNING: version is IN_REVIEW — release notes cannot be rewritten now.")
 
           # ── 5. Generate user-friendly What's New & Promotional Text via Claude ──
           raw_log = """$RAW_LOG""".strip()
@@ -706,6 +742,7 @@ workflows:
           fallback_notes = technical_notes(raw_log)
           fallback_promo_text = fallback_promo(raw_log)
 
+          patched, refused = 0, 0
           for loc in localizations:
               loc_id = loc["id"]
               locale = loc["attributes"]["locale"]
@@ -718,7 +755,23 @@ workflows:
               attrs = {"whatsNew": whats_new, "promotionalText": promo}
               payload = {"data": {"id": loc_id, "type": "appStoreVersionLocalizations", "attributes": attrs}}
               r2 = api("patch", f"appStoreVersionLocalizations/{loc_id}", json=payload)
+              if r2.ok:
+                  patched += 1
+              else:
+                  refused += 1
               print(f"5. Localization [{locale}]: {'OK' if r2.ok else r2.status_code}")
+
+          # Submitting with notes Apple refused to store means shipping the
+          # previous version's text under a new version number. Stop instead
+          # — a red build is visible, a silently wrong What's New is not.
+          if localizations and patched == 0:
+              print("")
+              print("==== SUBMISSION ABORTED ====")
+              print(f"All {refused} localizations refused the release-notes PATCH.")
+              print(f"Version state was '{current_state}' — metadata is locked.")
+              print("Remove the version from review in App Store Connect, then re-push the tag.")
+              print("============================")
+              sys.exit(1)
 
           preview_locale = next((l for l in ["en-US", "en-GB", "ru", "ru-RU"] if l in localized), None)
           if preview_locale:
