@@ -239,13 +239,15 @@ final class DataStore {
         var result: [String: [BudgetMath.ExternalSpendRow]] = [:]
         for budgetId in sharedBudgetIds {
             do {
-                // bounded-fetch: RPC has no unique column yet, so offset paging is
-                // unsound; migration 20260910120000 adds `tx_id` + ORDER BY, after
-                // which this switches to SupabasePaging.all(tiebreak: ["tx_id"]).
-                let rows: [BudgetMath.ExternalSpendRow] = try await SupabaseManager.shared.client
-                    .rpc("get_budget_member_expenses", params: Params(p_budget_id: budgetId))
-                    .execute()
-                    .value
+                // RPC results are capped at max-rows exactly like table reads;
+                // v2 of the function (migration 20260910120000) returns tx_id
+                // and orders by (date, id) so it can be paged safely.
+                let rows: [BudgetMath.ExternalSpendRow] = try await SupabasePaging.all(
+                    "get_budget_member_expenses", tiebreak: ["tx_id"]
+                ) { count in
+                    try SupabaseManager.shared.client
+                        .rpc("get_budget_member_expenses", params: Params(p_budget_id: budgetId), count: count)
+                }
                 if !rows.isEmpty { result[budgetId] = rows }
             } catch {
                 AppLogger.data.debug("external budget spend (\(budgetId)): \(error)")

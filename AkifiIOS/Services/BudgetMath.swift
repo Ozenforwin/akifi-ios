@@ -239,23 +239,25 @@ enum BudgetMath {
     /// `get_budget_member_expenses` RPC — the server already applied the
     /// budget's category/account rules and the visibility dedup, so the
     /// client only re-buckets by period and FX-normalizes.
-    struct ExternalSpendRow: Codable, Sendable {
+    struct ExternalSpendRow: Codable, Sendable, Identifiable {
+        /// Transaction uuid (RPC v2, migration 20260910120000). A bare id
+        /// leaks nothing about the partner's spending; it exists so
+        /// `SupabasePaging` has a total order and a dedupe key.
+        let txId: String
         /// Main units (Decimal, matches the DB numeric).
         let amountNative: Decimal
         /// The paying account's currency (may be lowercase from legacy rows).
         let currency: String
         /// "yyyy-MM-dd"
         let txDate: String
-        /// Transaction uuid — present once migration 20260910120000 is
-        /// applied; gives `SupabasePaging` its tiebreak. Optional so the
-        /// client decodes the v1 RPC shape until then.
-        var txId: String? = nil
+
+        var id: String { txId }
 
         enum CodingKeys: String, CodingKey {
+            case txId = "tx_id"
             case amountNative = "amount_native"
             case currency
             case txDate = "tx_date"
-            case txId = "tx_id"
         }
     }
 

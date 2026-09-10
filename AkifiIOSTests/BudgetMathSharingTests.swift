@@ -189,6 +189,7 @@ final class BudgetMathSharingTests: XCTestCase {
         df.dateFormat = "yyyy-MM-dd"
         let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date())!
         return BudgetMath.ExternalSpendRow(
+            txId: UUID().uuidString,
             amountNative: amount,
             currency: currency,
             txDate: df.string(from: date)
