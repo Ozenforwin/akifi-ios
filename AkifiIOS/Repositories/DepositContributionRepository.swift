@@ -11,22 +11,22 @@ final class DepositContributionRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchForDeposit(_ depositId: String) async throws -> [DepositContribution] {
-        try await supabase
-            .from("deposit_contributions")
-            .select()
-            .eq("deposit_id", value: depositId)
-            .order("contributed_at")
-            .execute()
-            .value
+        try await SupabasePaging.all("deposit_contributions") { count in
+            supabase
+                .from("deposit_contributions")
+                .select(count: count)
+                .eq("deposit_id", value: depositId)
+                .order("contributed_at")
+        }
     }
 
     func fetchAll() async throws -> [DepositContribution] {
-        try await supabase
-            .from("deposit_contributions")
-            .select()
-            .order("contributed_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("deposit_contributions") { count in
+            supabase
+                .from("deposit_contributions")
+                .select(count: count)
+                .order("contributed_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateDepositContributionInput) async throws -> DepositContribution {

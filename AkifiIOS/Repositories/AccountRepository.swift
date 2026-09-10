@@ -17,21 +17,21 @@ final class AccountRepository: Sendable {
     }
 
     func fetchAll() async throws -> [Account] {
-        var accounts: [Account] = try await supabase
-            .from("accounts")
-            .select()
-            .order("created_at")
-            .execute()
-            .value
+        var accounts: [Account] = try await SupabasePaging.all("accounts") { count in
+            supabase
+                .from("accounts")
+                .select(count: count)
+                .order("created_at")
+        }
 
         // Fetch per-user is_primary from account_members (same as Telegram app)
         let userId = try await SupabaseManager.shared.currentUserId()
-        let memberships: [MembershipRow] = try await supabase
-            .from("account_members")
-            .select("account_id, role, is_primary")
-            .eq("user_id", value: userId)
-            .execute()
-            .value
+        let memberships: [MembershipRow] = try await SupabasePaging.all("account_members") { count in
+            supabase
+                .from("account_members")
+                .select("account_id, role, is_primary", count: count)
+                .eq("user_id", value: userId)
+        }
 
         let memberMap = Dictionary(uniqueKeysWithValues: memberships.map { ($0.accountId, $0) })
 

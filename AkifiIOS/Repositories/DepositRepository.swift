@@ -11,22 +11,22 @@ final class DepositRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchAll() async throws -> [Deposit] {
-        try await supabase
-            .from("deposits")
-            .select()
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("deposits") { count in
+            supabase
+                .from("deposits")
+                .select(count: count)
+                .order("created_at", ascending: false)
+        }
     }
 
     func fetchActive() async throws -> [Deposit] {
-        try await supabase
-            .from("deposits")
-            .select()
-            .eq("status", value: DepositStatus.active.rawValue)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("deposits") { count in
+            supabase
+                .from("deposits")
+                .select(count: count)
+                .eq("status", value: DepositStatus.active.rawValue)
+                .order("created_at", ascending: false)
+        }
     }
 
     /// Returns the deposit attached to a given account, or nil.

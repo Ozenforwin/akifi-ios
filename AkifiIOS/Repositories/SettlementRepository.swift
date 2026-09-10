@@ -8,13 +8,13 @@ final class SettlementRepository: Sendable {
 
     /// Fetches all settlements recorded against a shared account, newest first.
     func fetchForAccount(_ accountId: String) async throws -> [Settlement] {
-        try await supabase
-            .from("settlements")
-            .select()
-            .eq("shared_account_id", value: accountId)
-            .order("settled_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("settlements") { count in
+            supabase
+                .from("settlements")
+                .select(count: count)
+                .eq("shared_account_id", value: accountId)
+                .order("settled_at", ascending: false)
+        }
     }
 
     /// Inserts a new settlement and returns the server-assigned row. Client

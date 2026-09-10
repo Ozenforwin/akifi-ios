@@ -17,12 +17,12 @@ final class ProfileRepository: Sendable {
 
     func fetchAll(ids: [String]) async throws -> [Profile] {
         guard !ids.isEmpty else { return [] }
-        return try await supabase
-            .from("profiles")
-            .select()
-            .in("id", values: ids)
-            .execute()
-            .value
+        return try await SupabasePaging.all("profiles") { count in
+            supabase
+                .from("profiles")
+                .select(count: count)
+                .in("id", values: ids)
+        }
     }
 
     func update(fullName: String?, avatarUrl: String?) async throws {

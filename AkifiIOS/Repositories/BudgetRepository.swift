@@ -5,13 +5,13 @@ final class BudgetRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchAll() async throws -> [Budget] {
-        try await supabase
-            .from("budgets")
-            .select()
-            .eq("is_active", value: true)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("budgets") { count in
+            supabase
+                .from("budgets")
+                .select(count: count)
+                .eq("is_active", value: true)
+                .order("created_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateBudgetInput) async throws -> Budget {

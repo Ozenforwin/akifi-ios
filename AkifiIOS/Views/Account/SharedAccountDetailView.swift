@@ -526,12 +526,12 @@ struct SharedAccountDetailView: View {
     /// view needs them in a friendly tuple-list shape.
     private func loadMemberWeights() async {
         do {
-            let members: [AccountMember] = try await SupabaseManager.shared.client
-                .from("account_members")
-                .select()
-                .eq("account_id", value: account.id)
-                .execute()
-                .value
+            let members: [AccountMember] = try await SupabasePaging.all("account_members") { count in
+                SupabaseManager.shared.client
+                    .from("account_members")
+                    .select(count: count)
+                    .eq("account_id", value: account.id)
+            }
             if !members.isEmpty {
                 memberWeights = members.map { ($0.userId, $0.splitWeight) }
             } else {

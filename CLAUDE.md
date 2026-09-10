@@ -115,6 +115,18 @@ Rule of thumb: after any successful App Store submission, the FIRST commit to `m
 
 Full release walk-through (push triggers, tag triggers, what to do when something fails): `.claude/research/release-process.md`. Skill `codemagic-ios-cicd` (lessons 13-15) covers the fix history.
 
+## Data-layer rule — complete-set reads (ADR-003)
+
+PostgREST silently truncates responses at `max-rows`. **Every list read from
+Supabase goes through `SupabasePaging.all(...)`** — never a bare
+`.select()…execute().value` into an array. The helper pages until the server's
+own count is satisfied, enforces a primary-key tiebreak and self-checks the
+result; no client constant may decide whether the user sees all their rows.
+`python3 Scripts/lint-unbounded-fetch.py --strict` runs in CI and fails on
+violations; a genuinely bounded read needs `// bounded-fetch: <reason>`.
+Never justify an unpaginated read with "the table is small" — that is how
+the 2026-09-10 shared-balance incident happened. See `.claude/adr/ADR-003-complete-set-reads.md`.
+
 ## Self-testing rule — data-layer bugs
 
 Whenever a fix concerns what the user sees (balances, analytics, AI answers,

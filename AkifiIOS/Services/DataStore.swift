@@ -166,11 +166,11 @@ final class DataStore {
         // Budget members (shared budgets) — RLS scopes rows to budgets the
         // user belongs to. Non-fatal: sharing UI just shows no members.
         do {
-            let allMembers: [BudgetMember] = try await SupabaseManager.shared.client
-                .from("budget_members")
-                .select()
-                .execute()
-                .value
+            let allMembers: [BudgetMember] = try await SupabasePaging.all("budget_members") { count in
+                SupabaseManager.shared.client
+                    .from("budget_members")
+                    .select(count: count)
+            }
             budgetMembersByBudget = Dictionary(grouping: allMembers, by: \.budgetId)
         } catch {
             AppLogger.data.debug("budget members: \(error)")
@@ -239,6 +239,9 @@ final class DataStore {
         var result: [String: [BudgetMath.ExternalSpendRow]] = [:]
         for budgetId in sharedBudgetIds {
             do {
+                // bounded-fetch: RPC has no unique column yet, so offset paging is
+                // unsound; migration 20260910120000 adds `tx_id` + ORDER BY, after
+                // which this switches to SupabasePaging.all(tiebreak: ["tx_id"]).
                 let rows: [BudgetMath.ExternalSpendRow] = try await SupabaseManager.shared.client
                     .rpc("get_budget_member_expenses", params: Params(p_budget_id: budgetId))
                     .execute()

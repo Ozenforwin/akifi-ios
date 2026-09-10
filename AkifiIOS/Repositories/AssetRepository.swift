@@ -14,25 +14,25 @@ final class AssetRepository: Sendable {
     /// Returns every asset the current user owns, newest-first (stable for
     /// list display). RLS filters implicitly.
     func fetchAll() async throws -> [Asset] {
-        try await supabase
-            .from("assets")
-            .select()
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("assets") { count in
+            supabase
+                .from("assets")
+                .select(count: count)
+                .order("created_at", ascending: false)
+        }
     }
 
     /// Narrow read — fetches assets of a single category. Mostly a
     /// convenience for future drill-down screens; the dashboard
     /// uses `fetchAll` and groups client-side.
     func fetchForCategory(_ category: AssetCategory) async throws -> [Asset] {
-        try await supabase
-            .from("assets")
-            .select()
-            .eq("category", value: category.rawValue)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("assets") { count in
+            supabase
+                .from("assets")
+                .select(count: count)
+                .eq("category", value: category.rawValue)
+                .order("created_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateAssetInput) async throws -> Asset {

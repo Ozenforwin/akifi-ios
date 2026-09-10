@@ -173,12 +173,12 @@ struct ShareBudgetView: View {
             return
         }
         do {
-            members = try await supabase
-                .from("budget_members")
-                .select()
-                .eq("budget_id", value: budget.id)
-                .execute()
-                .value
+            members = try await SupabasePaging.all("budget_members") { count in
+                supabase
+                    .from("budget_members")
+                    .select(count: count)
+                    .eq("budget_id", value: budget.id)
+            }
         } catch {
             // Budget may not have members yet
         }

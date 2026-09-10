@@ -8,13 +8,13 @@ final class AiRepository: Sendable {
     // MARK: - Conversations
 
     func fetchConversations() async throws -> [AiConversation] {
-        try await supabase
-            .from("ai_conversations")
-            .select()
-            .eq("is_archived", value: false)
-            .order("updated_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("ai_conversations") { count in
+            supabase
+                .from("ai_conversations")
+                .select(count: count)
+                .eq("is_archived", value: false)
+                .order("updated_at", ascending: false)
+        }
     }
 
     func createConversation() async throws -> AiConversation {
@@ -77,12 +77,12 @@ final class AiRepository: Sendable {
     /// Lists shares for a conversation. RLS makes this readable for both
     /// the sharer and the recipient(s).
     func listShares(conversationId: String) async throws -> [AiConversationShare] {
-        try await supabase
-            .from("ai_conversation_shares")
-            .select()
-            .eq("conversation_id", value: conversationId)
-            .execute()
-            .value
+        try await SupabasePaging.all("ai_conversation_shares") { count in
+            supabase
+                .from("ai_conversation_shares")
+                .select(count: count)
+                .eq("conversation_id", value: conversationId)
+        }
     }
 
     /// Looks up another Akifi user by email (exact match) and returns their
@@ -139,13 +139,13 @@ final class AiRepository: Sendable {
     // MARK: - Messages
 
     func fetchMessages(conversationId: String) async throws -> [AiMessage] {
-        try await supabase
-            .from("ai_messages")
-            .select()
-            .eq("conversation_id", value: conversationId)
-            .order("created_at")
-            .execute()
-            .value
+        try await SupabasePaging.all("ai_messages") { count in
+            supabase
+                .from("ai_messages")
+                .select(count: count)
+                .eq("conversation_id", value: conversationId)
+                .order("created_at")
+        }
     }
 
     // MARK: - Send Message (Edge Function)

@@ -5,23 +5,23 @@ final class CategoryRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchAll() async throws -> [Category] {
-        try await supabase
-            .from("categories")
-            .select()
-            .eq("is_active", value: true)
-            .order("created_at")
-            .execute()
-            .value
+        try await SupabasePaging.all("categories") { count in
+            supabase
+                .from("categories")
+                .select(count: count)
+                .eq("is_active", value: true)
+                .order("created_at")
+        }
     }
 
     func fetchAllIncludingHidden() async throws -> [Category] {
-        try await supabase
-            .from("categories")
-            .select()
-            .order("is_active", ascending: false)
-            .order("created_at")
-            .execute()
-            .value
+        try await SupabasePaging.all("categories") { count in
+            supabase
+                .from("categories")
+                .select(count: count)
+                .order("is_active", ascending: false)
+                .order("created_at")
+        }
     }
 
     func toggleActive(id: String, isActive: Bool) async throws {
@@ -80,13 +80,15 @@ final class CategoryRepository: Sendable {
             .execute()
     }
 
+    /// Counts server-side. Fetching the rows to call `.count` on them both
+    /// wasted the payload and capped the answer at PostgREST's `max-rows`
+    /// (1000) — a busy category would silently report exactly 1000.
     func transactionCount(categoryId: String) async throws -> Int {
-        let result: [Transaction] = try await supabase
+        let response = try await supabase
             .from("transactions")
-            .select()
+            .select("id", head: true, count: .exact)
             .eq("category_id", value: categoryId)
             .execute()
-            .value
-        return result.count
+        return response.count ?? 0
     }
 }

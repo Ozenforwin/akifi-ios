@@ -9,13 +9,13 @@ final class SavingsGoalRepository: Sendable {
     }
 
     func fetchAll() async throws -> [SavingsGoal] {
-        try await supabase
-            .from("savings_goals")
-            .select()
-            .order("priority", ascending: true)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("savings_goals") { count in
+            supabase
+                .from("savings_goals")
+                .select(count: count)
+                .order("priority", ascending: true)
+                .order("created_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateSavingsGoalInput) async throws -> SavingsGoal {
@@ -45,13 +45,13 @@ final class SavingsGoalRepository: Sendable {
     }
 
     func fetchContributions(goalId: String) async throws -> [SavingsContribution] {
-        try await supabase
-            .from("savings_contributions")
-            .select()
-            .eq("goal_id", value: goalId)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("savings_contributions") { count in
+            supabase
+                .from("savings_contributions")
+                .select(count: count)
+                .eq("goal_id", value: goalId)
+                .order("created_at", ascending: false)
+        }
     }
 
     func addContribution(_ input: CreateContributionInput) async throws -> SavingsContribution {

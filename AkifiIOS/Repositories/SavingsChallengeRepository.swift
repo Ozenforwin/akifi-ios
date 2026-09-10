@@ -5,14 +5,13 @@ final class SavingsChallengeRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchAll(status: ChallengeStatus? = nil) async throws -> [SavingsChallenge] {
-        var query = supabase.from("savings_challenges").select()
-        if let status {
-            query = query.eq("status", value: status.rawValue)
+        try await SupabasePaging.all("savings_challenges") { count in
+            var query = supabase.from("savings_challenges").select(count: count)
+            if let status {
+                query = query.eq("status", value: status.rawValue)
+            }
+            return query.order("created_at", ascending: false)
         }
-        return try await query
-            .order("created_at", ascending: false)
-            .execute()
-            .value
     }
 
     func fetchActive() async throws -> [SavingsChallenge] {

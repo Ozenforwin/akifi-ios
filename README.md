@@ -69,6 +69,7 @@
 - **Offline-first DataStore** — мгновенный старт из JSON-кэша, `OfflineQueue` для транзакций, overlay pending-операций поверх свежих server rows
 - **Widget snapshot bridge** — `SharedSnapshotWriter` пишет агрегаты в App Group, WidgetKit extension не ходит в сеть и читает только snapshot
 - **Postgres functions для атомарных multi-row операций** — `create/update/delete_expense_with_auto_transfer`, invite RPC, budget-sharing RPC и external-spend RPC; edge functions — для AI/voice/OCR/import/quotes/notifications
+- **Complete-set reads (ADR-003)** — все списочные чтения из Supabase идут через `SupabasePaging.all(...)`: пагинация до серверного `count=exact`, tiebreak по PK, self-check с retry; `Scripts/lint-unbounded-fetch.py --strict` в CI запрещает голые `.select()…execute()` — PostgREST молча режет ответ на `max-rows`
 - **Multi-currency (ADR-001)** — `transactions.amount_native` в валюте счёта как single source of truth; `foreign_amount`/`foreign_currency`/`fx_rate` для оригинального ввода; trigger `transactions_fill_amount_native` обеспечивает обратную совместимость с legacy клиентами
 - **TransactionMath.amountInBase** — единая утилита FX-нормализации для cross-account aggregations (InsightEngine / CashFlowEngine / Analytics / Reports), чтобы USD и RUB суммы не складывались сырыми
 - **Portfolio / FIRE beta layer** — holdings поверх `Asset`, price cache через edge functions, no-sell rebalance, FIRE projection и impact крупных трат

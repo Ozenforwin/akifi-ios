@@ -177,12 +177,12 @@ struct ShareAccountView: View {
 
     private func loadMembers() async {
         do {
-            members = try await supabase
-                .from("account_members")
-                .select()
-                .eq("account_id", value: account.id)
-                .execute()
-                .value
+            members = try await SupabasePaging.all("account_members") { count in
+                supabase
+                    .from("account_members")
+                    .select(count: count)
+                    .eq("account_id", value: account.id)
+            }
             // Normalize raw weights → sum-to-100 percentages for the UI.
             // Empty/all-zero weights fall back to equal split so the first
             // time a user opens the sheet they see a sensible default.
@@ -519,6 +519,7 @@ struct AcceptInviteView: View {
     }
 
     private func callAcceptRPC(_ rpcName: String, token: String) async throws -> AcceptOutcome {
+        // bounded-fetch: the accept RPCs return a single jsonb object, not a row set.
         let data = try await supabase
             .rpc(rpcName, params: AcceptParams(p_token: token))
             .execute()

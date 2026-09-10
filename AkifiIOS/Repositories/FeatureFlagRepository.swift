@@ -21,11 +21,11 @@ final class FeatureFlagRepository: Sendable {
 
     func fetchAll() async -> [String: Bool] {
         do {
-            let flags: [FeatureFlag] = try await supabase
-                .from("feature_flags")
-                .select()
-                .execute()
-                .value
+            let flags: [FeatureFlag] = try await SupabasePaging.all("feature_flags", tiebreak: ["key"]) { count in
+                supabase
+                    .from("feature_flags")
+                    .select(count: count)
+            }
             return Dictionary(uniqueKeysWithValues: flags.map { ($0.key, $0.enabled) })
         } catch {
             return [:]

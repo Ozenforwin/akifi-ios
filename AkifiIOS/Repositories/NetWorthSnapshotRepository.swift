@@ -13,6 +13,8 @@ final class NetWorthSnapshotRepository: Sendable {
     /// Returns up to `limit` snapshots for the current user, newest first.
     /// Used to drive the history chart. 365 rows ≈ 1 year of daily points;
     /// server index `idx_net_worth_snapshots_user_date` keeps this cheap.
+    /// Newest `limit` daily snapshots — the dashboard's longest range is a
+    /// year, so a bounded window is the contract here.
     func fetchForUser(limit: Int = 365) async throws -> [NetWorthSnapshot] {
         try await supabase
             .from("net_worth_snapshots")

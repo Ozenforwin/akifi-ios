@@ -171,6 +171,7 @@
 		7E0FE0C2D78061A598DF4265 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA2CFABEE81EF72F8257D5C /* EmailAuthView.swift */; };
 		7F3AF5B7BCB77B12D0704A63 /* BudgetMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E1D4FADBE00F9F5ECE64E7 /* BudgetMathTests.swift */; };
 		80EE5F1A3DF33D7872EB6955 /* TransactionPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97AAB972E3B4D22752C1014 /* TransactionPickerSheet.swift */; };
+		8151C12356EBEB11FB8A20A4 /* SupabasePaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B6421186BC19FAA95D4254 /* SupabasePaging.swift */; };
 		817F60F91E9ABE232BE42316 /* HorizontalSwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF0B07AEC531786CC33DEF /* HorizontalSwipeGesture.swift */; };
 		81DC97B3A6DB956ACCE1EA34 /* Liability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69CEDC4086936BB13A3B98C3 /* Liability.swift */; };
 		82E34AA362093FCF50CA58A8 /* QuickPromptsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC8939D5CD844C01F259C918 /* QuickPromptsView.swift */; };
@@ -227,6 +228,7 @@
 		B1FABFA35CEDE40AB5D5DF7C /* AssetRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010E6B39DAFCD6706D5AC7AA /* AssetRepository.swift */; };
 		B2FFBCF327ADA2A19BFE10D2 /* CashflowChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29891E6399B2BA4131567067 /* CashflowChartView.swift */; };
 		B5CD1F3CB3ACB6A3241DF466 /* BudgetTransactionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CD95A9682BA5A24C3F6150 /* BudgetTransactionsSheet.swift */; };
+		B5F18046B35293E54F57AF4C /* SupabasePagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A2DF548FF1C2ED36B6861CA /* SupabasePagingTests.swift */; };
 		B67CF59FAE7022CF67FA1299 /* RecentTransactionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED736B31CDD5DEBF72053EC8 /* RecentTransactionsView.swift */; };
 		B73A0C4EB55B3FD8657DA23C /* ExchangeRates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F7B796D169618419BF335E /* ExchangeRates.swift */; };
 		B771507559B09CD034699A19 /* AppHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F658291CB02D80F76BD27E /* AppHeaderView.swift */; };
@@ -520,6 +522,7 @@
 		77EA516F5B3BC70E9D23EADA /* AnalyticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsViewModel.swift; sourceTree = "<group>"; };
 		7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettlementWatermarkTests.swift; sourceTree = "<group>"; };
 		78B30AE9CAFBF75E6E4F7A58 /* FIREProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FIREProjector.swift; sourceTree = "<group>"; };
+		78B6421186BC19FAA95D4254 /* SupabasePaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabasePaging.swift; sourceTree = "<group>"; };
 		79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoriesManagementView.swift; sourceTree = "<group>"; };
 		79EB1D3B16CBD84AD0DCA51E /* UserSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSubscription.swift; sourceTree = "<group>"; };
 		7A9AF5FAAF765DBFB8A2D2FD /* AkifiIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AkifiIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -556,6 +559,7 @@
 		97B95DF93874ABE78D1DA890 /* LiabilityFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiabilityFormView.swift; sourceTree = "<group>"; };
 		995E8098BC69D599E68CACAB /* KeyedDecodingContainer+Amount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyedDecodingContainer+Amount.swift"; sourceTree = "<group>"; };
 		99C8C6D5B181A4209C6DC431 /* AkifiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AkifiApp.swift; sourceTree = "<group>"; };
+		9A2DF548FF1C2ED36B6861CA /* SupabasePagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabasePagingTests.swift; sourceTree = "<group>"; };
 		9A6B71036B8CED417D4AA4C8 /* MarkdownBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBlockView.swift; sourceTree = "<group>"; };
 		9B0FA3EB5190F9DA6A83A065 /* NetWorthSnapshotRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthSnapshotRepository.swift; sourceTree = "<group>"; };
 		9C0A13673591986F7DC9EE90 /* AkifiWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AkifiWidget.entitlements; sourceTree = "<group>"; };
@@ -1091,6 +1095,7 @@
 				467D6DA128F27DCFC460C597 /* StreakTrackerTests.swift */,
 				A2564C622783A034FD1403F1 /* SubscriptionDateEngineTests.swift */,
 				97B2DFA2FF2A4AC483A1A0D8 /* SubscriptionMatcherTests.swift */,
+				9A2DF548FF1C2ED36B6861CA /* SupabasePagingTests.swift */,
 				B33623FCAD46C0861472BF90 /* TransactionApplyUpdateTests.swift */,
 				681F1D9B8F26A66D303BEA07 /* TransactionGuardsTests.swift */,
 				A7B7DEBB8E05417011272F68 /* TransferFormCrossCurrencyTests.swift */,
@@ -1273,6 +1278,7 @@
 				603A4CF9C7505B2202CFE1DE /* SubscriptionDateEngine.swift */,
 				ACE82857554961F1B3DA77A9 /* SubscriptionMatcher.swift */,
 				B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */,
+				78B6421186BC19FAA95D4254 /* SupabasePaging.swift */,
 				CA233E9C529C7E319B5FF51E /* ThemeManager.swift */,
 				BF262E6F5816E55BE6723E91 /* TransactionGuards.swift */,
 				C09370D5CD6C79E095B4F36A /* TransactionMath.swift */,
@@ -1542,6 +1548,7 @@
 				AC6B8485EA6E8DB2D8E30A05 /* StreakTrackerTests.swift in Sources */,
 				93180BEDF53AC45531AB0BD6 /* SubscriptionDateEngineTests.swift in Sources */,
 				7AF6FC7AB4FB0235F126469D /* SubscriptionMatcherTests.swift in Sources */,
+				B5F18046B35293E54F57AF4C /* SupabasePagingTests.swift in Sources */,
 				2CE967F3E4B7E0BDEDE52FFB /* TransactionApplyUpdateTests.swift in Sources */,
 				4683513B5139E50CA2521FB2 /* TransactionGuardsTests.swift in Sources */,
 				704AC38DF2E105083D9883B8 /* TransferFormCrossCurrencyTests.swift in Sources */,
@@ -1803,6 +1810,7 @@
 				C882899C457897D6F70CFA41 /* SubscriptionsViewModel.swift in Sources */,
 				704060E31038BC9A1B94C955 /* SummaryCardsView.swift in Sources */,
 				04DF61DAB1C3076A88989578 /* SupabaseManager.swift in Sources */,
+				8151C12356EBEB11FB8A20A4 /* SupabasePaging.swift in Sources */,
 				4DE7065E4AE1FA0EECBA02BD /* SwipeableRow.swift in Sources */,
 				6D05D147B9E4442BA580D874 /* TagManagementView.swift in Sources */,
 				4C12CF7384B84CAEEB987332 /* TargetAllocationView.swift in Sources */,
@@ -1932,7 +1940,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.5.2;
+				MARKETING_VERSION = 1.5.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2000,7 +2008,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.5.2;
+				MARKETING_VERSION = 1.5.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

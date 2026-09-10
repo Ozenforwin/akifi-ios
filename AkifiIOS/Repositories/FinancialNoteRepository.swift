@@ -4,6 +4,8 @@ import Supabase
 final class FinancialNoteRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    /// Infinite-scroll window — `JournalViewModel` pages through the feed
+    /// itself, so a bounded slice is the contract here, not a bug.
     func fetchAll(limit: Int = 50, offset: Int = 0, noteType: NoteType? = nil) async throws -> [FinancialNote] {
         var query = supabase
             .from("financial_notes")
@@ -21,13 +23,13 @@ final class FinancialNoteRepository: Sendable {
     }
 
     func fetchByTransaction(transactionId: String) async throws -> [FinancialNote] {
-        try await supabase
-            .from("financial_notes")
-            .select()
-            .eq("transaction_id", value: transactionId)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("financial_notes") { count in
+            supabase
+                .from("financial_notes")
+                .select(count: count)
+                .eq("transaction_id", value: transactionId)
+                .order("created_at", ascending: false)
+        }
     }
 
     func search(query: String) async throws -> [FinancialNote] {
@@ -69,11 +71,11 @@ final class FinancialNoteRepository: Sendable {
 
     func fetchAllTags() async throws -> [String] {
         struct TagRow: Decodable { let tags: [String]? }
-        let rows: [TagRow] = try await supabase
-            .from("financial_notes")
-            .select("tags")
-            .execute()
-            .value
+        let rows: [TagRow] = try await SupabasePaging.all("financial_notes") { count in
+            supabase
+                .from("financial_notes")
+                .select("tags", count: count)
+        }
         var allTags: Set<String> = []
         for row in rows {
             if let tags = row.tags { allTags.formUnion(tags) }

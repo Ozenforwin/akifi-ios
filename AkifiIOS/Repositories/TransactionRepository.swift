@@ -4,26 +4,33 @@ import Supabase
 final class TransactionRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    /// Every visible transaction — the COMPLETE set, always.
+    ///
+    /// Account balances are `initial_balance + Σincome − Σexpense` over the
+    /// whole history, so a missing tail does not hide old rows, it corrupts
+    /// the balance on the home screen. `SupabasePaging` guarantees
+    /// completeness regardless of PostgREST's `max-rows`; see its doc
+    /// comment for the 2026-09-10 shared-account incident this prevents.
     func fetchAll(accountId: String? = nil, from: String? = nil, to: String? = nil) async throws -> [Transaction] {
-        var query = supabase
-            .from("transactions")
-            .select()
+        try await SupabasePaging.all("transactions") { count in
+            var query = supabase
+                .from("transactions")
+                .select(count: count)
 
-        if let accountId {
-            query = query.eq("account_id", value: accountId)
-        }
-        if let from {
-            query = query.gte("date", value: from)
-        }
-        if let to {
-            query = query.lte("date", value: to)
-        }
+            if let accountId {
+                query = query.eq("account_id", value: accountId)
+            }
+            if let from {
+                query = query.gte("date", value: from)
+            }
+            if let to {
+                query = query.lte("date", value: to)
+            }
 
-        return try await query
-            .order("date", ascending: false)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+            return query
+                .order("date", ascending: false)
+                .order("created_at", ascending: false)
+        }
     }
 
     func currentUserId() async throws -> String {

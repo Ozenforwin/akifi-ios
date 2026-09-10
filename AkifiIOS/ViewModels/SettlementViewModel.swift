@@ -100,12 +100,12 @@ final class SettlementViewModel {
         // the same time so the settlement math can honor per-member shares.
         var members: [AccountMember] = []
         do {
-            members = try await supabase
-                .from("account_members")
-                .select()
-                .eq("account_id", value: sharedAccountId)
-                .execute()
-                .value
+            members = try await SupabasePaging.all("account_members") { count in
+                supabase
+                    .from("account_members")
+                    .select(count: count)
+                    .eq("account_id", value: sharedAccountId)
+            }
         } catch {
             // Non-fatal — fall back to deriving from transactions below.
             AppLogger.data.debug("settlement members load: \(error.localizedDescription)")

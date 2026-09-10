@@ -12,23 +12,23 @@ final class LiabilityRepository: Sendable {
 
     /// Returns every liability the current user owns, newest-first.
     func fetchAll() async throws -> [Liability] {
-        try await supabase
-            .from("liabilities")
-            .select()
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("liabilities") { count in
+            supabase
+                .from("liabilities")
+                .select(count: count)
+                .order("created_at", ascending: false)
+        }
     }
 
     /// Narrow read — fetches liabilities of a single category.
     func fetchForCategory(_ category: LiabilityCategory) async throws -> [Liability] {
-        try await supabase
-            .from("liabilities")
-            .select()
-            .eq("category", value: category.rawValue)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("liabilities") { count in
+            supabase
+                .from("liabilities")
+                .select(count: count)
+                .eq("category", value: category.rawValue)
+                .order("created_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateLiabilityInput) async throws -> Liability {

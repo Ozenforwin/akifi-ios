@@ -7,14 +7,13 @@ import Supabase
 final class UserAccountDefaultsRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
-    /// Returns every default the current user has configured. Cheap — the
-    /// table typically has ≤ N rows where N = number of shared accounts.
+    /// Returns every default the current user has configured.
     func fetchAll() async throws -> [UserAccountDefault] {
-        try await supabase
-            .from("user_account_defaults")
-            .select()
-            .execute()
-            .value
+        try await SupabasePaging.all("user_account_defaults", tiebreak: ["user_id", "account_id"]) { count in
+            supabase
+                .from("user_account_defaults")
+                .select(count: count)
+        }
     }
 
     /// Returns the default for a single target account, or `nil` if unset.

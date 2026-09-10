@@ -246,11 +246,16 @@ enum BudgetMath {
         let currency: String
         /// "yyyy-MM-dd"
         let txDate: String
+        /// Transaction uuid — present once migration 20260910120000 is
+        /// applied; gives `SupabasePaging` its tiebreak. Optional so the
+        /// client decodes the v1 RPC shape until then.
+        var txId: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case amountNative = "amount_native"
             case currency
             case txDate = "tx_date"
+            case txId = "tx_id"
         }
     }
 

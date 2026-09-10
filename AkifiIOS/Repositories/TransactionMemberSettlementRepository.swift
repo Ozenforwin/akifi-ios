@@ -9,12 +9,12 @@ final class TransactionMemberSettlementRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchForAccount(_ accountId: String) async throws -> [TransactionMemberSettlement] {
-        try await supabase
-            .from("transaction_member_settlements")
-            .select()
-            .eq("shared_account_id", value: accountId)
-            .execute()
-            .value
+        try await SupabasePaging.all("transaction_member_settlements") { count in
+            supabase
+                .from("transaction_member_settlements")
+                .select(count: count)
+                .eq("shared_account_id", value: accountId)
+        }
     }
 
     func create(_ input: CreateTransactionMemberSettlementInput) async throws -> TransactionMemberSettlement {

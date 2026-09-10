@@ -10,23 +10,23 @@ final class SubscriptionTrackerRepository: Sendable {
     /// `status == 'active'`, so legacy v1.2.2 clients (which filter on `is_active=true`)
     /// still see only active subscriptions.
     func fetchAll() async throws -> [SubscriptionTracker] {
-        try await supabase
-            .from("subscriptions")
-            .select()
-            .in("status", values: [SubscriptionTrackerStatus.active.rawValue, SubscriptionTrackerStatus.paused.rawValue])
-            .order("next_payment_date")
-            .execute()
-            .value
+        try await SupabasePaging.all("subscriptions") { count in
+            supabase
+                .from("subscriptions")
+                .select(count: count)
+                .in("status", values: [SubscriptionTrackerStatus.active.rawValue, SubscriptionTrackerStatus.paused.rawValue])
+                .order("next_payment_date")
+        }
     }
 
     /// Fetch *all* subscriptions including cancelled ones — used for the archive view.
     func fetchAllIncludingCancelled() async throws -> [SubscriptionTracker] {
-        try await supabase
-            .from("subscriptions")
-            .select()
-            .order("next_payment_date")
-            .execute()
-            .value
+        try await SupabasePaging.all("subscriptions") { count in
+            supabase
+                .from("subscriptions")
+                .select(count: count)
+                .order("next_payment_date")
+        }
     }
 
     func create(_ input: CreateSubscriptionInput) async throws -> SubscriptionTracker {
@@ -78,13 +78,13 @@ final class SubscriptionTrackerRepository: Sendable {
     // MARK: - Payments
 
     func fetchPayments(for subscriptionId: String) async throws -> [SubscriptionPayment] {
-        try await supabase
-            .from("subscription_payments")
-            .select()
-            .eq("subscription_id", value: subscriptionId)
-            .order("payment_date", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("subscription_payments") { count in
+            supabase
+                .from("subscription_payments")
+                .select(count: count)
+                .eq("subscription_id", value: subscriptionId)
+                .order("payment_date", ascending: false)
+        }
     }
 
     func addPayment(_ input: CreateSubscriptionPaymentInput) async throws -> SubscriptionPayment {

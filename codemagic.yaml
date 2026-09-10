@@ -60,6 +60,15 @@ workflows:
         script: |
           bash Scripts/lint-amount-usage.sh --strict
 
+      - name: Lint unbounded Supabase reads
+        # Blocking from day one (2026-09-10). PostgREST silently caps
+        # responses at max-rows; a raw `.select().execute()` list read
+        # truncated one member's shared-account history and turned
+        # +36 539 ₽ into −38 997 ₽. Every list read must go through
+        # SupabasePaging.all(...) — see that type's doc comment.
+        script: |
+          python3 Scripts/lint-unbounded-fetch.py --strict
+
       - name: Generate xcconfig from environment variables
         script: |
           python3 << 'PYEOF'

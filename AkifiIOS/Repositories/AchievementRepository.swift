@@ -5,20 +5,20 @@ final class AchievementRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     func fetchAll() async throws -> [Achievement] {
-        try await supabase
-            .from("achievements")
-            .select()
-            .order("sort_order")
-            .execute()
-            .value
+        try await SupabasePaging.all("achievements") { count in
+            supabase
+                .from("achievements")
+                .select(count: count)
+                .order("sort_order")
+        }
     }
 
     func fetchUserAchievements() async throws -> [UserAchievement] {
-        try await supabase
-            .from("user_achievements")
-            .select()
-            .execute()
-            .value
+        try await SupabasePaging.all("user_achievements") { count in
+            supabase
+                .from("user_achievements")
+                .select(count: count)
+        }
     }
 
     func markNotified(id: String) async throws {

@@ -15,27 +15,26 @@ final class InvestmentHoldingRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
     /// All holdings for the current user, newest-first. RLS filters
-    /// implicitly. The list is small in practice (a typical retail
-    /// investor has <30 positions), so we don't paginate.
+    /// implicitly.
     func fetchAll() async throws -> [InvestmentHolding] {
-        try await supabase
-            .from("investment_holdings")
-            .select()
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("investment_holdings") { count in
+            supabase
+                .from("investment_holdings")
+                .select(count: count)
+                .order("created_at", ascending: false)
+        }
     }
 
     /// Holdings inside a specific Asset — used by
     /// `InvestmentHoldingsListView` embedded in `AssetFormView`.
     func fetchForAsset(_ assetId: String) async throws -> [InvestmentHolding] {
-        try await supabase
-            .from("investment_holdings")
-            .select()
-            .eq("asset_id", value: assetId)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
+        try await SupabasePaging.all("investment_holdings") { count in
+            supabase
+                .from("investment_holdings")
+                .select(count: count)
+                .eq("asset_id", value: assetId)
+                .order("created_at", ascending: false)
+        }
     }
 
     func create(_ input: CreateHoldingInput) async throws -> InvestmentHolding {
