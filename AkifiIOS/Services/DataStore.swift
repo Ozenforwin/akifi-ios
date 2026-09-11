@@ -362,15 +362,16 @@ final class DataStore {
             await attemptAutoMatch(for: tx)
             return tx
         } catch {
-            // Lie-fi fallback: the monitor said "connected" but the request
-            // died in transit — queue it like a normal offline create.
-            // Exception: a timed-out RPC create may have already committed
-            // server-side with ids we don't know, so replaying it could
-            // duplicate the triplet. Surface the error instead.
-            let isTimeout = error is TimeoutError || (error as? URLError)?.code == .timedOut
-            guard OfflineQueue.isTransportError(error),
-                  !(stamped.routesToAutoTransferRPC && isTimeout) else { throw error }
-            AppLogger.data.warning("Create failed in transit, queueing offline: \(error)")
+            // The database never answered — lie-fi, or the gateway in front
+            // of it timing out (the 2026-09-10 Supabase outage) — so queue
+            // it like a normal offline create rather than losing it.
+            // Exception: an RPC create that may already have committed
+            // server-side mints ids we don't know; replaying it could
+            // duplicate the triplet, so that one is surfaced instead.
+            guard OfflineQueue.shouldQueueFailedCreate(
+                error, routesToAutoTransferRPC: stamped.routesToAutoTransferRPC
+            ) else { throw error }
+            AppLogger.data.warning("Create failed without a database answer, queueing offline: \(error)")
             return enqueueCreateLocally(stamped)
         }
     }
@@ -680,11 +681,11 @@ final class DataStore {
         do {
             try await transactionRepo.update(id: id, input)
         } catch {
-            // Lie-fi fallback — UPDATEs are idempotent (same values on
-            // replay), so queueing after an in-transit failure is safe even
-            // if the server actually committed.
-            guard OfflineQueue.isTransportError(error) else { throw error }
-            AppLogger.data.warning("Update failed in transit, queueing offline: \(error)")
+            // UPDATEs are idempotent (same values on replay), so queueing is
+            // safe whenever the database did not answer — dropped connection
+            // or gateway 5xx alike — even if the server actually committed.
+            guard OfflineQueue.isServerUnreachable(error) else { throw error }
+            AppLogger.data.warning("Update failed without a database answer, queueing offline: \(error)")
             try applyUpdateOffline(id: id, input)
             return
         }
@@ -766,10 +767,11 @@ final class DataStore {
             writeWidgetSnapshot()
             AnalyticsService.logDeleteTransaction()
         } catch {
-            // Lie-fi fallback — a replayed delete of an already-deleted row
-            // resolves as synced (PGRST116), so queueing is safe.
-            if OfflineQueue.isTransportError(error) {
-                AppLogger.data.warning("Delete failed in transit, queueing offline: \(error)")
+            // A replayed delete of an already-deleted row resolves as synced
+            // (PGRST116), so queueing is safe whenever the database did not
+            // answer — dropped connection or gateway 5xx alike.
+            if OfflineQueue.isServerUnreachable(error) {
+                AppLogger.data.warning("Delete failed without a database answer, queueing offline: \(error)")
                 deleteOffline(transaction)
             } else {
                 self.error = error.localizedDescription

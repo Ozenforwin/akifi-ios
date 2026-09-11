@@ -172,7 +172,7 @@ final class OfflineQueue {
         attempts: Int,
         maxAttempts: Int = OfflineQueue.maxAttempts
     ) -> ReplayOutcome {
-        if isTransportError(error) { return .haltTransport }
+        if isServerUnreachable(error) { return .haltTransport }
 
         if let pgError = error as? PostgrestError {
             switch operation {
@@ -191,10 +191,70 @@ final class OfflineQueue {
         return attempts + 1 >= maxAttempts ? .deadLetter : .retryCounted
     }
 
+    /// The request never got a response: local timeout, DNS, TLS, dropped
+    /// connection. The server may or may not have seen it.
     static func isTransportError(_ error: Error) -> Bool {
         if error is TimeoutError { return true }
         if error is URLError { return true }
         return (error as NSError).domain == NSURLErrorDomain
+    }
+
+    /// The request got a response — but from the gateway in front of the
+    /// database (Kong / Cloudflare), not from PostgREST or Postgres.
+    ///
+    /// During the 2026-09-10 Supabase outage ("Unresponsive Projects") every
+    /// write came back `504 {"message":"Gateway Timeout"}`. The SDK decodes
+    /// any JSON body with a `message` as `PostgrestError`, dropping the HTTP
+    /// status, so the app saw an ordinary-looking database error, surfaced
+    /// it, and the user's transaction was gone. A day of entries was lost
+    /// while the app's own offline queue sat idle.
+    ///
+    /// Two shapes, both meaning "the database did not answer":
+    /// - `HTTPError` with a gateway status (502 / 503 / 504, Cloudflare 52x)
+    ///   — the body was not JSON.
+    /// - `PostgrestError` with **no `code`**. PostgREST always sets one
+    ///   (`PGRST…`) and so does Postgres (SQLSTATE); a bare `message` is the
+    ///   gateway's own error envelope.
+    static func isGatewayError(_ error: Error) -> Bool {
+        if let http = error as? HTTPError {
+            return gatewayStatusCodes.contains(http.response.statusCode)
+        }
+        if let pg = error as? PostgrestError {
+            return pg.code == nil
+        }
+        return false
+    }
+
+    static let gatewayStatusCodes: Set<Int> = [502, 503, 504, 520, 521, 522, 523, 524]
+
+    /// Either of the above — the operation is worth keeping and replaying,
+    /// because nothing tells us the database rejected it.
+    static func isServerUnreachable(_ error: Error) -> Bool {
+        isTransportError(error) || isGatewayError(error)
+    }
+
+    /// The write MAY have committed even though we got no usable answer:
+    /// a timeout at any layer (local, or the gateway giving up on
+    /// PostgREST). Replaying a client-id create is still safe (23505 →
+    /// synced), but an RPC create mints server-side ids we cannot predict,
+    /// so its caller must not queue on these.
+    static func mayHaveCommitted(_ error: Error) -> Bool {
+        if error is TimeoutError { return true }
+        if (error as? URLError)?.code == .timedOut { return true }
+        if let http = error as? HTTPError {
+            return [504, 522, 524].contains(http.response.statusCode)
+        }
+        // A codeless gateway message carries no status — assume the worst.
+        if let pg = error as? PostgrestError { return pg.code == nil }
+        return false
+    }
+
+    /// Whether a failed online create should fall back to the offline
+    /// queue. Pure so the policy is unit-testable without a network.
+    static func shouldQueueFailedCreate(_ error: Error, routesToAutoTransferRPC: Bool) -> Bool {
+        guard isServerUnreachable(error) else { return false }
+        if routesToAutoTransferRPC && mayHaveCommitted(error) { return false }
+        return true
     }
 
     func processQueue() async {
