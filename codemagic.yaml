@@ -460,9 +460,12 @@ workflows:
 
       - name: Generate release notes and submit for review
         script: |
-          # Extract version from tag
-          VERSION=$(echo "$CM_TAG" | sed 's|release/v||')
-          echo "Version: $VERSION"
+          # Extract version from tag. A "-suffix" is ignored so a submission
+          # can be re-run with a FRESH tag name (release/v1.5.6-r2): Codemagic
+          # does not reliably start a build for a tag that was deleted and
+          # re-created under the same name.
+          VERSION=$(echo "$CM_TAG" | sed 's|release/v||; s|-.*$||')
+          echo "Version: $VERSION (tag: $CM_TAG)"
 
           # Codemagic clones shallow on tag builds — without this the previous
           # release tag (and the whole commit range) is missing, git log sees
@@ -471,8 +474,13 @@ workflows:
           git fetch --tags --unshallow 2>/dev/null || git fetch --tags
           echo "Commits reachable: $(git rev-list --count HEAD)"
 
-          # Generate changelog from git
-          PREV_TAG=$(git tag -l 'release/v*' --sort=-v:refname | sed -n '2p')
+          # Generate changelog from git: the newest release tag whose base
+          # version differs from the one being submitted, so re-run tags of
+          # the same version never shrink the range to nothing.
+          PREV_TAG=$(git tag -l 'release/v*' --sort=-v:refname | while read -r t; do
+            tv=$(echo "$t" | sed 's|release/v||; s|-.*$||')
+            if [ "$tv" != "$VERSION" ]; then echo "$t"; break; fi
+          done)
           if [ -n "$PREV_TAG" ]; then
             echo "Changelog since $PREV_TAG:"
             RAW_LOG=$(git log --pretty="%s" "$PREV_TAG"..HEAD --no-merges)
