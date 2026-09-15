@@ -560,6 +560,34 @@ workflows:
                                "attributes": {"canceled": True}}
                   })
                   print(f"2a. Withdrew queued submission {s['id']} of an older version: {'OK' if rc.ok else rc.status_code}")
+
+              # ── 2b. Reuse a stray editable version instead of creating ──
+              # ASC keeps at most one version "in preparation". A failed
+              # earlier run can leave an empty one behind (1.5.5 was created
+              # for a tag whose build never existed; the auto-bumper then
+              # saw the collision and built 1.5.6), and POST for the new
+              # string fails with 409. Renaming the stray version keeps its
+              # localizations and costs nothing; step 4 attaches the build.
+              r = api("get", f"apps/{app_id}/appStoreVersions?filter[platform]=IOS")
+              renamable = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
+              stray = [
+                  v for v in (r.json()["data"] if r.ok else [])
+                  if v["attributes"]["appStoreState"] in renamable
+              ]
+              if stray:
+                  v = stray[0]
+                  old_string = v["attributes"]["versionString"]
+                  rc = api("patch", f"appStoreVersions/{v['id']}", json={
+                      "data": {"type": "appStoreVersions", "id": v["id"],
+                               "attributes": {"versionString": version}}
+                  })
+                  if rc.ok:
+                      version_id = v["id"]
+                      print(f"2b. Renamed stray version {old_string} ({v['attributes']['appStoreState']}) → {version}")
+                  else:
+                      print(f"2b. Could not rename stray version {old_string}: {rc.status_code} {rc.text[:200]}")
+
+          if not version_id:
               # Create new version
               payload = {
                   "data": {
