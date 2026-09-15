@@ -541,6 +541,25 @@ workflows:
                   break
 
           if not version_id:
+              # ── 2a. A superseded version may still sit in Apple's queue ──
+              # ASC allows one version in review per platform: while 1.5.3
+              # waits, POST appStoreVersions for 1.5.5 fails with 409 and
+              # this workflow used to die here. The tag we are running for
+              # is by definition the newer build, so a merely QUEUED older
+              # submission is withdrawn in its favour (same PATCH as step
+              # 4b). IN_REVIEW is left alone — Apple is already on it and
+              # restarting the queue stays a human decision.
+              r = api("get", f"apps/{app_id}/reviewSubmissions?filter[platform]=IOS")
+              queued = [
+                  s for s in (r.json().get("data", []) if r.ok else [])
+                  if s["attributes"].get("state") in {"WAITING_FOR_REVIEW", "READY_FOR_REVIEW"}
+              ]
+              for s in queued:
+                  rc = api("patch", f"reviewSubmissions/{s['id']}", json={
+                      "data": {"type": "reviewSubmissions", "id": s["id"],
+                               "attributes": {"canceled": True}}
+                  })
+                  print(f"2a. Withdrew queued submission {s['id']} of an older version: {'OK' if rc.ok else rc.status_code}")
               # Create new version
               payload = {
                   "data": {
