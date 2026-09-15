@@ -32210,6 +32210,29 @@
         }
       }
     },
+    "subscriptions.overdue.%lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days overdue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld días de retraso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "просрочено %lld дн."
+          }
+        }
+      }
+    },
     "subscriptions.lastPayment" : {
       "extractionState" : "stale",
       "localizations" : {

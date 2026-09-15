@@ -367,7 +367,7 @@ struct BudgetsTabView: View {
                     Text(formatSubscriptionAmount(sub))
                         .font(.subheadline.weight(.semibold))
                     let days = sub.daysRemaining
-                    Text(days == 0 ? String(localized: "subscriptions.today") : String(localized: "subscriptions.inDays.\(days)"))
+                    Text(subscriptionDueLabel(sub))
                         .font(.caption2)
                         .foregroundStyle(days <= 3 ? Color.expense : .secondary)
                 }
@@ -413,6 +413,16 @@ struct BudgetsTabView: View {
         formatter.minimumFractionDigits = formatter.maximumFractionDigits
         let formatted = formatter.string(from: amount as NSDecimalNumber) ?? "0"
         return "\(formatted) \(symbol)"
+    }
+
+    private func subscriptionDueLabel(_ sub: SubscriptionTracker) -> String {
+        if sub.isOverdue {
+            return String(localized: "subscriptions.overdue.\(sub.daysOverdue)")
+        }
+        let days = sub.daysRemaining
+        return days == 0
+            ? String(localized: "subscriptions.today")
+            : String(localized: "subscriptions.inDays.\(days)")
     }
 
     private func periodLabel(_ period: BillingPeriod) -> String {

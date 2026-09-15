@@ -146,10 +146,24 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
 
     /// Days remaining until next payment
     var daysRemaining: Int {
+        max(0, signedDaysToNextPayment)
+    }
+
+    /// Days the scheduled charge is in the past. `0` when it is today or
+    /// still ahead. Surfaced instead of "today" so a charge the server
+    /// missed (cron down, database down) is visible, not disguised.
+    var daysOverdue: Int {
+        max(0, -signedDaysToNextPayment)
+    }
+
+    var isOverdue: Bool { daysOverdue > 0 }
+
+    /// Negative when `nextPaymentDate` is in the past.
+    private var signedDaysToNextPayment: Int {
         guard let nextStr = nextPaymentDate,
               let next = Self.dateFormatter.date(from: String(nextStr.prefix(10))) else { return 0 }
         let today = Calendar.current.startOfDay(for: Date())
-        return max(0, Calendar.current.dateComponents([.day], from: today, to: next).day ?? 0)
+        return Calendar.current.dateComponents([.day], from: today, to: next).day ?? 0
     }
 
     /// Progress through current billing cycle (0.0 – 1.0)
