@@ -18,6 +18,8 @@ entrypoint = "./functions/assistant-query/index.ts"
 # Cron-only; authenticated by CRON_SECRET inside the function, which pg_cron
 # sends as a bearer token. NOT a JWT — verify_jwt must stay false or the
 # gateway rejects every run (2026-09-01 … 09-15: two weeks of missed charges).
+# THIS REPO IS THE ONLY SOURCE of this function: the TMA repo's copy was
+# removed on 2026-09-15 (its config.toml carries a tombstone saying so).
 [functions.check-subscriptions]
 enabled = true
 verify_jwt = false
