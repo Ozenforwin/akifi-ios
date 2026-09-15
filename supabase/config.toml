@@ -15,6 +15,15 @@ verify_jwt = false
 import_map = "./functions/assistant-query/deno.json"
 entrypoint = "./functions/assistant-query/index.ts"
 
+# Cron-only; authenticated by CRON_SECRET inside the function, which pg_cron
+# sends as a bearer token. NOT a JWT — verify_jwt must stay false or the
+# gateway rejects every run (2026-09-01 … 09-15: two weeks of missed charges).
+[functions.check-subscriptions]
+enabled = true
+verify_jwt = false
+import_map = "./functions/check-subscriptions/deno.json"
+entrypoint = "./functions/check-subscriptions/index.ts"
+
 [functions.smart-notifications]
 enabled = true
 verify_jwt = false

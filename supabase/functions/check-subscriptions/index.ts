@@ -1,6 +1,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
 import { parseDateOnly, toDateOnly } from "../_shared/utils.ts";
+import { addPeriod, planCatchUp } from "../_shared/schedule.ts";
 import { FALLBACK_RATES, convertCurrency, roundCurrency } from "../_shared/currency.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -9,6 +10,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON") ?? "";
 const DAY_MS = 24 * 60 * 60 * 1000;
+// How far back a missed charge is still recovered (see planCatchUp).
+const CATCH_UP_DAYS = 45;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
@@ -25,26 +28,7 @@ function json(data, status = 200) {
 }
 // parseDateOnly, toDateOnly — imported from _shared/utils.ts
 const toDateOnlyString = toDateOnly;
-function addPeriod(date, period) {
-  const copy = new Date(date.getTime());
-  if (period === "weekly") {
-    copy.setUTCDate(copy.getUTCDate() + 7);
-    return copy;
-  }
-  if (period === "yearly") {
-    copy.setUTCFullYear(copy.getUTCFullYear() + 1);
-    return copy;
-  }
-  copy.setUTCMonth(copy.getUTCMonth() + 1);
-  return copy;
-}
-function rollForward(nextPaymentDate, period, today) {
-  let cursor = parseDateOnly(nextPaymentDate);
-  for(let i = 0; i < 1200 && cursor < today; i += 1){
-    cursor = addPeriod(cursor, period);
-  }
-  return toDateOnlyString(cursor);
-}
+// addPeriod / planCatchUp — imported from _shared/schedule.ts
 function daysBetween(fromDate, toDate) {
   const from = parseDateOnly(fromDate).getTime();
   const to = parseDateOnly(toDate).getTime();
@@ -80,17 +64,20 @@ function convertToRub(amount, currency, rates) {
   return convertCurrency(amount, currency, "RUB", rates);
 }
 function isAuthorized(req) {
-  // Supabase gateway already validates JWT (verify_jwt = true by default).
-  // Any request that reaches this function has a valid anon/service-role key.
-  // We additionally accept CRON_SECRET for explicit cron authentication.
+  // Cron-only. The pg_cron job sends CRON_SECRET as the bearer token; it
+  // is not a JWT, so this function MUST be deployed with verify_jwt = false
+  // (supabase/config.toml) — the 2026-09-01 redeploy forgot that and the
+  // gateway rejected every run for two weeks. The previous fallback
+  // "accept any non-empty bearer" relied on that gateway check and would
+  // have let any anon-key holder trigger charges for every user once it
+  // was switched off, so it is gone: no secret, no access.
+  if (!CRON_SECRET) {
+    console.error("CRON_SECRET is not configured; refusing every request");
+    return false;
+  }
   const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   const cronHeader = (req.headers.get("x-cron-secret") ?? "").trim();
-  if (CRON_SECRET && (bearer === CRON_SECRET || cronHeader === CRON_SECRET)) {
-    return true;
-  }
-  // Accept any request that passed gateway JWT verification
-  if (bearer) return true;
-  return false;
+  return bearer === CRON_SECRET || cronHeader === CRON_SECRET;
 }
 function reminderText(subscription, reminderDays) {
   const amount = formatAmount(Number(subscription.amount), subscription.currency);
@@ -357,6 +344,85 @@ async function resolveWritableAccount(supabase, userId, accountId, cache) {
 }
 // `charge` carries the amount ALREADY expressed in the target account's
 // currency, plus the original subscription amount for provenance.
+/**
+ * Posts one charge for `chargeDate`. Idempotent: the charge event is
+ * unique per (subscription, date) and the transaction lookup dedupes on
+ * (user, date, description, amount).
+ *
+ * Returns "posted" (new transaction), "skipped" (already charged) or
+ * "failed" (recorded on the charge event).
+ */
+async function chargeSubscription(supabase, subscription, chargeDate, rates, categoryCache, writableAccountCache) {
+  const chargeEvent = await ensureChargeEvent(supabase, subscription, chargeDate);
+  if (!chargeEvent) return "skipped";
+  if (chargeEvent.transaction_id) return "skipped";
+
+  const categoryId = await resolveExpenseCategoryId(supabase, subscription.user_id, categoryCache);
+  const writableAccount = await resolveWritableAccount(supabase, subscription.user_id, subscription.account_id, writableAccountCache);
+  const writableAccountId = writableAccount?.id ?? null;
+  const amountRaw = Number(subscription.amount);
+  const subCurrency = (subscription.currency ?? "RUB").toUpperCase();
+  const sourceAmount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0;
+  // Charge in the ACCOUNT's currency. Falls back to RUB only when
+  // the subscription has no writable account to charge against.
+  const targetCurrency = writableAccount?.currency ?? "RUB";
+  const chargeAmount = convertCurrency(sourceAmount, subCurrency, targetCurrency, rates);
+  const charge = {
+    amount: chargeAmount,
+    currency: targetCurrency,
+    foreignAmount: sourceAmount,
+    foreignCurrency: subCurrency
+  };
+  if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
+    await supabase.from("subscription_charge_events").update({
+      error_message: "Invalid amount for auto charge"
+    }).eq("id", chargeEvent.id);
+    return "failed";
+  }
+  const transactionId = await ensureTransactionForCharge(supabase, subscription, chargeDate, categoryId, writableAccountId, charge);
+  await supabase.from("subscription_charge_events").update({
+    transaction_id: transactionId,
+    error_message: null
+  }).eq("id", chargeEvent.id);
+  await recordPayment(supabase, subscription, chargeDate, charge);
+  return "posted";
+}
+
+/**
+ * What the iOS app shows as "last charge" and "payment history" —
+ * `subscriptions.last_payment_date` and a `subscription_payments` row.
+ * The auto-charge never wrote either, so the app kept showing the last
+ * MANUAL payment (April) under a subscription charged monthly since.
+ * Best-effort: a failure here must not undo the charge.
+ */
+async function recordPayment(supabase, subscription, chargeDate, charge) {
+  const paymentAt = `${chargeDate}T00:00:00+00:00`;
+  try {
+    const { data: existing } = await supabase.from("subscription_payments").select("id").eq("subscription_id", subscription.id).gte("payment_date", paymentAt).lt("payment_date", `${chargeDate}T23:59:59.999+00:00`).limit(1).maybeSingle();
+    if (!existing) {
+      const { error: insertError } = await supabase.from("subscription_payments").insert({
+        subscription_id: subscription.id,
+        amount: charge.amount,
+        currency: charge.currency,
+        payment_date: paymentAt
+      });
+      if (insertError) console.error("Failed to record subscription payment:", insertError);
+    }
+  } catch (paymentError) {
+    console.error("Failed to record subscription payment:", paymentError);
+  }
+  try {
+    // Only move forward — a catch-up run posts dates in ascending order,
+    // but a manual "record payment" in the app may already be newer.
+    const { error: lastError } = await supabase.from("subscriptions").update({
+      last_payment_date: paymentAt
+    }).eq("id", subscription.id).or(`last_payment_date.is.null,last_payment_date.lt.${paymentAt}`);
+    if (lastError) console.error("Failed to update last_payment_date:", lastError);
+  } catch (lastError) {
+    console.error("Failed to update last_payment_date:", lastError);
+  }
+}
+
 async function ensureTransactionForCharge(supabase, subscription, chargeDate, categoryId, accountId, charge) {
   const description = `Подписка: ${subscription.service_name}`;
   const existing = await supabase.from("transactions").select("id").eq("user_id", subscription.user_id).eq("date", chargeDate).eq("type", "expense").eq("description", description).eq("amount", charge.amount).limit(1).maybeSingle();
@@ -443,16 +509,44 @@ Deno.serve(async (req)=>{
     let chargesFailed = 0;
     for (const subscription of subscriptions){
       let effectiveDate = subscription.next_payment_date;
-      if (effectiveDate < todayStr) {
-        const nextDate = rollForward(effectiveDate, subscription.billing_period, today);
-        if (nextDate !== effectiveDate) {
-          const { error: updateError } = await supabase.from("subscriptions").update({
+      // Every period date the cron slept through is charged on its own
+      // date; only dates older than CATCH_UP_DAYS are rolled past.
+      const plan = planCatchUp(effectiveDate, subscription.billing_period, todayStr, CATCH_UP_DAYS);
+      if (plan.skipped.length > 0 && plan.due.length === 0) {
+        const { error: updateError } = await supabase.from("subscriptions").update({
+          next_payment_date: plan.next
+        }).eq("id", subscription.id).eq("next_payment_date", effectiveDate);
+        if (!updateError) {
+          rolledOver += 1;
+          effectiveDate = plan.next;
+        }
+      } else if (plan.skipped.length > 0) {
+        rolledOver += 1;
+      }
+      for (const chargeDate of plan.due) {
+        chargesPlanned += 1;
+        const nextDate = toDateOnlyString(addPeriod(parseDateOnly(chargeDate), subscription.billing_period));
+        try {
+          const outcome = await chargeSubscription(supabase, subscription, chargeDate, rates, categoryCache, writableAccountCache);
+          if (outcome === "posted") chargesPosted += 1;
+          else if (outcome === "skipped") chargesSkipped += 1;
+          else chargesFailed += 1;
+          // Advance past this date even when the charge itself failed:
+          // the charge event keeps the error, and leaving next_payment_date
+          // in the past would re-plan the same failing date every day
+          // while blocking the dates after it.
+          const { error: advanceError } = await supabase.from("subscriptions").update({
             next_payment_date: nextDate
-          }).eq("id", subscription.id);
-          if (!updateError) {
-            rolledOver += 1;
-            effectiveDate = nextDate;
+          }).eq("id", subscription.id).eq("next_payment_date", effectiveDate);
+          if (advanceError) {
+            console.error("Failed to advance subscription after charge:", advanceError);
+            break;
           }
+          effectiveDate = nextDate;
+        } catch (chargeError) {
+          chargesFailed += 1;
+          console.error("Failed to process subscription charge:", chargeError);
+          break;
         }
       }
       const reminderDays = normalizeReminderDays(subscription.reminder_days);
@@ -515,61 +609,6 @@ Deno.serve(async (req)=>{
           remindersFailed += 1;
           console.error("Failed to process reminder event:", eventError);
         }
-      }
-      if (effectiveDate !== todayStr) {
-        continue;
-      }
-      chargesPlanned += 1;
-      try {
-        const chargeEvent = await ensureChargeEvent(supabase, subscription, todayStr);
-        if (!chargeEvent) {
-          chargesSkipped += 1;
-          continue;
-        }
-        let transactionId = chargeEvent.transaction_id;
-        if (!transactionId) {
-          const categoryId = await resolveExpenseCategoryId(supabase, subscription.user_id, categoryCache);
-          const writableAccount = await resolveWritableAccount(supabase, subscription.user_id, subscription.account_id, writableAccountCache);
-          const writableAccountId = writableAccount?.id ?? null;
-          const amountRaw = Number(subscription.amount);
-          const subCurrency = (subscription.currency ?? "RUB").toUpperCase();
-          const sourceAmount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0;
-          // Charge in the ACCOUNT's currency. Falls back to RUB only when
-          // the subscription has no writable account to charge against.
-          const targetCurrency = writableAccount?.currency ?? "RUB";
-          const chargeAmount = convertCurrency(sourceAmount, subCurrency, targetCurrency, rates);
-          const charge = {
-            amount: chargeAmount,
-            currency: targetCurrency,
-            foreignAmount: sourceAmount,
-            foreignCurrency: subCurrency
-          };
-          if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
-            chargesFailed += 1;
-            await supabase.from("subscription_charge_events").update({
-              error_message: "Invalid amount for auto charge"
-            }).eq("id", chargeEvent.id);
-            continue;
-          }
-          transactionId = await ensureTransactionForCharge(supabase, subscription, todayStr, categoryId, writableAccountId, charge);
-          await supabase.from("subscription_charge_events").update({
-            transaction_id: transactionId,
-            error_message: null
-          }).eq("id", chargeEvent.id);
-          chargesPosted += 1;
-        } else {
-          chargesSkipped += 1;
-        }
-        const nextDate = toDateOnlyString(addPeriod(parseDateOnly(todayStr), subscription.billing_period));
-        const { error: advanceError } = await supabase.from("subscriptions").update({
-          next_payment_date: nextDate
-        }).eq("id", subscription.id).eq("next_payment_date", effectiveDate);
-        if (advanceError) {
-          console.error("Failed to advance subscription after charge:", advanceError);
-        }
-      } catch (chargeError) {
-        chargesFailed += 1;
-        console.error("Failed to process subscription charge:", chargeError);
       }
     }
     return json({
