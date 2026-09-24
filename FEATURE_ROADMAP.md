@@ -7,12 +7,12 @@
 
 ## Текущее состояние проекта
 
-- **Версия:** 1.5.0 (`project.yml`)
-- **Кодовая база:** ~60K строк Swift 6, 298 Swift-файлов
+- **Версия:** 1.5.6 в App Store (с 2026-09-16), 1.5.7 в разработке (`project.yml`)
+- **Кодовая база:** ~53K строк Swift 6, 258 файлов приложения (305 с тестами и виджетом)
 - **Стек:** SwiftUI, Supabase (Auth + DB + Edge Functions + Storage), Firebase (Analytics + Crashlytics + Messaging + Performance)
 - **Платформа:** iOS 18.0+
 - **Языки:** ru, en, es (1586 ключей локализации)
-- **Тестовая база:** 361 XCTest-метод в `AkifiIOSTests`
+- **Тестовая база:** 411 XCTest-методов в `AkifiIOSTests` + 16 Deno-тестов в `supabase/functions/_shared`
 
 ### Уже реализовано (до этого роадмапа):
 - Счета (мульти, совместные с ролями)
@@ -339,6 +339,26 @@
 
 ---
 
+## ФАЗА 6: Надёжность данных (внеплановая, 2026-09-10 … 15) — ВЫПОЛНЕНО
+
+> Три инцидента подряд на живых пользователях. Каждый закрыт не точечно, а классом: механизм + guard в CI, чтобы не повторилось ни в одной сущности.
+
+| Задача | Статус | Файлы |
+|--------|--------|-------|
+| PostgREST `max-rows` молча резал историю → неверный баланс общего счёта (−38 997 ₽ вместо +36 539 ₽) | **DONE** | `Services/SupabasePaging.swift`, [[ADR-003]] |
+| Все 34 списочных чтения переведены на `SupabasePaging.all` (серверный count, tiebreak по PK, retry) | **DONE** | 20 репозиториев + `DataStore` + 4 вью |
+| CI-guard на непагинированные чтения | **DONE** | `Scripts/lint-unbounded-fetch.py`, шаг в `codemagic.yaml` |
+| Gateway 5xx / codeless `PostgrestError` не попадали в офлайн-очередь → потеря транзакций в аварию Supabase | **DONE** | `Services/OfflineQueue.swift` (`isGatewayError`, `shouldQueueFailedCreate`) |
+| Авто-списание подписок мертво 02–15.09 (деплой без `verify_jwt=false`) | **DONE** | `supabase/config.toml`, `functions/check-subscriptions/index.ts` |
+| Catch-up пропущенных списаний + запись `last_payment_date` / `subscription_payments` | **DONE** | `functions/_shared/schedule.ts` (8 Deno-тестов) |
+| «Просрочено N дн.» вместо «Сегодня» на карточке подписки | **DONE** | `Models/Subscription.swift`, `Views/Budgets/BudgetsTabView.swift` |
+| `check-subscriptions` выведен из TMA-репо — один дом у функции | **DONE** | TMA `07192cd` |
+| Тег-триггеры Codemagic: `[skip ci]`, пересозданные теги, бесхозная версия в ASC | **DONE** | `codemagic.yaml` (шаги 2a/2b), `.claude/research/release-process.md` |
+
+**Проверка на реальных данных (2026-09-24):** оба участника общего счёта уже за порогом 1000 строк (1078 и 1033) — без фикса баланс был бы сломан у обоих. Cron подписок 9/9 успешных прогонов, просроченных подписок нет.
+
+---
+
 ## Роадмап по спринтам
 
 | Спринт | Фаза | Фичи | Статус |
@@ -351,6 +371,7 @@
 | **S9-S10** (нед 9-10) | Widgets | WidgetKit (4 виджета) | **DONE** |
 | **S11-S12** (нед 11-12) | Net Worth | Активы, долги, дашборд | **DONE (BETA)** |
 | **S12+** | Investments / FIRE | Holdings, price feed, rebalance, FIRE projection, FIRE-impact | **DONE (BETA)** |
+| **S12.5** (внеплан, 2026-09-10…15) | Надёжность данных | Пагинация всех чтений + ADR-003 + два CI-guard'а, gateway-aware офлайн-очередь, восстановление авто-списаний | **DONE** |
 | **S13** (опционально) | Phase 4 polish | Skill tree v2 (canvas + zoom/pan) + bonus streak badges + push-напоминания челленджей | TODO |
 
 ---
@@ -392,6 +413,7 @@
 | Декомпозиция ContentView | Low | ~595 строк, можно разбить root router / tab shell / deep links / overlays |
 | Декомпозиция SettingsView | Low | ~698 строк, часть beta entrypoint вынесена в `BetaFeaturesView`, но экран всё ещё крупный |
 | PaymentManager (StoreKit) | **High** | Заглушка, нет In-App Purchases — блокирует монетизацию |
+| Листинг App Store только на английском | **High** | Приложение локализовано на ru/en/es (1597 ключей), а описание и «Что нового» в ASC существуют в одной локали — русская витрина показывает английский текст. Нужно завести ru (и es) локализацию версии в App Store Connect; `ios-submit-review` заполнит их автоматически |
 | OfflineQueue для всех сущностей | Medium | Сейчас только транзакции |
 | NetworkMonitor → DataStore интеграция | Medium | Автосинхронизация при восстановлении сети |
 | Goal-picker в ChallengeFormView | Medium | Модель + engine поддерживают linkedGoalId, форма — нет |
@@ -400,7 +422,7 @@
 
 ---
 
-*Последнее обновление: 2026-07-06*
+*Последнее обновление: 2026-09-24*
 *Анализ рынка: топ-10 конкурентов (Monarch, YNAB, Copilot, Rocket Money, PocketGuard, Cleo, EveryDollar, MoneyWiz, Goodbudget, Fina)*
 
 ## Следующий шаг (рекомендация)
