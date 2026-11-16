@@ -109,7 +109,9 @@ enum CashFlowEngine {
         let filteredTransactions = filterOutSubscriptionLinked(
             transactions: transactions,
             subscriptions: subscriptions,
-            calendar: calendar
+            calendar: calendar,
+            accountsById: accountsById,
+            baseCode: baseCode
         )
 
         // 2. Build monthly buckets for income/expense.
@@ -133,12 +135,13 @@ enum CashFlowEngine {
         let avgIncome = median(of: nonEmptyBuckets.map(\.income))
         let avgExpense = median(of: nonEmptyBuckets.map(\.expense))
 
-        // 3. Monthly subscription cost (active only, normalized to monthly).
-        let monthlySubs = subscriptions
-            .filter { $0.status == .active }
-            .reduce(Int64(0)) { acc, sub in
-                acc + normalizeToMonthly(amount: sub.amount, period: sub.billingPeriod)
-            }
+        // 3. Monthly subscription cost (active only, normalized to monthly),
+        //    FX-normalised into base like the history buckets (M5: a $20
+        //    tracker was summed as 20 ₽ next to rubles).
+        let monthlySubs = BudgetMath.activeSubscriptionsMonthlyTotalInBase(
+            subscriptions: subscriptions,
+            currencyContext: (accountsById, fxRates, baseCode)
+        )
 
         // 4. Variance on expense for confidence band.
         //    With <2 sample months variance is mathematically zero, which
@@ -212,34 +215,48 @@ enum CashFlowEngine {
     static func filterOutSubscriptionLinked(
         transactions: [Transaction],
         subscriptions: [SubscriptionTracker],
-        calendar: Calendar
+        calendar: Calendar,
+        accountsById: [String: Account] = [:],
+        baseCode: String = "RUB"
     ) -> [Transaction] {
         let activeSubs = subscriptions.filter { $0.status == .active }
         guard !activeSubs.isEmpty else { return transactions }
 
         return transactions.filter { tx in
             guard tx.type == .expense else { return true }
-            return !matchesAnySubscription(tx, in: activeSubs)
+            return !matchesAnySubscription(tx, in: activeSubs, accountsById: accountsById, baseCode: baseCode)
         }
     }
 
     /// Structural match (amount + merchant), no date constraint.
+    ///
+    /// The amount is compared in a currency the row is actually stored in
+    /// (ADR-001): `amountNative` against the ACCOUNT currency, or the
+    /// user's original entry (`foreign_*`). The legacy `currency` label is
+    /// not trusted — on old rows it disagrees with the account.
     private static func matchesAnySubscription(
         _ tx: Transaction,
-        in subs: [SubscriptionTracker]
+        in subs: [SubscriptionTracker],
+        accountsById: [String: Account],
+        baseCode: String
     ) -> Bool {
+        let accountCurrency = (tx.accountId.flatMap { accountsById[$0]?.currency } ?? baseCode).uppercased()
         for sub in subs {
             // Amount: both in minor units; require currency + ±5%.
             guard sub.amount > 0 else { continue }
-            if let subCurrency = sub.currency?.uppercased(),
-               let txCurrency = tx.currency?.uppercased(),
-               subCurrency == txCurrency {
-                let delta = abs(Double(tx.amountNative) - Double(sub.amount))
-                let ratio = delta / Double(sub.amount)
-                guard ratio <= SubscriptionMatcher.amountTolerance else { continue }
+            let subCurrency = (sub.currency ?? baseCode).uppercased()
+            let comparable: Int64?
+            if subCurrency == accountCurrency {
+                comparable = tx.amountNative
+            } else if let foreign = tx.foreignAmount, tx.foreignCurrency?.uppercased() == subCurrency {
+                comparable = foreign.kopecks
             } else {
-                continue
+                comparable = nil
             }
+            guard let comparable else { continue }
+            let delta = abs(Double(comparable) - Double(sub.amount)) // allowlisted-amount: SubscriptionTracker price, not Transaction.amount
+            let ratio = delta / Double(sub.amount)
+            guard ratio <= SubscriptionMatcher.amountTolerance else { continue }
 
             // Merchant: case-insensitive substring either direction.
             let needle = sub.serviceName.lowercased().trimmingCharacters(in: .whitespaces)

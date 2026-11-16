@@ -261,6 +261,84 @@ enum PDFReportGenerator {
         return c
     }
 
+    // MARK: - Section data (pure, unit-tested)
+    //
+    // M7: a report spans every included account, each in its own currency.
+    // Every money figure below is `amountInBase` into the report currency
+    // (`input.currencyContext`) — summing raw `amountNative` printed
+    // "$50 + 3 000 ₽" as "3 050 ₽".
+
+    struct CategoryTotal: Equatable {
+        let name: String
+        let icon: String
+        let amountInBase: Int64
+        let count: Int
+    }
+
+    /// Expense totals per category name (same-named categories of different
+    /// members merge, as in Reports), largest first.
+    static func categoryTotals(_ input: Input) -> [CategoryTotal] {
+        let context = input.currencyContext
+        let categoryById = Dictionary(input.categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var byName: [String: (icon: String, amount: Int64, count: Int)] = [:]
+        for tx in input.transactions where tx.type == .expense && !tx.isTransfer {
+            let cat = tx.categoryId.flatMap { categoryById[$0] }
+            let name = cat?.name ?? String(localized: "transaction.noCategory")
+            var entry = byName[name] ?? (icon: cat?.icon ?? "💰", amount: 0, count: 0)
+            entry.amount += TransactionMath.amountInBase(
+                tx, accountsById: context.accountsById, fxRates: context.fxRates, baseCode: context.baseCode
+            )
+            entry.count += 1
+            byName[name] = entry
+        }
+        return byName
+            .map { CategoryTotal(name: $0.key, icon: $0.value.icon, amountInBase: $0.value.amount, count: $0.value.count) }
+            .sorted { $0.amountInBase != $1.amountInBase ? $0.amountInBase > $1.amountInBase : $0.name < $1.name }
+    }
+
+    /// The 10 largest expenses by their value in the report currency.
+    static func topExpenses(_ input: Input, limit: Int = 10) -> [(tx: Transaction, amountInBase: Int64)] {
+        let context = input.currencyContext
+        return input.transactions
+            .filter { $0.type == .expense && !$0.isTransfer }
+            .map { tx in
+                (tx: tx, amountInBase: TransactionMath.amountInBase(
+                    tx, accountsById: context.accountsById, fxRates: context.fxRates, baseCode: context.baseCode
+                ))
+            }
+            .sorted { $0.amountInBase > $1.amountInBase }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    struct SubscriptionLine: Equatable {
+        let name: String
+        /// Monthly equivalent in the subscription's OWN currency (kopecks).
+        let monthly: Int64
+        let currency: String
+    }
+
+    /// Active subscriptions, each in its own currency, plus the monthly
+    /// total in the report currency (M5: `BudgetMath`'s FX-normalised sum,
+    /// not a raw `$20 + 399 ₽`).
+    static func subscriptionSummary(_ input: Input) -> (lines: [SubscriptionLine], monthlyTotalInBase: Int64) {
+        let context = input.currencyContext
+        let lines = input.subscriptions
+            .filter { $0.status == .active }
+            .map { sub in
+                SubscriptionLine(
+                    name: sub.serviceName,
+                    monthly: BudgetMath.normalizedAmount(sub.amount, from: sub.billingPeriod, to: .monthly),
+                    currency: (sub.currency ?? context.baseCode).uppercased()
+                )
+            }
+        let total = BudgetMath.activeSubscriptionsMonthlyTotalInBase(
+            subscriptions: input.subscriptions,
+            currencyContext: context
+        )
+        return (lines, total)
+    }
+
     // MARK: - Category breakdown table
 
     private static func drawCategoryBreakdown(
@@ -277,21 +355,8 @@ enum PDFReportGenerator {
 
         drawSectionTitle(String(localized: "pdf.expensesByCategory"), at: &c.y)
 
-        let categoryById = Dictionary(input.categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var totals: [(name: String, icon: String, amount: Int64, count: Int)] = []
-        var byName: [String: (icon: String, amount: Int64, count: Int)] = [:]
-        for tx in expenses {
-            let cat = tx.categoryId.flatMap { categoryById[$0] }
-            let name = cat?.name ?? String(localized: "transaction.noCategory")
-            let icon = cat?.icon ?? "💰"
-            var entry = byName[name] ?? (icon: icon, amount: 0, count: 0)
-            entry.amount += tx.amountNative
-            entry.count += 1
-            byName[name] = entry
-        }
-        let grand = Int64(byName.values.reduce(Int64(0)) { $0 + $1.amount }) // allowlisted-amount: byName entries aggregate tx.amountNative in single-account PDF context
-        totals = byName.map { (name: $0.key, icon: $0.value.icon, amount: $0.value.amount, count: $0.value.count) }
-            .sorted { $0.amount > $1.amount }
+        let totals = categoryTotals(input)
+        let grand = totals.reduce(Int64(0)) { $0 + $1.amountInBase }
 
         // Column widths
         let iconColW: CGFloat = 24
@@ -333,14 +398,14 @@ enum PDFReportGenerator {
             row.name.draw(at: CGPoint(x: margin + iconColW, y: c.y + 1),
                           withAttributes: [.font: rowFont, .foregroundColor: primaryText])
 
-            let amtStr = formatAmount(row.amount, currency: input.currencyCode)
+            let amtStr = formatAmount(row.amountInBase, currency: input.currencyCode)
             let amtW = attributedSize(amtStr, font: rowBoldFont).width
             amtStr.draw(
                 at: CGPoint(x: margin + iconColW + nameColW + amountColW - amtW, y: c.y + 1),
                 withAttributes: [.font: rowBoldFont, .foregroundColor: primaryText]
             )
 
-            let pct = grand > 0 ? Double(row.amount) / Double(grand) * 100.0 : 0.0
+            let pct = grand > 0 ? Double(row.amountInBase) / Double(grand) * 100.0 : 0.0
             let pctStr = String(format: "%.1f%%", pct)
             let pctW = attributedSize(pctStr, font: rowFont).width
             pctStr.draw(
@@ -377,10 +442,7 @@ enum PDFReportGenerator {
     ) -> Cursor {
         var c = ensureSpace(120, cursor: cursor, ctx: ctx)
 
-        let top = input.transactions
-            .filter { $0.type == .expense && !$0.isTransfer }
-            .sorted { $0.amountNative > $1.amountNative }
-            .prefix(10)
+        let top = topExpenses(input)
         guard !top.isEmpty else { return c }
 
         drawSectionTitle(String(localized: "pdf.topTransactions"), at: &c.y)
@@ -391,7 +453,7 @@ enum PDFReportGenerator {
         let boldFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
         let secondaryFont = UIFont.systemFont(ofSize: 9, weight: .regular)
 
-        for tx in top {
+        for (tx, amountInBase) in top {
             c = ensureSpace(30, cursor: c, ctx: ctx)
             let cat = tx.categoryId.flatMap { categoryById[$0] }
             let rawDescr = (tx.description?.isEmpty == false ? tx.description : cat?.name) ?? "—"
@@ -404,7 +466,7 @@ enum PDFReportGenerator {
                 at: CGPoint(x: margin, y: c.y),
                 withAttributes: [.font: rowFont, .foregroundColor: primaryText]
             )
-            let amtStr = formatAmount(tx.amountNative, currency: input.currencyCode)
+            let amtStr = formatAmount(amountInBase, currency: input.currencyCode)
             let amtW = attributedSize(amtStr, font: boldFont).width
             amtStr.draw(
                 at: CGPoint(x: margin + contentWidth - amtW, y: c.y),
@@ -491,8 +553,8 @@ enum PDFReportGenerator {
         ctx: UIGraphicsPDFRendererContext
     ) -> Cursor {
         var c = cursor
-        let active = input.subscriptions.filter { $0.status == .active }
-        guard !active.isEmpty else { return c }
+        let summary = subscriptionSummary(input)
+        guard !summary.lines.isEmpty else { return c }
 
         c = ensureSpace(80, cursor: c, ctx: ctx)
         drawSectionTitle(String(localized: "pdf.subscriptions"), at: &c.y)
@@ -500,17 +562,17 @@ enum PDFReportGenerator {
         let rowFont = UIFont.systemFont(ofSize: 11, weight: .regular)
         let boldFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
 
-        var monthlyTotal: Int64 = 0
-        for sub in active {
+        let monthlyTotal = summary.monthlyTotalInBase
+        for line in summary.lines {
             c = ensureSpace(22, cursor: c, ctx: ctx)
-            let monthly = BudgetMath.normalizedAmount(sub.amount, from: sub.billingPeriod, to: .monthly)
-            monthlyTotal += monthly
 
-            sub.serviceName.draw(
+            line.name.draw(
                 at: CGPoint(x: margin, y: c.y),
                 withAttributes: [.font: rowFont, .foregroundColor: primaryText]
             )
-            let amt = formatAmount(monthly, currency: input.currencyCode) + "/" +
+            // Each row in its own currency (a $20 tracker used to print as
+            // "20 ₽"); the total below is in the report currency.
+            let amt = formatAmount(line.monthly, currency: line.currency) + "/" +
                 String(localized: "pdf.month")
             let amtW = attributedSize(amt, font: boldFont).width
             amt.draw(

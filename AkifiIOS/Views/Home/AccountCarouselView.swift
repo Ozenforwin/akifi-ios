@@ -29,6 +29,7 @@ private enum HiddenBalancesStore {
 // MARK: - AccountCarouselView
 
 struct AccountCarouselView: View {
+    @Environment(AppViewModel.self) private var appViewModel
     let accounts: [Account]
     @Binding var selectedIndex: Int
     let balanceFor: (Account) -> Int64
@@ -148,6 +149,12 @@ struct AccountCarouselView: View {
                 }
                 .accessibilityLabel(String(localized: "home.addAccount"))
             }
+        }
+        // Membership drives the "shared" badge (B7). Re-checked when the
+        // account list changes (new account, accepted invite); the index
+        // itself throttles to one round-trip per minute.
+        .task(id: accounts.map(\.id)) {
+            await AccountSharingIndex.shared.refresh(currentUserId: appViewModel.dataStore.profile?.id)
         }
     }
 
@@ -358,16 +365,25 @@ struct AccountCardView: View {
 
     // MARK: - Computed (using pre-cached values from DataStore)
 
+    /// B7: membership (`account_members`), not "someone else wrote a row".
+    /// The legacy heuristic only bridges the first frames until
+    /// `AccountSharingIndex` has loaded.
     private var isSharedAccount: Bool {
-        appViewModel.dataStore.profilesMap.count > 1 &&
-        appViewModel.dataStore.transactions.lazy.contains { $0.accountId == account.id && $0.userId != appViewModel.dataStore.profile?.id }
+        let dataStore = appViewModel.dataStore
+        let uid = dataStore.profile?.id
+        return AccountSharingIndex.shared.isShared(account, currentUserId: uid) {
+            AccountSharingIndex.hasOtherMembersRows(account, currentUserId: uid, transactions: dataStore.transactions)
+        }
     }
 
-    private var monthlyIncome: Int64 {
-        appViewModel.dataStore.accountIncome[account.id] ?? 0
+    /// The pills are "this month", not lifetime totals (they used to show
+    /// `accountIncome` / `accountExpense`, which sum the whole history and
+    /// count transfer legs as income/expense).
+    private var monthFlow: MonthlyAggregate {
+        appViewModel.dataStore.currentMonthFlow(for: account)
     }
 
-    private var monthlyExpense: Int64 {
-        appViewModel.dataStore.accountExpense[account.id] ?? 0
-    }
+    private var monthlyIncome: Int64 { monthFlow.income }
+
+    private var monthlyExpense: Int64 { monthFlow.expense }
 }

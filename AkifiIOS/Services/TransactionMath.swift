@@ -50,6 +50,35 @@ enum TransactionMath {
         )
     }
 
+    /// Write-path FX conversion (M3): `amount` in `from` → main units of
+    /// `to`, rounded to what `to` can store (`MoneyRounding`).
+    ///
+    /// Unlike the read-path helpers (which fall back 1:1 so a cold start
+    /// still renders *something*), a write must never guess: a missing rate
+    /// used to store 100 USD on a KZT account as "100 ₸" with fx_rate = 1,
+    /// and that row stays wrong forever. Missing / zero rate → throws
+    /// `MissingFXRateError`; the form shows it and saves nothing.
+    ///
+    /// `rates` are USD-pivoted (`CurrencyManager.rates`: 1 USD = X).
+    static func convertForStorage(
+        _ amount: Decimal,
+        from: String,
+        to: String,
+        rates: [String: Double]
+    ) throws -> Decimal {
+        let src = from.uppercased()
+        let dst = to.uppercased()
+        if src == dst { return MoneyRounding.roundedForStorage(amount, currency: dst) }
+        guard let fromRate = rates[src], fromRate > 0, fromRate.isFinite,
+              let toRate = rates[dst], toRate > 0, toRate.isFinite else {
+            throw MissingFXRateError(from: src, to: dst)
+        }
+        let converted = amount
+            / MoneyRounding.decimal(fromJSONNumber: fromRate)
+            * MoneyRounding.decimal(fromJSONNumber: toRate)
+        return MoneyRounding.roundedForStorage(converted, currency: dst)
+    }
+
     /// Decimal variant for callers that work in `displayAmount` (main
     /// units, not kopecks).
     static func amountInBaseDisplay(
@@ -65,5 +94,17 @@ enum TransactionMath {
             baseCode: baseCode
         )
         return Decimal(kopecks) / 100
+    }
+}
+
+/// A cross-currency entry could not be converted because the FX table has
+/// no usable rate for one side. Saving is refused (M3) — see
+/// `TransactionMath.convertForStorage`.
+struct MissingFXRateError: LocalizedError, Equatable, Sendable {
+    let from: String
+    let to: String
+
+    var errorDescription: String? {
+        String(format: String(localized: "fx.error.missingRate"), from, to)
     }
 }

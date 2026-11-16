@@ -367,22 +367,21 @@ final class SettlementCalculatorTests: XCTestCase {
 
     // MARK: - FX-correct settlement
 
-    /// V records a 100-USD auto-transfer on a RUB shared account. With
-    /// USD rate 1.0 and RUB rate 75.0 (both USD-based), the source-leg
-    /// in USD should normalize to 75 RUB worth of contribution.
-    /// Target-currency leg on shared stays RUB.
-    func test_crossCurrency_usdContribution_normalizedToBase() {
-        // Build a manual cross-currency triplet. The RPC writes:
-        //   - expense row on shared (RUB, amount 7500_00 kopecks)
-        //   - transfer-out on V-bybit (USD, amount 100_00 kopecks)
-        //   - transfer-in on shared (RUB, amount 7500_00 kopecks)
-        // The calculator walks legs by `transfer_group_id` and attributes
-        // based on the peer account, so cross-currency correctness is
-        // about scaling the source-leg amount back to base (RUB).
+    /// V pays 100 USD from his ByBit card into a RUB shared account. The
+    /// RPC writes the main expense and the transfer-in leg on the shared
+    /// account in RUB (7 500 ₽) and the transfer-out leg on ByBit in USD.
+    /// Only rows ON the shared account are summed, and their `amountNative`
+    /// is already in its currency (ADR-001) — the USD leg identifies the
+    /// payer and is never added. M11: the local fallback used to "normalise"
+    /// by each row's legacy `currency` label; on old TMA rows that label
+    /// disagrees with the account (here: "VND" / "USD" on RUB rows), which
+    /// multiplied correct ruble figures by the rate. The server
+    /// (`get_account_settlement`) ignores labels — both must agree.
+    func test_crossCurrency_rowsOnSharedAccount_useAmountNativeIgnoringLabel() {
         let group = UUID().uuidString
         let mainExpense = Transaction(
             id: UUID().uuidString, userId: "V", accountId: sharedAccId,
-            amount: 7500_00, currency: "RUB", description: nil,
+            amount: 7500_00, currency: "VND", description: nil,  // legacy mislabel
             categoryId: nil, type: .expense, date: "2026-04-15",
             merchantName: nil, merchantFuzzy: nil,
             transferGroupId: nil, paymentSourceAccountId: "V-bybit",
@@ -400,7 +399,7 @@ final class SettlementCalculatorTests: XCTestCase {
         )
         let inLeg = Transaction(
             id: UUID().uuidString, userId: "V", accountId: sharedAccId,
-            amount: 7500_00, currency: "RUB", description: nil,
+            amount: 7500_00, currency: "USD", description: nil,  // legacy mislabel
             categoryId: nil, type: .income, date: "2026-04-15",
             merchantName: nil, merchantFuzzy: nil,
             transferGroupId: group, paymentSourceAccountId: nil,
@@ -409,33 +408,38 @@ final class SettlementCalculatorTests: XCTestCase {
         )
         let txs = [mainExpense, outLeg, inLeg]
 
+        // Rates and a base are passed (the production caller does) — they
+        // must have no effect.
         let balances = SettlementCalculator.compute(
             sharedAccountId: sharedAccId,
             transactions: txs,
             memberUserIds: ["V", "O"],
             personalAccountsByUser: ["V": ["V-bybit"], "O": ["O-cash"]],
             period: period,
-            fxRates: ["USD": 1.0, "RUB": 75.0],
+            fxRates: ["USD": 1.0, "RUB": 75.0, "VND": 25_000.0],
             baseCurrency: "RUB"
         )
 
         let v = balances.first { $0.userId == "V" }!
         let o = balances.first { $0.userId == "O" }!
-        // TotalExpenses = 7500_00 RUB kopecks. Fair = 3750_00.
+        // Total = 7 500 ₽ as stored — not "7 500 VND" or "7 500 USD" in rubles.
         XCTAssertEqual(v.fairShare, 3750_00)
         XCTAssertEqual(o.fairShare, 3750_00)
-        // V's contribution via auto-transfer legs sums to:
-        //   + 7500_00 RUB (transfer-in on shared, in base already)
-        //   - 7500_00 RUB (transfer-out on V-bybit, normalized from 100 USD
-        //                  → 100 * 75 = 7500_00 RUB kopecks).
-        // Net contribution: 0. But that's the leg-pair cancellation on
-        // shared-side views; the calculator only counts rows WHERE
-        // `accountId == sharedAccountId`. So V gets just +7500_00 from
-        // the in-leg, which is the effective contribution.
+        // V's contribution is the in-leg on the shared account, as stored.
         XCTAssertEqual(v.contributed, 7500_00)
         XCTAssertEqual(o.contributed, 0)
         XCTAssertEqual(v.delta, 3750_00)
         XCTAssertEqual(o.delta, -3750_00)
+
+        // Same answer with no FX context at all — rates are irrelevant.
+        let noFx = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["V", "O"],
+            personalAccountsByUser: ["V": ["V-bybit"], "O": ["O-cash"]],
+            period: period
+        )
+        XCTAssertEqual(noFx, balances)
     }
 
     /// Missing fxRates must not crash or yield wildly wrong numbers —

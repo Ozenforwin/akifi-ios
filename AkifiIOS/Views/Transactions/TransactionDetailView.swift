@@ -39,6 +39,12 @@ struct TransactionDetailView: View {
         transaction.autoTransferGroupId != nil && transaction.transferGroupId != nil
     }
 
+    /// An auto-transfer the other member paid from their own card — the
+    /// server lets only the payer edit or delete it (42501).
+    private var isLockedToPayer: Bool {
+        !dataStore.canModifyAutoTransfer(transaction)
+    }
+
     /// Main expense row for this auto-transfer group (looked up when the
     /// user hits Delete on a transfer-leg, to show the "linked to expense X" text).
     private var linkedExpense: Transaction? {
@@ -75,11 +81,13 @@ struct TransactionDetailView: View {
                     } label: {
                         Label(String(localized: "common.edit"), systemImage: "pencil")
                     }
-                    .disabled(isAutoTransferLeg)
+                    .disabled(isAutoTransferLeg || isLockedToPayer)
 
                     Button(role: .destructive) {
                         if isAutoTransferLeg {
                             showTransferLegDeleteWarning = true
+                        } else if isLockedToPayer {
+                            deleteError = String(localized: "tx.error.onlyPayerCanEdit")
                         } else {
                             showDeleteConfirm = true
                         }
@@ -252,10 +260,25 @@ struct TransactionDetailView: View {
                 row(label: String(localized: "transaction.description"), value: desc)
             }
             row(label: String(localized: "transaction.dateTime"), value: transaction.formattedDateTime)
-            if let currency = transaction.currency {
-                row(label: String(localized: "common.currency"), value: currency.uppercased())
+            if let currency = currencyDescription {
+                row(label: String(localized: "common.currency"), value: currency)
             }
         }
+    }
+
+    /// The currency the stored amount is in — the ACCOUNT's (ADR-001), plus
+    /// the user's original entry for a foreign-currency row. The legacy
+    /// `currency` label is only a last resort: on old rows it disagrees with
+    /// the account (a 5 000 ₽ row labelled "USD").
+    private var currencyDescription: String? {
+        guard let code = account?.currency.uppercased() ?? transaction.currency?.uppercased() else { return nil }
+        if let foreign = transaction.foreignAmount,
+           let foreignCode = transaction.foreignCurrency,
+           foreignCode.uppercased() != code,
+           let foreignCurrency = Currency(code: foreignCode.uppercased()) {
+            return "\(code) · \(TransactionFormView.formatRawAmount(foreign, currency: foreignCurrency))"
+        }
+        return code
     }
 
     private func row(label: String, value: String) -> some View {
