@@ -479,27 +479,30 @@ final class DepositsViewModel {
     // as MainActor-isolated (because the enclosing class is `@MainActor`)
     // and the closure context becomes invalid (Codemagic build failure,
     // 2026-04-19).
+    //
+    // Day strings (start_date, end_date, contributed_at, the transfer legs'
+    // `date`) are the user's LOCAL calendar day — the same convention as
+    // every other `yyyy-MM-dd` in the app (see AppDateFormatters). They were
+    // formatted in UTC: a top-up at 05:00 on 1 December in UTC+7 was written
+    // as 30 November and landed in November's reports and budgets (D3).
+    // `InterestCalculator.defaultCalendar` uses the same zone, so day counts
+    // and maturity checks agree with these strings.
     nonisolated static func formatDate(_ date: Date) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df.string(from: date)
+        AppDateFormatters.isoDate.string(from: date)
     }
 
+    /// `formatDate` as seen from another time zone (tests).
+    nonisolated static func formatDate(_ date: Date, in timeZone: TimeZone) -> String {
+        AppDateFormatters.localDate(in: timeZone).string(from: date)
+    }
+
+    /// Start of that local day.
     nonisolated static func parseDate(_ str: String) -> Date? {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df.date(from: str)
+        AppDateFormatters.isoDate.date(from: String(str.prefix(10)))
     }
 
+    /// An instant (`closed_at` is timestamptz) — UTC with offset.
     nonisolated static func formatDateTime(_ date: Date) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df.string(from: date)
+        AppDateFormatters.utcTimestamp.string(from: date)
     }
 }
