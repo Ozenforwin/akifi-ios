@@ -132,11 +132,19 @@ struct TransactionRowView: View {
         isTransfer ? String(localized: "transaction.transfer") : (category?.name ?? String(localized: "transaction.noCategory"))
     }
 
-    /// True if this transaction's account has transactions from multiple users
+    /// True if this transaction sits on a shared account: more than one
+    /// member in `account_members` (B7). Until membership is known (offline
+    /// before the first load) fall back to the old signal — another user
+    /// has rows on the account — from the memoized index; it used to be a
+    /// scan of every transaction for every row (P6).
     private var isOnSharedAccount: Bool {
-        guard dataStore.profilesMap.count > 1, let accId = transaction.accountId else { return false }
-        let myId = dataStore.profile?.id
-        return dataStore.transactions.lazy.contains { $0.accountId == accId && $0.userId != myId }
+        guard let accId = transaction.accountId else { return false }
+        let viewerId = dataStore.profile?.id
+        if let shared = dataStore.accountMembership.isShared(accId, viewerId: viewerId) {
+            return shared
+        }
+        guard dataStore.profilesMap.count > 1 else { return false }
+        return dataStore.derivedCache.transactionIndex(for: dataStore).accountsWithOtherAuthors.contains(accId)
     }
 
     private var resolvedAccount: Account? {
@@ -174,8 +182,9 @@ struct TransactionRowView: View {
         guard transaction.transferGroupId != nil || transaction.isTransfer else { return nil }
         let currentName = resolvedAccount?.name ?? "?"
 
-        if let groupId = transaction.transferGroupId,
-           let pair = dataStore.transactions.first(where: { $0.transferGroupId == groupId && $0.id != transaction.id }),
+        // Pair lookup through the memoized transfer-group index (it was a
+        // linear search of every transaction per row).
+        if let pair = dataStore.derivedCache.transactionIndex(for: dataStore).transferPartner(of: transaction),
            let pairAccountId = pair.accountId,
            let pairAccount = dataStore.accounts.first(where: { $0.id == pairAccountId }) {
             // Both sides available. Direction is driven by sign of
@@ -195,20 +204,17 @@ struct TransactionRowView: View {
         }
     }
 
-    /// Display rule (multi-currency aware):
+    /// Display rule (multi-currency aware): every row is shown in the user's
+    /// selected display currency.
     ///
-    /// All rows are shown in the user's selected display currency. We
-    /// figure out the row's native (amount, currency) pair first, then
-    /// convert into the display currency.
-    ///
-    /// Native pair priority:
-    ///   1. `foreignAmount` + `foreignCurrency` — what the user typed.
-    ///   2. `amountNative` in `transaction.currency` — the legacy label
-    ///      column reflects the currency the number was actually stored
-    ///      in for TMA-imported rows (where `account.currency` may have
-    ///      drifted).
-    ///   3. `amountNative` in `account.currency` — fallback for rows
-    ///      created post-ADR-001 with no label.
+    ///   1. `foreignAmount` + `foreignCurrency` — what the user typed —
+    ///      converted into the display currency.
+    ///   2. Otherwise `amountNative`, which ADR-001 guarantees is in the
+    ///      account's currency, normalized to base exactly like the detail
+    ///      screen (`dataStore.amountInBaseDisplay`) and converted for
+    ///      display. The legacy `currency` label is NOT used: on 17 prod
+    ///      rows it disagrees with the account, and the list showed
+    ///      «−$5 000» for a 5 000 ₽ expense the detail showed in roubles (M8).
     private var formattedAmount: String {
         let cm = appViewModel.currencyManager
         let sign: String
@@ -218,31 +224,24 @@ struct TransactionRowView: View {
         case .transfer: sign = ""
         }
 
-        let (nativeAmount, nativeCcy) = nativeEntry()
-        let displayCcy = cm.selectedCurrency
-        let valueInDisplay = convert(nativeAmount, from: nativeCcy, to: displayCcy)
-        return "\(sign)\(cm.formatInCurrency(valueInDisplay, currency: displayCcy))"
+        let value = Self.displayValue(of: transaction, dataStore: dataStore, currencyManager: cm)
+        return "\(sign)\(cm.formatInCurrency(value, currency: cm.selectedCurrency))"
     }
 
-    private func nativeEntry() -> (Decimal, CurrencyCode) {
-        let cm = appViewModel.currencyManager
-        if let fAmount = transaction.foreignAmount,
-           let fCcyRaw = transaction.foreignCurrency,
+    /// Absolute amount of `tx` in the display currency (see `formattedAmount`).
+    static func displayValue(of tx: Transaction, dataStore: DataStore, currencyManager cm: CurrencyManager) -> Decimal {
+        if let fAmount = tx.foreignAmount,
+           let fCcyRaw = tx.foreignCurrency,
            let fCode = Currency(code: fCcyRaw.uppercased()) {
-            return (abs(fAmount), fCode)
+            return convert(abs(fAmount), from: fCode, to: cm.selectedCurrency, rates: cm.rates)
         }
-        let amount = abs(transaction.amountNative.displayAmount)
-        let ccy = transaction.currency.flatMap { Currency(code: $0.uppercased()) }
-            ?? resolvedAccount?.currencyCode
-            ?? cm.dataCurrency
-        return (amount, ccy)
+        return cm.convert(abs(dataStore.amountInBaseDisplay(tx)))
     }
 
-    private func convert(_ amount: Decimal, from: CurrencyCode, to: CurrencyCode) -> Decimal {
+    private static func convert(_ amount: Decimal, from: CurrencyCode, to: CurrencyCode, rates: [String: Double]) -> Decimal {
         if from == to { return amount }
-        let cm = appViewModel.currencyManager
-        guard let fromRate = cm.rates[from.code], fromRate > 0,
-              let toRate   = cm.rates[to.code],   toRate > 0 else {
+        guard let fromRate = rates[from.code], fromRate > 0,
+              let toRate   = rates[to.code],   toRate > 0 else {
             return amount
         }
         return amount / Decimal(fromRate) * Decimal(toRate)
