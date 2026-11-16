@@ -74,7 +74,9 @@ enum SavingsRateCalculator {
         let cleaned = CashFlowEngine.filterOutSubscriptionLinked(
             transactions: transactions,
             subscriptions: subscriptions,
-            calendar: calendar
+            calendar: calendar,
+            accountsById: accountsById,
+            baseCode: baseCode
         )
 
         let buckets = CashFlowEngine.monthlyBuckets(
@@ -98,11 +100,12 @@ enum SavingsRateCalculator {
         let avgIncome = totalIncome / Int64(sample)
         let avgExpense = totalExpense / Int64(sample)
 
-        // Subscription cost — average monthly equivalent across active subs.
-        let monthlySubs: Int64 = subscriptions
-            .filter { $0.status == .active }
-            .map { CashFlowEngine.normalizeToMonthly(amount: $0.amount, period: $0.billingPeriod) }
-            .reduce(0, +)
+        // Subscription cost — monthly equivalent across active subs, in base
+        // currency like the buckets (M5: $20 + 399 ₽ used to be "419").
+        let monthlySubs = BudgetMath.activeSubscriptionsMonthlyTotalInBase(
+            subscriptions: subscriptions,
+            currencyContext: (accountsById, fxRates, baseCode)
+        )
 
         let net = avgIncome - avgExpense - monthlySubs
         let rate: Decimal? = avgIncome > 0
