@@ -54,6 +54,16 @@ final class SavingsGoalRepository: Sendable {
         }
     }
 
+    /// Rollback path of `SavingsViewModel.addContribution` when the linked
+    /// account transfer was rejected.
+    func deleteContribution(id: String) async throws {
+        try await supabase
+            .from("savings_contributions")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+
     func addContribution(_ input: CreateContributionInput) async throws -> SavingsContribution {
         try await supabase
             .from("savings_contributions")

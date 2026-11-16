@@ -34,8 +34,18 @@ final class SavingsViewModel {
 
     private let repo = SavingsGoalRepository()
 
+    /// Routes the linked transfer through the offline-aware write path
+    /// (queue on no network, banner on failure). Set by the owning view;
+    /// without it the transfer goes straight to the repository.
+    @ObservationIgnored var dataStore: DataStore?
+
+    /// "yyyy-MM-dd" in the device time zone, pinned to POSIX + Gregorian so
+    /// a Buddhist/Japanese calendar region can't write year 2569 (D1).
     private let isoDateFormatter: DateFormatter = {
         let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.calendar = Calendar(identifier: .gregorian)
+        df.timeZone = .current
         df.dateFormat = "yyyy-MM-dd"
         return df
     }()
@@ -105,7 +115,6 @@ final class SavingsViewModel {
             // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }
             let desc = "\(goal?.name ?? String(localized: "home.savings")): \(type == .withdrawal ? String(localized: "contribution.withdrawal") : String(localized: "contribution.deposit"))\(note != nil ? " — \(note!)" : "")"
-            let txRepo = TransactionRepository()
             // ADR-001: contribution flows into the goal's linked account, so
             // the tx currency is the account's own currency. No foreign_*
             // because the user entered the amount in that same currency.
@@ -122,7 +131,23 @@ final class SavingsViewModel {
                 category_id: nil,
                 merchant_name: nil
             )
-            _ = try? await txRepo.create(txInput)
+            do {
+                // Through DataStore when available: no network / no answer →
+                // queued like any offline entry, and the account balance
+                // moves locally right away.
+                if let dataStore {
+                    _ = try await dataStore.addTransaction(txInput)
+                } else {
+                    _ = try await TransactionRepository().create(txInput.withClientId())
+                }
+            } catch {
+                // The account side was rejected: undo the goal side so the
+                // goal doesn't show money the account never moved (Y10).
+                try? await repo.deleteContribution(id: contribution.id)
+                await load()
+                dataStore?.reportIssue(.mutation, message: error.localizedDescription)
+                throw error
+            }
 
             // Update local state
             var existing = contributions[goalId] ?? []
@@ -148,13 +173,41 @@ final class SavingsViewModel {
 
         // Check if on track based on contributions
         let contribs = contributions[goal.id] ?? []
-        let goalAge = max(1, Calendar.current.dateComponents([.day], from: isoDateFormatter.date(from: goal.createdAt ?? "") ?? Date(), to: Date()).day ?? 1)
+        let goalAge = Self.goalAgeDays(createdAt: goal.createdAt)
         let avgDaily = contribs.filter { $0.type == .contribution }.reduce(Int64(0)) { $0 + $1.amount } // allowlisted-amount: DepositContribution.amount is in the goal's own currency
         let avgDailyRate = Double(avgDaily) / Double(goalAge)
 
         if avgDailyRate >= dailyNeeded * 0.8 { return .onTrack }
         if avgDailyRate >= dailyNeeded * 0.4 { return .behind }
         return .critical
+    }
+
+    /// Whole days since the goal was created, at least 1 (D10). `created_at`
+    /// is a full timestamp (`2026-05-01T12:34:56.789+00:00`); parsing it
+    /// with "yyyy-MM-dd" returned nil, the age fell back to "now" → 1 day,
+    /// and every goal with any contribution looked on track.
+    static func goalAgeDays(createdAt: String?, now: Date = Date(), calendar: Calendar = .current) -> Int {
+        guard let createdAt, let created = parseTimestamp(createdAt) else { return 1 }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: created),
+            to: calendar.startOfDay(for: now)
+        ).day ?? 0
+        return max(1, days)
+    }
+
+    /// Postgres timestamptz text → Date: with or without fractional
+    /// seconds, or a bare "yyyy-MM-dd" (UTC midnight).
+    static func parseTimestamp(_ raw: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFraction.date(from: raw) { return date }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let date = plain.date(from: raw) { return date }
+        let dayOnly = ISO8601DateFormatter()
+        dayOnly.formatOptions = [.withFullDate]
+        return dayOnly.date(from: String(raw.prefix(10)))
     }
 
     func deleteGoal(_ goal: SavingsGoal) async {
