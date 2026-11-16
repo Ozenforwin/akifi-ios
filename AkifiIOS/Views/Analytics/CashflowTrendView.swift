@@ -11,20 +11,9 @@ struct CashflowTrendView: View {
 
     @State private var selectedLabel: String?
 
-    private static let monthKeyFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.timeZone = TimeZone(identifier: "UTC")
-        return df
-    }()
+    private static var monthKeyFormatter: DateFormatter { AppDateFormatters.utcMonth }
 
-    private static let monthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "LLL"
-        df.locale = Locale.current
-        return df
-    }()
+    private static var monthLabelFormatter: DateFormatter { AppDateFormatters.shortMonth }
 
     private static let axisNumberFormatter: NumberFormatter = {
         let nf = NumberFormatter()

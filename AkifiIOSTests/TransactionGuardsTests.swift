@@ -43,7 +43,7 @@ final class TransactionGuardsTests: XCTestCase {
 
     /// Fixed "now" so the lookback window math is deterministic.
     private let now: Date = {
-        let f = DateFormatter()
+        let f = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(identifier: "UTC")
         return f.date(from: "2026-04-20")!
@@ -54,7 +54,7 @@ final class TransactionGuardsTests: XCTestCase {
     /// stamp them on consecutive recent days so date filtering
     /// inclusively picks all of them up.
     private func makeExpenses(rubAmounts: [Decimal]) -> [Transaction] {
-        let f = DateFormatter()
+        let f = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(identifier: "UTC")
         return rubAmounts.enumerated().map { idx, rub in
@@ -175,7 +175,7 @@ final class TransactionGuardsTests: XCTestCase {
     /// 0 → guard skips (same effective behavior as empty history,
     /// just exercising the type filter).
     func test_zeroMedian_skipsAlert() {
-        let f = DateFormatter()
+        let f = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone(identifier: "UTC")
         let incomeTx = Transaction(

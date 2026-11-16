@@ -16,7 +16,7 @@ struct BudgetCardView: View {
     // MARK: - Formatters
 
     private static let forecastFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.calendar = Calendar(identifier: .gregorian)
         df.setLocalizedDateFormatFromTemplate("d MMM")

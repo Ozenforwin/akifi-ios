@@ -134,7 +134,7 @@ final class BudgetHistoryTests: XCTestCase {
 }
 
 private func date(_ s: String) -> Date {
-    let df = DateFormatter()
+    let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
     df.dateFormat = "yyyy-MM-dd"
     return df.date(from: s)!
 }

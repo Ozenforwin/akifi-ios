@@ -27,7 +27,7 @@ final class PerfDerivationTests: XCTestCase {
     private static let partner = "user-partner"
 
     private static let utcDay: DateFormatter = {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.locale = Locale(identifier: "en_US_POSIX")
         df.timeZone = TimeZone(identifier: "UTC")
         df.dateFormat = "yyyy-MM-dd"
@@ -35,7 +35,7 @@ final class PerfDerivationTests: XCTestCase {
     }()
 
     private static let utcStamp: DateFormatter = {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.locale = Locale(identifier: "en_US_POSIX")
         df.timeZone = TimeZone(identifier: "UTC")
         df.dateFormat = "yyyy-MM-dd'T'HH:mm:ssxxx"
@@ -141,7 +141,7 @@ final class PerfDerivationTests: XCTestCase {
         var rng = SeededRNG(state: 7)
         for tzId in ["Asia/Novosibirsk", "Europe/Moscow", "America/New_York", "UTC", "Pacific/Kiritimati"] {
             let tz = TimeZone(identifier: tzId)!
-            let parser = DateFormatter()
+            let parser = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
             parser.locale = Locale(identifier: "en_US_POSIX")
             parser.timeZone = tz
             parser.dateFormat = "yyyy-MM-dd"
@@ -396,7 +396,7 @@ final class PerfDerivationTests: XCTestCase {
             state.selectedPeriod = period
             for type in [CategoryType.expense, .income] {
                 let start = period.startDate()
-                let oldFilter = DateFormatter()
+                let oldFilter = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
                 oldFilter.dateFormat = "yyyy-MM-dd"
                 oldFilter.locale = Locale(identifier: "en_US_POSIX")
                 let filtered = txs.filter { t in oldFilter.date(from: t.date).map { $0 >= start } ?? false }
@@ -448,7 +448,9 @@ final class PerfDerivationTests: XCTestCase {
     func test_miniDashboardMonths_matchOldComputation() {
         let txs = randomTransactions(900, seed: 33, spanDays: 250)
         let (store, _) = makeStore(txs)
-        let cal = Calendar.current
+        // Gregorian, not Calendar.current: month keys are gregorian digits
+        // even on a Buddhist-calendar phone (D1).
+        let cal = AppDateFormatters.gregorian()
         let now = Date()
         let months: [String] = (0..<6).reversed().compactMap { offset in
             guard let d = cal.date(byAdding: .month, value: -offset, to: now) else { return nil }
@@ -472,7 +474,7 @@ final class PerfDerivationTests: XCTestCase {
         let (store, _) = makeStore(txs)
         let cal = Calendar.current
         let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
-        let parser = DateFormatter()
+        let parser = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         parser.dateFormat = "yyyy-MM-dd"
         for accountId in [nil, "acc-usd"] as [String?] {
             let month = txs.filter { t in

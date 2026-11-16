@@ -266,16 +266,10 @@ final class SettlementViewModel {
     /// happened* keeps each row in exactly one period view.
     var pastSettlementsForCurrentPeriod: [Settlement] {
         let interval = selectedPeriod.dateInterval()
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoNoFrac = ISO8601DateFormatter()
-        isoNoFrac.formatOptions = [.withInternetDateTime]
 
         return pastSettlements.filter { s in
             let raw = s.settledAt ?? s.createdAt
-            guard let raw else { return false }
-            let parsed = iso.date(from: raw) ?? isoNoFrac.date(from: raw)
-            guard let parsed else { return false }
+            guard let raw, let parsed = AppDateFormatters.parseTimestamp(raw) else { return false }
             return interval.contains(parsed)
         }
     }
@@ -302,13 +296,9 @@ final class SettlementViewModel {
     /// settlements. Factored out so it's unit-testable without standing up
     /// the view model (which pulls in Supabase).
     nonisolated static func watermark(from settlements: [Settlement]) -> Date? {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoNoFrac = ISO8601DateFormatter()
-        isoNoFrac.formatOptions = [.withInternetDateTime]
-        return settlements.compactMap { s -> Date? in
+        settlements.compactMap { s -> Date? in
             guard let raw = s.settledAt ?? s.createdAt else { return nil }
-            return iso.date(from: raw) ?? isoNoFrac.date(from: raw)
+            return AppDateFormatters.parseTimestamp(raw)
         }.max()
     }
 
@@ -323,10 +313,7 @@ final class SettlementViewModel {
     ) async {
         do {
             let user = try await SupabaseManager.shared.currentUserId()
-            let fmt = DateFormatter()
-            fmt.locale = Locale(identifier: "en_US_POSIX")
-            fmt.timeZone = TimeZone(identifier: "UTC")
-            fmt.dateFormat = "yyyy-MM-dd"
+            let fmt = AppDateFormatters.utcDate
             let interval = selectedPeriod.dateInterval()
 
             let input = CreateSettlementInput(

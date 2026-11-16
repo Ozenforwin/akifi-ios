@@ -553,25 +553,12 @@ enum BudgetMath {
         }
     }
 
-    // ISO8601DateFormatter is thread-safe; allocating two per call (once per
-    // budget per render) was measurable on the budgets tab (P5).
-    nonisolated(unsafe) private static let fractionalISO: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    nonisolated(unsafe) private static let plainISO: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
-
-    /// Supabase stores `created_at` as ISO-8601 with fractional seconds.
-    /// Accept both the fractional + plain variants.
+    /// Supabase stores `created_at` as ISO-8601 with or without fractional
+    /// seconds; `AppDateFormatters.parseTimestamp` reads both (and allocates
+    /// no formatter per call — that was measurable on the budgets tab, P5).
     static func parseCreatedAt(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        if let d = fractionalISO.date(from: raw) { return d }
-        return plainISO.date(from: raw)
+        return AppDateFormatters.parseTimestamp(raw)
     }
 
     // MARK: - Daily safe-to-spend across budgets

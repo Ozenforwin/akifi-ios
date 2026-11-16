@@ -205,23 +205,9 @@ struct TransactionIndex {
 /// with an instant (a settlement's `settled_at`) made an evening expense look
 /// older than a settlement recorded that morning (D11).
 enum TransactionInstant {
-    private static let wallClock: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return df
-    }()
+    private static var wallClock: DateFormatter { AppDateFormatters.utcDateTime }
 
-    private static let dayOnly: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private static var dayOnly: DateFormatter { AppDateFormatters.utcDate }
 
     /// Parses PostgREST timestamps — `2026-11-16T14:38:22+00:00`, with or
     /// without fractional seconds (any precision), `Z`, `±HH`, `±HHMM` or

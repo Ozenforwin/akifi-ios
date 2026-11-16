@@ -1302,12 +1302,7 @@ enum FormErrorMessage {
 enum TransactionFormDates {
 
     static func formatter(timeZone: TimeZone) -> DateFormatter {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = timeZone
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return df
+        AppDateFormatters.posix("yyyy-MM-dd'T'HH:mm:ss", timeZone: timeZone)
     }
 
     /// `date` as the wall-clock string the forms write.

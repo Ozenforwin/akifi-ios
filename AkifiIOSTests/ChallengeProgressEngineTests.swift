@@ -115,7 +115,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
         var ch = challenge(type: .categoryLimit, target: 500_00)
         ch.progressAmount = 200_00
         let futureNow = Calendar.current.date(byAdding: .day, value: 10, to: {
-            let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current); df.dateFormat = "yyyy-MM-dd"
             return df.date(from: "2026-04-30")!
         }())!
         XCTAssertEqual(ChallengeProgressEngine.nextStatus(for: ch, now: futureNow), .completed)
@@ -125,7 +125,7 @@ final class ChallengeProgressEngineTests: XCTestCase {
         var ch = challenge(type: .categoryLimit, target: 500_00)
         ch.progressAmount = 900_00
         let futureNow = Calendar.current.date(byAdding: .day, value: 10, to: {
-            let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current); df.dateFormat = "yyyy-MM-dd"
             return df.date(from: "2026-04-30")!
         }())!
         XCTAssertEqual(ChallengeProgressEngine.nextStatus(for: ch, now: futureNow), .abandoned)

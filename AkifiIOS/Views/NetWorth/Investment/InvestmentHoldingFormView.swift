@@ -301,11 +301,7 @@ struct InvestmentHoldingFormView: View {
     /// about the day portion for `lastPriceDate`, so a tolerant parse
     /// is fine — fall back to today on any miss.
     private func parseISODate(_ iso: String) -> Date? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: iso) { return d }
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: iso)
+        AppDateFormatters.parseTimestamp(iso)
     }
 
     @ViewBuilder

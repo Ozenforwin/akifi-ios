@@ -447,10 +447,7 @@ struct BankImportView: View {
         }
         guard !autoTransferLegs.isEmpty else { return [] }
 
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
+        let parser = AppDateFormatters.utcDate
 
         var matched: Set<Int> = []
         let oneDay: TimeInterval = 86_400

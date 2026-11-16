@@ -72,11 +72,5 @@ final class NetWorthSnapshotRepository: Sendable {
     /// UTC-stable "yyyy-MM-dd" formatter. Shared so the upsert key format
     /// matches whatever the calculator used when deciding "have I captured
     /// today yet?".
-    static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
+    static var dateFormatter: DateFormatter { AppDateFormatters.utcDate }
 }

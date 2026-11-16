@@ -116,7 +116,7 @@ final class BudgetsViewModel {
     // MARK: - Window label (D4)
 
     private static func formatter(_ template: String) -> DateFormatter {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.calendar = Calendar(identifier: .gregorian)
         df.setLocalizedDateFormatFromTemplate(template)

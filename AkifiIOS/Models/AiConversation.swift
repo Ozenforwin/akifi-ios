@@ -79,9 +79,6 @@ extension ISO8601DateFormatter {
     /// `ISO8601DateFormatter` is thread-safe per Apple docs, so the
     /// `nonisolated(unsafe)` annotation is correct under Swift 6 strict
     /// concurrency.
-    nonisolated(unsafe) static let shared: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
+    nonisolated(unsafe) static let shared: ISO8601DateFormatter =
+        AppDateFormatters.iso8601([.withInternetDateTime, .withFractionalSeconds])
 }

@@ -68,11 +68,8 @@ struct FIREProjectionView: View {
     private var heroComputed: some View {
         let years = fireVM.projection.yearsToFIRE
         let yearsLabel = years.map { formatYears($0) } ?? String(localized: "fire.unreachable")
-        let dateLabel: String? = fireVM.projection.fireDate.map { date in
-            let f = DateFormatter()
-            f.dateStyle = .medium
-            f.locale = Locale.current
-            return f.string(from: date)
+        let dateLabel: String? = fireVM.projection.fireDate.map {
+            AppDateFormatters.displayDate.string(from: $0)
         }
 
         VStack(alignment: .leading, spacing: 10) {

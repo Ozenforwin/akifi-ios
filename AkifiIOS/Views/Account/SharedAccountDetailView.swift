@@ -38,13 +38,7 @@ struct SharedAccountDetailView: View {
     @State private var listMemo = Memo<ListKey, [Transaction]>()
 
     /// Shared `yyyy-MM-dd` parser for `Transaction.date`.
-    private static let txDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "UTC")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
+    private static var txDateFormatter: DateFormatter { AppDateFormatters.utcDate }
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }

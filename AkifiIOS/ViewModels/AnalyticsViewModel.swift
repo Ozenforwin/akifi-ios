@@ -91,8 +91,9 @@ final class AnalyticsViewModel {
     }
 
     /// "dd.MM" bucket label for week/month period modes.
+    /// Axis label only — buckets are keyed by date, never by this string.
     private static let dayLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.dateFormat = "dd.MM"
         return df
@@ -100,7 +101,7 @@ final class AnalyticsViewModel {
 
     /// "MM.yy" bucket label for quarter/year period modes.
     private static let monthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.dateFormat = "MM.yy"
         return df

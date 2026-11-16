@@ -244,7 +244,7 @@ final class DataStore {
             let restored = OfflineOverlay.apply(
                 offlineQueue.pendingOperations,
                 to: snapshot.transactions ?? [],
-                nowISO: ISO8601DateFormatter().string(from: Date())
+                nowISO: AppDateFormatters.nowTimestamp()
             )
             if !restored.isEmpty { transactions = restored; changed = true }
         }
@@ -300,7 +300,7 @@ final class DataStore {
         // collections are neither reassigned nor rewritten to disk.
         let pendingOps = offlineQueue.pendingOperations
         let current = content
-        let nowISO = ISO8601DateFormatter().string(from: Date())
+        let nowISO = AppDateFormatters.nowTimestamp()
         var changes = await Task.detached(priority: .userInitiated) {
             DataStoreChangeSet.compute(fetched: fetched, overlay: pendingOps, current: current, nowISO: nowISO)
         }.value
@@ -431,7 +431,7 @@ final class DataStore {
             guard epoch == sessionEpoch, localSessionPresent() else { return }
             let pendingOps = offlineQueue.pendingOperations
             let current = transactions
-            let nowISO = ISO8601DateFormatter().string(from: Date())
+            let nowISO = AppDateFormatters.nowTimestamp()
             let changed = await Task.detached(priority: .userInitiated) { () -> DataStoreChangeSet.Changed<[Transaction]>? in
                 let final = OfflineOverlay.apply(pendingOps, to: fetched, nowISO: nowISO)
                 guard let bytes = ContentComparison.changedEncoding(final, comparedTo: current) else { return nil }
@@ -460,7 +460,7 @@ final class DataStore {
         transactions = OfflineOverlay.apply(
             offlineQueue.pendingOperations,
             to: transactions,
-            nowISO: ISO8601DateFormatter().string(from: Date())
+            nowISO: AppDateFormatters.nowTimestamp()
         )
     }
 
@@ -591,7 +591,7 @@ final class DataStore {
     private func enqueueCreateLocally(_ input: CreateTransactionInput, mayExistOnServer: Bool = false) -> Transaction {
         offlineQueue.enqueue(PendingOperation(operation: .create(input), mayExistOnServer: mayExistOnServer))
         noteLocalMutation()
-        let nowISO = ISO8601DateFormatter().string(from: Date())
+        let nowISO = AppDateFormatters.nowTimestamp()
         let rows = input.routesToAutoTransferRPC
             ? Transaction.placeholderTriplet(for: input, nowISO: nowISO)
             : [Transaction.placeholder(for: input, nowISO: nowISO)]
@@ -1575,13 +1575,9 @@ extension DataStore {
         }
 
         // Build the month-key window ending at "now" (UTC, yyyy-MM).
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let calendar = AppDateFormatters.gregorian(timeZone: AppDateFormatters.utcTimeZone)
         let now = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let formatter = AppDateFormatters.utcMonth
 
         var keys: [String] = []
         keys.reserveCapacity(months)
