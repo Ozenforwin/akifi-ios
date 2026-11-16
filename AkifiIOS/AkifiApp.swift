@@ -29,10 +29,23 @@ struct AkifiApp: App {
                 .onAppear { installTapToDismissKeyboard() }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
+            switch newPhase {
+            case .active:
                 // App returned to foreground — refresh auth token proactively
-                // so subsequent requests don't hit 401 with a stale access token.
-                Task { await appViewModel.authManager.refreshSessionIfNeeded() }
+                // so subsequent requests don't hit 401 with a stale access
+                // token; then drain writes queued while the session was stale
+                // (the queue never replays without a valid session).
+                Task {
+                    await appViewModel.authManager.refreshSessionIfNeeded()
+                    guard appViewModel.authManager.isAuthenticated else { return }
+                    await appViewModel.dataStore.syncPendingOperations()
+                }
+            case .background:
+                // Debounced widget snapshot and background cache writes must
+                // land before the process may be suspended.
+                appViewModel.dataStore.flushPendingWrites()
+            default:
+                break
             }
         }
     }

@@ -254,10 +254,18 @@ struct SettingsView: View {
                                 )
                             )
                             Spacer()
+                            Button(String(localized: "offline.syncFailed.retry")) {
+                                let dataStore = appViewModel.dataStore
+                                dataStore.offlineQueue.retryDeadLetters()
+                                Task { await dataStore.syncPendingOperations() }
+                            }
+                            .font(.subheadline)
+                            .buttonStyle(.borderless)
                             Button(String(localized: "offline.syncFailed.discard"), role: .destructive) {
                                 appViewModel.dataStore.offlineQueue.discardDeadLetters()
                             }
                             .font(.subheadline)
+                            .buttonStyle(.borderless)
                         }
                     }
                 }
@@ -269,9 +277,7 @@ struct SettingsView: View {
                         if appViewModel.dataStore.offlineQueue.hasPending {
                             showSignOutPendingWarning = true
                         } else {
-                            Task {
-                                try? await appViewModel.authManager.signOut()
-                            }
+                            Task { await appViewModel.signOut() }
                         }
                     } label: {
                         Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
@@ -291,9 +297,7 @@ struct SettingsView: View {
             .alert(String(localized: "signout.pendingWarning.title"), isPresented: $showSignOutPendingWarning) {
                 Button(String(localized: "common.cancel"), role: .cancel) {}
                 Button(String(localized: "auth.signOut"), role: .destructive) {
-                    Task {
-                        try? await appViewModel.authManager.signOut()
-                    }
+                    Task { await appViewModel.signOut() }
                 }
             } message: {
                 Text(String(
@@ -314,7 +318,7 @@ struct SettingsView: View {
                 Button(String(localized: "settings.deleteAccount.finalConfirm"), role: .destructive) {
                     Task {
                         do {
-                            try await appViewModel.authManager.deleteAccount()
+                            try await appViewModel.deleteAccount()
                         } catch {
                             deleteError = error.localizedDescription
                         }

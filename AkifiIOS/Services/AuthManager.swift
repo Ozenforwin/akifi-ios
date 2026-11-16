@@ -10,6 +10,25 @@ final class AuthManager {
 
     private let supabase = SupabaseManager.shared.client
 
+    /// Called after the session ended without the user asking (refresh
+    /// token revoked / expired) — `AppViewModel` wipes the previous user's
+    /// local state. An explicit sign-out goes through `AppViewModel.signOut()`.
+    @ObservationIgnored var onSessionEnded: (@MainActor () -> Void)?
+
+    /// Network half of sign-out (revoke the refresh token). Seam for tests.
+    @ObservationIgnored var revokeRemoteSession: @MainActor () async throws -> Void = {
+        let client = SupabaseManager.shared.client
+        try await withTimeout(seconds: 6) { try await client.auth.signOut() }
+    }
+    /// Local half: make sure no session survives in the keychain. Seam for tests.
+    @ObservationIgnored var removeLocalSession: @MainActor () async -> Void = {
+        let client = SupabaseManager.shared.client
+        guard client.auth.currentSession != nil else { return }
+        // `signOut(scope: .local)` drops the stored session before it even
+        // tries the network, so the bounded wait is only for the request.
+        _ = try? await withTimeout(seconds: 3) { try await client.auth.signOut(scope: .local) }
+    }
+
     // MARK: - Password Reset
 
     func resetPassword(email: String) async throws {
@@ -110,9 +129,10 @@ final class AuthManager {
             // screen while their session is actually still valid.
             if Self.isDefinitivelyExpired(error) {
                 AppLogger.auth.warning("Refresh token invalid — signing out")
+                await removeLocalSession()
                 isAuthenticated = false
                 currentUser = nil
-                try? await supabase.auth.signOut()
+                onSessionEnded?()
             }
         }
     }
@@ -177,28 +197,37 @@ final class AuthManager {
         AnalyticsService.logSignIn(method: "migration")
     }
 
-    func signOut() async throws {
-        try await supabase.auth.signOut()
-        PersistenceManager.shared.clearAll()
+    /// Ends the session on this device. Never fails: the network revoke is
+    /// best effort (offline it can only fail), the local session is always
+    /// removed. Throwing here used to leave the UI "signed in" with no
+    /// session behind it — the SDK had already dropped the keychain session
+    /// before the request failed. Local data is wiped by the caller
+    /// (`AppViewModel.signOut()` → `resetForSignOut()`).
+    func signOut() async {
+        do {
+            try await revokeRemoteSession()
+        } catch {
+            AppLogger.auth.warning("Remote sign-out failed, signing out locally: \(error.localizedDescription)")
+        }
+        await removeLocalSession()
         currentUser = nil
         isAuthenticated = false
     }
 
+    /// Deletes the account server-side and clears device preferences. The
+    /// caller (`AppViewModel.deleteAccount()`) then signs out and wipes
+    /// local data; on failure nothing local changes and the error surfaces.
     func deleteAccount() async throws {
         // Call edge function to delete all user data and auth record
         try await supabase.functions.invoke(
             "delete-account",
             options: .init(body: ["confirm": true])
         )
-        // Clear local state
-        PersistenceManager.shared.clearAll()
         UserDefaults.standard.removeObject(forKey: "onboarding_completed")
         UserDefaults.standard.removeObject(forKey: "selected_currency")
         UserDefaults.standard.removeObject(forKey: "data_currency")
         UserDefaults.standard.removeObject(forKey: "appLanguage")
         UserDefaults.standard.removeObject(forKey: "categoryLayout")
         UserDefaults.standard.removeObject(forKey: "hapticEnabled")
-        currentUser = nil
-        isAuthenticated = false
     }
 }
