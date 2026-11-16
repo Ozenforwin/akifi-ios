@@ -3,133 +3,25 @@ import Charts
 
 struct CategoryBreakdownView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    let allTransactions: [Transaction]
-    let categories: [Category]
 
-    /// Period filter is owned by the enclosing tab so all widgets reading
-    /// from `AnalyticsTabState.selectedPeriod` (cashflow chart, category
-    /// donut, etc.) move in lockstep — no duplicate `WidgetFilterView`
-    /// rows on screen.
-    @Binding var selectedPeriod: WidgetPeriod
+    /// Owns the period filter (shared with the cashflow chart, so every
+    /// widget moves in lockstep) and memoizes the breakdown per
+    /// (data revision, account, period, type, categories). The body reads
+    /// it exactly once; donut, list, chart-tap lookups and the drill-down
+    /// sheet all work off that one value.
+    let state: AnalyticsTabState
+
     @State private var selectedType: CategoryType = .expense
     @State private var selectedCategory: CategorySpending?
     @State private var isExpanded = false
     @State private var sheetCategory: CategorySpending?
+    @State private var chartSelection: Decimal?
 
     private let collapsedCount = 5
 
-    private static let isoDF: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
-    // MARK: - Memoization
-    //
-    // `data` is consumed by both the donut chart and the list, and
-    // `findCategory(for:)` reads it on every chart-tap. Re-bucketing the
-    // entire transaction set on each access was the dominant cost when
-    // the user scrubbed the chart. The cache key fingerprints
-    // (`txCount`, `selectedType`, `selectedPeriod`) — that's enough to
-    // catch every input that shapes the result while keeping the key
-    // cheap to compare. Account / FX changes flow in via `allTransactions`
-    // (which is itself derived from `AnalyticsTabState.scopedTransactions`,
-    // already keyed on `txGenerationToken`).
-
-    private struct CacheKey: Equatable {
-        let txCount: Int
-        let selectedType: CategoryType
-        let selectedPeriod: WidgetPeriod
-    }
-
-    @State private var cachedKey: CacheKey?
-    @State private var cachedData: [CategorySpending] = []
-    @State private var cachedFiltered: [Transaction] = []
-
-    private var currentKey: CacheKey {
-        CacheKey(
-            txCount: allTransactions.count,
-            selectedType: selectedType,
-            selectedPeriod: selectedPeriod
-        )
-    }
-
-    /// Single-pass aggregation. The previous implementation walked
-    /// `filteredTxs` twice (once for `total`, once for `byCategory`) and
-    /// called `amountInBaseDisplay` on every tx in each pass. Folding both
-    /// accumulators into one loop halves the FX-conversion work and
-    /// matches what `AnalyticsViewModel.categoryBreakdown(...)` does for
-    /// the AI surface.
-    private func computeData() -> (filtered: [Transaction], spending: [CategorySpending]) {
-        let startDate = selectedPeriod.startDate()
-        let df = Self.isoDF
-        let filtered = allTransactions.filter { tx in
-            guard let date = df.date(from: tx.date) else { return false }
-            return date >= startDate
-        }
-
-        let typed = filtered.filter { tx in
-            !tx.isTransfer && (
-                (selectedType == .expense && tx.type == .expense) ||
-                (selectedType == .income && tx.type == .income)
-            )
-        }
-
-        var total: Decimal = 0
-        var byCategory: [String: Decimal] = [:]
-        for tx in typed {
-            // ADR-001: sum via amountInBaseDisplay so per-category totals
-            // and the grand total are FX-normalized in lockstep.
-            let amount = appViewModel.dataStore.amountInBaseDisplay(tx)
-            total += amount
-            let catId = tx.categoryId ?? "uncategorized"
-            byCategory[catId, default: 0] += amount
-        }
-
-        guard total > 0 else { return (filtered, []) }
-
-        let spending: [CategorySpending] = byCategory.compactMap { catId, amount in
-            let cat = categories.first { $0.id == catId }
-            return CategorySpending(
-                id: catId,
-                name: cat?.name ?? String(localized: "common.other"),
-                icon: cat?.icon ?? "💰",
-                color: cat?.color ?? "#94A3B8",
-                amount: amount,
-                percentage: Double(truncating: (amount / total * 100) as NSDecimalNumber)
-            )
-        }
-        .sorted { $0.amount > $1.amount }
-
-        return (filtered, spending)
-    }
-
-    /// Memoized accessor — falls back to a synchronous compute on cache
-    /// miss so the donut never renders stale data for a frame, then the
-    /// `task(id:)` modifier promotes the result into `@State` for all
-    /// subsequent reads (including `findCategory(for:)` taps).
-    private var data: [CategorySpending] {
-        if cachedKey == currentKey {
-            return cachedData
-        }
-        return computeData().spending
-    }
-
-    private var filteredTransactions: [Transaction] {
-        if cachedKey == currentKey {
-            return cachedFiltered
-        }
-        return computeData().filtered
-    }
-
-    private var visibleData: [CategorySpending] {
-        if isExpanded || data.count <= collapsedCount + 1 {
-            return data
-        }
-        return Array(data.prefix(collapsedCount))
-    }
-
     var body: some View {
+        let breakdown = state.categoryBreakdown(type: selectedType)
+        let data = breakdown.spending
         VStack(alignment: .leading, spacing: 12) {
             // Header: title + expense/income toggle
             HStack {
@@ -145,8 +37,7 @@ struct CategoryBreakdownView: View {
             }
 
             // Period filter is rendered once in `AnalyticsTabView` and
-            // shared with the cashflow chart via `tabState.selectedPeriod`.
-            // (Removed local `WidgetFilterView` to avoid the duplicate row.)
+            // shared with the cashflow chart via `state.selectedPeriod`.
 
             if data.isEmpty {
                 ContentUnavailableView(
@@ -156,10 +47,10 @@ struct CategoryBreakdownView: View {
                 .frame(height: 200)
             } else {
                 // Interactive donut chart
-                donutChart
+                donutChart(data, total: breakdown.total)
 
                 // Category list
-                categoryListSection
+                categoryListSection(data)
             }
         }
         .padding()
@@ -173,31 +64,27 @@ struct CategoryBreakdownView: View {
         .sheet(item: $sheetCategory) { category in
             CategoryTransactionsSheet(
                 category: category,
-                transactions: filteredTransactions.filter {
+                transactions: breakdown.filtered.filter {
                     !$0.isTransfer && $0.categoryId == category.id
                 }
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        // Promote the freshly-computed data into `@State` once per key
-        // transition. Subsequent reads of `data` / `filteredTransactions`
-        // (donut redraws, list refreshes, chart-tap `findCategory`) hit
-        // the cache instead of re-bucketing.
-        .task(id: currentKey) {
-            let key = currentKey
-            if cachedKey != key {
-                let result = computeData()
-                cachedFiltered = result.filtered
-                cachedData = result.spending
-                cachedKey = key
+        .onChange(of: chartSelection) { _, newValue in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if let val = newValue {
+                    selectedCategory = Self.findCategory(for: val, in: data)
+                } else {
+                    selectedCategory = nil
+                }
             }
         }
     }
 
     // MARK: - Donut Chart with tap selection
 
-    private var donutChart: some View {
+    private func donutChart(_ data: [CategorySpending], total: Decimal) -> some View {
         Chart(data) { item in
             SectorMark(
                 angle: .value("Amount", item.amount),
@@ -223,7 +110,6 @@ struct CategoryBreakdownView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    let total = data.reduce(Decimal(0)) { $0 + $1.amount } // allowlisted-amount: CategorySpending.amount is already FX-normalized via amountInBaseDisplay in `data`
                     Text(appViewModel.currencyManager.formatAmount(total))
                         .font(.system(size: 14, weight: .bold))
                     Text(selectedType == .expense
@@ -234,20 +120,9 @@ struct CategoryBreakdownView: View {
                 }
             }
         }
-        .onChange(of: chartSelection) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                if let val = newValue {
-                    selectedCategory = findCategory(for: val)
-                } else {
-                    selectedCategory = nil
-                }
-            }
-        }
     }
 
-    @State private var chartSelection: Decimal?
-
-    private func findCategory(for value: Decimal) -> CategorySpending? {
+    static func findCategory(for value: Decimal, in data: [CategorySpending]) -> CategorySpending? {
         var cumulative: Decimal = 0
         for item in data {
             cumulative += item.amount
@@ -258,8 +133,11 @@ struct CategoryBreakdownView: View {
 
     // MARK: - Category List
 
-    private var categoryListSection: some View {
-        VStack(spacing: 0) {
+    private func categoryListSection(_ data: [CategorySpending]) -> some View {
+        let visibleData = isExpanded || data.count <= collapsedCount + 1
+            ? data
+            : Array(data.prefix(collapsedCount))
+        return VStack(spacing: 0) {
             ForEach(visibleData) { item in
                 let isSelected = selectedCategory?.id == item.id
 

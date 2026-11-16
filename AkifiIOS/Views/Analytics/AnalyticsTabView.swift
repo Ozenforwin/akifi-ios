@@ -2,53 +2,22 @@ import SwiftUI
 
 struct AnalyticsTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @State private var viewModel = AnalyticsViewModel()
     @State private var showAddTransaction = false
 
-    // Lazily initialized in `.task` because `appViewModel` (and thus
-    // `dataStore`) isn't available in `init`. `tabState` owns the
-    // period/account filters plus memoized projections.
-    @State private var tabState: AnalyticsTabState?
+    /// Period / account filters plus every panel's memoized derivation.
+    /// Bound to the store at the top of `body`, so it is usable from the
+    /// first frame (see `AnalyticsTabState`).
+    @State private var tabState = AnalyticsTabState()
 
     private var dataStore: DataStore { appViewModel.dataStore }
-    private var isNewUser: Bool { dataStore.transactions.isEmpty }
-
-    /// Demo-mode is handled here at the view boundary (per spec). When the
-    /// user has no real transactions we feed `DemoData.transactions` into
-    /// the same widgets; the live `tabState` is only consulted for real data.
-    private var allTransactions: [Transaction] {
-        tabState?.scopedTransactions ?? dataStore.transactions
-    }
-
-    private var periodTransactions: [Transaction] {
-        tabState?.periodTransactions ?? []
-    }
-
-    private func demoFilteredByPeriod(_ period: WidgetPeriod) -> [Transaction] {
-        let startDate = period.startDate()
-        let df = AppDateFormatters.isoDate
-        return DemoData.transactions.filter { tx in
-            guard let date = df.date(from: tx.date) else { return false }
-            return date >= startDate
-        }
-    }
-
-    /// Binding into `tabState.selectedPeriod` with a safe fallback while the
-    /// state is still being constructed (one frame at most).
-    private var periodBinding: Binding<WidgetPeriod> {
-        Binding(
-            get: { tabState?.selectedPeriod ?? .month },
-            set: { tabState?.selectedPeriod = $0 }
-        )
-    }
-
-    private var selectedAccountId: String? { tabState?.selectedAccountId }
 
     var body: some View {
+        let state = tabState.bind(dataStore)
+        let isNewUser = state.isDemo
         NavigationStack {
             VStack(spacing: 0) {
                 // Sticky account filter
-                accountFilterHeader
+                accountFilterHeader(state)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                     .background(.bar)
@@ -59,14 +28,10 @@ struct AnalyticsTabView: View {
                     // bounded height so laziness doesn't cause layout jumps.
                     LazyVStack(spacing: 12) {
                         // Pre-aggregated 6-month series, scoped to the
-                        // currently-selected account. For demo mode we
-                        // can't get this from `DataStore` (those rows are
-                        // synthetic and live outside Supabase), so fall
-                        // back to the empty-array contract — both consumer
-                        // widgets handle a fewer-than-six list gracefully.
-                        let aggregates = isNewUser
-                            ? []
-                            : dataStore.recentMonthlyAggregates(months: 6, accountId: selectedAccountId)
+                        // currently-selected account. Demo mode gets the
+                        // empty-array contract — both consumer widgets handle
+                        // a fewer-than-six list gracefully.
+                        let aggregates = state.monthlyAggregates(months: 6)
 
                         // 1. Monthly Summary with % change
                         if isNewUser {
@@ -104,59 +69,39 @@ struct AnalyticsTabView: View {
                             CashflowTrendView(aggregates: aggregates)
                         }
 
-                        // 5. Period filter (single source of truth — bound
-                        //    to `tabState.selectedPeriod` so the cashflow
-                        //    chart and the category breakdown move in sync).
-                        WidgetFilterView(selectedPeriod: periodBinding)
+                        // 5. Period filter (single source of truth — the
+                        //    cashflow chart and the category breakdown both
+                        //    read `state.selectedPeriod`).
+                        WidgetFilterView(selectedPeriod: Bindable(state).selectedPeriod)
 
-                        // 6. Cashflow Chart — sub-month buckets, so it
-                        //    can't read from `monthlyAggregates`. Memoizes
-                        //    `cashflowData(...)` internally.
+                        // 6. Cashflow Chart — buckets follow the selected
+                        //    period; memoized in `state`.
                         if isNewUser {
-                            CashflowChartView(
-                                transactions: demoFilteredByPeriod(periodBinding.wrappedValue),
-                                period: periodBinding.wrappedValue,
-                                dataStore: dataStore,
-                                viewModel: viewModel
-                            )
-                            .demoBlur(
-                                hint: String(localized: "analytics.cashflowHint"),
-                                buttonTitle: String(localized: "welcome.addTransaction")
-                            ) { showAddTransaction = true }
+                            CashflowChartView(state: state)
+                                .demoBlur(
+                                    hint: String(localized: "analytics.cashflowHint"),
+                                    buttonTitle: String(localized: "welcome.addTransaction")
+                                ) { showAddTransaction = true }
                         } else {
-                            CashflowChartView(
-                                transactions: periodTransactions,
-                                period: periodBinding.wrappedValue,
-                                dataStore: dataStore,
-                                viewModel: viewModel
-                            )
+                            CashflowChartView(state: state)
                         }
 
-                        // 7. Category Breakdown — shares `selectedPeriod`
-                        //    with the cashflow chart above (no duplicate
-                        //    `WidgetFilterView` row inside the widget).
+                        // 7. Category Breakdown — shares the period with the
+                        //    cashflow chart above (no duplicate filter row).
                         if isNewUser {
-                            CategoryBreakdownView(
-                                allTransactions: DemoData.transactions,
-                                categories: DemoData.categories,
-                                selectedPeriod: periodBinding
-                            )
-                            .demoBlur(
-                                hint: String(localized: "analytics.categoryHint"),
-                                buttonTitle: String(localized: "welcome.addTransaction")
-                            ) { showAddTransaction = true }
+                            CategoryBreakdownView(state: state)
+                                .demoBlur(
+                                    hint: String(localized: "analytics.categoryHint"),
+                                    buttonTitle: String(localized: "welcome.addTransaction")
+                                ) { showAddTransaction = true }
                         } else {
-                            CategoryBreakdownView(
-                                allTransactions: allTransactions,
-                                categories: dataStore.categories,
-                                selectedPeriod: periodBinding
-                            )
+                            CategoryBreakdownView(state: state)
                         }
 
                         // 8. Cash Flow Forecast — parked at the bottom until
                         //    the visual polish + content density is improved.
                         if !isNewUser {
-                            CashFlowForecastView()
+                            CashFlowForecastView(state: state)
                         }
                     }
                     .padding(.horizontal)
@@ -176,21 +121,15 @@ struct AnalyticsTabView: View {
                     await dataStore.loadAll()
                 }
             }
-            .task {
-                // Lazy one-shot init — `appViewModel.dataStore` isn't available
-                // in `init()` (Environment isn't readable there).
-                if tabState == nil {
-                    tabState = AnalyticsTabState(dataStore: dataStore)
-                }
-            }
         }
     }
 
-    private var accountFilterHeader: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+    private func accountFilterHeader(_ state: AnalyticsTabState) -> some View {
+        let selectedAccountId = state.selectedAccountId
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
-                    tabState?.selectedAccountId = nil
+                    state.selectedAccountId = nil
                 } label: {
                     Text(String(localized: "common.all"))
                         .font(.system(size: 13, weight: .medium))
@@ -208,7 +147,7 @@ struct AnalyticsTabView: View {
 
                 ForEach(dataStore.accounts) { account in
                     Button {
-                        tabState?.selectedAccountId = account.id
+                        state.selectedAccountId = account.id
                     } label: {
                         HStack(spacing: 4) {
                             Text(account.icon)

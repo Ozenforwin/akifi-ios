@@ -7,27 +7,11 @@ struct CashFlowForecastView: View {
     @State private var selectedDate: Date?
     @State private var showHowItWorks: Bool = false
 
-    /// Memoization for `forecast`. The engine is O(N) over transactions and
-    /// is invoked from many computed properties used by `body` (chart marks,
-    /// summary grid, confidence chip, run-out alert). Without memoization,
-    /// every chart-hover (which only flips `selectedDate`) re-triggers a
-    /// full forecast pass — visibly janky on accounts with 1000+ tx.
-    ///
-    /// The cache is keyed on the stable inputs that actually feed
-    /// `CashFlowEngine.forecast`. Identity-based keys (object pointers) are
-    /// avoided — `DataStore` re-publishes value-type arrays on every sync,
-    /// so identity flips even when the data is unchanged.
-    @State private var cachedForecast: (key: ForecastCacheKey, value: CashFlowEngine.Forecast)?
-
-    private struct ForecastCacheKey: Equatable, Hashable {
-        let transactionsCount: Int
-        let subscriptionsCount: Int
-        let accountsCount: Int
-        let horizonMonths: Int
-        let startingBalance: Int64
-        let baseCode: String
-        let fxRatesFingerprint: Int
-    }
+    /// The engine is O(N) over transactions; `state.forecast(horizonMonths:)`
+    /// memoizes it per (data revision, subscriptions, horizon, day) and the
+    /// body reads it once — chart-hover (which only flips `selectedDate`)
+    /// never re-runs it, and no key hashes the FX table.
+    let state: AnalyticsTabState
 
     enum Horizon: Int, CaseIterable, Identifiable {
         case oneMonth = 1, threeMonths = 3, sixMonths = 6
@@ -51,75 +35,8 @@ struct CashFlowForecastView: View {
         return nf
     }()
 
-    private var startingBalance: Int64 {
-        dataStore.accounts.reduce(Int64(0)) { $0 + dataStore.balance(for: $1) }
-    }
-
-    /// Current cache key derived from the inputs that genuinely feed
-    /// `CashFlowEngine.forecast`. Cheap to build (O(N rates) on FX dict —
-    /// in practice <30 entries).
-    private var forecastCacheKey: ForecastCacheKey {
-        let ctx = dataStore.currencyContext
-        return ForecastCacheKey(
-            transactionsCount: dataStore.transactions.count,
-            subscriptionsCount: dataStore.subscriptions.count,
-            accountsCount: dataStore.accounts.count,
-            horizonMonths: horizon.rawValue,
-            startingBalance: startingBalance,
-            baseCode: ctx.baseCode,
-            fxRatesFingerprint: Self.fingerprint(for: ctx.fxRates)
-        )
-    }
-
-    /// Returns the cached forecast when inputs match; otherwise computes
-    /// inline. The cache is *populated* via `.onChange` / `.task` modifiers
-    /// on the view body — never from inside this getter — to avoid the
-    /// classic SwiftUI re-render loop ("write @State from body → invalidate
-    /// → write @State from body → ...").
-    ///
-    /// Worst case (stale cache, body re-evaluated): we compute the forecast
-    /// inline once, the next runloop tick fires `.onChange`, the cache is
-    /// refreshed, and subsequent re-evaluations (chart-hover, animation
-    /// ticks) hit the fast path. No engine work on `selectedDate` flips.
-    private var forecast: CashFlowEngine.Forecast {
-        let key = forecastCacheKey
-        if let cached = cachedForecast, cached.key == key {
-            return cached.value
-        }
-        return computeForecast()
-    }
-
-    private func computeForecast() -> CashFlowEngine.Forecast {
-        let ctx = dataStore.currencyContext
-        return CashFlowEngine.forecast(
-            startingBalance: startingBalance,
-            transactions: dataStore.transactions,
-            subscriptions: dataStore.subscriptions,
-            monthsAhead: horizon.rawValue,
-            accountsById: ctx.accountsById,
-            fxRates: ctx.fxRates,
-            baseCode: ctx.baseCode
-        )
-    }
-
-    /// Cheap fingerprint of the FX rates dictionary — count + a hash of
-    /// its sorted (code, rate) pairs. Stable regardless of dict ordering.
-    private static func fingerprint(for rates: [String: Decimal]) -> Int {
-        var hasher = Hasher()
-        hasher.combine(rates.count)
-        for code in rates.keys.sorted() {
-            hasher.combine(code)
-            hasher.combine(rates[code])
-        }
-        return hasher.finalize()
-    }
-
-    /// Anchor date for "today" on the chart (start of day, so it visually
-    /// sits just to the left of the first end-of-month point).
-    private var todayAnchor: Date { Calendar.current.startOfDay(for: Date()) }
-
     /// The point whose end-of-month is closest to `selectedDate`, if any.
-    private var selectedPoint: CashFlowEngine.MonthPoint? {
+    private func selectedPoint(in forecast: CashFlowEngine.Forecast) -> CashFlowEngine.MonthPoint? {
         guard let selectedDate else { return nil }
         return forecast.points.min(by: {
             abs($0.date.timeIntervalSince(selectedDate)) <
@@ -128,14 +45,15 @@ struct CashFlowForecastView: View {
     }
 
     var body: some View {
+        let forecast = state.forecast(horizonMonths: horizon.rawValue)
         VStack(alignment: .leading, spacing: 12) {
-            header
+            header(forecast)
             horizonPicker
             if forecast.points.isEmpty {
                 emptyState
             } else {
-                chart
-                summaryGrid
+                chart(forecast)
+                summaryGrid(forecast)
                 if let months = forecast.monthsUntilEmpty {
                     runOutAlert(months: months)
                 }
@@ -151,21 +69,11 @@ struct CashFlowForecastView: View {
         .sheet(isPresented: $showHowItWorks) {
             HowItWorksSheet()
         }
-        .task(id: forecastCacheKey) {
-            // Refresh the memo whenever the inputs change. Runs once on
-            // appear (when the cache is nil) and again only on real input
-            // changes — chart-hover doesn't touch any field of the key, so
-            // SwiftUI does not re-fire this task.
-            let key = forecastCacheKey
-            if cachedForecast?.key != key {
-                cachedForecast = (key, computeForecast())
-            }
-        }
     }
 
     // MARK: - Subviews
 
-    private var header: some View {
+    private func header(_ forecast: CashFlowEngine.Forecast) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .foregroundStyle(Color.accent)
@@ -183,21 +91,22 @@ struct CashFlowForecastView: View {
             .accessibilityLabel(Text(String(localized: "forecast.howItWorks.title")))
 
             Spacer()
-            confidenceChip
+            confidenceChip(forecast)
         }
     }
 
-    private var confidenceChip: some View {
-        HStack(spacing: 4) {
-            Image(systemName: confidenceIcon)
+    private func confidenceChip(_ forecast: CashFlowEngine.Forecast) -> some View {
+        let color = Self.confidenceColor(forecast.confidence)
+        return HStack(spacing: 4) {
+            Image(systemName: Self.confidenceIcon(forecast.confidence))
                 .font(.caption2)
             Text(forecast.confidence.localizedName)
                 .font(.caption.weight(.medium))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(confidenceColor.opacity(0.15))
-        .foregroundStyle(confidenceColor)
+        .background(color.opacity(0.15))
+        .foregroundStyle(color)
         .clipShape(Capsule())
         .accessibilityLabel(Text("\(forecast.confidence.localizedName), \(forecast.sampleMonths) \(String(localized: "forecast.monthsShort"))"))
     }
@@ -219,7 +128,12 @@ struct CashFlowForecastView: View {
     }
 
     @ViewBuilder
-    private var chart: some View {
+    private func chart(_ forecast: CashFlowEngine.Forecast) -> some View {
+        let highlighted = selectedPoint(in: forecast)
+        // Anchor for "today" (start of day, so it sits just left of the
+        // first end-of-month point) and the starting balance, read once.
+        let todayAnchor = Calendar.current.startOfDay(for: Date())
+        let startY = displayY(AnalyticsTabState.startingBalance(dataStore))
         Chart {
             // Zero baseline (semantic, not the starting balance)
             RuleMark(y: .value("zero", 0))
@@ -229,7 +143,7 @@ struct CashFlowForecastView: View {
             // Starting ("today") anchor — point + label + bridge to first projected point
             PointMark(
                 x: .value("date", todayAnchor),
-                y: .value("balance", displayY(startingBalance))
+                y: .value("balance", startY)
             )
             .foregroundStyle(Color.accent)
             .symbolSize(80)
@@ -245,7 +159,7 @@ struct CashFlowForecastView: View {
             if let first = forecast.points.first {
                 LineMark(
                     x: .value("date", todayAnchor),
-                    y: .value("balance", displayY(startingBalance)),
+                    y: .value("balance", startY),
                     series: .value("series", "projection")
                 )
                 .foregroundStyle(Color.accent)
@@ -293,7 +207,7 @@ struct CashFlowForecastView: View {
             }
 
             // Selection indicator
-            if let selected = selectedPoint {
+            if let selected = highlighted {
                 RuleMark(x: .value("selected", selected.date))
                     .foregroundStyle(Color.accent.opacity(0.4))
                     .lineStyle(StrokeStyle(lineWidth: 1))
@@ -318,14 +232,14 @@ struct CashFlowForecastView: View {
         .chartXSelection(value: $selectedDate)
         .frame(height: 200)
         .overlay(alignment: .topTrailing) {
-            if let selected = selectedPoint {
+            if let selected = highlighted {
                 selectionTooltip(for: selected)
                     .padding(.top, 4)
                     .padding(.trailing, 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: selectedPoint?.date)
+        .animation(.easeInOut(duration: 0.15), value: highlighted?.date)
     }
 
     private func selectionTooltip(for point: CashFlowEngine.MonthPoint) -> some View {
@@ -378,7 +292,7 @@ struct CashFlowForecastView: View {
         }
     }
 
-    private var summaryGrid: some View {
+    private func summaryGrid(_ forecast: CashFlowEngine.Forecast) -> some View {
         HStack(alignment: .top, spacing: 12) {
             summaryCell(
                 label: String(localized: "forecast.avgIncome"),
@@ -487,16 +401,16 @@ struct CashFlowForecastView: View {
         .padding(.vertical, 24)
     }
 
-    private var confidenceColor: Color {
-        switch forecast.confidence {
+    private static func confidenceColor(_ confidence: CashFlowEngine.Confidence) -> Color {
+        switch confidence {
         case .high: return Color.income
         case .medium: return Color.warning
         case .low: return .secondary
         }
     }
 
-    private var confidenceIcon: String {
-        switch forecast.confidence {
+    private static func confidenceIcon(_ confidence: CashFlowEngine.Confidence) -> String {
+        switch confidence {
         case .high: return "checkmark.seal.fill"
         case .medium: return "chart.bar.fill"
         case .low: return "hourglass"
