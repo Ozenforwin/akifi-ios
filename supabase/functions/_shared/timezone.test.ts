@@ -7,6 +7,7 @@ import {
   monthStart,
   resolveTimeZone,
   resolveTimeZones,
+  startOfLocalDayUtc,
   weekStartMonday,
 } from "./timezone.ts";
 
@@ -26,6 +27,13 @@ Deno.test("localDate: invalid zone falls back to UTC", () => {
 Deno.test("localHour is 0-23 in the zone", () => {
   assertEquals(localHour(SIX_AM_DEC_1_BANGKOK, "Asia/Bangkok"), 6);
   assertEquals(localHour(new Date("2026-11-30T17:00:00Z"), "Asia/Bangkok"), 0);
+});
+
+Deno.test("startOfLocalDayUtc: local midnight as a UTC instant", () => {
+  // 06:00 Bangkok (UTC+7) on 1 Dec → midnight 1 Dec Bangkok = 30 Nov 17:00 UTC.
+  assertEquals(startOfLocalDayUtc(SIX_AM_DEC_1_BANGKOK, "Asia/Bangkok").toISOString(), "2026-11-30T17:00:00.000Z");
+  assertEquals(startOfLocalDayUtc(SIX_AM_DEC_1_BANGKOK, "UTC").toISOString(), "2026-11-30T00:00:00.000Z");
+  assertEquals(startOfLocalDayUtc(new Date("2026-11-17T22:30:00Z"), "Europe/Moscow").toISOString(), "2026-11-17T21:00:00.000Z");
 });
 
 Deno.test("isValidTimeZone", () => {

@@ -59,6 +59,22 @@ export function localHour(now: Date, tz: string = DEFAULT_TIME_ZONE): number {
   return Number(p.hour) % 24;
 }
 
+/** The UTC instant of local midnight that starts `now`'s day in `tz`. */
+export function startOfLocalDayUtc(now: Date, tz: string = DEFAULT_TIME_ZONE): Date {
+  const zone = isValidTimeZone(tz) ? tz : DEFAULT_TIME_ZONE;
+  const date = localDate(now, zone);
+  // Offset of the zone at `now` (minutes, may be fractional-hour zones).
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone, calendar: "gregory", numberingSystem: "latn", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const part of fmt.formatToParts(now)) p[part.type] = part.value;
+  const wallAsUtc = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
+  const offsetMs = wallAsUtc - Math.floor(now.getTime() / 1000) * 1000;
+  return new Date(Date.parse(`${date}T00:00:00.000Z`) - offsetMs);
+}
+
 function shiftDate(date: string, days: number): string {
   const d = new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
