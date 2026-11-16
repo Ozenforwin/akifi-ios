@@ -339,115 +339,266 @@ async function deliverNotifications(
 }
 
 // ---------------------------------------------------------------------------
-// Evaluator: Budget Warning
+// Budget metrics — the SAME numbers the app shows (findings B2, M4, D4)
 // ---------------------------------------------------------------------------
-interface BudgetRow {
-  id: string;
-  user_id: string;
-  category_ids: string[];
-  amount: number;
-  period_type: string;
+// Budget pushes used to sum the author's own `amount_native` across
+// currencies, over a UTC calendar month, for the author's own budgets only.
+// They now read `get_budget_metrics` (migration 20261117130003) as the
+// service role on behalf of each member: same window (30-day rolling month,
+// inclusive end), same spend (every member, every linked account, FX via
+// fx_rates), in that member's local day, and the alert goes to every member
+// of a shared budget. Dedup is per user + budget + period + threshold via
+// notification_log's unique (user_id, notification_key).
+
+interface BudgetMetricRow {
+  budget_id: string;
+  name: string | null;
+  currency: string;
+  period_start: string;
+  period_end: string;
+  total_days: number;
+  elapsed_days: number;
+  remaining_days: number;
+  effective_limit: number;
+  spent: number;
+  utilization: number;
+  member_ids: string[];
   alert_thresholds: number[] | null;
-  custom_start_date: string | null;
-  custom_end_date: string | null;
-  is_active: boolean;
 }
 
-async function evaluateBudgetWarning(
+interface MemberContext {
+  tz: string;
+  lang: Lang;
+  chatId: string | number | null;
+  fcmToken: string | null;
+}
+
+function isValidTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== "string" || tz.length === 0) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/// "YYYY-MM-DD" of `now` in `tz` — the member's own "today".
+function localDateIn(tz: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/// Monday of the ISO week containing `dateOnly`.
+function weekStartOf(dateOnly: string): string {
+  const d = new Date(`${dateOnly}T00:00:00Z`);
+  const back = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadMemberContext(
   supabase: SupabaseClient,
   userId: string,
-  categoryId: string,
-  warningPercent: number,
-  lang: Lang = 'ru',
-): Promise<NotificationCandidate[]> {
-  const candidates: NotificationCandidate[] = [];
-
-  // Find active budgets that contain this category
-  const { data: budgets } = await supabase
-    .from("budgets")
-    .select(
-      "id,user_id,category_ids,amount,period_type,alert_thresholds,custom_start_date,custom_end_date,is_active",
-    )
-    .eq("user_id", userId)
-    .eq("is_active", true);
-
-  if (!budgets || budgets.length === 0) return candidates;
-
-  const now = new Date();
-
-  for (const budget of budgets as BudgetRow[]) {
-    // Check if budget contains this category
-    if (
-      !budget.category_ids ||
-      !budget.category_ids.includes(categoryId)
-    )
-      continue;
-
-    const thresholds = budget.alert_thresholds ?? [warningPercent, 100];
-    const period = resolvePeriodWindow(
-      budget.period_type ?? "monthly",
-      now,
-      budget.custom_start_date,
-      budget.custom_end_date,
-    );
-    const periodStart = toDateOnly(period.start);
-    const periodEnd = toDateOnly(period.end);
-
-    // Calculate spent in current period — ADR-001: prefer amount_native
-    // so multi-currency rows sum in the account's own currency rather than
-    // the raw foreign value.
-    const { data: txRows } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
+): Promise<MemberContext> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone,preferred_language,telegram_chat_id,fcm_token")
+    .eq("id", userId)
+    .maybeSingle();
+  let tz: unknown = (profile as { timezone?: unknown } | null)?.timezone;
+  if (!isValidTimeZone(tz)) {
+    const { data: ai } = await supabase
+      .from("ai_user_settings")
+      .select("timezone")
       .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .in("category_id", budget.category_ids)
-      .gte("date", periodStart)
-      .lt("date", periodEnd);
+      .maybeSingle();
+    tz = (ai as { timezone?: unknown } | null)?.timezone;
+  }
+  return {
+    tz: isValidTimeZone(tz) ? tz : "UTC",
+    lang: normalizeLang((profile as { preferred_language?: unknown } | null)?.preferred_language),
+    chatId: (profile as { telegram_chat_id?: string | number | null } | null)?.telegram_chat_id ?? null,
+    fcmToken: (profile as { fcm_token?: string | null } | null)?.fcm_token ?? null,
+  };
+}
 
-    const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: read amount_native with legacy fallback
-      0,
-    );
-    const percent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+async function fetchBudgetMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  ctx: MemberContext,
+  budgetIds?: string[],
+): Promise<BudgetMetricRow[]> {
+  // One jsonb value, not a row set — max-rows cannot truncate it (ADR-003).
+  const { data, error } = await supabase.rpc("get_budget_metrics", {
+    p_today: localDateIn(ctx.tz),
+    p_tz: ctx.tz,
+    p_budget_ids: budgetIds ?? null,
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error(`get_budget_metrics failed for ${userId}:`, error.code ?? error.message);
+    return [];
+  }
+  return ((data as { budgets?: BudgetMetricRow[] } | null)?.budgets ?? []).filter(Boolean);
+}
 
-    // Check thresholds (descending) — pick the highest crossed
-    const sortedThresholds = [...thresholds].sort((a, b) => b - a);
-    for (const threshold of sortedThresholds) {
-      if (percent >= threshold) {
-        const key = `budget_warning:${budget.id}:${periodStart}:${threshold}`;
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  RUB: "₽", USD: "$", EUR: "€", GBP: "£", VND: "₫", THB: "฿", IDR: "Rp",
+  KZT: "₸", TRY: "₺", GEL: "₾", UAH: "₴", CNY: "¥", JPY: "¥", INR: "₹", AED: "AED",
+};
 
-        let emoji = "⚠️";
-        if (threshold >= 120) emoji = "🚨";
-        else if (threshold >= 100) emoji = "🔴";
+function localeFor(lang: Lang): string {
+  return lang === "ru" ? "ru-RU" : lang === "es" ? "es-ES" : "en-US";
+}
 
-        const remaining = budget.amount - spent;
-        const sym = currencySymbol(lang);
-        const coachingTip = threshold >= 100
-          ? '\n\n' + tt('tip5030', lang)
-          : threshold >= 80
-          ? '\n\n' + tt('tipImpulse', lang)
-          : '';
-        const message =
-          `${emoji} <b>${tt('budgetHeader', lang)} ${threshold}%</b>\n\n` +
-          `${tt('spent', lang)}: ${formatRub(spent)} ${sym} ${tt('of', lang)} ${formatRub(budget.amount)} ${sym}\n` +
-          (remaining > 0
-            ? `${tt('remaining', lang)}: ${formatRub(remaining)} ${sym}`
-            : `${tt('overspent', lang)}: ${formatRub(Math.abs(remaining))} ${sym}`) +
-          coachingTip;
+/// Minor units of `currency` → "12 345 ₽". Whole units, like the budget
+/// card; the symbol follows the budget's currency, not the UI language.
+function formatMoney(minor: number, currency: string, lang: Lang): string {
+  const code = (currency || "RUB").toUpperCase();
+  const whole = Math.round(Math.abs(minor) / 100);
+  return `${whole.toLocaleString(localeFor(lang))} ${CURRENCY_SYMBOLS[code] ?? code}`;
+}
 
-        candidates.push({
-          type: "budget_warning",
-          key,
-          message,
-          tab: "budget",
-        });
-        break; // Only one notification per budget per transaction
-      }
+/// «2 нояб. – 1 дек.» — the window the card shows (D4).
+function formatWindow(start: string, end: string, lang: Lang): string {
+  const fmt = new Intl.DateTimeFormat(localeFor(lang), { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${fmt.format(new Date(`${start}T00:00:00Z`))} – ${fmt.format(new Date(`${end}T00:00:00Z`))}`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function budgetTitle(m: BudgetMetricRow): string {
+  const name = (m.name ?? "").trim();
+  return name ? ` «${escapeHtml(name)}»` : "";
+}
+
+/// The highest alert threshold this budget has crossed, as one candidate.
+function budgetWarningFor(
+  m: BudgetMetricRow,
+  warningPercent: number,
+  lang: Lang,
+): NotificationCandidate | null {
+  if (!(m.effective_limit > 0)) return null;
+  const thresholds = m.alert_thresholds && m.alert_thresholds.length > 0
+    ? m.alert_thresholds
+    : [warningPercent, 100];
+  const crossed = [...thresholds].sort((a, b) => b - a).find((t) => m.utilization >= t);
+  if (crossed === undefined) return null;
+
+  const emoji = crossed >= 120 ? "🚨" : crossed >= 100 ? "🔴" : "⚠️";
+  const left = m.effective_limit - m.spent;
+  const tip = crossed >= 100
+    ? "\n\n" + tt("tip5030", lang)
+    : crossed >= 80
+    ? "\n\n" + tt("tipImpulse", lang)
+    : "";
+  const message =
+    `${emoji} <b>${tt("budgetHeader", lang)}${budgetTitle(m)} ${crossed}%</b>\n\n` +
+    `${tt("spent", lang)}: ${formatMoney(m.spent, m.currency, lang)} ${tt("of", lang)} ${formatMoney(m.effective_limit, m.currency, lang)}\n` +
+    (left > 0
+      ? `${tt("remaining", lang)}: ${formatMoney(left, m.currency, lang)}`
+      : `${tt("overspent", lang)}: ${formatMoney(-left, m.currency, lang)}`) +
+    `\n${formatWindow(m.period_start, m.period_end, lang)}` +
+    tip;
+
+  return {
+    type: "budget_warning",
+    key: `budget_warning:${m.budget_id}:${m.period_start}:${crossed}`,
+    message,
+    tab: "budget",
+  };
+}
+
+const MAX_BUDGET_ALERTS_PER_MEMBER = 2;
+
+/// Sends budget alerts to the OTHER members of `authorId`'s shared budgets,
+/// each with their own settings, quiet hours, rate limit, language and local
+/// day. Safe to call more than once per event: notification_log dedups.
+/// Pass `authorMetrics` when already fetched; otherwise they are loaded.
+/// (The edge stream may also call this before handleTransactionInsert's
+/// author-only gates, so partners are told even when the author has
+/// notifications off or no delivery channel.)
+async function notifyBudgetPartners(
+  supabase: SupabaseClient,
+  authorId: string,
+  authorMetrics?: BudgetMetricRow[],
+): Promise<number> {
+  let metrics = authorMetrics;
+  if (!metrics) {
+    metrics = await fetchBudgetMetrics(supabase, authorId, await loadMemberContext(supabase, authorId));
+  }
+  const budgetsByPartner = new Map<string, string[]>();
+  for (const m of metrics) {
+    for (const memberId of m.member_ids ?? []) {
+      if (memberId === authorId) continue;
+      const list = budgetsByPartner.get(memberId) ?? [];
+      list.push(m.budget_id);
+      budgetsByPartner.set(memberId, list);
     }
   }
 
+  let sent = 0;
+  for (const [partnerId, budgetIds] of budgetsByPartner) {
+    try {
+      const { data: settings } = await supabase
+        .from("notification_settings")
+        .select("enabled,budget_warnings,budget_warning_percent,daily_limit")
+        .eq("user_id", partnerId)
+        .maybeSingle();
+      if (!settings || !settings.enabled || settings.budget_warnings === false) continue;
+
+      const ctx = await loadMemberContext(supabase, partnerId);
+      if (!ctx.chatId && !ctx.fcmToken) continue;
+      if (await isInQuietHours(supabase, partnerId)) continue;
+      if (await isRateLimited(supabase, partnerId, settings.daily_limit)) continue;
+
+      const partnerMetrics = await fetchBudgetMetrics(supabase, partnerId, ctx, budgetIds);
+      const candidates = partnerMetrics
+        .map((m) => budgetWarningFor(m, settings.budget_warning_percent ?? 80, ctx.lang))
+        .filter((c): c is NotificationCandidate => c !== null)
+        .slice(0, MAX_BUDGET_ALERTS_PER_MEMBER);
+      if (candidates.length === 0) continue;
+
+      const result = await deliverNotifications(supabase, partnerId, ctx.chatId ?? 0, candidates, ctx.lang);
+      sent += result.sent;
+    } catch (err) {
+      console.error(`budget partner alert failed for ${partnerId}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return sent;
+}
+
+// ---------------------------------------------------------------------------
+// Evaluator: Budget Warning
+// ---------------------------------------------------------------------------
+/// Candidates for the AUTHOR of a new expense (delivered by the caller) and,
+/// as a side effect, alerts for the partners in the author's shared budgets.
+/// Every budget the author takes part in is checked, not only the ones
+/// containing this category: a budget without categories, or one pushed over
+/// its threshold by a partner, must alert too. `categoryId` is kept for the
+/// call-site signature.
+async function evaluateBudgetWarning(
+  supabase: SupabaseClient,
+  userId: string,
+  _categoryId: string,
+  warningPercent: number,
+  lang: Lang = 'ru',
+): Promise<NotificationCandidate[]> {
+  const ctx = await loadMemberContext(supabase, userId);
+  const metrics = await fetchBudgetMetrics(supabase, userId, ctx);
+  if (metrics.length === 0) return [];
+
+  const candidates = metrics
+    .map((m) => budgetWarningFor(m, warningPercent, lang))
+    .filter((c): c is NotificationCandidate => c !== null);
+
+  await notifyBudgetPartners(supabase, userId, metrics);
   return candidates;
 }
 
@@ -659,85 +810,56 @@ async function evaluateSavingsMilestones(
 // ---------------------------------------------------------------------------
 // Evaluator: Weekly Pace
 // ---------------------------------------------------------------------------
+// Amounts carry their own currency symbol (formatMoney), so this replaces
+// T.paceBody, whose "{sym}" placeholders assumed one symbol per language.
+const PACE_BODY: Record<Lang, string> = {
+  ru: 'При текущем темпе расходы составят ~{projected} ({pct}% от лимита {limit})',
+  en: 'At current pace, spending will reach ~{projected} ({pct}% of the {limit} limit)',
+  es: 'Al ritmo actual, gastarás ~{projected} ({pct}% del límite {limit})',
+};
+
+/// Wednesday nudge when the projected spend for the period exceeds 120 % of
+/// the limit. Uses the server metrics (same window, spend and currency as
+/// the app) for EVERY budget the user takes part in — shared budgets
+/// included, so each member gets it — in the user's own local day.
 async function evaluateWeeklyPace(
   supabase: SupabaseClient,
   userId: string,
   lang: Lang = 'ru',
 ): Promise<NotificationCandidate[]> {
+  // The cron fires on Wednesdays (UTC); guard against off-schedule triggers.
+  if (new Date().getUTCDay() !== 3) return [];
+
+  const ctx = await loadMemberContext(supabase, userId);
+  const today = localDateIn(ctx.tz);
+  const weekStart = weekStartOf(today);
+  const metrics = await fetchBudgetMetrics(supabase, userId, ctx);
+
   const candidates: NotificationCandidate[] = [];
-  const now = new Date();
+  for (const m of metrics) {
+    if (!(m.effective_limit > 0) || m.elapsed_days <= 0 || m.remaining_days <= 0) continue;
 
-  // Only run on Wednesdays
-  if (now.getDay() !== 3) return candidates;
+    // Same projection the card's pace uses: spend so far over the elapsed
+    // days (today included), extended to the whole window.
+    const projected = (m.spent / m.elapsed_days) * m.total_days;
+    const projectedPercent = (projected / m.effective_limit) * 100;
+    if (projectedPercent <= 120) continue;
 
-  const { data: budgets } = await supabase
-    .from("budgets")
-    .select("id,amount,category_ids,period_type,custom_start_date,custom_end_date,is_active")
-    .eq("user_id", userId)
-    .eq("is_active", true);
+    const body = PACE_BODY[lang]
+      .replace("{projected}", formatMoney(projected, m.currency, lang))
+      .replace("{pct}", String(Math.round(projectedPercent)))
+      .replace("{limit}", formatMoney(m.effective_limit, m.currency, lang));
+    const message =
+      `📊 <b>${tt('paceHeader', lang)}${budgetTitle(m)}</b>\n\n` +
+      body +
+      `\n${formatWindow(m.period_start, m.period_end, lang)}`;
 
-  if (!budgets || budgets.length === 0) return candidates;
-
-  for (const budget of budgets as BudgetRow[]) {
-    const period = resolvePeriodWindow(
-      budget.period_type ?? "monthly",
-      now,
-      budget.custom_start_date,
-      budget.custom_end_date,
-    );
-
-    const periodStart = toDateOnly(period.start);
-    const periodEnd = toDateOnly(period.end);
-    const totalDays = Math.max(1, (period.end.getTime() - period.start.getTime()) / (1000 * 60 * 60 * 24));
-    const daysPassed = Math.max(1, (now.getTime() - period.start.getTime()) / (1000 * 60 * 60 * 24));
-
-    const { data: txRows } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
-      .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .in("category_id", budget.category_ids)
-      .gte("date", periodStart)
-      .lt("date", periodEnd);
-
-    const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: budget projection prefers amount_native
-      0,
-    );
-
-    // Project to end of period
-    const dailyPace = spent / daysPassed;
-    const projected = dailyPace * totalDays;
-    const projectedPercent = budget.amount > 0 ? (projected / budget.amount) * 100 : 0;
-
-    if (projectedPercent > 120) {
-      // Week start for dedup key
-      const weekDay = now.getDay();
-      const weekDiff = weekDay === 0 ? 6 : weekDay - 1;
-      const weekStart = new Date(now);
-      weekStart.setDate(weekStart.getDate() - weekDiff);
-      const weekStartStr = toDateOnly(weekStart);
-
-      const key = `weekly_pace:${budget.id}:${weekStartStr}`;
-
-      const sym = currencySymbol(lang);
-      const message =
-        `📊 <b>${tt('paceHeader', lang)}</b>\n\n` +
-        tt('paceBody', lang, {
-          projected: formatRub(projected),
-          pct: Math.round(projectedPercent),
-          limit: formatRub(budget.amount),
-          sym,
-        });
-
-      candidates.push({
-        type: "weekly_pace",
-        key,
-        message,
-        tab: "budget",
-      });
-    }
+    candidates.push({
+      type: "weekly_pace",
+      key: `weekly_pace:${m.budget_id}:${weekStart}`,
+      message,
+      tab: "budget",
+    });
   }
 
   return candidates;

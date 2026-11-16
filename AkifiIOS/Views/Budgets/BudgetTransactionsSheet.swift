@@ -11,8 +11,9 @@ struct BudgetTransactionsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let budget: Budget
-    let metrics: BudgetMetrics
+    let resolved: ResolvedBudgetMetrics
 
+    private var metrics: BudgetMetrics { resolved.metrics }
     private var dataStore: DataStore { appViewModel.dataStore }
     private var fmt: CurrencyManager { appViewModel.currencyManager }
 
@@ -30,7 +31,11 @@ struct BudgetTransactionsSheet: View {
 
     private func reload() {
         defer { loaded = true }
-        let period = BudgetMath.currentPeriod(for: budget)
+        // The header's window — the server's when the numbers are the
+        // server's — so the list and the total cover the same days.
+        let period = metrics.periodStart != .distantPast
+            ? (start: metrics.periodStart, end: metrics.periodEnd)
+            : BudgetMath.currentPeriod(for: budget)
         self.period = period
         transactions = BudgetMath.matchingTransactions(
             budget: budget,
@@ -42,26 +47,43 @@ struct BudgetTransactionsSheet: View {
         // accounts this user can't see (RLS). They are part of
         // `metrics.spent` but have no rows to list — say so instead of
         // letting the numbers look broken.
-        externalSpent = BudgetMath.externalSpent(
-            rows: dataStore.externalSpendByBudget[budget.id] ?? [],
-            budget: budget,
-            period: period,
-            currencyContext: dataStore.currencyContext
-        )
+        if let server = resolved.server {
+            let ctx = BudgetMetricsResolver.serverRatesContext(dataStore.currencyContext, server: server)
+            let listed = BudgetMath.spentAmount(
+                budget: budget, transactions: dataStore.transactions, period: period,
+                categories: dataStore.categories, currencyContext: ctx
+            )
+            externalSpent = max(0, metrics.spent - listed)
+        } else {
+            externalSpent = BudgetMath.externalSpent(
+                rows: dataStore.externalSpendByBudget[budget.id] ?? [],
+                budget: budget,
+                period: period,
+                currencyContext: dataStore.currencyContext
+            )
+        }
         categoryIndex = Dictionary(
             dataStore.categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }
         )
     }
 
-    private static let periodFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.setLocalizedDateFormatFromTemplate("d MMM")
-        return df
-    }()
-
     private var periodLabel: String {
-        "\(Self.periodFormatter.string(from: period.start)) – \(Self.periodFormatter.string(from: period.end))"
+        BudgetsViewModel.periodLabel(start: period.start, end: period.end)
+    }
+
+    /// Per-member split from the server, shown for shared budgets only.
+    private var memberSplit: [ServerBudgetMetrics.MemberSpend] {
+        guard let server = resolved.server, server.memberIds.count > 1 else { return [] }
+        return server.byMember
+    }
+
+    private func memberName(_ userId: String) -> String {
+        let profile = dataStore.profilesMap[userId] ?? dataStore.profilesMap[userId.lowercased()]
+        if userId.lowercased() == dataStore.profile?.id.lowercased() {
+            return String(localized: "budget.history.member.you", defaultValue: "Вы")
+        }
+        return profile?.fullName ?? profile?.email
+            ?? String(localized: "budget.history.member.unknown", defaultValue: "Участник")
     }
 
     /// Mirrors `BudgetCardView.budgetFmt` — budget-local currency, no cents.
@@ -81,6 +103,10 @@ struct BudgetTransactionsSheet: View {
                 if loaded {
                     VStack(spacing: 16) {
                         summaryCard
+
+                        if !memberSplit.isEmpty {
+                            memberSplitCard
+                        }
 
                         if transactions.isEmpty {
                             ContentUnavailableView(
@@ -154,6 +180,30 @@ struct BudgetTransactionsSheet: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
         )
+    }
+
+    // MARK: - Members
+
+    private var memberSplitCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "budget.history.byMember", defaultValue: "Кто сколько потратил"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(memberSplit, id: \.userId) { member in
+                HStack {
+                    Text(memberName(member.userId))
+                        .font(.subheadline)
+                    Spacer()
+                    Text(budgetFmt(member.spent))
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - Rows

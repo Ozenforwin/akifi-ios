@@ -15,9 +15,10 @@ struct Budget: Codable, Identifiable, Sendable {
     var rolloverEnabled: Bool
     var alertThresholds: [Int]?
     var isActive: Bool
-    /// ISO 4217 code (uppercase) the `amount` is denominated in. Legacy
-    /// rows have `nil` — `BudgetMath` treats those as the user's base
-    /// currency, preserving the original implicit behavior.
+    /// ISO 4217 code (uppercase) the `amount` is denominated in. NOT NULL
+    /// on the server since migration 20261117130002 (backfilled from the
+    /// linked account / owner's currency), so every member reads the same
+    /// unit (B4). Still optional here for caches written before that.
     var currency: String?
     let createdAt: String?
     let updatedAt: String?

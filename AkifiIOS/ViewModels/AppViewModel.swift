@@ -31,6 +31,7 @@ final class AppViewModel {
         guard !hasLoadedData else { return }
         hasLoadedData = true
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
+        Task { await ProfileRepository().updateTimezoneIfNeeded() }  // server needs the user's local day (budgets, pushes)
 
         // The splash stays up until this returns, so nothing here may wait
         // on the network indefinitely. Offline cold start (valid keychain

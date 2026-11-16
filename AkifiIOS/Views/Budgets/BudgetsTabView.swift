@@ -13,7 +13,7 @@ struct BudgetsTabView: View {
     /// card that was tapped without recomputing them.
     struct BudgetHistoryTarget: Identifiable {
         let budget: Budget
-        let metrics: BudgetMetrics
+        let resolved: ResolvedBudgetMetrics
         var id: String { budget.id }
     }
 
@@ -31,34 +31,11 @@ struct BudgetsTabView: View {
         )
     }
 
-    /// Budgets sorted by criticality: overLimit first, then nearLimit, warning, onTrack
-    private var sortedBudgetsWithMetrics: [(budget: Budget, metrics: BudgetMetrics)] {
-        let subs = dataStore.subscriptions
-        let ctx = dataStore.currencyContext
-        let items = dataStore.budgets.map { budget in
-            (budget: budget, metrics: BudgetMath.compute(budget: budget, transactions: dataStore.transactions, subscriptions: subs, categories: dataStore.categories, externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [], currencyContext: ctx))
-        }
-        return items.sorted { a, b in
-            let priority: (BudgetStatus) -> Int = {
-                switch $0 {
-                case .overLimit: return 0
-                case .nearLimit: return 1
-                case .warning: return 2
-                case .onTrack: return 3
-                }
-            }
-            let pa = priority(a.metrics.status)
-            let pb = priority(b.metrics.status)
-            if pa != pb { return pa < pb }
-            return a.metrics.utilization > b.metrics.utilization
-        }
-    }
-
     var body: some View {
-        // Evaluated ONCE per render. As a computed property referenced three
-        // times inside `body`, the metrics (O(budgets × transactions)) were
-        // recomputed three times per frame — visible as tab-switch lag.
-        let budgetsWithMetrics = sortedBudgetsWithMetrics
+        // Server numbers when available (identical for every member of a
+        // shared budget), local BudgetMath otherwise — memoized in
+        // BudgetMetricsStore, shared with the widget and «Доступно сегодня».
+        let budgetsWithMetrics = viewModel.sortedBudgets(dataStore: dataStore)
 
         return NavigationStack {
             List {
@@ -85,7 +62,7 @@ struct BudgetsTabView: View {
                         Section {
                             BudgetHealthSummaryView(
                                 budgets: budgetsWithMetrics.map(\.budget),
-                                allMetrics: budgetsWithMetrics.map(\.metrics)
+                                allMetrics: budgetsWithMetrics.map(\.resolved.metrics)
                             )
                         }
                         .listRowSeparator(.hidden)
@@ -96,15 +73,21 @@ struct BudgetsTabView: View {
                     Section {
                         ForEach(Array(budgetsWithMetrics.enumerated()), id: \.element.budget.id) { index, item in
                             let budget = item.budget
-                            let metrics = item.metrics
-                            BudgetCardView(budget: budget, metrics: metrics, categories: dataStore.categories)
+                            let resolved = item.resolved
+                            BudgetCardView(
+                                budget: budget,
+                                metrics: resolved.metrics,
+                                categories: dataStore.categories,
+                                serverCategories: resolved.server?.categories ?? [],
+                                isPartial: resolved.isPartial
+                            )
                                 .spotlight(index == 0 ? .budgetCard : nil)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 .listRowBackground(Color.clear)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    historyBudget = BudgetHistoryTarget(budget: budget, metrics: metrics)
+                                    historyBudget = BudgetHistoryTarget(budget: budget, resolved: resolved)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
@@ -257,7 +240,11 @@ struct BudgetsTabView: View {
             .listStyle(.plain)
             .refreshable {
                 await dataStore.loadAll()
+                await viewModel.loadMetrics(dataStore: dataStore)
             }
+            // No-op when nothing changed since the last fetch; data changes
+            // also refresh via SharedSnapshotWriter after every DataStore load.
+            .task { await viewModel.loadMetrics(dataStore: dataStore) }
             .navigationTitle(String(localized: "budget.title"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -284,7 +271,7 @@ struct BudgetsTabView: View {
                 }
             }
             .sheet(item: $historyBudget) { target in
-                BudgetTransactionsSheet(budget: target.budget, metrics: target.metrics)
+                BudgetTransactionsSheet(budget: target.budget, resolved: target.resolved)
             }
             .sheet(isPresented: $showSubscriptionForm) {
                 SubscriptionFormView { name, amount, period, color, currency, reminderDays, lastDate, nextDate, categoryId, accountId in
@@ -399,6 +386,23 @@ struct BudgetsTabView: View {
         return Color.accent
     }
 
+    // One formatter per precision, not one per subscription row per render (P5).
+    private static let wholeAmountFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        f.minimumFractionDigits = 0
+        return f
+    }()
+
+    private static let centsAmountFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 2
+        return f
+    }()
+
     private func formatSubscriptionAmount(_ sub: SubscriptionTracker) -> String {
         let amount = sub.amount.displayAmount
         let cur = sub.currency?.uppercased() ?? "RUB"
@@ -407,10 +411,8 @@ struct BudgetsTabView: View {
         case "VND": "₫"; case "THB": "฿"; case "IDR": "Rp"
         default: cur
         }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = (cur == "RUB" || cur == "VND" || cur == "THB" || cur == "IDR") ? 0 : 2
-        formatter.minimumFractionDigits = formatter.maximumFractionDigits
+        let whole = cur == "RUB" || cur == "VND" || cur == "THB" || cur == "IDR"
+        let formatter = whole ? Self.wholeAmountFormatter : Self.centsAmountFormatter
         let formatted = formatter.string(from: amount as NSDecimalNumber) ?? "0"
         return "\(formatted) \(symbol)"
     }

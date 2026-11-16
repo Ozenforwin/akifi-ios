@@ -4,73 +4,20 @@ struct DailyLimitWidgetView: View {
     @Environment(AppViewModel.self) private var appViewModel
 
     private var dataStore: DataStore { appViewModel.dataStore }
+    private var metricsStore: BudgetMetricsStore { .shared }
 
-    // MARK: - Memoization
-    //
-    // BudgetMath.compute is O(transactions) per budget; running it in a
-    // computed property meant every body evaluation paid O(budgets × N).
-    // Same .task(id:)-promoted cache pattern as CategoryBreakdownView.
-
-    private struct CacheKey: Equatable {
-        let txCount: Int
-        let txGeneration: UInt64
-        let budgetsFingerprint: Int
-        let externalSpendFingerprint: Int
-        /// Safe-to-spend divides by remaining days — the value legitimately
-        /// changes at midnight even when no data changed. With keep-alive
-        /// tabs nothing else would invalidate it overnight.
-        let dayKey: String
-    }
-
-    @State private var cachedKey: CacheKey?
-    @State private var cachedValue: Decimal = 0
-
-    private static let dayFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
-    private var currentKey: CacheKey {
-        var budgetsHasher = Hasher()
-        for budget in dataStore.budgets {
-            budgetsHasher.combine(budget.id)
-            budgetsHasher.combine(budget.amount)
-            budgetsHasher.combine(budget.updatedAt)
-            budgetsHasher.combine(budget.isActive)
-        }
-        var spendHasher = Hasher()
-        for (budgetId, rows) in dataStore.externalSpendByBudget.sorted(by: { $0.key < $1.key }) {
-            spendHasher.combine(budgetId)
-            spendHasher.combine(rows.count)
-        }
-        return CacheKey(
-            txCount: dataStore.transactions.count,
-            txGeneration: dataStore.txGenerationToken,
-            budgetsFingerprint: budgetsHasher.finalize(),
-            externalSpendFingerprint: spendHasher.finalize(),
-            dayKey: Self.dayFormatter.string(from: Date())
-        )
-    }
-
-    /// Memoized with a synchronous fallback on miss — the first frame after
-    /// an invalidation still shows the correct number, `.task(id:)` then
-    /// promotes it into @State so subsequent renders are O(1).
+    /// The most restrictive daily allowance across budgets, in the BASE
+    /// currency: every budget's allowance is converted before the minimum is
+    /// taken (M6 — a $15.90/day budget must not win as «15,90 ₽»). Uses the
+    /// same memoized per-budget metrics as the Budgets tab and the widget
+    /// (server numbers when available), so the three can't disagree and
+    /// nothing is recomputed per render (P5).
     private var safeToSpend: Decimal {
-        if cachedKey == currentKey {
-            return cachedValue
+        let resolved = metricsStore.resolved(for: dataStore)
+        let items = dataStore.budgets.compactMap { budget in
+            resolved[budget.id].map { (budget: budget, metrics: $0.metrics) }
         }
-        return computeSafeToSpend()
-    }
-
-    private func computeSafeToSpend() -> Decimal {
-        BudgetMath.minDailySafeToSpend(
-            budgets: dataStore.budgets,
-            transactions: dataStore.transactions,
-            categories: dataStore.categories,
-            externalSpendByBudget: dataStore.externalSpendByBudget,
-            currencyContext: dataStore.currencyContext
-        )
+        return BudgetMath.minDailySafeToSpend(items, currencyContext: dataStore.currencyContext)
     }
 
     var body: some View {
@@ -92,9 +39,6 @@ struct DailyLimitWidgetView: View {
         .padding()
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .task(id: currentKey) {
-            cachedValue = computeSafeToSpend()
-            cachedKey = currentKey
-        }
+        .task { metricsStore.refreshIfNeeded(dataStore: dataStore) }
     }
 }
