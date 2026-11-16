@@ -13,6 +13,8 @@ import {
   budgetWindowForToday,
 } from './utils.ts';
 import { extractCreateTxEntities, fuzzyMatchCategory, CATEGORY_SYNONYMS } from './entity-extraction.ts';
+import { fetchAll, fetchAllIn } from '../_shared/paging.ts';
+import { requestToday } from './request-context.ts';
 import type {
   TxRow,
   BudgetRow,
@@ -333,16 +335,15 @@ export async function buildBudgetRiskResponse(
   today: string,
   userId?: string,
 ): Promise<{ answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] }> {
-  let q = anonClient
-    .from('budgets')
-    .select('id,amount,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active')
-    .eq('is_active', true);
-  if (userId) q = q.eq('user_id', userId);
-  const { data: budgetsData, error: budgetsError } = await q.limit(300);
-
-  if (budgetsError?.code !== '42P01' && budgetsError) {
-    throw new Error(`Failed to load budgets: ${budgetsError.message}`);
-  }
+  // Complete set (ADR-003), scoped by the verified user id.
+  const budgetsData = await fetchAll<BudgetRow>('budgets', () => {
+    let q = anonClient
+      .from('budgets')
+      .select('id,amount,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active', { count: 'exact' })
+      .eq('is_active', true);
+    if (userId) q = q.eq('user_id', userId);
+    return q;
+  });
 
   const budgets = ((budgetsData ?? []) as BudgetRow[])
     .filter((b) => b.is_active && Number.isFinite(Number(b.amount)) && Number(b.amount) > 0);
@@ -360,16 +361,10 @@ export async function buildBudgetRiskResponse(
   const categoryNameById = new Map<string, string>();
 
   if (categoryIds.length > 0) {
-    const { data: categoriesData, error: categoriesError } = await anonClient
-      .from('categories')
-      .select('id,name')
-      .in('id', categoryIds)
-      .limit(500);
-
-    if (!categoriesError) {
-      for (const row of (categoriesData ?? []) as CategoryRow[]) {
-        categoryNameById.set(row.id, row.name);
-      }
+    const categoriesData = await fetchAllIn<CategoryRow>('categories', categoryIds, (ids) =>
+      anonClient.from('categories').select('id,name', { count: 'exact' }).in('id', ids));
+    for (const row of categoriesData) {
+      categoryNameById.set(row.id, row.name);
     }
   }
 
@@ -575,16 +570,15 @@ export async function buildBudgetRemainingResponse(
   today: string,
   userId?: string,
 ): Promise<{ answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] }> {
-  let q = anonClient
-    .from('budgets')
-    .select('id,amount,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active')
-    .eq('is_active', true);
-  if (userId) q = q.eq('user_id', userId);
-  const { data: budgetsData, error: budgetsError } = await q.limit(300);
-
-  if (budgetsError && budgetsError.code !== '42P01') {
-    throw new Error(`Failed to load budgets: ${budgetsError.message}`);
-  }
+  // Complete set (ADR-003), scoped by the verified user id.
+  const budgetsData = await fetchAll<BudgetRow>('budgets', () => {
+    let q = anonClient
+      .from('budgets')
+      .select('id,amount,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active', { count: 'exact' })
+      .eq('is_active', true);
+    if (userId) q = q.eq('user_id', userId);
+    return q;
+  });
 
   const budgets = ((budgetsData ?? []) as BudgetRow[])
     .filter((b) => b.is_active && Number.isFinite(Number(b.amount)) && Number(b.amount) > 0);
@@ -602,13 +596,9 @@ export async function buildBudgetRemainingResponse(
   const categoryNameById = new Map<string, string>();
 
   if (categoryIds.length > 0) {
-    const { data: categoriesData } = await anonClient
-      .from('categories')
-      .select('id,name')
-      .in('id', categoryIds)
-      .limit(500);
-
-    for (const row of (categoriesData ?? []) as CategoryRow[]) {
+    const categoriesData = await fetchAllIn<CategoryRow>('categories', categoryIds, (ids) =>
+      anonClient.from('categories').select('id,name', { count: 'exact' }).in('id', ids));
+    for (const row of categoriesData) {
       categoryNameById.set(row.id, row.name);
     }
   }
@@ -717,7 +707,7 @@ export function buildForecastResponse(
   window: PeriodWindow,
   period: AssistantPeriod,
 ): { answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] } {
-  const today = toDateOnly(new Date());
+  const today = requestToday();
   const expenses = transactions.filter((tx) => tx.type === 'expense' && !tx.transfer_group_id && inWindow(tx.date, window));
   const income = transactions.filter((tx) => tx.type === 'income' && !tx.transfer_group_id && inWindow(tx.date, window));
 
@@ -1149,7 +1139,7 @@ export function buildEditTransactionResponse(
     if (/последн|предыдущ/u.test(refLower)) {
       targetTx = recentExpenses[0] ?? null;
     } else if (/вчера/u.test(refLower)) {
-      const yesterday = addDays(toDateOnly(new Date()), -1);
+      const yesterday = addDays(requestToday(), -1);
       targetTx = recentExpenses.find((tx) => tx.date.slice(0, 10) === yesterday) ?? null;
     } else {
       targetTx = transactions.find((tx) => {
@@ -1237,7 +1227,7 @@ export function buildDeleteTransactionResponse(
     if (/последн|предыдущ/u.test(refLower)) {
       targetTx = recentTxs[0] ?? null;
     } else if (/вчера/u.test(refLower)) {
-      const yesterday = addDays(toDateOnly(new Date()), -1);
+      const yesterday = addDays(requestToday(), -1);
       targetTx = recentTxs.find((tx) => tx.date.slice(0, 10) === yesterday) ?? null;
     } else {
       targetTx = recentTxs.find((tx) => {
@@ -1307,14 +1297,16 @@ export async function buildEditBudgetResponse(
     }
   }
 
-  let bq = anonClient
-    .from('budgets')
-    .select('id,amount,category_ids,period_type,is_active')
-    .eq('is_active', true);
-  if (userId) bq = bq.eq('user_id', userId);
-  const { data: budgetsData } = await bq.limit(300);
+  const budgetsData = await fetchAll<BudgetRow>('budgets', () => {
+    let bq = anonClient
+      .from('budgets')
+      .select('id,amount,category_ids,period_type,is_active', { count: 'exact' })
+      .eq('is_active', true);
+    if (userId) bq = bq.eq('user_id', userId);
+    return bq;
+  });
 
-  const budgets = ((budgetsData ?? []) as BudgetRow[]).filter((b) => b.is_active);
+  const budgets = budgetsData.filter((b) => b.is_active);
 
   if (budgets.length === 0) {
     return {
@@ -1329,8 +1321,14 @@ export async function buildEditBudgetResponse(
   let budgetCategoryName: string | null = null;
 
   if (categoryHint) {
-    const { data: cats } = await anonClient.from('categories').select('id,name,type').limit(500);
-    const categories = (cats ?? []) as CategoryRow[];
+    // Scoped to the user's own categories (the budgets above are the
+    // user's own). Unscoped, this read every user's categories whenever the
+    // client was not RLS-bound.
+    const categories = await fetchAll<CategoryRow>('categories', () => {
+      let cq = anonClient.from('categories').select('id,name,type', { count: 'exact' });
+      if (userId) cq = cq.eq('user_id', userId);
+      return cq;
+    });
 
     const hintLower = normalizeForMatch(categoryHint);
     const matchedCat = categories.find((c) => normalizeForMatch(c.name).includes(hintLower));
@@ -1348,7 +1346,7 @@ export async function buildEditBudgetResponse(
         .from('categories')
         .select('id,name')
         .in('id', targetBudget.category_ids.slice(0, 3))
-        .limit(3);
+        .limit(3); // bounded-fetch: at most the 3 ids above
       budgetCategoryName = (cats ?? []).map((c: { name: string }) => c.name).join(', ') || null;
     }
   }
@@ -1627,14 +1625,14 @@ export async function buildSavingsAdviceResponse(
   anonClient: SupabaseClient,
   userId?: string,
 ): Promise<{ answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] }> {
-  let gq = anonClient
-    .from('savings_goals')
-    .select('id,name,target_amount,current_amount,deadline,status,monthly_target')
-    .eq('status', 'active');
-  if (userId) gq = gq.eq('user_id', userId);
-  const { data: goalsData } = await gq.limit(20);
-
-  const goals = (goalsData ?? []) as SavingsGoalRow[];
+  const goals = await fetchAll<SavingsGoalRow>('savings_goals', () => {
+    let gq = anonClient
+      .from('savings_goals')
+      .select('id,name,target_amount,current_amount,deadline,status,monthly_target', { count: 'exact' })
+      .eq('status', 'active');
+    if (userId) gq = gq.eq('user_id', userId);
+    return gq;
+  });
 
   if (goals.length === 0) {
     return {
@@ -1649,14 +1647,12 @@ export async function buildSavingsAdviceResponse(
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
   const goalIds = goals.map((g) => g.id);
 
-  const { data: contribData } = await anonClient
-    .from('savings_contributions')
-    .select('goal_id,amount,created_at')
-    .in('goal_id', goalIds)
-    .gte('created_at', sixtyDaysAgo.toISOString())
-    .limit(500);
-
-  const contributions = (contribData ?? []) as SavingsContributionRow[];
+  const contributions = await fetchAllIn<SavingsContributionRow & { id: string }>('savings_contributions', goalIds, (ids) =>
+    anonClient
+      .from('savings_contributions')
+      .select('id,goal_id,amount,created_at', { count: 'exact' })
+      .in('goal_id', ids)
+      .gte('created_at', sixtyDaysAgo.toISOString()));
 
   const facts: string[] = [];
   const followUps: string[] = [];

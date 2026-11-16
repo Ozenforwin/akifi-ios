@@ -1,4 +1,5 @@
 import type { TxRow, SupabaseClient } from './types.ts';
+import { safeNumber } from './utils.ts';
 
 export type FinancialStage = 'beginner' | 'has_debt' | 'building_emergency' | 'saving' | 'investing' | 'fire';
 
@@ -28,13 +29,18 @@ export async function detectFinancialStage(
   // Используем все переданные транзакции (index.ts уже ограничивает до 180 дней)
   const recentTx = transactions;
 
+  // ADR-001: `amount_in_base` is `amount_native` converted from the
+  // account's currency into the display currency (index.ts enriches every
+  // row). The legacy `amount` mixed dollars and dong with roubles (M9).
+  const inBase = (t: TxRow) => Math.abs(safeNumber(t.amount_in_base ?? t.amount_native ?? t.amount));
+
   const totalIncome = recentTx
     .filter((t) => t.type === 'income' && !t.transfer_group_id)
-    .reduce((s, t) => s + Math.abs(t.amount), 0);
+    .reduce((s, t) => s + inBase(t), 0);
 
   const totalExpense = recentTx
     .filter((t) => t.type === 'expense' && !t.transfer_group_id)
-    .reduce((s, t) => s + Math.abs(t.amount), 0);
+    .reduce((s, t) => s + inBase(t), 0);
 
   // Count unique months with data for accurate averaging
   const monthsWithData = new Set(recentTx.map((t) => t.date.slice(0, 7))).size;
@@ -52,7 +58,7 @@ export async function detectFinancialStage(
       .select('id,current_amount,target_amount,status')
       .eq('user_id', userId)
       .eq('status', 'active')
-      .limit(10);
+      .limit(10); // bounded-fetch: existence-style check over a handful of goals
 
     if (goals && goals.length > 0) {
       hasEmergencyFund = goals.some(
@@ -71,7 +77,7 @@ export async function detectFinancialStage(
       .from('accounts')
       .select('name')
       .eq('user_id', userId)
-      .limit(50);
+      .limit(50); // bounded-fetch: keyword scan of account names, not a total
 
     const investmentAccountKeywords = ['bybit', 'binance', 'брокер', 'инвестиц', 'тинькофф инвест', 'etf', 'акци', 'крипт'];
     if (accounts) {
