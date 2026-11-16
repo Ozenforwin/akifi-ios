@@ -123,14 +123,25 @@ final class CurrencyManager {
     /// currency already. Used by the multi-currency preview labels
     /// (e.g. the "≈ 1 900 ₽" hint under a foreign-currency input).
     func formatInCurrency(_ amount: Decimal, currency: Currency, wholeUnits: Bool = false) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let digits = wholeUnits ? 0 : currency.decimals
-        formatter.maximumFractionDigits = digits
-        formatter.minimumFractionDigits = digits
+        let formatter = fixedDigitsFormatter(wholeUnits ? 0 : currency.decimals)
         let absAmount = abs(amount)
         let formatted = formatter.string(from: absAmount as NSDecimalNumber) ?? "0"
         return "\(formatted) \(currency.symbol)"
+    }
+
+    /// One decimal formatter per fraction-digit count. `formatInCurrency`
+    /// runs for every transaction row on screen and used to build a new
+    /// `NumberFormatter` per call (P6).
+    @ObservationIgnored private var fixedDigitsFormatters: [Int: NumberFormatter] = [:]
+
+    private func fixedDigitsFormatter(_ digits: Int) -> NumberFormatter {
+        if let cached = fixedDigitsFormatters[digits] { return cached }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = digits
+        formatter.minimumFractionDigits = digits
+        fixedDigitsFormatters[digits] = formatter
+        return formatter
     }
 
     func fetchRates() async {

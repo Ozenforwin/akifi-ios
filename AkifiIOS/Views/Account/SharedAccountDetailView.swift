@@ -27,10 +27,15 @@ struct SharedAccountDetailView: View {
     /// `nil` = no sheet. Driven by tap on the row's status badge.
     @State private var sheetTxn: Transaction?
 
-    /// Members of the shared account with their split weights, fetched
-    /// alongside settlement state. Used by the per-txn sheet to compute
-    /// each member's share. Empty until `settlementVM.load` returns.
-    @State private var memberWeights: [(userId: String, weight: Decimal)] = []
+    private struct ListKey: Equatable {
+        let revision: DerivationRevision
+        let interval: DateInterval
+    }
+
+    /// The settlement-driving rows for the selected period, recomputed only
+    /// when the data or the period changes (it was a filter + date parse
+    /// over every transaction, twice per render).
+    @State private var listMemo = Memo<ListKey, [Transaction]>()
 
     /// Shared `yyyy-MM-dd` parser for `Transaction.date`.
     private static let txDateFormatter: DateFormatter = {
@@ -75,19 +80,49 @@ struct SharedAccountDetailView: View {
     /// The settlement card's `viewModel.suggestions` is built from the
     /// same signal, so the list and the debt graph stay in sync.
     private var transactionsForAccount: [Transaction] {
-        let interval = settlementVM.selectedPeriod.dateInterval()
-        return dataStore.transactions
-            .filter { tx in
-                guard tx.accountId == account.id,
-                      tx.type == .expense,
-                      tx.transferGroupId == nil else { return false }
-                guard let source = tx.paymentSourceAccountId,
-                      source != account.id else { return false }
-                guard let d = Self.txDateFormatter.date(from: tx.date) else { return false }
-                return interval.contains(d)
+        let key = ListKey(
+            revision: dataStore.derivationRevision,
+            interval: settlementVM.selectedPeriod.dateInterval()
+        )
+        return listMemo.value(for: key) {
+            Self.settlementRows(dataStore.transactions, accountId: account.id, interval: key.interval)
+        }
+    }
+
+    static func settlementRows(_ transactions: [Transaction], accountId: String, interval: DateInterval) -> [Transaction] {
+        var dayCache: [String: Date?] = [:]
+        var out: [Transaction] = []
+        for tx in transactions {
+            guard tx.accountId == accountId,
+                  tx.type == .expense,
+                  tx.transferGroupId == nil else { continue }
+            guard let source = tx.paymentSourceAccountId,
+                  source != accountId else { continue }
+            let day: Date?
+            if let cached = dayCache[tx.date] {
+                day = cached
+            } else {
+                day = txDateFormatter.date(from: tx.date)
+                dayCache[tx.date] = day
             }
-            .prefix(100)
-            .map { $0 }
+            guard let day, interval.contains(day) else { continue }
+            out.append(tx)
+            if out.count == 100 { break }
+        }
+        return out
+    }
+
+    /// Members with split weights for the per-txn sheet and the bulk
+    /// actions — from the app-wide `account_members` snapshot (P7: this
+    /// screen used to fetch the same rows the settlement card fetches).
+    /// Falls back to the transaction authors, weight 1, while unknown.
+    private var memberWeights: [(userId: String, weight: Decimal)] {
+        if let members = dataStore.accountMembership.members(of: account.id, viewerId: dataStore.profile?.id),
+           !members.isEmpty {
+            return members.map { ($0.userId, $0.splitWeight) }
+        }
+        let authors = dataStore.derivedCache.transactionIndex(for: dataStore).authorsByAccount[account.id] ?? []
+        return authors.sorted().map { ($0, Decimal(1)) }
     }
 
     var body: some View {
@@ -120,7 +155,8 @@ struct SharedAccountDetailView: View {
             )
         }
         .task(id: account.id) {
-            await loadMemberWeights()
+            // Shared app-wide snapshot; refetched only when older than 5 min.
+            await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id, maxAge: 300)
         }
         // Override the FAB's contextual account while this detail screen
         // is on top of the navigation stack. Restore the previous value
@@ -135,15 +171,12 @@ struct SharedAccountDetailView: View {
         }
     }
 
-    /// User IDs that have any transaction on this account — treated as
-    /// "members" for the avatar row display. Draws from the same signal
-    /// as the settlement card so the row stays consistent with the ledger.
+    /// Members for the avatar row — the same signal as the settlement card
+    /// (`account_members`, falling back to transaction authors). Read once
+    /// per header render; it was an O(N) filter + sort per read, four reads
+    /// per render.
     private var participantUserIds: [String] {
-        let ids = Array(
-            Set(dataStore.transactions
-                .filter { $0.accountId == account.id }
-                .map(\.userId))
-        )
+        let ids = memberWeights.map(\.userId)
         // Stable ordering: owner first, then alpha by name, fall back to id.
         return ids.sorted { a, b in
             if a == account.userId { return true }
@@ -160,6 +193,7 @@ struct SharedAccountDetailView: View {
     private var header: some View {
         let balance = dataStore.balance(for: account)
         let color = Color(hex: account.color)
+        let participants = participantUserIds
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -184,13 +218,13 @@ struct SharedAccountDetailView: View {
             }
 
             // Participants row — small avatars stacked with light overlap.
-            if !participantUserIds.isEmpty {
+            if !participants.isEmpty {
                 HStack(spacing: -6) {
-                    ForEach(participantUserIds.prefix(5), id: \.self) { uid in
+                    ForEach(participants.prefix(5), id: \.self) { uid in
                         participantAvatar(uid)
                     }
-                    if participantUserIds.count > 5 {
-                        Text("+\(participantUserIds.count - 5)")
+                    if participants.count > 5 {
+                        Text("+\(participants.count - 5)")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 8)
@@ -295,14 +329,36 @@ struct SharedAccountDetailView: View {
         .buttonStyle(.plain)
     }
 
+    /// Per-render settlement context shared by every row: the marks index
+    /// and the watermark are computed properties on the view model (a
+    /// dictionary build and an ISO-8601 parse of every settlement), so they
+    /// are read once here instead of 2–3 times per row.
+    struct RowContext {
+        let marks: [String: Set<String>]
+        let watermark: Date?
+        let hasSuggestions: Bool
+        let members: [(userId: String, weight: Decimal)]
+
+        func settledCount(_ tx: Transaction) -> Int { marks[tx.id]?.count ?? 0 }
+        /// Total members − 1 (the payer doesn't owe their own share).
+        var nonPayerCount: Int { max(members.count - 1, 0) }
+    }
+
     @ViewBuilder
     private var transactionsSection: some View {
-        if !transactionsForAccount.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+        let rows = transactionsForAccount
+        if !rows.isEmpty {
+            let context = RowContext(
+                marks: settlementVM.memberSettlementsByTxn,
+                watermark: settlementVM.settlementWatermark,
+                hasSuggestions: !settlementVM.suggestions.isEmpty,
+                members: memberWeights
+            )
+            LazyVStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "transactions.recent"))
                     .font(.headline)
-                ForEach(transactionsForAccount) { tx in
-                    transactionRow(for: tx)
+                ForEach(rows) { tx in
+                    transactionRow(for: tx, context: context)
                 }
             }
         }
@@ -314,12 +370,14 @@ struct SharedAccountDetailView: View {
     /// Home, Search, etc.).
     ///
     /// Three interactions, all converging on the same per-member marks:
-    /// 1. Tap the badge → opens the per-member sheet.
-    /// 2. Swipe left → quick "Учесть всё" / "Вернуть всё".
+    /// 1. Tap the row → opens the per-member sheet.
+    /// 2. Long-press → quick "Учесть всё" / "Вернуть всё". (These were
+    ///    `.swipeActions`, which only work inside a `List` — in this
+    ///    ScrollView they were unreachable.)
     /// 3. (In the sheet) per-member toggles for precise control.
     @ViewBuilder
-    private func transactionRow(for tx: Transaction) -> some View {
-        let state = settlementState(for: tx)
+    private func transactionRow(for tx: Transaction, context: RowContext) -> some View {
+        let state = Self.settlementState(for: tx, context: context)
         Button {
             HapticManager.light()
             sheetTxn = tx
@@ -336,7 +394,7 @@ struct SharedAccountDetailView: View {
             // with the rest of the row chrome.
             .overlay(alignment: .bottomTrailing) {
                 if let state {
-                    settlementBadge(for: tx, state: state)
+                    settlementBadge(for: tx, state: state, context: context)
                         .padding(.trailing, 12)
                         .padding(.bottom, 10)
                         .allowsHitTesting(false)
@@ -346,8 +404,8 @@ struct SharedAccountDetailView: View {
         .buttonStyle(.plain)
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .opacity(state == .full ? 0.55 : 1.0)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            swipeAction(for: tx, state: state ?? .open)
+        .contextMenu {
+            quickAction(for: tx, state: state ?? .open, context: context)
         }
     }
 
@@ -355,10 +413,10 @@ struct SharedAccountDetailView: View {
     /// the txn's per-member settlement state. The whole row is tappable
     /// (parent wraps in a Button), so this view stays purely visual.
     @ViewBuilder
-    private func settlementBadge(for tx: Transaction, state: TxnSettleState) -> some View {
+    private func settlementBadge(for tx: Transaction, state: TxnSettleState, context: RowContext) -> some View {
         let title = state.localizedTitle(
-            settled: settledCount(for: tx),
-            total: nonPayerCount(for: tx)
+            settled: context.settledCount(tx),
+            total: context.nonPayerCount
         )
         HStack(spacing: 4) {
             Image(systemName: state.icon)
@@ -374,16 +432,16 @@ struct SharedAccountDetailView: View {
         .accessibilityLabel(title)
     }
 
-    /// Swipe-to-toggle action. Mirrors the "Учесть всё / Вернуть всё"
-    /// bulk action from the sheet — a single horizontal gesture per row.
+    /// Quick toggle (context menu). Mirrors the "Учесть всё / Вернуть всё"
+    /// bulk action from the sheet.
     @ViewBuilder
-    private func swipeAction(for tx: Transaction, state: TxnSettleState) -> some View {
+    private func quickAction(for tx: Transaction, state: TxnSettleState, context: RowContext) -> some View {
         if state == .full {
             // Only offer "reopen" when the row carries real per-txn marks.
             // A row that's `.full` purely because it predates the settle
             // watermark has nothing to unmark here — it's reopened by
             // cancelling the settlement in the card's history list instead.
-            if settledCount(for: tx) > 0 {
+            if context.settledCount(tx) > 0 {
                 Button {
                     HapticManager.medium()
                     Task {
@@ -408,7 +466,7 @@ struct SharedAccountDetailView: View {
                         transactionId: tx.id,
                         sharedAccountId: account.id,
                         payerUserId: payerUserId(for: tx),
-                        memberUserIds: memberWeights.map(\.userId),
+                        memberUserIds: context.members.map(\.userId),
                         dataStore: dataStore,
                         currencyManager: cm
                     )
@@ -460,9 +518,9 @@ struct SharedAccountDetailView: View {
     /// Visible state for the per-row badge. Returns nil when there's
     /// nothing meaningful to show — the cumulative balance is even AND the
     /// row is neither per-txn-marked nor covered by a past settle.
-    private func settlementState(for tx: Transaction) -> TxnSettleState? {
-        let settled = settledCount(for: tx)
-        let total = nonPayerCount(for: tx)
+    static func settlementState(for tx: Transaction, context: RowContext) -> TxnSettleState? {
+        let settled = context.settledCount(tx)
+        let total = context.nonPayerCount
 
         // 1. Explicit per-txn marks win — show their precise state.
         if total > 0 && settled > 0 {
@@ -475,35 +533,30 @@ struct SharedAccountDetailView: View {
         //    to "Ожидает расчёта" as soon as a *newer* expense reopens the
         //    net debt — the exact "settled rows reappear" bug. See
         //    `SettlementViewModel.settlementWatermark`.
-        if isCoveredBySettlement(tx) {
+        if isCoveredBySettlement(tx, watermark: context.watermark) {
             return .full
         }
 
         // 3. Otherwise only flag "ожидает" while a net debt is still open —
         //    on a clean account the badge would just be visual noise.
-        if !settlementVM.suggestions.isEmpty {
+        if context.hasSuggestions {
             return .open
         }
         return nil
     }
 
-    /// True when `tx` is dated on or before the last cumulative settle, i.e.
+    /// True when `tx` happened at or before the last cumulative settle, i.e.
     /// its share is already reconciled by a `settlements` row even though no
-    /// per-transaction mark exists for it.
-    private func isCoveredBySettlement(_ tx: Transaction) -> Bool {
-        guard let watermark = settlementVM.settlementWatermark,
-              let txDate = Self.txDateFormatter.date(from: String(tx.date.prefix(10)))
-        else { return false }
-        return txDate <= watermark
-    }
-
-    private func settledCount(for tx: Transaction) -> Int {
-        settlementVM.memberSettlementsByTxn[tx.id]?.count ?? 0
-    }
-
-    private func nonPayerCount(for tx: Transaction) -> Int {
-        // Total members − 1 (the payer doesn't owe their own share).
-        max(memberWeights.count - 1, 0)
+    /// per-transaction mark exists for it. Compares two instants (D11): the
+    /// row's timestamp, not the UTC midnight of its day — otherwise an
+    /// expense booked in the evening counted as covered by a settlement
+    /// recorded that morning.
+    static func isCoveredBySettlement(_ tx: Transaction, watermark: Date?) -> Bool {
+        guard let watermark else { return false }
+        let instant = TransactionInstant.parse(tx.rawDateTime)
+            ?? txDateFormatter.date(from: String(tx.date.prefix(10)))
+        guard let instant else { return false }
+        return instant <= watermark
     }
 
     /// The user who actually funded this auto-transfer expense. The server's
@@ -521,35 +574,5 @@ struct SharedAccountDetailView: View {
             return owner
         }
         return tx.userId
-    }
-
-    /// Pulls `account_members` once on appear so the per-txn sheet has the
-    /// member list with split weights ready. The settlement card already
-    /// fetches the same rows in `SettlementViewModel.load`, but the sheet
-    /// view needs them in a friendly tuple-list shape.
-    private func loadMemberWeights() async {
-        do {
-            let members: [AccountMember] = try await SupabasePaging.all("account_members") { count in
-                SupabaseManager.shared.client
-                    .from("account_members")
-                    .select(count: count)
-                    .eq("account_id", value: account.id)
-            }
-            if !members.isEmpty {
-                memberWeights = members.map { ($0.userId, $0.splitWeight) }
-            } else {
-                let ids = Array(
-                    Set(dataStore.transactions
-                        .filter { $0.accountId == account.id }
-                        .map(\.userId))
-                )
-                memberWeights = ids.map { ($0, Decimal(1.0)) }
-            }
-        } catch {
-            // Non-fatal — the sheet will fall back to a single-member view
-            // if the list is empty, and the row badges will still render
-            // from `viewModel.memberSettlementsByTxn` correctly.
-            AppLogger.data.debug("memberWeights load: \(error.localizedDescription)")
-        }
     }
 }

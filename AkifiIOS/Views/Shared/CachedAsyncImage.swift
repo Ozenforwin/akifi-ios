@@ -2,6 +2,11 @@ import SwiftUI
 import CryptoKit
 
 /// Two-tier image cache: NSCache (memory) + disk (Caches directory).
+///
+/// `NSCache` is thread-safe and the disk tier only touches files, so the
+/// expensive parts (file read + decode, file write) run off the main actor.
+/// The memory cost is the decoded bitmap size — it used to be measured by
+/// re-encoding every downloaded image to PNG on the main thread (P8).
 private final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let memory = NSCache<NSURL, UIImage>()
@@ -16,25 +21,27 @@ private final class ImageCache: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: diskDir, withIntermediateDirectories: true)
     }
 
-    func image(for url: URL) -> UIImage? {
-        // 1. Memory
-        if let cached = memory.object(forKey: url as NSURL) { return cached }
-        // 2. Disk
-        let file = diskPath(for: url)
-        guard let data = try? Data(contentsOf: file),
+    func memoryImage(for url: URL) -> UIImage? {
+        memory.object(forKey: url as NSURL)
+    }
+
+    /// Disk tier — call off the main actor.
+    func diskImage(for url: URL) -> UIImage? {
+        guard let data = try? Data(contentsOf: diskPath(for: url)),
               let image = UIImage(data: data) else { return nil }
-        memory.setObject(image, forKey: url as NSURL)
+        memory.setObject(image, forKey: url as NSURL, cost: Self.cost(of: image))
         return image
     }
 
-    func store(_ image: UIImage, for url: URL) {
-        let cost = image.pngData()?.count ?? 0
-        memory.setObject(image, forKey: url as NSURL, cost: cost)
-        // Write to disk in background
-        let file = diskPath(for: url)
-        if let data = image.jpegData(compressionQuality: 0.85) {
-            try? data.write(to: file, options: .atomic)
-        }
+    /// Stores the downloaded bytes as-is (no re-encode) — call off the main actor.
+    func store(_ image: UIImage, data: Data, for url: URL) {
+        memory.setObject(image, forKey: url as NSURL, cost: Self.cost(of: image))
+        try? data.write(to: diskPath(for: url), options: .atomic)
+    }
+
+    private static func cost(of image: UIImage) -> Int {
+        guard let cg = image.cgImage else { return 0 }
+        return cg.bytesPerRow * cg.height
     }
 
     private func diskPath(for url: URL) -> URL {
@@ -68,8 +75,9 @@ struct CachedAsyncImage<Placeholder: View>: View {
     }
 
     private func loadImage() async {
-        // Check cache first
-        if let cached = ImageCache.shared.image(for: url) {
+        let url = url
+        // Memory hit: no hop off the main actor.
+        if let cached = ImageCache.shared.memoryImage(for: url) {
             uiImage = cached
             return
         }
@@ -78,12 +86,21 @@ struct CachedAsyncImage<Placeholder: View>: View {
         isLoading = true
         defer { isLoading = false }
 
+        if let cached = await Task.detached(priority: .utility, operation: {
+            ImageCache.shared.diskImage(for: url)
+        }).value {
+            uiImage = cached
+            return
+        }
+
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            if let image = UIImage(data: data) {
-                ImageCache.shared.store(image, for: url)
-                await MainActor.run { uiImage = image }
-            }
+            let image = await Task.detached(priority: .utility) { () -> UIImage? in
+                guard let image = UIImage(data: data) else { return nil }
+                ImageCache.shared.store(image, data: data, for: url)
+                return image
+            }.value
+            if let image { uiImage = image }
         } catch {
             // Silent — placeholder stays
         }

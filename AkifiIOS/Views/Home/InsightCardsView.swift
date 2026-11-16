@@ -13,25 +13,54 @@ struct InsightCardsView: View {
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
+    /// Everything `InsightEngine.generate` reads. The engine is O(budgets × N)
+    /// (one `BudgetMath.compute` per budget) and used to run on every Home
+    /// render; now it runs once per change of any of these.
+    private struct InsightsKey: Equatable {
+        let revision: DerivationRevision
+        let categories: ArrayIdentity<Category>
+        let budgets: ArrayIdentity<Budget>
+        let subscriptions: ArrayIdentity<SubscriptionTracker>
+        let externalSpend: [String: ArrayIdentity<BudgetMath.ExternalSpendRow>]
+        /// Week / month windows, "days since last", subscription countdowns.
+        let day: String
+        /// Insight copy embeds amounts formatted in the display currency.
+        let displayCurrency: String
+    }
+
+    @State private var memo = Memo<InsightsKey, [InsightEngine.Insight]>()
+
     private var insights: [InsightEngine.Insight] {
+        let store = dataStore
         let fmt = appViewModel.currencyManager
-        let ctx = dataStore.currencyContext
-        let all = InsightEngine.generate(
-            InsightEngine.Input(
-                transactions: dataStore.transactions,
-                categories: dataStore.categories,
-                budgets: dataStore.budgets,
-                subscriptions: dataStore.subscriptions,
-                formatAmount: { amount in MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) } },
-                formatAmountInCurrency: { amount, currency in
-                    Self.formatInCurrency(amount: amount, currency: currency)
-                },
-                accountsById: ctx.accountsById,
-                fxRates: ctx.fxRates,
-                baseCode: ctx.baseCode,
-                externalSpendByBudget: dataStore.externalSpendByBudget
-            )
+        let key = InsightsKey(
+            revision: store.derivationRevision,
+            categories: ArrayIdentity(store.categories),
+            budgets: ArrayIdentity(store.budgets),
+            subscriptions: ArrayIdentity(store.subscriptions),
+            externalSpend: store.externalSpendByBudget.mapValues { ArrayIdentity($0) },
+            day: DayKey.day(Date()),
+            displayCurrency: fmt.selectedCurrency.code
         )
+        let all = memo.value(for: key) {
+            let ctx = store.currencyContext
+            return InsightEngine.generate(
+                InsightEngine.Input(
+                    transactions: store.transactions,
+                    categories: store.categories,
+                    budgets: store.budgets,
+                    subscriptions: store.subscriptions,
+                    formatAmount: { amount in MainActor.assumeIsolated { fmt.formatAmount(amount.displayAmount) } },
+                    formatAmountInCurrency: { amount, currency in
+                        Self.formatInCurrency(amount: amount, currency: currency)
+                    },
+                    accountsById: ctx.accountsById,
+                    fxRates: ctx.fxRates,
+                    baseCode: ctx.baseCode,
+                    externalSpendByBudget: store.externalSpendByBudget
+                )
+            )
+        }
         let skip = dismissedSet
         return all.filter { !skip.contains($0.id) }
     }
@@ -102,6 +131,20 @@ struct InsightCardsView: View {
         dismissedRaw = set.joined(separator: "\n")
     }
 
+    /// Built once: formatting is read-only after setup (safe from any
+    /// thread); creating a formatter per call was the cost.
+    private static let wholeFormatter = makeFormatter(fractionDigits: 0)
+    private static let centsFormatter = makeFormatter(fractionDigits: 2)
+
+    nonisolated private static func makeFormatter(fractionDigits: Int) -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = fractionDigits
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.groupingSeparator = " "
+        return formatter
+    }
+
     /// Format an amount in the subscription's own currency.
     /// Subscriptions can be in USD, EUR, RUB, etc. — rendering them all in
     /// the user's display currency would be misleading (a $100 Claude sub
@@ -119,11 +162,8 @@ struct InsightCardsView: View {
         default: code
         }
         let display = Decimal(amount) / 100
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = (code == "RUB" || code == "VND" || code == "THB" || code == "IDR") ? 0 : 2
-        formatter.minimumFractionDigits = formatter.maximumFractionDigits
-        formatter.groupingSeparator = " "
+        let wholeUnits = code == "RUB" || code == "VND" || code == "THB" || code == "IDR"
+        let formatter = wholeUnits ? wholeFormatter : centsFormatter
         let formatted = formatter.string(from: display as NSDecimalNumber) ?? "0"
         // Symbol placement: $/€/£/Rp prefix, others postfix.
         let prefix = (code == "USD" || code == "EUR" || code == "GBP" || code == "IDR")

@@ -140,9 +140,19 @@ enum InsightEngine {
         var biggestCatId: String?
         var catSpending: [String: Int64] = [:]
 
+        // Rows share far fewer distinct days than there are rows — parse
+        // each day once.
+        var dayCache: [String: Date?] = [:]
         for tx in input.transactions {
-            guard tx.type == .expense, !tx.isTransfer,
-                  let d = df.date(from: tx.date) else { continue }
+            guard tx.type == .expense, !tx.isTransfer else { continue }
+            let parsed: Date?
+            if let cached = dayCache[tx.date] {
+                parsed = cached
+            } else {
+                parsed = df.date(from: tx.date)
+                dayCache[tx.date] = parsed
+            }
+            guard let d = parsed else { continue }
             let amount = input.amountInBase(tx)
 
             if d >= monthStart {
@@ -343,7 +353,13 @@ enum InsightEngine {
     // MARK: - Helpers
 
     private static func daysSinceLastTransaction(transactions: [Transaction], df: DateFormatter, now: Date, calendar: Calendar) -> Int {
-        guard let latest = transactions.compactMap({ df.date(from: $0.date) }).max() else { return 0 }
+        // "yyyy-MM-dd" sorts chronologically, so the latest day is the
+        // largest string — one parse instead of one per transaction. A
+        // malformed maximum falls back to the exhaustive parse.
+        let latestDay = transactions.lazy.map(\.date).filter { $0.utf8.count == 10 }.max()
+        let latest = latestDay.flatMap { df.date(from: $0) }
+            ?? transactions.compactMap({ df.date(from: $0.date) }).max()
+        guard let latest else { return 0 }
         return calendar.dateComponents([.day], from: latest, to: now).day ?? 0
     }
 }

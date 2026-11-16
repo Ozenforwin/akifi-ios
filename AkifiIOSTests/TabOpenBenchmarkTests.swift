@@ -214,6 +214,7 @@ final class TabOpenBenchmarkTests: XCTestCase {
         try requireBenchmarkRun()
         var samples: [Double] = []
         var cacheOnly: [Double] = []
+        var perTab: [String: [Double]] = [:]
         for run in 0..<5 {
             let app = Self.makeApp()
             let windows = tabs.map { mount($0.1(), app: app) }
@@ -227,13 +228,78 @@ final class TabOpenBenchmarkTests: XCTestCase {
                 store.transactions.insert(tx, at: 0)
                 store.rebuildCaches()
             })
-            samples.append(time {
-                for w in windows { w.1.view.setNeedsLayout(); w.1.view.layoutIfNeeded() }
-            })
+            var total = 0.0
+            for (i, w) in windows.enumerated() {
+                let ms = time { w.1.view.setNeedsLayout(); w.1.view.layoutIfNeeded() }
+                perTab[tabs[i].0, default: []].append(ms)
+                total += ms
+            }
+            samples.append(total)
             windows.forEach { $0.0.isHidden = true }
         }
         report("change.rebuildCaches", cacheOnly)
         report("change.rerender4Tabs", samples)
+        for (name, _) in tabs { report("change.rerender.\(name)", perTab[name] ?? []) }
+    }
+
+    /// Where a tab's first-open time goes: each Home / Analytics panel
+    /// mounted alone (fresh app per sample, so memos start cold).
+    func test_bench_panelBreakdown() throws {
+        try requireBenchmarkRun()
+        let panels: [(String, () -> AnyView)] = [
+            ("home.insights", { AnyView(InsightCardsView()) }),
+            ("home.summary", { AnyView(HomeSummaryProbe()) }),
+            ("home.recent", { AnyView(HomeRecentProbe()) }),
+            ("home.recent.rowsOnly", { AnyView(RowsStackProbe()) }),
+            ("home.recent.listOnly", { AnyView(EmptyListProbe()) }),
+            ("home.carousel", { AnyView(HomeCarouselProbe()) }),
+            ("home.streak", { AnyView(StreakBadgeView()) }),
+            ("transactions.miniDashboard", { AnyView(MiniDashboardProbe()) }),
+            ("analytics.forecast", { AnyView(ForecastProbe()) }),
+            ("analytics.categories", { AnyView(CategoryProbe()) }),
+            ("analytics.dailyLimit", { AnyView(DailyLimitWidgetView()) }),
+        ]
+        for (name, make) in panels {
+            var build: [Double] = []
+            for _ in 0..<5 {
+                let app = Self.makeApp()
+                var mounted: (UIWindow, UIHostingController<AnyView>)?
+                build.append(time { mounted = mount(ScrollView { make() }, app: app) })
+                mounted?.0.isHidden = true
+            }
+            report("panel.\(name)", build)
+        }
+    }
+
+    /// Cold cost of each memoized derivation — what one data change costs
+    /// per derivation now that nothing recomputes per read.
+    func test_bench_derivations() throws {
+        try requireBenchmarkRun()
+        var samples: [String: [Double]] = [:]
+        for _ in 0..<5 {
+            let app = Self.makeApp()
+            let store = app.dataStore
+            let state = AnalyticsTabState(dataStore: store)
+            samples["derive.forecast", default: []].append(time { _ = state.forecast(horizonMonths: 3) })
+            samples["derive.categoryBreakdown", default: []].append(time { _ = state.categoryBreakdown(type: .expense) })
+            samples["derive.cashflowPoints", default: []].append(time { _ = state.cashflowPoints })
+            samples["derive.transactionIndex", default: []].append(time { _ = store.derivedCache.transactionIndex(for: store) })
+            samples["derive.miniDashboard", default: []].append(time {
+                _ = TransactionsMiniDashboardView.months(store.transactions) { store.amountInBase($0) }
+            })
+            let cm = app.currencyManager
+            let ctx = store.currencyContext
+            samples["derive.insights", default: []].append(time {
+                _ = InsightEngine.generate(InsightEngine.Input(
+                    transactions: store.transactions, categories: store.categories, budgets: store.budgets,
+                    subscriptions: store.subscriptions,
+                    formatAmount: { amount in MainActor.assumeIsolated { cm.formatAmount(amount.displayAmount) } },
+                    accountsById: ctx.accountsById, fxRates: ctx.fxRates, baseCode: ctx.baseCode
+                ))
+            })
+            samples["derive.memoHit.categoryBreakdown", default: []].append(time { _ = state.categoryBreakdown(type: .expense) })
+        }
+        for (name, s) in samples.sorted(by: { $0.key < $1.key }) { report(name, s) }
     }
 
     /// Scaling check: does the build cost grow linearly with history size?
@@ -249,5 +315,66 @@ final class TabOpenBenchmarkTests: XCTestCase {
             }
             report("scaling.transactions.\(n)", build)
         }
+    }
+}
+
+// MARK: - Panel probes (benchmark-only wrappers that read the environment)
+
+private struct HomeSummaryProbe: View {
+    @Environment(AppViewModel.self) private var app
+    var body: some View { SummaryCardsView(transactions: app.dataStore.transactions, selectedAccount: nil) }
+}
+
+private struct HomeRecentProbe: View {
+    @Environment(AppViewModel.self) private var app
+    var body: some View {
+        RecentTransactionsView(
+            transactions: app.dataStore.derivedCache.recentTransactions(for: app.dataStore, accountId: nil),
+            categories: app.dataStore.categories
+        )
+    }
+}
+
+private struct HomeCarouselProbe: View {
+    @Environment(AppViewModel.self) private var app
+    @State private var index = 0
+    var body: some View {
+        AccountCarouselView(accounts: app.dataStore.accounts, selectedIndex: $index, balanceFor: app.dataStore.balance)
+    }
+}
+
+private struct MiniDashboardProbe: View {
+    @Environment(AppViewModel.self) private var app
+    var body: some View { TransactionsMiniDashboardView(transactions: app.dataStore.transactions) {} }
+}
+
+private struct ForecastProbe: View {
+    @Environment(AppViewModel.self) private var app
+    @State private var state = AnalyticsTabState()
+    var body: some View { CashFlowForecastView(state: state.bind(app.dataStore)) }
+}
+
+private struct CategoryProbe: View {
+    @Environment(AppViewModel.self) private var app
+    @State private var state = AnalyticsTabState()
+    var body: some View { CategoryBreakdownView(state: state.bind(app.dataStore)) }
+}
+
+private struct RowsStackProbe: View {
+    @Environment(AppViewModel.self) private var app
+    var body: some View {
+        VStack {
+            ForEach(app.dataStore.transactions.prefix(10)) { tx in
+                TransactionRowView(transaction: tx, category: app.dataStore.category(for: tx))
+            }
+        }
+    }
+}
+
+private struct EmptyListProbe: View {
+    var body: some View {
+        List { ForEach(0..<10, id: \.self) { Text("\($0)") } }
+            .listStyle(.plain)
+            .frame(height: 880)
     }
 }

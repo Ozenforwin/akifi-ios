@@ -347,8 +347,11 @@ struct ShareAccountView: View {
             splitPercents = clean
             splitSaveOK = true
             HapticManager.success()
-            // Refresh local list so next open reads fresh weights.
+            // Refresh local list so next open reads fresh weights — and the
+            // app-wide membership snapshot the settlement sheet reads.
             await loadMembers()
+            let store = appViewModel.dataStore
+            await store.accountMembership.refresh(viewerId: store.profile?.id, force: true)
         } catch {
             self.error = error.localizedDescription
             HapticManager.error()
