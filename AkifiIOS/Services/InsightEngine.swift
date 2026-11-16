@@ -117,10 +117,9 @@ enum InsightEngine {
 
     static func generate(_ input: Input, calendar: Calendar = .current) -> [Insight] {
         var out: [Insight] = []
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.calendar = calendar
-        df.timeZone = calendar.timeZone
+        // `tx.date` holds gregorian digits; read them as such in `calendar`'s
+        // time zone even when `calendar` is Buddhist/Japanese (D1).
+        let dayCalendar = AppDateFormatters.gregorian(timeZone: calendar.timeZone)
 
         // --- Time windows ---
         guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: input.now)),
@@ -149,7 +148,7 @@ enum InsightEngine {
             if let cached = dayCache[tx.date] {
                 parsed = cached
             } else {
-                parsed = df.date(from: tx.date)
+                parsed = AppDateFormatters.day(tx.date, calendar: dayCalendar)
                 dayCache[tx.date] = parsed
             }
             guard let d = parsed else { continue }
@@ -299,7 +298,7 @@ enum InsightEngine {
         }
 
         // 8. No transactions recently
-        let noTxDays = daysSinceLastTransaction(transactions: input.transactions, df: df, now: input.now, calendar: calendar)
+        let noTxDays = daysSinceLastTransaction(transactions: input.transactions, dayCalendar: dayCalendar, now: input.now, calendar: calendar)
         if noTxDays >= 3 {
             out.append(Insight(
                 id: "no-tx",
@@ -316,10 +315,7 @@ enum InsightEngine {
 
     /// Compact weekly digest for a push notification.
     static func weeklyDigest(_ input: Input, calendar: Calendar = .current) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.calendar = calendar
-        df.timeZone = calendar.timeZone
+        let dayCalendar = AppDateFormatters.gregorian(timeZone: calendar.timeZone)
 
         guard let weekStart = calendar.date(byAdding: .day, value: -7, to: input.now) else {
             return String(localized: "insight.weeklyDigest.empty")
@@ -329,7 +325,7 @@ enum InsightEngine {
         var expense: Int64 = 0
         var count = 0
         for tx in input.transactions {
-            guard !tx.isTransfer, let d = df.date(from: tx.date), d >= weekStart else { continue }
+            guard !tx.isTransfer, let d = AppDateFormatters.day(tx.date, calendar: dayCalendar), d >= weekStart else { continue }
             let amount = input.amountInBase(tx)
             switch tx.type {
             case .income: income += amount
@@ -352,13 +348,13 @@ enum InsightEngine {
 
     // MARK: - Helpers
 
-    private static func daysSinceLastTransaction(transactions: [Transaction], df: DateFormatter, now: Date, calendar: Calendar) -> Int {
+    private static func daysSinceLastTransaction(transactions: [Transaction], dayCalendar: Calendar, now: Date, calendar: Calendar) -> Int {
         // "yyyy-MM-dd" sorts chronologically, so the latest day is the
         // largest string — one parse instead of one per transaction. A
         // malformed maximum falls back to the exhaustive parse.
         let latestDay = transactions.lazy.map(\.date).filter { $0.utf8.count == 10 }.max()
-        let latest = latestDay.flatMap { df.date(from: $0) }
-            ?? transactions.compactMap({ df.date(from: $0.date) }).max()
+        let latest = latestDay.flatMap { AppDateFormatters.day($0, calendar: dayCalendar) }
+            ?? transactions.compactMap({ AppDateFormatters.day($0.date, calendar: dayCalendar) }).max()
         guard let latest else { return 0 }
         return calendar.dateComponents([.day], from: latest, to: now).day ?? 0
     }

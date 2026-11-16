@@ -153,9 +153,7 @@ enum TransactionGuards {
             to: now
         ) ?? now
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        let formatter = AppDateFormatters.utcDate
 
         // Each entry: absolute per-transaction expense in base, main
         // units. We compute on Decimal so we can take a true median

@@ -263,13 +263,10 @@ struct JournalNoteDetailView: View {
 
     private func formatDate(_ raw: String?) -> String {
         guard let raw else { return "" }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        guard let date = df.date(from: String(raw.prefix(19))) else { return String(raw.prefix(10)) }
-        let display = DateFormatter()
-        display.dateStyle = .medium
-        display.timeStyle = .short
-        return display.string(from: date)
+        guard let date = AppDateFormatters.localDateTime.date(from: String(raw.prefix(19))) else {
+            return String(raw.prefix(10))
+        }
+        return AppDateFormatters.displayDateTime.string(from: date)
     }
 }
 
@@ -434,10 +431,8 @@ enum ReflectionPeriodMath {
         currencyManager: CurrencyManager,
         accountsById: [String: Account] = [:]
     ) -> ReflectionPeriodSummary {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let display = DateFormatter()
-        display.setLocalizedDateFormatFromTemplate("d MMM yyyy")
+        let df = AppDateFormatters.isoDate
+        let display = AppDateFormatters.dayMonthYear
 
         let startDate = periodStart.flatMap { df.date(from: $0) }
         let endDate = periodEnd.flatMap { df.date(from: $0) }

@@ -116,9 +116,7 @@ enum PDFReportGenerator {
     }
 
     private static func makeFilename(for input: Input) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let ds = df.string(from: input.generatedAt)
+        let ds = AppDateFormatters.isoDate.string(from: input.generatedAt)
         let safePeriod = input.periodLabel
             .replacingOccurrences(of: " ", with: "-")
             .replacingOccurrences(of: "/", with: "-")
@@ -722,10 +720,6 @@ enum PDFReportGenerator {
     }
 
     private static func generatedDateString(_ date: Date) -> String {
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .short
-        df.locale = Locale.current
-        return String(localized: "pdf.generatedAt") + " " + df.string(from: date)
+        String(localized: "pdf.generatedAt") + " " + AppDateFormatters.displayDateTime.string(from: date)
     }
 }

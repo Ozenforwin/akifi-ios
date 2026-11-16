@@ -108,9 +108,29 @@ enum AppDateFormatters {
     /// `yyyy-MM-dd'T'HH:mm:ss` read as UTC.
     static let utcDateTime: DateFormatter = posix("yyyy-MM-dd'T'HH:mm:ss", timeZone: utcTimeZone)
 
+    /// `yyyy-MM` in UTC — month keys of code that anchors its month window
+    /// in UTC.
+    static let utcMonth: DateFormatter = posix("yyyy-MM", timeZone: utcTimeZone)
+
     /// `yyyy-MM-dd'T'HH:mm:ssZZZZZ` in UTC (`2026-11-17T00:30:00Z`) — for
-    /// timestamptz columns.
+    /// timestamptz columns. Same string `ISO8601DateFormatter()` writes.
     static let utcTimestamp: DateFormatter = posix("yyyy-MM-dd'T'HH:mm:ssZZZZZ", timeZone: utcTimeZone)
+
+    /// The current instant as a timestamptz string (`2026-11-17T00:30:00Z`).
+    static func nowTimestamp(_ now: Date = Date()) -> String {
+        utcTimestamp.string(from: now)
+    }
+
+    /// An `ISO8601DateFormatter` with an explicit UTC zone. ISO 8601 is
+    /// always gregorian and ignores the locale; the zone is the only setting
+    /// it would otherwise take from outside. Prefer `parseTimestamp(_:)` for
+    /// reading — this exists for APIs that need the formatter object.
+    static func iso8601(_ options: ISO8601DateFormatter.Options) -> ISO8601DateFormatter {
+        let f = ISO8601DateFormatter()
+        f.timeZone = utcTimeZone
+        f.formatOptions = options
+        return f
+    }
 
     /// Parses a timestamptz as PostgREST returns it — `2026-11-17T00:30:00+00:00`,
     /// `…00.123456+00:00`, `…Z`, `2026-11-17 00:30:00+07`, or without any
@@ -151,6 +171,12 @@ enum AppDateFormatters {
 
     /// Medium date style with device locale.
     static let displayDate: DateFormatter = display { $0.dateStyle = .medium }
+
+    /// Medium date + short time with device locale («17 нояб. 2026 г., 13:05»).
+    static let displayDateTime: DateFormatter = display {
+        $0.dateStyle = .medium
+        $0.timeStyle = .short
+    }
 
     /// "d MMM yyyy" with device locale.
     static let shortDate: DateFormatter = display { $0.dateFormat = "d MMM yyyy" }

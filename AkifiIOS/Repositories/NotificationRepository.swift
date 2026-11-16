@@ -28,7 +28,7 @@ final class NotificationRepository: Sendable {
         }
         try await supabase
             .from("profiles")
-            .update(ClearToken(fcm_token: nil, fcm_token_updated_at: ISO8601DateFormatter().string(from: Date())))
+            .update(ClearToken(fcm_token: nil, fcm_token_updated_at: AppDateFormatters.nowTimestamp()))
             .eq("id", value: userId)
             .eq("fcm_token", value: token)
             .execute()
@@ -68,7 +68,7 @@ final class NotificationRepository: Sendable {
                 .from("profiles")
                 .update([
                     "fcm_token": token,
-                    "fcm_token_updated_at": ISO8601DateFormatter().string(from: Date()),
+                    "fcm_token_updated_at": AppDateFormatters.nowTimestamp(),
                     "notification_platform": "ios"
                 ])
                 .eq("id", value: userId)

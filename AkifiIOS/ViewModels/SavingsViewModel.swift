@@ -41,14 +41,7 @@ final class SavingsViewModel {
 
     /// "yyyy-MM-dd" in the device time zone, pinned to POSIX + Gregorian so
     /// a Buddhist/Japanese calendar region can't write year 2569 (D1).
-    private let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = .current
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private var isoDateFormatter: DateFormatter { AppDateFormatters.isoDate }
 
     var activeGoals: [SavingsGoal] {
         goals.filter { $0.status == .active }
@@ -199,15 +192,8 @@ final class SavingsViewModel {
     /// Postgres timestamptz text → Date: with or without fractional
     /// seconds, or a bare "yyyy-MM-dd" (UTC midnight).
     static func parseTimestamp(_ raw: String) -> Date? {
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = withFraction.date(from: raw) { return date }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        if let date = plain.date(from: raw) { return date }
-        let dayOnly = ISO8601DateFormatter()
-        dayOnly.formatOptions = [.withFullDate]
-        return dayOnly.date(from: String(raw.prefix(10)))
+        AppDateFormatters.parseTimestamp(raw)
+            ?? AppDateFormatters.utcDate.date(from: String(raw.prefix(10)))
     }
 
     func deleteGoal(_ goal: SavingsGoal) async {

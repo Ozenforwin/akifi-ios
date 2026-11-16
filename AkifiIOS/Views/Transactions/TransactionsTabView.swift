@@ -17,13 +17,7 @@ struct TransactionsTabView: View {
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
-    private static let isoDF: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = Calendar(identifier: .gregorian)
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private static var isoDF: DateFormatter { AppDateFormatters.isoDate }
 
     private var displayedTransactions: [Transaction] {
         let base = viewModel.filteredTransactions(from: dataStore.transactions)

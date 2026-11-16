@@ -134,14 +134,8 @@ enum SettlementCalculator {
         guard !memberUserIds.isEmpty else { return [] }
 
         // Parse DB "yyyy-MM-dd" (or "yyyy-MM-dd'T'HH:mm:ss") into Date.
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
-        let parserFull = DateFormatter()
-        parserFull.locale = Locale(identifier: "en_US_POSIX")
-        parserFull.timeZone = TimeZone(identifier: "UTC")
-        parserFull.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        let parser = AppDateFormatters.utcDate
+        let parserFull = AppDateFormatters.utcDateTime
 
         func inPeriod(_ raw: String) -> Bool {
             let dateStr = String(raw.prefix(10))
@@ -289,10 +283,7 @@ enum SettlementCalculator {
         //    contributions so the greedy pass doesn't re-suggest them.
         //    Only settlements whose period-end falls inside the current
         //    view's period are applied (different periods are independent).
-        let periodDateFormatter = DateFormatter()
-        periodDateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        periodDateFormatter.timeZone = TimeZone(identifier: "UTC")
-        periodDateFormatter.dateFormat = "yyyy-MM-dd"
+        let periodDateFormatter = AppDateFormatters.utcDate
 
         for settlement in pastSettlements {
             guard settlement.sharedAccountId == sharedAccountId else { continue }

@@ -235,20 +235,9 @@ struct TxnSettlementSheetView: View {
         return (total * m.weight / sumWeights) / 100  // kopecks → major units
     }
 
-    private static let dayParser: DateFormatter = {
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
-        return parser
-    }()
+    private static var dayParser: DateFormatter { AppDateFormatters.utcDate }
 
-    private static let dayDisplay: DateFormatter = {
-        let display = DateFormatter()
-        display.locale = Locale.current
-        display.dateStyle = .medium
-        return display
-    }()
+    private static var dayDisplay: DateFormatter { AppDateFormatters.displayDate }
 
     private var formattedDate: String {
         guard let d = Self.dayParser.date(from: String(transaction.date.prefix(10))) else { return transaction.date }

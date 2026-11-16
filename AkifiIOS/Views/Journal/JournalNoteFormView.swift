@@ -433,14 +433,12 @@ struct JournalNoteFormView: View {
 
     private var periodStartStr: String? {
         guard isReflection else { return nil }
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: periodStart)
+        return AppDateFormatters.isoDate.string(from: periodStart)
     }
 
     private var periodEndStr: String? {
         guard isReflection else { return nil }
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: periodEnd)
+        return AppDateFormatters.isoDate.string(from: periodEnd)
     }
 
     // MARK: - Mood Row
@@ -891,8 +889,7 @@ struct JournalNoteFormView: View {
             displayType = note.noteType.displayType
             selectedTransactionId = note.transactionId
             existingPhotoUrls = note.photoUrls ?? []
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.isoDate
             if let startStr = note.periodStart, let startDate = df.date(from: startStr) {
                 periodStart = startDate
                 hasPeriod = true
@@ -991,8 +988,7 @@ struct JournalNoteFormView: View {
             let finalTitle = title.trimmingCharacters(in: .whitespaces).isEmpty ? nil : title
             let finalTags: [String]? = tags.isEmpty ? nil : tags
 
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.isoDate
             let periodStartStr = isReflection ? df.string(from: periodStart) : nil
             let periodEndStr = isReflection ? df.string(from: periodEnd) : nil
 

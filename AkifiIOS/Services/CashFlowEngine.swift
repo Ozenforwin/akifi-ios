@@ -284,10 +284,9 @@ enum CashFlowEngine {
         fxRates: [String: Decimal] = [:],
         baseCode: String = "RUB"
     ) -> [MonthlyBucket] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.calendar = calendar
-        df.timeZone = calendar.timeZone
+        // `tx.date` holds gregorian digits; read them as such in `calendar`'s
+        // time zone even when `calendar` is Buddhist/Japanese (D1).
+        let dayCalendar = AppDateFormatters.gregorian(timeZone: calendar.timeZone)
 
         var buckets: [String: MonthlyBucket] = [:]
         // Seed keys for the last `months` months so missing months count as zero.
@@ -301,7 +300,7 @@ enum CashFlowEngine {
         }
 
         for tx in transactions {
-            guard !tx.isTransfer, let d = df.date(from: tx.date) else { continue }
+            guard !tx.isTransfer, let d = AppDateFormatters.day(tx.date, calendar: dayCalendar) else { continue }
             let comps = calendar.dateComponents([.year, .month], from: d)
             let key = String(format: "%04d-%02d", comps.year ?? 0, comps.month ?? 0)
             guard buckets[key] != nil else { continue }

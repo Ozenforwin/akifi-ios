@@ -319,10 +319,8 @@ struct JournalNoteCardView: View {
 
     private func formattedPeriodBadge() -> String? {
         guard let start = note.periodStart else { return nil }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let display = DateFormatter()
-        display.setLocalizedDateFormatFromTemplate("d MMM yyyy")
+        let df = AppDateFormatters.isoDate
+        let display = AppDateFormatters.dayMonthYear
 
         let startDate = df.date(from: start).flatMap { display.string(from: $0) } ?? start
         guard let end = note.periodEnd else { return startDate }
@@ -337,8 +335,7 @@ struct JournalNoteCardView: View {
 
     private var reflectionSummary: ReflectionPeriodSummary? {
         guard let start = note.periodStart, let end = note.periodEnd else { return nil }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
+        let df = AppDateFormatters.isoDate
         guard let startDate = df.date(from: start),
               let endDate = df.date(from: end) else { return nil }
 
