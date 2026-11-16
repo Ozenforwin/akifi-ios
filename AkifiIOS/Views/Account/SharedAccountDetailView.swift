@@ -506,13 +506,16 @@ struct SharedAccountDetailView: View {
         max(memberWeights.count - 1, 0)
     }
 
-    /// The user who actually funded this auto-transfer expense — the owner
-    /// of the payment-source account, NOT `tx.userId` (which is merely who
-    /// recorded the row; the recorder isn't always the payer). Falls back to
-    /// `tx.userId` when the source account isn't visible (RLS hides the other
-    /// member's personal accounts) — that matches the calculator's own
-    /// best-effort attribution.
+    /// The user who actually funded this auto-transfer expense. The server's
+    /// attribution (`get_account_settlement.payers`) wins — it is the same one
+    /// the balances were computed with, and identical on every member's phone.
+    /// Offline fallback: the owner of the payment-source account when visible,
+    /// else `tx.userId` (RLS hides the other member's personal accounts; the
+    /// auto-transfer RPC records all legs as the payer).
     private func payerUserId(for tx: Transaction) -> String {
+        if let serverPayer = settlementVM.serverPayers[tx.id] {
+            return serverPayer
+        }
         if let src = tx.paymentSourceAccountId,
            let owner = dataStore.accounts.first(where: { $0.id == src })?.userId {
             return owner

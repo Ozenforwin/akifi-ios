@@ -37,6 +37,63 @@ final class SettlementRepository: Sendable {
             .eq("id", value: id)
             .execute()
     }
+
+    /// Server-computed "who owes whom" (RPC `get_account_settlement`,
+    /// migration 20261117090000). The server sees every row, so the result is
+    /// identical for every member — unlike a client computation over the
+    /// RLS-filtered transaction list, where each member can't see the other's
+    /// personal cards.
+    func fetchServerSettlement(_ accountId: String) async throws -> ServerSettlement {
+        // bounded-fetch: the RPC returns one jsonb value, not a row set — max-rows cannot apply.
+        try await supabase
+            .rpc("get_account_settlement", params: ServerSettlementParams(p_account_id: accountId))
+            .execute()
+            .value
+    }
+}
+
+private struct ServerSettlementParams: Encodable, Sendable {
+    let p_account_id: String
+}
+
+/// Response of `get_account_settlement`. All amounts are kopecks in the
+/// shared account's currency.
+struct ServerSettlement: Decodable, Sendable, Equatable {
+    struct Balance: Decodable, Sendable, Equatable {
+        let userId: String
+        let contributed: Int64
+        let fairShare: Int64
+
+        enum CodingKeys: String, CodingKey {
+            case userId = "user_id"
+            case contributed
+            case fairShare = "fair_share"
+        }
+    }
+
+    let version: Int
+    let totalExpenses: Int64
+    let balances: [Balance]
+    /// Main expense transaction id → payer user id. The single payer
+    /// attribution the per-transaction settle UI must use.
+    let payers: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case totalExpenses = "total_expenses"
+        case balances
+        case payers
+    }
+
+    var memberBalances: [SettlementCalculator.MemberBalance] {
+        balances.map {
+            SettlementCalculator.MemberBalance(
+                userId: $0.userId.lowercased(),
+                contributed: $0.contributed,
+                fairShare: $0.fairShare
+            )
+        }
+    }
 }
 
 /// Minimal DTO for creating a settlement. `id`, `settledAt`, `createdAt`

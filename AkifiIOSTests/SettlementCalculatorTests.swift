@@ -604,6 +604,97 @@ final class SettlementCalculatorTests: XCTestCase {
         XCTAssertEqual(balances.first { $0.userId == "O" }!.delta, -150_00)
     }
 
+    /// Regression (2026-11-16, «Семейный»): the same data showed −1 541 ₽ on
+    /// one member's phone and +43 622 ₽ on the other's. RLS hides each
+    /// member's personal card from the other, so each phone sees only its own
+    /// transfer-out legs. The per-transaction marks walk skipped every group
+    /// whose peer leg was hidden, i.e. each phone ignored the marks on the
+    /// OTHER member's payments. Every member must get the same balances as
+    /// a full-visibility view.
+    func test_perMember_marks_sameBalancesOnEveryMembersPhone() {
+        let vPaid = autoTransfer(user: "V", amount: 1000_00, sourceAcc: "V-card", targetAcc: sharedAccId)
+        let oPaid = autoTransfer(user: "O", amount: 600_00, sourceAcc: "O-card", targetAcc: sharedAccId)
+        let all = vPaid + oPaid
+        let vExpense = vPaid.first { $0.type == .expense && $0.transferGroupId == nil }!
+        let oExpense = oPaid.first { $0.type == .expense && $0.transferGroupId == nil }!
+
+        // O closes her share of V's payment; V's share of O's payment is closed too.
+        let marks = [
+            TransactionMemberSettlement(id: "m1", transactionId: vExpense.id, sharedAccountId: sharedAccId,
+                                        settledForUserId: "O", settledByUserId: "O", settledAt: nil, note: nil),
+            TransactionMemberSettlement(id: "m2", transactionId: oExpense.id, sharedAccountId: sharedAccId,
+                                        settledForUserId: "V", settledByUserId: "O", settledAt: nil, note: nil)
+        ]
+
+        func balances(visible: [Transaction], personal: [String: Set<String>]) -> [String: Int64] {
+            let b = SettlementCalculator.compute(
+                sharedAccountId: sharedAccId,
+                transactions: visible,
+                memberUserIds: ["V", "O"],
+                personalAccountsByUser: personal,
+                period: period,
+                transactionMemberSettlements: marks
+            )
+            return Dictionary(uniqueKeysWithValues: b.map { ($0.userId, $0.delta) })
+        }
+
+        let full = balances(visible: all, personal: ["V": ["V-card"], "O": ["O-card"]])
+        // What RLS lets each member load: the shared account + their own card.
+        let onVsPhone = balances(
+            visible: all.filter { $0.accountId == sharedAccId || $0.accountId == "V-card" },
+            personal: ["V": ["V-card"]]
+        )
+        let onOsPhone = balances(
+            visible: all.filter { $0.accountId == sharedAccId || $0.accountId == "O-card" },
+            personal: ["O": ["O-card"]]
+        )
+
+        // Total 1600 → fair share 800 each. Contributions 1000 / 600, then
+        // m1 moves 500 to O and m2 moves 300 to V → 800 / 800.
+        XCTAssertEqual(full, ["V": 0, "O": 0])
+        XCTAssertEqual(onVsPhone, full, "V's phone must not drop the marks on O's payments")
+        XCTAssertEqual(onOsPhone, full, "O's phone must not drop the marks on V's payments")
+    }
+
+    // MARK: - Server settlement (get_account_settlement)
+
+    /// Shape copied from the prod RPC response (ids shortened).
+    func test_serverSettlement_decodesRpcPayload() throws {
+        let json = """
+        {"version": 1, "account_id": "acc", "currency": "rub", "total_expenses": 39999513, "tx_count": 158,
+         "balances": [{"user_id": "V", "contributed": 19413865, "fair_share": 19999757},
+                      {"user_id": "O", "contributed": 20585648, "fair_share": 19999756}],
+         "payers": {"exp-1": "V", "exp-2": "O"}}
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(ServerSettlement.self, from: json)
+        XCTAssertEqual(s.totalExpenses, 39_999_513)
+        XCTAssertEqual(s.payers["exp-2"], "O")
+        let b = s.memberBalances
+        XCTAssertEqual(b.map(\.userId), ["v", "o"])
+        XCTAssertEqual(b[0].delta, -585_892)
+        XCTAssertEqual(b[1].delta, 585_892)
+        XCTAssertEqual(b.map(\.delta).reduce(0, +), 0)
+    }
+
+    func test_integrityMismatch_toleratesResidualKopeck() {
+        let server = [SettlementCalculator.MemberBalance(userId: "V", contributed: 100, fairShare: 51),
+                      SettlementCalculator.MemberBalance(userId: "O", contributed: 1, fairShare: 50)]
+        let local = [SettlementCalculator.MemberBalance(userId: "O", contributed: 1, fairShare: 51),
+                     SettlementCalculator.MemberBalance(userId: "V", contributed: 100, fairShare: 50)]
+        XCTAssertNil(SettlementViewModel.integrityMismatch(server: server, local: local))
+    }
+
+    func test_integrityMismatch_reportsRealDisagreement() {
+        // The 2026-11-16 shape: one phone dropped 32 548.19 ₽ of marks.
+        let server = [SettlementCalculator.MemberBalance(userId: "V", contributed: 0, fairShare: 585_892),
+                      SettlementCalculator.MemberBalance(userId: "O", contributed: 585_892, fairShare: 0)]
+        let local = [SettlementCalculator.MemberBalance(userId: "V", contributed: 0, fairShare: 3_840_711),
+                     SettlementCalculator.MemberBalance(userId: "O", contributed: 3_840_711, fairShare: 0)]
+        XCTAssertEqual(SettlementViewModel.integrityMismatch(server: server, local: local), 3_254_819)
+        XCTAssertNotNil(SettlementViewModel.integrityMismatch(server: server, local: []),
+                        "local fallback producing nothing while the server has balances is a mismatch")
+    }
+
     // MARK: - Rounding-residual regression ("−0 ₽ должен доплатить" cosmetic)
 
     /// Two equal-weight members and an odd `totalExpenses` (in kopecks) used

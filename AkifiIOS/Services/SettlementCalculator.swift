@@ -90,8 +90,9 @@ enum SettlementCalculator {
     ///     short-circuits to `[]`.
     ///   - personalAccountsByUser: `userId → Set<personal account ids>`.
     ///     Required to attribute a transfer-leg to a member — the server
-    ///     RLS will often hide other users' personal accounts, so missing
-    ///     peers just get 0 contribution (delta = -fairShare).
+    ///     RLS hides other users' personal accounts; a leg whose peer can't
+    ///     be resolved is attributed to the leg's creator (the payer — the
+    ///     RPC writes all three legs as the paying user).
     ///   - period: `DateInterval` — only transactions whose date falls
     ///     inside this interval count toward expenses & contributions.
     ///   - pastSettlements: settlements already marked as done for this
@@ -253,35 +254,35 @@ enum SettlementCalculator {
             $0.transferGroupId != nil && $0.autoTransferGroupId != nil
         }
 
-        for row in autoTransferLegsOnShared {
-            guard let groupId = row.transferGroupId else { continue }
-
-            // Peer leg: same transfer_group_id, different account.
-            let peer = transactions.first { $0.transferGroupId == groupId && $0.id != row.id }
-
-            guard let peer, let peerAccountId = peer.accountId else {
-                // Peer hidden by RLS — attribute to the row creator as best-effort.
-                let uid = row.userId
-                let normalized = normalizeToBase(
-                    amount: row.amountNative,
-                    rowCurrency: row.currency,
-                    baseCurrency: baseCurrency,
-                    fxRates: fxRates
-                )
-                if row.type == .income {
-                    contributions[uid, default: 0] += normalized
-                } else if row.type == .expense {
-                    contributions[uid, default: 0] -= normalized
-                }
-                continue
-            }
-
-            // Attribute to whichever member's personal-account set contains the
-            // peer. If not found (rare: peer is an account of a non-member or
-            // a different shared account), fall back to the row creator.
-            let attributedUser = personalAccountsByUser.first { _, accounts in
+        // Who funded an auto-transfer leg on the shared account. This ONE
+        // resolver serves both the contributions walk and the per-transaction
+        // marks (4b). They must never disagree: RLS hides every other member's
+        // personal account, so on each phone the peer leg of the *other*
+        // member's payments is invisible. When the marks walk skipped those
+        // groups instead of falling back like the contributions walk did, each
+        // member's phone dropped the other side's marks and the two phones
+        // showed different debts for the same data (2026-11-16, «Семейный»:
+        // −1 541 ₽ on one phone, +43 622 ₽ on the other).
+        //
+        // Peer visible → owner of the peer's account (via
+        // `personalAccountsByUser`). Peer hidden, or its account unknown →
+        // the leg's creator: the RPC writes all three legs as the paying user.
+        let legsByTransferGroup = Dictionary(
+            grouping: transactions.filter { $0.transferGroupId != nil },
+            by: { $0.transferGroupId ?? "" }
+        )
+        func payer(of leg: Transaction) -> String {
+            guard let groupId = leg.transferGroupId,
+                  let peer = legsByTransferGroup[groupId]?.first(where: { $0.id != leg.id }),
+                  let peerAccountId = peer.accountId
+            else { return leg.userId }
+            return personalAccountsByUser.first { _, accounts in
                 accounts.contains(peerAccountId)
-            }?.key ?? row.userId
+            }?.key ?? leg.userId
+        }
+
+        for row in autoTransferLegsOnShared {
+            let attributedUser = payer(of: row)
 
             // Normalize the row amount from its source currency back to
             // base. `row` here is the leg on the shared account (target
@@ -334,19 +335,14 @@ enum SettlementCalculator {
             let expensesById = Dictionary(
                 uniqueKeysWithValues: autoTransferExpenses.map { ($0.id, $0) }
             )
-            // Map auto_transfer_group_id → payer user id, derived from the
-            // peer leg's account. Using the same attribution logic as the
-            // contributions walk above so the payer matches who got the
-            // contribution credit.
+            // Map auto_transfer_group_id → payer user id via the same
+            // `payer(of:)` the contributions walk used, so the payer here is
+            // always the member who got the contribution credit — including
+            // when RLS hides the peer leg.
             var payerByGroupId: [String: String] = [:]
             for leg in autoTransferLegsOnShared where leg.type == .income {
-                guard let groupId = leg.transferGroupId else { continue }
-                let peer = transactions.first { $0.transferGroupId == groupId && $0.id != leg.id }
-                guard let peerAccountId = peer?.accountId else { continue }
-                let payer = personalAccountsByUser.first { _, accounts in
-                    accounts.contains(peerAccountId)
-                }?.key ?? leg.userId
-                payerByGroupId[groupId] = payer
+                guard let groupId = leg.autoTransferGroupId else { continue }
+                payerByGroupId[groupId] = payer(of: leg)
             }
 
             for memberSettlement in transactionMemberSettlements
