@@ -136,9 +136,7 @@ struct SavingsGoalFormView: View {
         selectedAccountId = goal.accountId
         if let dl = goal.deadline {
             hasDeadline = true
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            deadline = df.date(from: dl) ?? Date()
+            deadline = AppDateFormatters.day(dl) ?? Date()
         }
         if let rate = goal.interestRate, rate > 0 {
             showInterest = true
@@ -152,9 +150,7 @@ struct SavingsGoalFormView: View {
         isSaving = true
         guard let decimal = Decimal(string: targetAmountText) else { return }
         let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let deadlineStr = hasDeadline ? df.string(from: deadline) : nil
+        let deadlineStr = hasDeadline ? AppDateFormatters.isoDate.string(from: deadline) : nil
         await onSave(name, selectedIcon, selectedColor, amountCents, deadlineStr, selectedAccountId)
         dismiss()
     }
