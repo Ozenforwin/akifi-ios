@@ -594,7 +594,7 @@ async function evaluateBudgetWarning(
     .map((m) => budgetWarningFor(m, warningPercent, lang))
     .filter((c): c is NotificationCandidate => c !== null);
 
-  await notifyBudgetPartners(supabase, userId, metrics);
+  // Partners were already notified at the top of handleTransactionInsert.
   return candidates;
 }
 
@@ -898,6 +898,18 @@ async function handleTransactionInsert(
   // Skip transfers — they are not real expenses/income
   if (tx.transfer_group_id) {
     return json({ ok: true, skipped: true, reason: 'transfer' });
+  }
+
+  // Partners in the author's shared budgets are told BEFORE the author-only
+  // gates below: the author having notifications off or no delivery channel
+  // must not silence the partner's 80 % / 100 % alert (B2). Dedup per
+  // budget + period + threshold makes this safe to run on every expense.
+  if (type === "expense") {
+    try {
+      await notifyBudgetPartners(supabase, userId);
+    } catch (err) {
+      console.error("budget partner alerts failed:", err instanceof Error ? err.message : err);
+    }
   }
 
   // Load notification settings

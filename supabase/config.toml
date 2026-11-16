@@ -42,6 +42,13 @@ entrypoint = "./functions/send-weekly-digest/index.ts"
 # x-cron-secret / bearer, NOT a JWT. With gateway verification on, every
 # run is rejected with 401 before the function runs — and cron.job_run_details
 # still says "succeeded" because net.http_post itself succeeded.
+# Cron-only (x-cron-secret from vault); the gateway must not demand a JWT.
+[functions.refresh-fx-rates]
+enabled = true
+verify_jwt = false
+import_map = "./functions/refresh-fx-rates/deno.json"
+entrypoint = "./functions/refresh-fx-rates/index.ts"
+
 [functions.refresh-portfolio-prices]
 enabled = true
 verify_jwt = false
