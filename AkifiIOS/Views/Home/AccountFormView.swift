@@ -12,6 +12,9 @@ struct AccountFormView: View {
     @State private var selectedColor = "#A78BFA"
     @State private var selectedCurrency: CurrencyCode = .rub
     @State private var initialBalanceText = ""
+    /// What `prefill()` put into the balance field. Equal on save → the user
+    /// did not touch the balance and `initial_balance` is left alone.
+    @State private var prefilledBalanceText: String?
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showShareSheet = false
@@ -272,15 +275,20 @@ struct AccountFormView: View {
         selectedColor = account.color
         selectedCurrency = account.currencyCode
 
-        // ADR-001: balance(for:) is already in account.currency (kopecks).
-        // The old implementation ran it through `baseToAccount`, which
-        // double-converted on non-RUB accounts and produced nonsense.
-        let kopecksInAccountCurrency = appViewModel.dataStore.balance(for: account)
-        let value = Double(kopecksInAccountCurrency) / 100.0
-        let rounded = (value * 100).rounded() / 100
-        initialBalanceText = rounded == rounded.rounded()
-            ? "\(Int(rounded))"
-            : String(format: "%.2f", rounded)
+        // ADR-001 / M1: the field is in account.currency, so prefill it from
+        // `nativeBalance(for:)`. `balance(for:)` is FX-normalised into the
+        // BASE currency (carousel contract) — prefilling with it showed a
+        // $640 account as "59200" and a plain rename then saved that number
+        // back as dollars.
+        initialBalanceText = Self.balanceText(appViewModel.dataStore.nativeBalance(for: account))
+        prefilledBalanceText = initialBalanceText
+    }
+
+    /// Kopecks → editable text ("640", "640.55"); POSIX "." so the save
+    /// path's parser reads back exactly the same kopecks.
+    static func balanceText(_ kopecks: Int64) -> String {
+        if kopecks % 100 == 0 { return "\(kopecks / 100)" }
+        return String(format: "%.2f", Double(kopecks) / 100.0)
     }
 
     // MARK: - Save
@@ -291,17 +299,28 @@ struct AccountFormView: View {
             // ADR-001: `initialBalanceText` is ALWAYS in `selectedCurrency`.
             // No FX conversion — the field label already shows the account's
             // own symbol.
-            let parsed = Double(initialBalanceText.replacingOccurrences(of: ",", with: ".")) ?? 0
-            let enteredKopecks = Int64((parsed * 100).rounded())
+            let enteredKopecks = Decimal(
+                string: initialBalanceText.replacingOccurrences(of: ",", with: ".")
+            )?.kopecks ?? 0
 
             if let account = editingAccount {
                 // The user typed the DESIRED total balance. We back into
                 // `initial_balance` by subtracting the net of all
-                // transactions (which are already in account currency via
-                // `amountNative` after ADR-001).
-                let net = accountNet(for: account)
-                let newInitial = enteredKopecks - net
-                let newBalance: Int64? = newInitial != account.initialBalance ? newInitial : nil
+                // transactions — both in account currency (`nativeNet`
+                // uses the exact sign rules of `rebuildCaches`, legacy
+                // `.transfer` rows included).
+                //
+                // Untouched field (rename, icon, colour) → do not send
+                // `initial_balance` at all: a save that did not intend to
+                // change money must not be able to (M1).
+                let newBalance: Int64?
+                if initialBalanceText == prefilledBalanceText {
+                    newBalance = nil
+                } else {
+                    let net = appViewModel.dataStore.nativeNet(for: account)
+                    let newInitial = NativeBalance.initialBalance(forDesiredBalance: enteredKopecks, net: net)
+                    newBalance = newInitial != account.initialBalance ? newInitial : nil
+                }
                 try await accountRepo.update(
                     id: account.id,
                     name: name,
@@ -312,12 +331,12 @@ struct AccountFormView: View {
                 )
             } else {
                 // New account: entered value IS the initial balance in
-                // account currency.
+                // account currency (whole units — the column is a bigint).
                 _ = try await accountRepo.create(
                     name: name,
                     icon: selectedIcon,
                     color: selectedColor,
-                    initialBalance: enteredKopecks,
+                    initialBalance: NativeBalance.initialBalance(forDesiredBalance: enteredKopecks, net: 0),
                     currency: selectedCurrency.code.lowercased()
                 )
                 AnalyticsService.logCreateAccount()
@@ -328,18 +347,6 @@ struct AccountFormView: View {
             errorMessage = error.localizedDescription
         }
         isSaving = false
-    }
-
-    /// Net of all transactions on this account — in the account's currency
-    /// (because `amountNative` is by definition in that currency per ADR-001).
-    private func accountNet(for account: Account) -> Int64 {
-        var net: Int64 = 0
-        for tx in appViewModel.dataStore.transactions {
-            guard tx.accountId == account.id else { continue }
-            if tx.type == .income { net += tx.amountNative }
-            else if tx.type == .expense { net -= tx.amountNative }
-        }
-        return net
     }
 
     // MARK: - Delete
