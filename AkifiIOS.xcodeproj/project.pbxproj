@@ -54,6 +54,7 @@
 		2A09403603DBC5E46BF89BF5 /* ChallengeCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E166EA48634AAFF5F6084C /* ChallengeCardView.swift */; };
 		2B1201CF5AAD9DB13F9057C4 /* MonthlySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E983FEEC7413320677043F8C /* MonthlySummaryView.swift */; };
 		2BA016C0A6CA70898CDAAA95 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C2581E364E97B98BFB00509A /* Assets.xcassets */; };
+		2BD8E82315FDFF436D71F761 /* BudgetPeriodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E7A82F9C605CBFA7F7A437 /* BudgetPeriodTests.swift */; };
 		2CE967F3E4B7E0BDEDE52FFB /* TransactionApplyUpdateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33623FCAD46C0861472BF90 /* TransactionApplyUpdateTests.swift */; };
 		2E3B75EEE65E51D0B974FB46 /* CategorySheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AD89107E2B86EEC4A0633E /* CategorySheetView.swift */; };
 		2ED9A088A3F0AEFACD213814 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = 834E431B1A23BD50027ACEBA /* FirebasePerformance */; };
@@ -119,6 +120,7 @@
 		5D06A7492FB09370A52F5C3C /* PortfolioChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19329F8617609B485DA08998 /* PortfolioChartView.swift */; };
 		5E2A3595F7D04ED9FB2F8CB4 /* JournalTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB681778FB8A85A387AEB294 /* JournalTabView.swift */; };
 		5FCB5522E033DC91329B5699 /* SharedSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66DD31195D714F4FCC81FCD0 /* SharedSnapshot.swift */; };
+		5FDDF97F33E7242BB3D605E6 /* SharedSnapshotRolloverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54582FFC45ACC2786C448E4F /* SharedSnapshotRolloverTests.swift */; };
 		600CAE4C370262B21A671AC4 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFD67D22658062E0AF548E0 /* EmptyStateView.swift */; };
 		606B9971B793A02486643DC7 /* SubscriptionMatchBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B75306996D7E7CAEAEBA0D /* SubscriptionMatchBanner.swift */; };
 		6116D47ED43F2A675DE19082 /* PaymentDefaultsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29899602DD7780A8382F3D2C /* PaymentDefaultsViewModel.swift */; };
@@ -271,6 +273,7 @@
 		D049D392F915129C15EA9663 /* ReportsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5122142A303ED282565C2ECD /* ReportsViewModel.swift */; };
 		D0E2E9C53A87EB73C4189ADB /* BetaFeaturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485573E2F31AA04A04BB84BA /* BetaFeaturesView.swift */; };
 		D0F9C3A3F879C2DF6086F02C /* CashFlowEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F00EDE42A92AC27E3CF2ED2 /* CashFlowEngineTests.swift */; };
+		D1DE675F69249FB4DF64DC5B /* BudgetMetricsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC424039F21E974B8C0A6567 /* BudgetMetricsStore.swift */; };
 		D22C8B44F30656D012675EE8 /* DepositCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0577C9C2986AA6F96B12FDD /* DepositCardView.swift */; };
 		D4863D10B5AD673C49200709 /* HomeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 616C0D248E5CD52D019DE875 /* HomeTabView.swift */; };
 		D5FCE19ECC78E1F95992B617 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5FE1332FF774DC471D4F3C /* HomeViewModel.swift */; };
@@ -327,6 +330,7 @@
 		FA93F4D68142094DA039E128 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AA3877A2A8E8EE321BC019 /* AppViewModel.swift */; };
 		FB2231D5EACFC1E2F0FECDC0 /* CurrencyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3E55B191A804B4B5B97167 /* CurrencyManager.swift */; };
 		FB67AC32B5F6324937EC7AC3 /* AssistantModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 701F2C962DC5005DED548E16 /* AssistantModels.swift */; };
+		FCEE13A922B0D8519D4C719F /* BudgetServerParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B5008268877611E6061E59 /* BudgetServerParityTests.swift */; };
 		FE977C6FE05183A6CAB458BE /* FIREProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B30AE9CAFBF75E6E4F7A58 /* FIREProjector.swift */; };
 		FF04697C565B4B5CF9C18B22 /* SavingsRateCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */; };
 		FF3DBC614FB5FA67D7FAA590 /* LiabilityListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59FF356789EFABE383A71A6D /* LiabilityListView.swift */; };
@@ -395,6 +399,7 @@
 		13016A359CB32761781CDE85 /* SkillNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillNode.swift; sourceTree = "<group>"; };
 		14598720EA7BAE977C123766 /* BudgetCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetCardView.swift; sourceTree = "<group>"; };
 		149E11AA96194A21601EE73F /* HomeSavingsSnapshotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSavingsSnapshotView.swift; sourceTree = "<group>"; };
+		14B5008268877611E6061E59 /* BudgetServerParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetServerParityTests.swift; sourceTree = "<group>"; };
 		1669DB0950A554EE115A95BE /* CompoundProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompoundProjector.swift; sourceTree = "<group>"; };
 		1694EAC34AB6777AB58820CF /* SharedAccountDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAccountDetailView.swift; sourceTree = "<group>"; };
 		178DD16F0E2D7C290925B52B /* AccountType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountType.swift; sourceTree = "<group>"; };
@@ -472,6 +477,7 @@
 		538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		53DACB44F0E2C07F4F49F7D8 /* CurrencyOverrides.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = CurrencyOverrides.json; sourceTree = "<group>"; };
 		53FDEFCC827F6CD5FCB66A64 /* SavingsGoalFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalFormView.swift; sourceTree = "<group>"; };
+		54582FFC45ACC2786C448E4F /* SharedSnapshotRolloverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSnapshotRolloverTests.swift; sourceTree = "<group>"; };
 		547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBadgeView.swift; sourceTree = "<group>"; };
 		54C8CCF643FA0C77CCFED871 /* ShareBudgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareBudgetView.swift; sourceTree = "<group>"; };
 		561CBF1D644920E7C6E2F013 /* JournalNoteFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalNoteFormView.swift; sourceTree = "<group>"; };
@@ -623,6 +629,7 @@
 		C7ABE6CED9D074DA7137C85F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C7CD95A9682BA5A24C3F6150 /* BudgetTransactionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetTransactionsSheet.swift; sourceTree = "<group>"; };
 		C7DFF0BEC556EF5A7CE6DD4C /* AnalyticsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsTabView.swift; sourceTree = "<group>"; };
+		C7E7A82F9C605CBFA7F7A437 /* BudgetPeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetPeriodTests.swift; sourceTree = "<group>"; };
 		C820CF82FB49F4E928F5AC41 /* NetWorthSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthSnapshot.swift; sourceTree = "<group>"; };
 		C8A78BB3285F1B3365522723 /* DailyLimitWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyLimitWidget.swift; sourceTree = "<group>"; };
 		C8B74322B7B46BDCF1CC28A4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -685,6 +692,7 @@
 		F97AAB972E3B4D22752C1014 /* TransactionPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionPickerSheet.swift; sourceTree = "<group>"; };
 		FA6DFEEE8D7227448497DDFC /* ChallengeProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeProgressEngine.swift; sourceTree = "<group>"; };
 		FB681778FB8A85A387AEB294 /* JournalTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalTabView.swift; sourceTree = "<group>"; };
+		FC424039F21E974B8C0A6567 /* BudgetMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetMetricsStore.swift; sourceTree = "<group>"; };
 		FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsRateCalculatorTests.swift; sourceTree = "<group>"; };
 		FED43B92B56D99F955B20ECD /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		FEF54246AA8846CFBFDE7C2B /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
@@ -1070,6 +1078,8 @@
 				C9DD85F9775A16B2433DBD46 /* BudgetHistoryTests.swift */,
 				1D4E67E2B1E0F79CC3F1DC3A /* BudgetMathSharingTests.swift */,
 				E6E1D4FADBE00F9F5ECE64E7 /* BudgetMathTests.swift */,
+				C7E7A82F9C605CBFA7F7A437 /* BudgetPeriodTests.swift */,
+				14B5008268877611E6061E59 /* BudgetServerParityTests.swift */,
 				0F00EDE42A92AC27E3CF2ED2 /* CashFlowEngineTests.swift */,
 				49D407DC94F842983B18DCCD /* ChallengeProgressEngineTests.swift */,
 				4AF7FB7C6BD87327AE22945B /* CompoundProjectorTests.swift */,
@@ -1092,6 +1102,7 @@
 				FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */,
 				6446F759C5B15E88CB44F621 /* SettlementCalculatorTests.swift */,
 				7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */,
+				54582FFC45ACC2786C448E4F /* SharedSnapshotRolloverTests.swift */,
 				7D8DFB77B12340F805BC80C0 /* SharedSnapshotTests.swift */,
 				29F1B0746101FBAE76E1828C /* SkillTreeEngineTests.swift */,
 				467D6DA128F27DCFC460C597 /* StreakTrackerTests.swift */,
@@ -1246,6 +1257,7 @@
 				3CEE73B6B6EE928AEDAD360A /* AppLogger.swift */,
 				BD71B178C79E5256314A6EC4 /* AuthManager.swift */,
 				A927BEDDC3755F4335C2F900 /* BudgetMath.swift */,
+				FC424039F21E974B8C0A6567 /* BudgetMetricsStore.swift */,
 				0C7A9D14959BF7037F672A30 /* CalculatorState.swift */,
 				CE08F7E4505CD2D8AC147582 /* CashFlowEngine.swift */,
 				FA6DFEEE8D7227448497DDFC /* ChallengeProgressEngine.swift */,
@@ -1524,6 +1536,8 @@
 				9932A2A67726619A70909686 /* BudgetHistoryTests.swift in Sources */,
 				0EB5FB14E015E32464C8529C /* BudgetMathSharingTests.swift in Sources */,
 				7F3AF5B7BCB77B12D0704A63 /* BudgetMathTests.swift in Sources */,
+				2BD8E82315FDFF436D71F761 /* BudgetPeriodTests.swift in Sources */,
+				FCEE13A922B0D8519D4C719F /* BudgetServerParityTests.swift in Sources */,
 				D0F9C3A3F879C2DF6086F02C /* CashFlowEngineTests.swift in Sources */,
 				78A33B5B05B8821C9864D7DE /* ChallengeProgressEngineTests.swift in Sources */,
 				AEFEDEA26869F8B8F4D136B9 /* CompoundProjectorTests.swift in Sources */,
@@ -1546,6 +1560,7 @@
 				FF04697C565B4B5CF9C18B22 /* SavingsRateCalculatorTests.swift in Sources */,
 				14705FC20298E9BA44B26632 /* SettlementCalculatorTests.swift in Sources */,
 				613291146719C772603D1D32 /* SettlementWatermarkTests.swift in Sources */,
+				5FDDF97F33E7242BB3D605E6 /* SharedSnapshotRolloverTests.swift in Sources */,
 				3B67B5AD3F0EFEF3D9051E23 /* SharedSnapshotTests.swift in Sources */,
 				4F73048A366902C07AAB741B /* SkillTreeEngineTests.swift in Sources */,
 				AC6B8485EA6E8DB2D8E30A05 /* StreakTrackerTests.swift in Sources */,
@@ -1627,6 +1642,7 @@
 				093DDA5054E0D6B2B4E02955 /* BudgetHealthSummaryView.swift in Sources */,
 				9C6066DD131B8B65522C96D8 /* BudgetMath.swift in Sources */,
 				8BB38712EEE3A9F0A8F8AABC /* BudgetMember.swift in Sources */,
+				D1DE675F69249FB4DF64DC5B /* BudgetMetricsStore.swift in Sources */,
 				4DFA98A29CD11692D0D8EA90 /* BudgetRepository.swift in Sources */,
 				B5CD1F3CB3ACB6A3241DF466 /* BudgetTransactionsSheet.swift in Sources */,
 				299A3E39D38911A7265B2818 /* BudgetsTabView.swift in Sources */,

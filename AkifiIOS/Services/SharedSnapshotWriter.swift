@@ -32,6 +32,10 @@ enum SharedSnapshotWriter {
         } catch {
             AppLogger.data.warning("SharedSnapshot save failed: \(error.localizedDescription)")
         }
+        // Every DataStore load / mutation ends here, so this is where budget
+        // metrics learn that the data moved. No-op when nothing changed;
+        // when the server answers, the store writes the snapshot again.
+        BudgetMetricsStore.shared.refreshIfNeeded(dataStore: dataStore)
     }
 
     // MARK: - Build
@@ -62,10 +66,14 @@ enum SharedSnapshotWriter {
         // The legacy `tx.currency` label was inconsistent (TMA stored USD
         // labels on RUB values etc.) — using it for FX inflated totals by ~76×
         // on USD-accounts. Source-of-truth is the account.currency now.
+        // `uniquingKeysWith`: a shared account can arrive twice (own +
+        // member join); `uniqueKeysWithValues` crashed the app on that.
         let accountCurrencyById: [String: String] = Dictionary(
-            uniqueKeysWithValues: dataStore.accounts.map { ($0.id, $0.currency) }
+            dataStore.accounts.map { ($0.id, $0.currency) },
+            uniquingKeysWith: { first, _ in first }
         )
-        let todayStr = Self.todayDateString()
+        let now = Date()
+        let todayStr = SharedSnapshot.dayKey(for: now)
         var todayIncome: Int64 = 0
         var todayExpense: Int64 = 0
         for tx in dataStore.transactions where tx.date == todayStr && !tx.isTransfer {
@@ -85,42 +93,31 @@ enum SharedSnapshotWriter {
         let todayNet = todayIncome - todayExpense
 
         // ── Daily limit (primary active budget) ──
+        // The same metrics the Budgets tab shows (server numbers when
+        // available — identical for every member), converted from the
+        // budget's currency into the widget's base currency (M6). "Spent
+        // today" uses the card's own matching rules — name-matched
+        // categories, every linked account, partners' spending (B8).
         let primaryBudget = selectPrimaryBudget(dataStore.budgets)
         var dailyLimit: Int64? = nil
         var dailyLimitName: String? = nil
         var dailySpentToday: Int64 = 0
         var dailyLimitUtilization = 0
-        if let budget = primaryBudget {
-            let metrics = BudgetMath.compute(
-                budget: budget,
-                transactions: dataStore.transactions,
-                subscriptions: dataStore.subscriptions,
-                categories: dataStore.categories,
-                externalSpendRows: dataStore.externalSpendByBudget[budget.id] ?? [],
-                currencyContext: dataStore.currencyContext
-            )
-            dailyLimit = metrics.safeToSpendDaily
+        var dailyLimitLeftover: Int64? = nil
+        var dailyLimitPeriodEnd: String? = nil
+        if let budget = primaryBudget,
+           let resolved = BudgetMetricsStore.shared.resolved(for: dataStore, now: now)[budget.id] {
+            let ctx = dataStore.currencyContext
+            let metrics = resolved.metrics
+            dailyLimit = BudgetMath.amountInBase(metrics.safeToSpendDaily, budget: budget, currencyContext: ctx)
             dailyLimitName = budget.name
             dailyLimitUtilization = metrics.utilization
-
-            // Spent strictly today within that budget's filter scope.
-            dailySpentToday = dataStore.transactions
-                .filter { tx in
-                    guard tx.type == .expense && !tx.isTransfer else { return false }
-                    if let cats = budget.categoryIds, !cats.isEmpty {
-                        guard let catId = tx.categoryId, cats.contains(catId) else { return false }
-                    }
-                    if let accId = budget.accountId {
-                        guard tx.accountId == accId else { return false }
-                    }
-                    return tx.date == todayStr
-                }
-                .reduce(Int64(0)) { partial, tx in
-                    let accountCcy = tx.accountId.flatMap { accountCurrencyById[$0] }?.uppercased() ?? baseCode
-                    return partial + NetWorthCalculator.convert(
-                        amount: tx.amountNative, from: accountCcy, to: baseCode, rates: fxRates
-                    )
-                }
+            dailySpentToday = BudgetMath.amountInBase(resolved.spentToday, budget: budget, currencyContext: ctx)
+            let leftover = max(0, metrics.effectiveLimit - metrics.spent - metrics.subscriptionCommitted)
+            dailyLimitLeftover = BudgetMath.amountInBase(leftover, budget: budget, currencyContext: ctx)
+            if metrics.periodEnd != .distantPast {
+                dailyLimitPeriodEnd = SharedSnapshot.dayKey(for: metrics.periodEnd)
+            }
         }
 
         // ── Streak ──
@@ -128,9 +125,9 @@ enum SharedSnapshotWriter {
         let nextMilestone = StreakTracker.milestones.first(where: { $0 > streak })
             ?? (StreakTracker.milestones.last ?? 365)
 
-        return SharedSnapshot(
+        var snapshot = SharedSnapshot(
             schemaVersion: SharedSnapshot.currentSchemaVersion,
-            lastUpdated: Date(),
+            lastUpdated: now,
             baseCurrency: baseCode,
             baseCurrencySymbol: symbol,
             baseCurrencyDecimals: decimals,
@@ -147,17 +144,15 @@ enum SharedSnapshotWriter {
             todayNet: todayNet,
             netWorth: nil  // reserved for future widget
         )
+        // Y11: the widget zeroes "today" and re-spreads the allowance when
+        // it renders on a later day than this one.
+        snapshot.dayKey = todayStr
+        snapshot.dailyLimitLeftover = dailyLimitLeftover
+        snapshot.dailyLimitPeriodEnd = dailyLimitPeriodEnd
+        return snapshot
     }
 
     // MARK: - Helpers
-
-    private static func todayDateString() -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = .current
-        return df.string(from: Date())
-    }
 
     /// Choose a single "primary" budget for the daily-limit widget:
     ///   1. An active monthly overall budget (no category filter), else

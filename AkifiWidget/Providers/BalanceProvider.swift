@@ -6,8 +6,7 @@ struct BalanceProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
-        let snapshot = SnapshotTimelinePolicy.loadSnapshot()
-        completion(SnapshotEntry(date: Date(), snapshot: snapshot))
+        completion(SnapshotTimelinePolicy.currentEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {
