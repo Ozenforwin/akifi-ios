@@ -73,8 +73,13 @@ final class NotificationRepository: Sendable {
                 ])
                 .eq("id", value: userId)
                 .execute()
+            // The server now owns subscription reminders for this device —
+            // stop scheduling the duplicate local one (D9).
+            NotificationManager.recordServerPushRegistration(userId: userId)
         } catch {
-            // Non-critical — retry next launch
+            // Non-critical — retry next launch. Until then the local
+            // reminder stays the only one this device gets.
+            NotificationManager.recordServerPushRegistration(userId: nil)
         }
     }
 

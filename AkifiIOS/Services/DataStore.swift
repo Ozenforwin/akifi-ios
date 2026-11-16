@@ -675,18 +675,21 @@ final class DataStore {
                     payment_date: paymentDateStr
                 )
             )
-            let newNextDate = SubscriptionDateEngine.nextPaymentDate(from: txDate, period: sub.billingPeriod)
+            // Schedule-anchored next date (a payment two days late keeps the
+            // billing day); last_payment_date never moves backwards.
+            let newNextDate = SubscriptionDateEngine.nextPaymentDate(for: sub, afterPaymentOn: txDate)
             let newNextStr = SubscriptionDateEngine.formatDbDate(newNextDate)
+            let newLastStr = max(previousLast.map { String($0.prefix(10)) } ?? "", paymentDateStr)
             try await subscriptionRepo.updateDates(
                 id: sub.id,
-                lastPaymentDate: paymentDateStr,
+                lastPaymentDate: newLastStr,
                 nextPaymentDate: newNextStr
             )
 
             // Local state update.
             if let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) {
                 var updated = subscriptions[idx]
-                updated.lastPaymentDate = paymentDateStr
+                updated.lastPaymentDate = newLastStr
                 updated.nextPaymentDate = newNextStr
                 noteLocalMutation()
                 subscriptions[idx] = updated
@@ -749,7 +752,10 @@ final class DataStore {
             AppLogger.data.warning("Backfill: existing-payments fetch failed: \(error.localizedDescription)")
             return 0
         }
-        let existingDates = Set(existing.map { String($0.paymentDate.prefix(10)) })
+        // Dedupe by the billing CYCLE a payment settles, not by its raw day:
+        // the cron charge on the 5th and the bank row on the 7th are one
+        // payment.
+        var paidCycles = Set(existing.map { SubscriptionDateEngine.cycleKey(forPaymentOn: $0.paymentDate, subscription: sub) })
 
         // Score every loaded expense txn. We don't pre-filter by currency
         // here — the matcher's amount component already requires a currency
@@ -769,8 +775,9 @@ final class DataStore {
                 baseCode: ctx.baseCode
             )
             guard scored.total >= SubscriptionMatcher.matchThreshold else { continue }
-            let txDayKey = String(tx.date.prefix(10))
-            guard !existingDates.contains(txDayKey) else { continue }
+            let cycle = SubscriptionDateEngine.cycleKey(forPaymentOn: tx.date, subscription: sub)
+            guard !paidCycles.contains(cycle) else { continue }
+            paidCycles.insert(cycle)
             matches.append(tx)
         }
 
@@ -814,7 +821,7 @@ final class DataStore {
                 return lastDate > currentLastDate
             }()
             if shouldAdvance {
-                let nextDate = SubscriptionDateEngine.nextPaymentDate(from: lastDate, period: sub.billingPeriod)
+                let nextDate = SubscriptionDateEngine.nextPaymentDate(for: sub, afterPaymentOn: lastDate)
                 let nextStr = SubscriptionDateEngine.formatDbDate(nextDate)
                 do {
                     try await subscriptionRepo.updateDates(
@@ -1187,14 +1194,26 @@ final class DataStore {
         // `Dictionary(uniqueKeysWithValues:)`).
         let accountNameById = Dictionary(accounts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
 
+        // Every figure is labelled with `account.currency`, so it must BE in
+        // that currency (M1): `balance(for:)` / `accountIncome` are
+        // base-currency caches and the assistant converted them a second time.
+        var nativeFlow: [String: (income: Int64, expense: Int64)] = [:]
+        for tx in transactions where tx.transferGroupId == nil {
+            guard let accountId = tx.accountId else { continue }
+            switch tx.type {
+            case .income: nativeFlow[accountId, default: (0, 0)].income += tx.amountNative
+            case .expense: nativeFlow[accountId, default: (0, 0)].expense += tx.amountNative
+            default: break
+            }
+        }
         let accountSummaries = accounts.map { account in
             AssistantContext.AccountSummary(
                 id: account.id,
                 name: account.name,
                 icon: account.icon,
-                balance: toUnits(balance(for: account)),
-                income: toUnits(accountIncome[account.id] ?? 0),
-                expense: toUnits(accountExpense[account.id] ?? 0),
+                balance: toUnits(nativeBalance(for: account)),
+                income: toUnits(nativeFlow[account.id]?.income ?? 0),
+                expense: toUnits(nativeFlow[account.id]?.expense ?? 0),
                 currency: account.currency
             )
         }

@@ -215,6 +215,8 @@ final class AppViewModel {
         backgroundRefresh?.cancel()
         backgroundRefresh = nil
         dataStore.resetForSignOut(preserveQueue: preserveQueue)
+        BudgetMetricsStore.shared.reset()
+        NotificationManager.recordServerPushRegistration(userId: nil)
         journalViewModel.reset()
         paymentManager.isPremium = false
         sessionEffects.clearDeviceState()

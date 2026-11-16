@@ -1130,20 +1130,12 @@ struct TransactionFormView: View {
         //    through `delete_expense_with_auto_transfer` when the row has
         //    `auto_transfer_group_id` set, removing all three rows
         //    atomically. For a plain expense it's a single delete.
-        //    The method swallows its own errors (reports them through
-        //    `dataStore.error`) and drops the row locally only on success
-        //    or when it queued the delete offline — so "the row is still
-        //    there" is the reliable failure signal. Comparing error strings
-        //    missed a second failure with the same message and then
-        //    created a duplicate expense.
+        //    `deleteTransactionThrowing` throws when the server rejected the
+        //    delete, so step 2 never runs on a failure — comparing error
+        //    strings used to miss a repeated failure and create a duplicate
+        //    expense. A delete queued offline is not a failure.
         let dataStore = appViewModel.dataStore
-        await dataStore.deleteTransaction(tx)
-        if dataStore.transactions.contains(where: { $0.id == tx.id }) {
-            throw NSError(
-                domain: "TransactionFormView.reassign", code: -1,
-                userInfo: [NSLocalizedDescriptionKey: dataStore.error ?? String(localized: "common.error")]
-            )
-        }
+        try await dataStore.deleteTransactionThrowing(tx)
 
         // 2. Recreate with the new shape. `addTransaction` will route to
         //    `create_expense_with_auto_transfer` when `newSource != nil`
