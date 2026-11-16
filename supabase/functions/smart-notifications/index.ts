@@ -457,7 +457,7 @@ function localeFor(lang: Lang): string {
 
 /// Minor units of `currency` → "12 345 ₽". Whole units, like the budget
 /// card; the symbol follows the budget's currency, not the UI language.
-function formatMoney(minor: number, currency: string, lang: Lang): string {
+function formatBudgetMoney(minor: number, currency: string, lang: Lang): string {
   const code = (currency || "RUB").toUpperCase();
   const whole = Math.round(Math.abs(minor) / 100);
   return `${whole.toLocaleString(localeFor(lang))} ${CURRENCY_SYMBOLS[code] ?? code}`;
@@ -467,10 +467,6 @@ function formatMoney(minor: number, currency: string, lang: Lang): string {
 function formatWindow(start: string, end: string, lang: Lang): string {
   const fmt = new Intl.DateTimeFormat(localeFor(lang), { day: "numeric", month: "short", timeZone: "UTC" });
   return `${fmt.format(new Date(`${start}T00:00:00Z`))} – ${fmt.format(new Date(`${end}T00:00:00Z`))}`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function budgetTitle(m: BudgetMetricRow): string {
@@ -500,10 +496,10 @@ function budgetWarningFor(
     : "";
   const message =
     `${emoji} <b>${tt("budgetHeader", lang)}${budgetTitle(m)} ${crossed}%</b>\n\n` +
-    `${tt("spent", lang)}: ${formatMoney(m.spent, m.currency, lang)} ${tt("of", lang)} ${formatMoney(m.effective_limit, m.currency, lang)}\n` +
+    `${tt("spent", lang)}: ${formatBudgetMoney(m.spent, m.currency, lang)} ${tt("of", lang)} ${formatBudgetMoney(m.effective_limit, m.currency, lang)}\n` +
     (left > 0
-      ? `${tt("remaining", lang)}: ${formatMoney(left, m.currency, lang)}`
-      : `${tt("overspent", lang)}: ${formatMoney(-left, m.currency, lang)}`) +
+      ? `${tt("remaining", lang)}: ${formatBudgetMoney(left, m.currency, lang)}`
+      : `${tt("overspent", lang)}: ${formatBudgetMoney(-left, m.currency, lang)}`) +
     `\n${formatWindow(m.period_start, m.period_end, lang)}` +
     tip;
 
@@ -846,9 +842,9 @@ async function evaluateWeeklyPace(
     if (projectedPercent <= 120) continue;
 
     const body = PACE_BODY[lang]
-      .replace("{projected}", formatMoney(projected, m.currency, lang))
+      .replace("{projected}", formatBudgetMoney(projected, m.currency, lang))
       .replace("{pct}", String(Math.round(projectedPercent)))
-      .replace("{limit}", formatMoney(m.effective_limit, m.currency, lang));
+      .replace("{limit}", formatBudgetMoney(m.effective_limit, m.currency, lang));
     const message =
       `📊 <b>${tt('paceHeader', lang)}${budgetTitle(m)}</b>\n\n` +
       body +
