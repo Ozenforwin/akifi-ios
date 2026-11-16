@@ -105,12 +105,11 @@ final class SettlementViewModel {
         let client = supabase
         let settlementRepo = settlementRepo
         let txMemberRepo = txMemberRepo
-        async let membersFetch: [AccountMember] = SupabasePaging.all("account_members") { count in
-            client
-                .from("account_members")
-                .select(count: count)
-                .eq("account_id", value: sharedAccountId)
-        }
+        // Members come from the app-wide membership snapshot when it's loaded
+        // (Home and the account screen share it — P7); only a cold screen
+        // pays for its own read.
+        let cachedMembers = dataStore.accountMembership.members(of: sharedAccountId, viewerId: dataStore.profile?.id)
+        async let membersFetch: [AccountMember] = Self.members(cached: cachedMembers, client: client, accountId: sharedAccountId)
         async let settlementsFetch = settlementRepo.fetchForAccount(sharedAccountId)
         async let marksFetch = txMemberRepo.fetchForAccount(sharedAccountId)
         async let serverFetch = settlementRepo.fetchServerSettlement(sharedAccountId)
@@ -223,6 +222,20 @@ final class SettlementViewModel {
         suggestions = SettlementCalculator.settlements(from: balances)
 
         isLoading = false
+    }
+
+    nonisolated private static func members(
+        cached: [AccountMember]?,
+        client: SupabaseClient,
+        accountId: String
+    ) async throws -> [AccountMember] {
+        if let cached, !cached.isEmpty { return cached }
+        return try await SupabasePaging.all("account_members") { count in
+            client
+                .from("account_members")
+                .select(count: count)
+                .eq("account_id", value: accountId)
+        }
     }
 
     /// Largest per-member delta disagreement between the server and the local

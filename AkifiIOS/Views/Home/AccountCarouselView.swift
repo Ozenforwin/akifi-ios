@@ -151,10 +151,10 @@ struct AccountCarouselView: View {
             }
         }
         // Membership drives the "shared" badge (B7). Re-checked when the
-        // account list changes (new account, accepted invite); the index
-        // itself throttles to one round-trip per minute.
+        // account list changes (new account, accepted invite); the store
+        // throttles to one round-trip per minute.
         .task(id: accounts.map(\.id)) {
-            await AccountSharingIndex.shared.refresh(currentUserId: appViewModel.dataStore.profile?.id)
+            await appViewModel.dataStore.accountMembership.refresh(viewerId: appViewModel.dataStore.profile?.id)
         }
     }
 
@@ -367,13 +367,10 @@ struct AccountCardView: View {
 
     /// B7: membership (`account_members`), not "someone else wrote a row".
     /// The legacy heuristic only bridges the first frames until
-    /// `AccountSharingIndex` has loaded.
+    /// membership snapshot has loaded.
     private var isSharedAccount: Bool {
         let dataStore = appViewModel.dataStore
-        let uid = dataStore.profile?.id
-        return AccountSharingIndex.shared.isShared(account, currentUserId: uid) {
-            AccountSharingIndex.hasOtherMembersRows(account, currentUserId: uid, transactions: dataStore.transactions)
-        }
+        return AccountSharingIndex.isShared(account, dataStore: dataStore, currentUserId: dataStore.profile?.id)
     }
 
     /// The pills are "this month", not lifetime totals (they used to show

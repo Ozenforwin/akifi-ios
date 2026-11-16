@@ -106,10 +106,7 @@ struct TransactionFormView: View {
     /// `AccountSharingIndex` has loaded. False when we have no profile yet.
     private var targetIsShared: Bool {
         guard let acc = selectedAccount, let uid = currentUserId else { return false }
-        let transactions = appViewModel.dataStore.transactions
-        return AccountSharingIndex.shared.isShared(acc, currentUserId: uid) {
-            AccountSharingIndex.hasOtherMembersRows(acc, currentUserId: uid, transactions: transactions)
-        }
+        return AccountSharingIndex.isShared(acc, dataStore: appViewModel.dataStore, currentUserId: uid)
     }
 
     /// Eligible source accounts for the picker — own accounts, regardless
@@ -389,7 +386,7 @@ struct TransactionFormView: View {
                 await loadUserDefaults()
             }
             .task {
-                await AccountSharingIndex.shared.refresh(currentUserId: currentUserId)
+                await appViewModel.dataStore.accountMembership.refresh(viewerId: currentUserId)
             }
             .sheet(isPresented: $showCategoryPicker) {
                 CategoryPickerView(

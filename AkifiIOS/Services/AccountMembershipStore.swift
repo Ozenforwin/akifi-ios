@@ -40,6 +40,12 @@ final class AccountMembershipStore {
         return membersByAccount[accountId]
     }
 
+    /// `account_id → member count`, `nil` while unknown for `viewerId`.
+    func memberCounts(viewerId: String?) -> [String: Int]? {
+        guard let viewerId, viewerId == loadedForUserId else { return nil }
+        return membersByAccount.mapValues(\.count)
+    }
+
     /// `true` when the account has more than one member, `nil` while unknown.
     func isShared(_ accountId: String, viewerId: String?) -> Bool? {
         members(of: accountId, viewerId: viewerId).map { $0.count > 1 }
