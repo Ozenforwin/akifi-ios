@@ -1574,10 +1574,13 @@ extension DataStore {
             source = monthlyAggregates
         }
 
-        // Build the month-key window ending at "now" (UTC, yyyy-MM).
-        let calendar = AppDateFormatters.gregorian(timeZone: AppDateFormatters.utcTimeZone)
+        // Build the month-key window ending at "now" in the LOCAL calendar:
+        // the stored keys are `prefix(7)` of the local wall-clock date, so a
+        // UTC window dropped the current month's bar from 00:00 to 07:00 on
+        // the 1st for UTC+7 users.
+        let calendar = AppDateFormatters.localCalendar
         let now = Date()
-        let formatter = AppDateFormatters.utcMonth
+        let formatter = AppDateFormatters.localMonth
 
         var keys: [String] = []
         keys.reserveCapacity(months)

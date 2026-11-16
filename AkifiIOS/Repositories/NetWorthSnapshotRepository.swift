@@ -72,5 +72,11 @@ final class NetWorthSnapshotRepository: Sendable {
     /// UTC-stable "yyyy-MM-dd" formatter. Shared so the upsert key format
     /// matches whatever the calculator used when deciding "have I captured
     /// today yet?".
-    static var dateFormatter: DateFormatter { AppDateFormatters.utcDate }
+    /// Date-only columns (snapshot_date, acquired_date, end_date,
+    /// last_price_date) hold the user's LOCAL calendar day. Writing a
+    /// DatePicker's local midnight through a UTC formatter stored the
+    /// previous day for every UTC+ user, and "today's" snapshot before 07:00
+    /// in UTC+7 landed on yesterday. Reads and writes share this formatter,
+    /// so they stay consistent.
+    static var dateFormatter: DateFormatter { AppDateFormatters.isoDate }
 }

@@ -112,6 +112,10 @@ enum AppDateFormatters {
     /// in UTC.
     static let utcMonth: DateFormatter = posix("yyyy-MM", timeZone: utcTimeZone)
 
+    /// `yyyy-MM` in the device zone — the month of `transactions.date`'s
+    /// local wall-clock prefix (`prefix(7)`).
+    static let localMonth: DateFormatter = posix("yyyy-MM", timeZone: .autoupdatingCurrent)
+
     /// `yyyy-MM-dd'T'HH:mm:ssZZZZZ` in UTC (`2026-11-17T00:30:00Z`) — for
     /// timestamptz columns. Same string `ISO8601DateFormatter()` writes.
     static let utcTimestamp: DateFormatter = posix("yyyy-MM-dd'T'HH:mm:ssZZZZZ", timeZone: utcTimeZone)

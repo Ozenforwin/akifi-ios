@@ -11,7 +11,7 @@ struct CashflowTrendView: View {
 
     @State private var selectedLabel: String?
 
-    private static var monthKeyFormatter: DateFormatter { AppDateFormatters.utcMonth }
+    private static var monthKeyFormatter: DateFormatter { AppDateFormatters.localMonth }
 
     private static var monthLabelFormatter: DateFormatter { AppDateFormatters.shortMonth }
 

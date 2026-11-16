@@ -263,7 +263,9 @@ struct JournalNoteDetailView: View {
 
     private func formatDate(_ raw: String?) -> String {
         guard let raw else { return "" }
-        guard let date = AppDateFormatters.localDateTime.date(from: String(raw.prefix(19))) else {
+        // `created_at` is a real instant (server now(), `+00:00`), not local
+        // wall-clock time — reading it as local showed notes 7 h early in UTC+7.
+        guard let date = AppDateFormatters.parseTimestamp(raw) else {
             return String(raw.prefix(10))
         }
         return AppDateFormatters.displayDateTime.string(from: date)

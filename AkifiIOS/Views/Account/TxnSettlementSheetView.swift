@@ -235,7 +235,8 @@ struct TxnSettlementSheetView: View {
         return (total * m.weight / sumWeights) / 100  // kopecks → major units
     }
 
-    private static var dayParser: DateFormatter { AppDateFormatters.utcDate }
+    // `transactions.date` prefix is the LOCAL day; parse it in the zone it is shown in.
+    private static var dayParser: DateFormatter { AppDateFormatters.isoDate }
 
     private static var dayDisplay: DateFormatter { AppDateFormatters.displayDate }
 
