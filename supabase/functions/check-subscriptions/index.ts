@@ -19,8 +19,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 // How far back a missed charge is still recovered (see planCatchUp).
 const CATCH_UP_DAYS = 45;
 // Two reminders whose payment dates are this close belong to the same
-// billing cycle (reminder_days edited mid-cycle, or a drifted date snapped
-// back to its anchor) — the second one is not sent.
+// billing cycle (e.g. reminder_days edited mid-cycle, which creates a new
+// (subscription, payment_date, reminder_days) key) — the second is not sent.
+// The server is the single reminder source for users with an FCM token.
 const SAME_CYCLE_DAYS = 3;
 
 const corsHeaders = {
@@ -442,7 +443,7 @@ Deno.serve(async (req) => {
       let effectiveDate = stored;
       if (plan.due.length === 0) {
         // Nothing to charge, but the stored date may be stale (rolled past
-        // the catch-up window) or drifted off the anchor (31 Jan → 3 Mar).
+        // the catch-up window).
         if (plan.next !== stored) {
           const { error: updateError } = await supabase.from("subscriptions").update({ next_payment_date: plan.next })
             .eq("id", subscription.id).eq("next_payment_date", stored);
