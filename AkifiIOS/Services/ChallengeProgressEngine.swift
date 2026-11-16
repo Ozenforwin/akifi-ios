@@ -13,11 +13,9 @@ import Foundation
 /// Phase 5 when more telemetry is available.
 enum ChallengeProgressEngine {
 
-    private static let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    /// Account types whose incoming transfers count as "set aside" for a
+    /// `weeklyAmount` challenge.
+    static let savingsAccountTypes: Set<AccountType> = [.savings, .deposit, .investment]
 
     // MARK: - Public API
 
@@ -34,17 +32,18 @@ enum ChallengeProgressEngine {
         transactions: [Transaction],
         currencyContext: TransactionMath.CurrencyContext
     ) -> Int64 {
-        guard let start = dateFormatter.date(from: challenge.startDate),
-              let end = dateFormatter.date(from: challenge.endDate) else {
+        let start = String(challenge.startDate.prefix(10))
+        let end = String(challenge.endDate.prefix(10))
+        guard AppDateFormatters.day(start) != nil, AppDateFormatters.day(end) != nil else {
             return challenge.progressAmount
         }
-        // End-date inclusive: extend to end-of-day.
-        let endInclusive = Calendar.current.date(byAdding: .day, value: 1, to: end) ?? end
 
+        // Local days start ..< end (end exclusive — see SavingsChallenge).
+        // `yyyy-MM-dd` strings order chronologically, and `tx.date` is the
+        // user's local day, so no Date round-trip is needed.
         let inRange = transactions.filter { tx in
-            guard !tx.isTransfer else { return false }
-            guard let txDate = dateFormatter.date(from: tx.date) else { return false }
-            return txDate >= start && txDate < endInclusive
+            let day = String(tx.date.prefix(10))
+            return day >= start && day < end
         }
 
         switch challenge.type {
@@ -53,35 +52,33 @@ enum ChallengeProgressEngine {
         case .categoryLimit:
             return categoryLimitProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         case .roundUp:
-            return roundUpProgress(transactions: inRange)
+            return roundUpProgress(transactions: inRange.filter { !$0.isTransfer })
         case .weeklyAmount:
-            // Default: sum income transactions in the "Savings" category name.
-            // When a goal link is present the ViewModel may override by using
-            // actual contributions.
-            return weeklyAmountProgress(transactions: inRange, currencyContext: currencyContext)
+            return weeklyAmountProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         }
     }
 
-    /// Checks whether the challenge can be flipped to `.completed` based on
-    /// its current progress and time state. Returns nil if no transition
-    /// should happen.
+    /// The status the challenge should move to, or nil to stay as it is.
+    /// Every type resolves once the period is over (today ≥ `endDate`);
+    /// target types may complete early.
     static func nextStatus(
         for challenge: SavingsChallenge,
         now: Date = Date()
     ) -> ChallengeStatus? {
         guard challenge.status == .active else { return nil }
-        guard let end = dateFormatter.date(from: challenge.endDate) else { return nil }
-        let endInclusive = Calendar.current.date(byAdding: .day, value: 1, to: end) ?? end
+        guard AppDateFormatters.day(challenge.endDate) != nil else { return nil }
+        let finished = challenge.isFinished(now: now)
 
         switch challenge.type {
         case .noCafe:
-            // Completed only at end-of-period with zero violations.
-            if now >= endInclusive && challenge.progressAmount == 0 {
-                return .completed
+            // Resolved at the end: clean → completed, any violation → failed
+            // (`.abandoned`, as for a broken category limit). A violated one
+            // used to stay "active" forever.
+            if finished {
+                return challenge.progressAmount == 0 ? .completed : .abandoned
             }
         case .categoryLimit:
-            // Can complete early if the period ended without exceeding target.
-            if let target = challenge.targetAmount, now >= endInclusive {
+            if let target = challenge.targetAmount, finished {
                 return challenge.progressAmount < target ? .completed : .abandoned
             }
         case .weeklyAmount, .roundUp:
@@ -89,11 +86,13 @@ enum ChallengeProgressEngine {
             if let target = challenge.targetAmount, challenge.progressAmount >= target {
                 return .completed
             }
-            // End-of-period with target missed → abandoned.
-            if now >= endInclusive, let target = challenge.targetAmount,
-               challenge.progressAmount < target {
-                return .abandoned
+            guard finished else { return nil }
+            // End of period: target missed → failed; no target (round-up is
+            // optional) → whatever was saved counts as done.
+            if let target = challenge.targetAmount {
+                return challenge.progressAmount < target ? .abandoned : .completed
             }
+            return .completed
         }
         return nil
     }
@@ -111,7 +110,7 @@ enum ChallengeProgressEngine {
     ) -> Int64 {
         guard let catId = challenge.categoryId else { return 0 }
         return transactions
-            .filter { $0.type == .expense && $0.categoryId == catId }
+            .filter { !$0.isTransfer && $0.type == .expense && $0.categoryId == catId }
             .reduce(Int64(0)) { acc, tx in
                 acc + TransactionMath.amountInBase(
                     tx,
@@ -131,7 +130,7 @@ enum ChallengeProgressEngine {
     ) -> Int64 {
         guard let catId = challenge.categoryId else { return 0 }
         return transactions
-            .filter { $0.type == .expense && $0.categoryId == catId }
+            .filter { !$0.isTransfer && $0.type == .expense && $0.categoryId == catId }
             .reduce(Int64(0)) { acc, tx in
                 acc + TransactionMath.amountInBase(
                     tx,
@@ -156,16 +155,25 @@ enum ChallengeProgressEngine {
         }
     }
 
-    /// `weeklyAmount`: default to incomes with known category names in any
-    /// "Savings"-like bucket. Heuristic — the ViewModel can replace with
-    /// actual goal-contribution sums when `linkedGoalId` is set. Incomes
-    /// may land on differently-denominated accounts, so sum in base.
+    /// `weeklyAmount`: money set aside during the period.
+    /// - With `categoryId`: what was booked in that category (not transfers).
+    /// - Otherwise: the incoming leg of transfers into a savings, deposit or
+    ///   investment account (`savingsAccountTypes`).
+    /// Ordinary income never counts — "every income" used to close the
+    /// challenge with the first salary. Legs may sit on differently
+    /// denominated accounts, so the sum is in base currency.
     private static func weeklyAmountProgress(
+        challenge: SavingsChallenge,
         transactions: [Transaction],
         currencyContext: TransactionMath.CurrencyContext
     ) -> Int64 {
         transactions
-            .filter { $0.type == .income }
+            .filter { tx in
+                if let catId = challenge.categoryId {
+                    return !tx.isTransfer && tx.categoryId == catId
+                }
+                return isSavingsInflow(tx, accountsById: currencyContext.accountsById)
+            }
             .reduce(Int64(0)) { acc, tx in
                 acc + TransactionMath.amountInBase(
                     tx,
@@ -174,5 +182,18 @@ enum ChallengeProgressEngine {
                     baseCode: currencyContext.baseCode
                 )
             }
+    }
+
+    /// The incoming leg of a user transfer into a savings-type account.
+    /// Auto-transfer legs ("paid from" on shared accounts) are bookkeeping,
+    /// not saving.
+    static func isSavingsInflow(
+        _ tx: Transaction,
+        accountsById: [String: Account]
+    ) -> Bool {
+        guard tx.type == .income, tx.transferGroupId != nil, !tx.isAutoTransferLeg,
+              let accountId = tx.accountId,
+              let account = accountsById[accountId] else { return false }
+        return savingsAccountTypes.contains(account.accountType)
     }
 }

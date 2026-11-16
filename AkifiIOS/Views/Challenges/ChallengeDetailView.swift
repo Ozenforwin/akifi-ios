@@ -180,14 +180,21 @@ struct ChallengeDetailView: View {
             }
             .frame(height: 8)
             HStack {
-                Text(challenge.startDate).font(.caption).foregroundStyle(.secondary)
+                // First and LAST day — `endDate` itself is exclusive.
+                Text(displayDay(AppDateFormatters.day(challenge.startDate), fallback: challenge.startDate))
+                    .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text(challenge.endDate).font(.caption).foregroundStyle(.secondary)
+                Text(displayDay(challenge.lastDay, fallback: challenge.endDate))
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(16)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func displayDay(_ date: Date?, fallback: String) -> String {
+        date.map { AppDateFormatters.displayDate.string(from: $0) } ?? fallback
     }
 
     private func descriptionCard(_ text: String) -> some View {
