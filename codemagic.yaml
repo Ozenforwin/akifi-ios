@@ -69,6 +69,15 @@ workflows:
         script: |
           python3 Scripts/lint-unbounded-fetch.py --strict
 
+      - name: Lint bare date formatters
+        # Blocking from 2026-11-17 (D1). A bare DateFormatter() inherits the
+        # device calendar/locale: a Buddhist-calendar phone would write 2569
+        # into transactions.date. Parsing/writing goes through AppDateFormatters;
+        # files that predate the lint are capped by
+        # Scripts/lint-date-formatters.baseline (counts may only go down).
+        script: |
+          bash Scripts/lint-date-formatters.sh --strict
+
       - name: Generate xcconfig from environment variables
         script: |
           python3 << 'PYEOF'
