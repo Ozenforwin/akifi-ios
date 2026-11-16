@@ -19,6 +19,8 @@ struct TransactionsTabView: View {
 
     private static let isoDF: DateFormatter = {
         let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.calendar = Calendar(identifier: .gregorian)
         df.dateFormat = "yyyy-MM-dd"
         return df
     }()
@@ -29,6 +31,14 @@ struct TransactionsTabView: View {
         let cal = Calendar.current
         let fromDate = filterDateFrom.map { cal.startOfDay(for: $0) }
         let toDate = filterDateTo.map { cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: $0))! }
+        // B6: chips are `displayCategories` (one per name + type), so a chip
+        // must match every member's same-named category, not just the id it
+        // happens to carry — otherwise each member of a shared account got
+        // a different list and different totals for «Продукты».
+        let categoryFilter = TransactionCategoryFilter(
+            selectedIds: filterCategoryIds,
+            categories: dataStore.categories
+        )
 
         // Single-pass filter for all criteria
         var seenTransferGroups: Set<String> = []
@@ -48,7 +58,7 @@ struct TransactionsTabView: View {
             // Account (multi-select)
             if !filterAccountIds.isEmpty, let accId = tx.accountId, !filterAccountIds.contains(accId) { return false }
             // Category (multi-select)
-            if !filterCategoryIds.isEmpty, let catId = tx.categoryId, !filterCategoryIds.contains(catId) { return false }
+            if !categoryFilter.matches(tx, category: dataStore.category(for: tx)) { return false }
             // Date range
             if fromDate != nil || toDate != nil {
                 guard let d = df.date(from: tx.date) else { return true }
@@ -63,22 +73,32 @@ struct TransactionsTabView: View {
         !filterAccountIds.isEmpty || !filterCategoryIds.isEmpty || filterDateFrom != nil || filterDateTo != nil || filterType != .all
     }
 
+    /// M7: the filtered list spans accounts in different currencies, so
+    /// every row is FX-normalised into base before summing — `$50 + 3 000 ₽`
+    /// used to read «3 050 ₽». `formatAmount` then converts base → display.
     private var summaryTotals: (income: Int64, expense: Int64, transfer: Int64) {
+        Self.summaryTotals(displayedTransactions, amountInBase: dataStore.amountInBase)
+    }
+
+    static func summaryTotals(
+        _ transactions: [Transaction],
+        amountInBase: (Transaction) -> Int64
+    ) -> (income: Int64, expense: Int64, transfer: Int64) {
         var inc: Int64 = 0
         var exp: Int64 = 0
         var trf: Int64 = 0
         var seenGroups: Set<String> = []
-        for tx in displayedTransactions {
+        for tx in transactions {
             if let gid = tx.transferGroupId {
                 if !seenGroups.contains(gid) {
                     seenGroups.insert(gid)
-                    trf += tx.amountNative
+                    trf += abs(amountInBase(tx))
                 }
                 continue
             }
-            if tx.isTransfer { trf += tx.amountNative; continue }
-            if tx.type == .income { inc += tx.amountNative }
-            else if tx.type == .expense { exp += tx.amountNative }
+            if tx.isTransfer { trf += abs(amountInBase(tx)); continue }
+            if tx.type == .income { inc += amountInBase(tx) }
+            else if tx.type == .expense { exp += amountInBase(tx) }
         }
         return (inc, exp, trf)
     }
@@ -176,10 +196,15 @@ struct TransactionsTabView: View {
                         editingTransaction = transaction
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            Task { await dataStore.deleteTransaction(transaction) }
-                        } label: {
-                            Label(String(localized: "common.delete"), systemImage: "trash.fill")
+                        // An auto-transfer the other member paid from their
+                        // card can only be deleted by them (server 42501);
+                        // the delete would fail silently, so don't offer it.
+                        if dataStore.canModifyAutoTransfer(transaction) {
+                            Button(role: .destructive) {
+                                Task { await dataStore.deleteTransaction(transaction) }
+                            } label: {
+                                Label(String(localized: "common.delete"), systemImage: "trash.fill")
+                            }
                         }
                     }
                     .swipeActions(edge: .leading) {
@@ -240,7 +265,20 @@ struct TransactionsTabView: View {
                 }
             }
             .sheet(item: $editingTransaction) { tx in
-                if tx.isTransfer {
+                // M2: an auto-transfer leg is edited through its main
+                // expense (TransferFormView would re-price two of the three
+                // rows). TransferFormView repeats this routing for the other
+                // entry points and shows a read-only note when the expense
+                // is not visible.
+                if tx.isAutoTransferLeg, let main = dataStore.mainExpense(forAutoTransferLeg: tx) {
+                    TransactionFormView(
+                        categories: dataStore.displayCategories,
+                        accounts: dataStore.accounts,
+                        editingTransaction: main
+                    ) {
+                        await dataStore.loadAll()
+                    }
+                } else if tx.isTransfer {
                     TransferFormView(
                         accounts: dataStore.accounts,
                         editingTransaction: tx
@@ -308,6 +346,47 @@ struct TransactionsTabView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Category filter (B6)
+
+/// Category-chip matching for the Transactions filter. A chip stands for a
+/// normalised name + type (the key `DataStore.displayCategories` dedups by,
+/// and the grouping Reports uses), so on a shared account a member's
+/// «Продукты» chip also matches the partner's «Продукты» row whose category
+/// has a different id — both members see the same list and totals.
+struct TransactionCategoryFilter {
+    let selectedIds: Set<String>
+    let selectedKeys: Set<String>
+
+    init(selectedIds: Set<String>, categories: [Category]) {
+        self.selectedIds = selectedIds
+        var keys: Set<String> = []
+        if !selectedIds.isEmpty {
+            for cat in categories where selectedIds.contains(cat.id) {
+                keys.insert(Self.key(for: cat))
+            }
+        }
+        self.selectedKeys = keys
+    }
+
+    /// Same normalisation as `DataStore.displayCategories`.
+    static func key(for category: Category) -> String {
+        "\(category.name.lowercased().trimmingCharacters(in: .whitespaces))_\(category.type.rawValue)"
+    }
+
+    var isActive: Bool { !selectedIds.isEmpty }
+
+    /// With chips selected, a row passes only when its category matches one
+    /// (uncategorised rows and transfers used to slip through every
+    /// category filter). `category` is the row's resolved category; when
+    /// RLS / an inactive category leaves it unresolved the id still counts.
+    func matches(_ tx: Transaction, category: Category?) -> Bool {
+        guard isActive else { return true }
+        if let category, selectedKeys.contains(Self.key(for: category)) { return true }
+        if let id = tx.categoryId, selectedIds.contains(id) { return true }
+        return false
     }
 }
 

@@ -16,6 +16,17 @@ struct TransferFormView: View {
     @State private var selectedCurrency: CurrencyCode = .rub
     @State private var isLoading = false
     @State private var errorMessage: String?
+    /// Entry as loaded in `prefillIfEditing` — when amount, currency and
+    /// both accounts are unchanged on save, each leg keeps its stored
+    /// amounts and frozen rate instead of being re-priced today (M10).
+    @State private var baseline: Baseline?
+
+    private struct Baseline: Equatable {
+        let amount: Decimal?
+        let currency: CurrencyCode
+        let fromAccountId: String?
+        let toAccountId: String?
+    }
 
     private var isEditing: Bool { editingTransaction != nil }
 
@@ -33,6 +44,59 @@ struct TransferFormView: View {
     }
 
     var body: some View {
+        // M2: the two legs of an auto-transfer belong to their main expense
+        // (`create_expense_with_auto_transfer` writes all three rows). This
+        // form used to re-price both legs at today's rate and leave the
+        // expense alone — money out of thin air on the shared account.
+        // Open the expense instead; when RLS hides it, read-only.
+        if let leg = editingTransaction, leg.isAutoTransferLeg {
+            if let main = appViewModel.dataStore.mainExpense(forAutoTransferLeg: leg) {
+                TransactionFormView(
+                    categories: appViewModel.dataStore.displayCategories,
+                    accounts: accounts,
+                    editingTransaction: main,
+                    onSave: onSave
+                )
+            } else {
+                autoTransferLegReadOnly
+            }
+        } else {
+            transferForm
+        }
+    }
+
+    /// Shown for an auto-transfer leg whose main expense this device cannot
+    /// see (it lives on an account RLS hides).
+    private var autoTransferLegReadOnly: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(String(
+                        format: String(localized: "tx.autoTransfer.legReadOnly.body"),
+                        Self.expenseName(fromLegDescription: editingTransaction?.description)
+                    ))
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .navigationTitle(String(localized: "tx.autoTransfer.legReadOnly.title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "common.cancel")) { dismiss() }
+                }
+            }
+        }
+    }
+
+    /// The RPC titles legs "Авто-перевод: <expense description>".
+    static func expenseName(fromLegDescription description: String?) -> String {
+        let prefix = "Авто-перевод: "
+        guard let description, !description.isEmpty else { return String(localized: "transaction.transfer") }
+        return description.hasPrefix(prefix) ? String(description.dropFirst(prefix.count)) : description
+    }
+
+    private var transferForm: some View {
         NavigationStack {
             Form {
                 Section(String(localized: "transfer.amount")) {
@@ -125,17 +189,6 @@ struct TransferFormView: View {
         }
     }
 
-    private static let isoDateTimeFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return df
-    }()
-    private static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
             selectedCurrency = appViewModel.currencyManager.selectedCurrency
@@ -147,7 +200,8 @@ struct TransferFormView: View {
 
         description = tx.description ?? ""
 
-        if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
+        // D8: keep the stored time — see `TransactionFormDates`.
+        if let txDate = TransactionFormDates.parse(rawDateTime: tx.rawDateTime, fallbackDate: tx.date) {
             date = txDate
         }
 
@@ -189,6 +243,13 @@ struct TransferFormView: View {
             selectedCurrency = srcCode
             calculatorState.setValue(abs(sourceLeg.amountNative.displayAmount))
         }
+
+        baseline = Baseline(
+            amount: calculatorState.getResult(),
+            currency: selectedCurrency,
+            fromAccountId: fromAccountId,
+            toAccountId: toAccountId
+        )
     }
 
     private func save() async {
@@ -200,8 +261,10 @@ struct TransferFormView: View {
             return
         }
 
-        isLoading = true
-        let dateStr = AppDateFormatters.isoDate.string(from: date)
+        // D8: write the full wall-clock timestamp. The picker edits only the
+        // day, so an edit keeps the stored time (it used to write the bare
+        // date — midnight — on every save).
+        let dateStr = TransactionFormDates.string(from: date)
         let desc = description.isEmpty ? nil : description
 
         // ADR-001: each leg of the transfer must be stored in its OWN
@@ -215,32 +278,61 @@ struct TransferFormView: View {
         guard let fromAccount = accounts.first(where: { $0.id == fromId }),
               let toAccount = accounts.first(where: { $0.id == toId }) else {
             errorMessage = String(localized: "transfer.fillAllFields")
-            isLoading = false
             return
         }
 
-        let fromLeg = Self.legFields(amountValue: amountValue, entryCurrency: selectedCurrency, account: fromAccount, cm: cm)
-        let toLeg = Self.legFields(amountValue: amountValue, entryCurrency: selectedCurrency, account: toAccount, cm: cm)
+        // Existing legs when editing. Source = expense leg, destination =
+        // income leg (same resolution as `prefillIfEditing`).
+        var expenseLeg: Transaction?
+        var incomeLeg: Transaction?
+        if let tx = editingTransaction, let groupId = tx.transferGroupId {
+            let pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
+            if tx.type == .expense || tx.amountNative < 0 {
+                expenseLeg = tx
+                incomeLeg = pair
+            } else {
+                expenseLeg = pair ?? tx
+                incomeLeg = pair != nil ? tx : nil
+            }
+        }
 
+        // M10: nothing about the money changed → keep both legs as stored.
+        let unchanged = isEditing && baseline == Baseline(
+            amount: amountValue,
+            currency: selectedCurrency,
+            fromAccountId: fromId,
+            toAccountId: toId
+        )
+
+        // M3: a leg whose currency cannot be converted is refused, never
+        // written 1:1.
+        let fromLeg: LegFields
+        let toLeg: LegFields
+        do {
+            fromLeg = try Self.legFields(
+                amountValue: amountValue, entryCurrency: selectedCurrency, account: fromAccount,
+                rates: cm.rates, unchangedLeg: unchanged ? expenseLeg : nil
+            )
+            toLeg = try Self.legFields(
+                amountValue: amountValue, entryCurrency: selectedCurrency, account: toAccount,
+                rates: cm.rates, unchangedLeg: unchanged ? incomeLeg : nil
+            )
+        } catch {
+            errorMessage = FormErrorMessage.text(for: error)
+            return
+        }
+
+        isLoading = true
         do {
             // Always source user_id from the live Supabase session.
             // `dataStore.profile?.id` can be stale right after sign-in or
             // token refresh, and mismatch → RLS violation on INSERT.
             let userId = try await SupabaseManager.shared.currentUserId()
 
-            if let tx = editingTransaction, let groupId = tx.transferGroupId {
+            if let tx = editingTransaction, tx.transferGroupId != nil {
                 // Editing: update both sides of the transfer
-                let pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
-
-                let expenseTxId: String
-                let incomeTxId: String?
-                if tx.type == .expense || tx.amountNative < 0 {
-                    expenseTxId = tx.id
-                    incomeTxId = pair?.id
-                } else {
-                    expenseTxId = pair?.id ?? tx.id
-                    incomeTxId = pair != nil ? tx.id : nil
-                }
+                let expenseTxId = expenseLeg?.id ?? tx.id
+                let incomeTxId = incomeLeg?.id
 
                 try await dataStore.updateTransaction(id: expenseTxId, UpdateTransactionInput(
                     amount: fromLeg.amountInAccount,
@@ -309,7 +401,7 @@ struct TransferFormView: View {
             await onSave()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
 
         isLoading = false
@@ -326,9 +418,29 @@ struct TransferFormView: View {
         let fxRate: Decimal?
     }
 
-    static func legFields(amountValue: Decimal, entryCurrency: CurrencyCode, account: Account, cm: CurrencyManager) -> LegFields {
+    /// - `unchangedLeg`: the stored leg on this account when the caller saw
+    ///   amount, currency and accounts unchanged → its amounts and frozen
+    ///   rate are kept verbatim (M10).
+    /// - Throws `MissingFXRateError` when the entry has to be converted and
+    ///   a rate is missing (M3) — no 1:1 leg is ever produced.
+    static func legFields(
+        amountValue: Decimal,
+        entryCurrency: CurrencyCode,
+        account: Account,
+        rates: [String: Double],
+        unchangedLeg: Transaction? = nil
+    ) throws -> LegFields {
         let accountCode = account.currencyCode
         let currencyLabel = accountCode.code
+        if let stored = unchangedLeg, stored.accountId == account.id {
+            return LegFields(
+                amountInAccount: stored.amountNative.displayAmount,
+                currencyLabel: currencyLabel,
+                foreignAmount: stored.foreignAmount,
+                foreignCurrency: stored.foreignCurrency,
+                fxRate: stored.fxRate
+            )
+        }
         if entryCurrency == accountCode {
             return LegFields(
                 amountInAccount: amountValue,
@@ -338,7 +450,9 @@ struct TransferFormView: View {
                 fxRate: nil
             )
         }
-        let amountInAccount = crossConvert(amount: amountValue, from: entryCurrency, to: accountCode, using: cm)
+        let amountInAccount = try TransactionMath.convertForStorage(
+            amountValue, from: entryCurrency.code, to: accountCode.code, rates: rates
+        )
         let fxRate: Decimal? = amountValue != 0 ? (amountInAccount / amountValue) : nil
         return LegFields(
             amountInAccount: amountInAccount,
@@ -349,9 +463,13 @@ struct TransferFormView: View {
         )
     }
 
-    /// Same FX-conversion contract as `TransactionFormView.crossConvert`:
-    /// returns the input unchanged when either rate is missing instead of
-    /// silently producing a 75×-off value (see ADR-001 / 2026-04-19 incident).
+    static func legFields(amountValue: Decimal, entryCurrency: CurrencyCode, account: Account, cm: CurrencyManager) throws -> LegFields {
+        try legFields(amountValue: amountValue, entryCurrency: entryCurrency, account: account, rates: cm.rates)
+    }
+
+    /// DISPLAY-ONLY conversion (same contract as
+    /// `TransactionFormView.crossConvert`): returns the input unchanged when
+    /// either rate is missing. Never used to build a leg — see `legFields`.
     static func crossConvert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
         guard from != to else { return amount }
         guard let fromRate = cm.rates[from.code], fromRate > 0,

@@ -110,4 +110,48 @@ extension DataStore {
             $0.autoTransferGroupId == group && $0.transferGroupId == nil && $0.type == .expense
         }
     }
+
+    /// Whether the current user may edit / delete `tx` — see
+    /// `AutoTransferPermission`. Always true for rows outside an
+    /// auto-transfer triplet.
+    func canModifyAutoTransfer(_ tx: Transaction) -> Bool {
+        AutoTransferPermission.canModify(
+            tx, currentUserId: profile?.id, accounts: accounts, transactions: transactions
+        )
+    }
+}
+
+/// Client mirror of the server rule (migration 20261117120200): an update or
+/// delete of an auto-transfer must be able to write EVERY row of the
+/// triplet, and the transfer-out leg sits on the payer's personal card. A
+/// co-editor of «Семейный» therefore cannot change an expense the other
+/// member paid from their own card — the server raises 42501 ("only the
+/// member who paid …"). The UI hides / disables Edit and Delete for those
+/// rows instead of letting the call fail (or, offline, dead-letter later).
+enum AutoTransferPermission {
+
+    /// - Rows outside a triplet: allowed.
+    /// - The payer wrote all three rows, so the main expense's creator is
+    ///   the payer → allowed (also covers legacy pairs whose source account
+    ///   was deleted).
+    /// - Otherwise allowed only when the source card is visible to me — all
+    ///   my own accounts and every account shared with me are; a hidden
+    ///   source is someone else's personal card. The server stays the
+    ///   authority (a viewer still gets its 42501).
+    /// - Unknown current user (profile not loaded) → let the server decide.
+    static func canModify(
+        _ tx: Transaction,
+        currentUserId: String?,
+        accounts: [Account],
+        transactions: [Transaction]
+    ) -> Bool {
+        guard let group = tx.autoTransferGroupId, let uid = currentUserId else { return true }
+        let main: Transaction? = (tx.transferGroupId == nil && tx.type == .expense)
+            ? tx
+            : transactions.first { $0.autoTransferGroupId == group && $0.transferGroupId == nil && $0.type == .expense }
+        guard let main else { return tx.userId == uid }
+        if main.userId == uid { return true }
+        guard let sourceId = main.paymentSourceAccountId else { return false }
+        return accounts.contains { $0.id == sourceId }
+    }
 }

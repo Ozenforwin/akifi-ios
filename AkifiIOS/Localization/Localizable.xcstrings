@@ -331,6 +331,28 @@
         }
       }
     },
+    "account.currency.ownerOnly.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the account owner can change its currency."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el propietario de la cuenta puede cambiar su moneda."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюту счёта может изменить только его владелец."
+          }
+        }
+      }
+    },
     "account.deleteAccount" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -34937,6 +34959,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Редактирование"
+          }
+        }
+      }
+    },
+    "tx.error.alreadyDeleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This transaction has already been deleted. Refresh the list."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta operación ya se eliminó. Actualiza la lista."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта операция уже удалена. Обновите список."
+          }
+        }
+      }
+    },
+    "tx.error.noPermission" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You don't have permission to change this transaction."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tienes permiso para modificar esta operación."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостаточно прав, чтобы изменить эту операцию."
+          }
+        }
+      }
+    },
+    "tx.error.onlyPayerCanEdit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This expense was paid from another member's card — only they can edit or delete it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este gasto se pagó con la tarjeta de otro miembro: solo esa persona puede editarlo o eliminarlo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот расход оплачен с карты другого участника — изменить или удалить его может только он."
           }
         }
       }

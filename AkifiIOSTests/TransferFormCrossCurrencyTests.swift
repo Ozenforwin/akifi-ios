@@ -30,9 +30,9 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     // MARK: - Cross-currency: source-account leg
 
-    func testLegFields_EntryUsd_RubAccount_StoresInRubWithForeignFields() {
+    func testLegFields_EntryUsd_RubAccount_StoresInRubWithForeignFields() throws {
         let cm = currencyManager()
-        let leg = TransferFormView.legFields(
+        let leg = try TransferFormView.legFields(
             amountValue: Decimal(530),
             entryCurrency: .usd,
             account: account(id: "rub", currency: "rub"),
@@ -50,9 +50,9 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     // MARK: - Cross-currency: destination leg in entry currency
 
-    func testLegFields_EntryUsd_UsdAccount_StoresVerbatimNoForeign() {
+    func testLegFields_EntryUsd_UsdAccount_StoresVerbatimNoForeign() throws {
         let cm = currencyManager()
-        let leg = TransferFormView.legFields(
+        let leg = try TransferFormView.legFields(
             amountValue: Decimal(530),
             entryCurrency: .usd,
             account: account(id: "usd", currency: "usd"),
@@ -68,9 +68,9 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     // MARK: - Same-currency transfer
 
-    func testLegFields_EntryRub_RubAccount_NoForeignFields() {
+    func testLegFields_EntryRub_RubAccount_NoForeignFields() throws {
         let cm = currencyManager()
-        let leg = TransferFormView.legFields(
+        let leg = try TransferFormView.legFields(
             amountValue: Decimal(1000),
             entryCurrency: .rub,
             account: account(id: "rub", currency: "rub"),
@@ -85,16 +85,18 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     // MARK: - Triangulated cross-currency (USD entry, RUB → EUR)
 
-    func testLegFields_TriangulatesViaUsdPivot() {
+    func testLegFields_TriangulatesViaUsdPivot() throws {
         let cm = currencyManager()
-        let eurLeg = TransferFormView.legFields(
+        let eurLeg = try TransferFormView.legFields(
             amountValue: Decimal(100),
             entryCurrency: .usd,
             account: account(id: "eur", currency: "eur"),
             cm: cm
         )
-        // 100 USD → 92 EUR via the USD pivot table.
-        XCTAssertEqual(eurLeg.amountInAccount, Decimal(100) * Decimal(0.92))
+        // 100 USD → 92 EUR via the USD pivot table, rounded to the cent
+        // (the binary 0.92 used to leak 0.0000000000000004 into the row).
+        XCTAssertEqual(eurLeg.amountInAccount, Decimal(92))
+        XCTAssertEqual(eurLeg.fxRate, Decimal(string: "0.92"))
         XCTAssertEqual(eurLeg.currencyLabel, "EUR")
         XCTAssertEqual(eurLeg.foreignAmount, Decimal(100))
         XCTAssertEqual(eurLeg.foreignCurrency, "USD")
@@ -117,17 +119,17 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     // MARK: - Full transfer scenario: Olga's bug repro
 
-    func testOlgaTransfer_RubToUsd_LegsWrittenInOwnCurrencies() {
+    func testOlgaTransfer_RubToUsd_LegsWrittenInOwnCurrencies() throws {
         let cm = currencyManager()
         let entry = Decimal(530)
         let entryCcy = CurrencyCode.usd
         let rubAcc = account(id: "olya-rub", currency: "rub")
         let usdAcc = account(id: "olya-usd", currency: "usd")
 
-        let fromLeg = TransferFormView.legFields(
+        let fromLeg = try TransferFormView.legFields(
             amountValue: entry, entryCurrency: entryCcy, account: rubAcc, cm: cm
         )
-        let toLeg = TransferFormView.legFields(
+        let toLeg = try TransferFormView.legFields(
             amountValue: entry, entryCurrency: entryCcy, account: usdAcc, cm: cm
         )
 

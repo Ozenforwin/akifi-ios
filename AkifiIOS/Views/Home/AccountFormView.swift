@@ -94,8 +94,12 @@ struct AccountFormView: View {
                         // account still has rows would leave every
                         // `tx.amount_native` in the OLD currency while the
                         // account is now in a new one — producing the
-                        // VND-as-RUB phantom on history. Block at the UI.
-                        Text(String(localized: "account.currency.locked.hint"))
+                        // VND-as-RUB phantom on history. Blocked here and,
+                        // since 20261117120000, by a server trigger (23514;
+                        // a non-owner gets 42501).
+                        Text(String(localized: isCurrencyOwnerOnly
+                                    ? "account.currency.ownerOnly.hint"
+                                    : "account.currency.locked.hint"))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
@@ -233,7 +237,24 @@ struct AccountFormView: View {
     /// and account creation are unaffected.
     private var isCurrencyLocked: Bool {
         guard let account = editingAccount else { return false }
-        return appViewModel.dataStore.transactions.contains { $0.accountId == account.id }
+        return isCurrencyOwnerOnly
+            || appViewModel.dataStore.transactions.contains { $0.accountId == account.id }
+    }
+
+    /// Someone else's account shared with me: only its owner may change the
+    /// currency (server trigger raises 42501 otherwise).
+    private var isCurrencyOwnerOnly: Bool {
+        guard let account = editingAccount, let uid = appViewModel.dataStore.profile?.id else { return false }
+        return account.userId != uid
+    }
+
+    /// The value to send as `accounts.currency`: the stored string when the
+    /// selection did not change (case-insensitively), so an edit of an
+    /// account stored as "USD" does not even send a case-only change.
+    private func currencyToSave(for account: Account) -> String {
+        account.currency.caseInsensitiveCompare(selectedCurrency.code) == .orderedSame
+            ? account.currency
+            : selectedCurrency.code.lowercased()
     }
 
     /// Only show the base-currency preview when the user's base differs from
@@ -326,7 +347,7 @@ struct AccountFormView: View {
                     name: name,
                     icon: selectedIcon,
                     color: selectedColor,
-                    currency: selectedCurrency.code.lowercased(),
+                    currency: currencyToSave(for: account),
                     initialBalance: newBalance
                 )
             } else {
@@ -344,7 +365,7 @@ struct AccountFormView: View {
             await onSave()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
         isSaving = false
     }
@@ -382,7 +403,7 @@ struct AccountFormView: View {
             await onSave()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
         isDeleting = false
     }

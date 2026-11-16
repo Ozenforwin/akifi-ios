@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
@@ -57,17 +58,6 @@ struct TransactionFormView: View {
 
     private let currencyPrefs = UserCurrencyPreferences.shared
 
-    private static let isoDateTimeFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return df
-    }()
-    private static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     private var isEditing: Bool { editingTransaction != nil }
 
     init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, defaultAccountId: String? = nil, onSave: @escaping () async -> Void) {
@@ -108,13 +98,18 @@ struct TransactionFormView: View {
         appViewModel.dataStore.profile?.id
     }
 
-    /// True iff the target account has transactions from more than one user,
-    /// i.e. it's considered shared for the current user. Falls back to false
-    /// when we have no profile yet.
+    /// True iff the target account has more than one member (B7). Used to be
+    /// "someone else has a transaction on it", so the owner of a freshly
+    /// shared account got no «Оплачено с» until the partner wrote a row —
+    /// and their expenses went in without an auto-transfer, invisible to the
+    /// settlement. The transaction heuristic only bridges the moment before
+    /// `AccountSharingIndex` has loaded. False when we have no profile yet.
     private var targetIsShared: Bool {
         guard let acc = selectedAccount, let uid = currentUserId else { return false }
-        return appViewModel.dataStore.transactions.contains { $0.accountId == acc.id && $0.userId != uid }
-            || acc.userId != uid
+        let transactions = appViewModel.dataStore.transactions
+        return AccountSharingIndex.shared.isShared(acc, currentUserId: uid) {
+            AccountSharingIndex.hasOtherMembersRows(acc, currentUserId: uid, transactions: transactions)
+        }
     }
 
     /// Eligible source accounts for the picker — own accounts, regardless
@@ -225,9 +220,26 @@ struct TransactionFormView: View {
 
     // MARK: - View
 
+    /// The edited row is an auto-transfer the OTHER member paid from their
+    /// own card: the server rejects any change (42501, only the payer may
+    /// write the triplet), so the form explains that and does not offer Save.
+    private var isLockedToPayer: Bool {
+        guard let tx = editingTransaction else { return false }
+        return !appViewModel.dataStore.canModifyAutoTransfer(tx)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                if isLockedToPayer {
+                    Section {
+                        Label(String(localized: "tx.error.onlyPayerCanEdit"), systemImage: "lock.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
                 Section {
                     Picker(String(localized: "common.type"), selection: $selectedType) {
                         Text(String(localized: "common.expense")).tag(TransactionType.expense)
@@ -338,7 +350,7 @@ struct TransactionFormView: View {
                     Button(isEditing ? String(localized: "common.update") : String(localized: "common.save")) {
                         Task { await save() }
                     }
-                    .disabled(calculatorState.getResult() == nil || isLoading)
+                    .disabled(calculatorState.getResult() == nil || isLoading || isLockedToPayer)
                 }
             }
             .onAppear { prefillIfEditing() }
@@ -375,6 +387,9 @@ struct TransactionFormView: View {
             }
             .task {
                 await loadUserDefaults()
+            }
+            .task {
+                await AccountSharingIndex.shared.refresh(currentUserId: currentUserId)
             }
             .sheet(isPresented: $showCategoryPicker) {
                 CategoryPickerView(
@@ -746,7 +761,8 @@ struct TransactionFormView: View {
         selectedCategoryId = tx.categoryId
         selectedAccountId = tx.accountId
         selectedPaymentSourceId = tx.paymentSourceAccountId
-        if let txDate = Self.isoDateTimeFormatter.date(from: tx.rawDateTime) ?? Self.isoDateFormatter.date(from: tx.date) {
+        // D8: keep the stored time — see `TransactionFormDates`.
+        if let txDate = TransactionFormDates.parse(rawDateTime: tx.rawDateTime, fallbackDate: tx.date) {
             date = txDate
         }
 
@@ -811,8 +827,24 @@ struct TransactionFormView: View {
             return
         }
 
-        isLoading = true
-        let dateStr = Self.isoDateTimeFormatter.string(from: date)
+        // M2: an auto-transfer leg is written by the server together with
+        // its main expense. Editing it alone re-prices two of the three rows
+        // and leaves the expense untouched — the edit goes through the
+        // expense. The list routes legs there already; this is the backstop
+        // for any other entry point.
+        if let tx = editingTransaction, tx.isAutoTransferLeg {
+            let name = appViewModel.dataStore.mainExpense(forAutoTransferLeg: tx)?.description
+                ?? String(localized: "transaction.transfer")
+            errorMessage = String(format: String(localized: "tx.autoTransfer.legReadOnly.body"), name)
+            return
+        }
+        // Server rule: only the payer may write an auto-transfer triplet.
+        if isLockedToPayer {
+            errorMessage = String(localized: "tx.error.onlyPayerCanEdit")
+            return
+        }
+
+        let dateStr = TransactionFormDates.string(from: date)
 
         // ADR-001: the ONLY canonical amount is in the owning account's
         // currency. Foreign entry is decomposed into:
@@ -824,33 +856,44 @@ struct TransactionFormView: View {
         // entirely — the row is a "native" entry.
         let cm = appViewModel.currencyManager
         let accountCode: CurrencyCode = selectedAccount?.currencyCode ?? cm.dataCurrency
-        let amountInAccountCurrency: Decimal
-        let foreignAmount: Decimal?
-        let foreignCurrencyCode: String?
-        let fxRate: Decimal?
-        if selectedCurrency == accountCode {
-            amountInAccountCurrency = amountValue
-            foreignAmount = nil
-            foreignCurrencyCode = nil
-            fxRate = nil
-        } else {
-            amountInAccountCurrency = Self.crossConvert(
+
+        // M10: an edit that leaves amount, currency and account alone keeps
+        // the frozen `fx_rate` (fixing a typo in the description of a USD
+        // expense must not re-price it at today's rate).
+        let unchangedOriginal: Transaction? = {
+            guard let tx = editingTransaction,
+                  editingBaselineAmount == amountValue,
+                  editingBaselineCurrency == selectedCurrency,
+                  selectedAccountId == tx.accountId
+            else { return nil }
+            return tx
+        }()
+
+        // M3: a cross-currency entry without a rate is refused, never
+        // stored 1:1.
+        let entry: EntryAmounts
+        do {
+            entry = try Self.entryAmounts(
                 amount: amountValue,
-                from: selectedCurrency,
-                to: accountCode,
-                using: cm
+                entryCurrency: selectedCurrency.code,
+                accountCurrency: accountCode.code,
+                rates: cm.rates,
+                unchangedOriginal: unchangedOriginal
             )
-            foreignAmount = amountValue
-            foreignCurrencyCode = selectedCurrency.code
-            fxRate = amountValue != 0
-                ? (amountInAccountCurrency / amountValue)
-                : nil
+        } catch {
+            errorMessage = FormErrorMessage.text(for: error)
+            return
         }
+        let amountInAccountCurrency = entry.native
+        let foreignAmount = entry.foreignAmount
+        let foreignCurrencyCode = entry.foreignCurrency
+        let fxRate = entry.fxRate
 
         // Legacy `currency` column now always mirrors account.currency on
         // new writes. The foreign-entry currency lives in `foreign_currency`.
         let txCurrencyLabel = accountCode.code
 
+        isLoading = true
         do {
             // Always source user_id from the live Supabase session.
             // `dataStore.profile?.id` can be stale right after sign-in or
@@ -862,28 +905,38 @@ struct TransactionFormView: View {
                 // for "this account" and a source id otherwise.
                 let previousSource = tx.paymentSourceAccountId
                 let resolvedNewSource: String? = {
-                    guard selectedType == .expense,
-                          let sourceId = selectedPaymentSourceId,
-                          sourceId != selectedAccountId
-                    else { return nil }
-                    return sourceId
+                    guard selectedType == .expense else { return nil }
+                    if shouldShowPaymentSource || selectedAccountId != tx.accountId {
+                        return resolvedPaymentSource()
+                    }
+                    // Picker hidden on an unchanged account (e.g. the
+                    // membership changed since): leave the source alone —
+                    // a description edit must not dissolve a triplet.
+                    return previousSource
                 }()
                 let sourceChanged = previousSource != resolvedNewSource
                 let isMainExpense = tx.type == .expense && tx.transferGroupId == nil
+                // M2: `update_expense_with_auto_transfer` never moves rows
+                // between accounts, and the plain UPDATE would leave both
+                // legs behind. Moving an auto-transfer expense to another
+                // account is therefore a re-create, like a source change.
+                let movedAutoTransfer = tx.autoTransferGroupId != nil
+                    && selectedAccountId != tx.accountId
 
                 // Reassignment path: only fires for the main expense row when
-                // the user actually changed the source. Covers the four
-                // scenarios from the spec:
+                // the user actually changed the source or moved an
+                // auto-transfer expense. Covers:
                 //   A. auto-transfer → simple expense (newSource = nil)
                 //   B. simple expense → auto-transfer (oldSource = nil)
                 //   C. auto-transfer source A → B (both non-nil, differ)
-                //   D. unchanged → fall through to the plain update RPC
+                //   D. auto-transfer moved to another target account
+                //   E. unchanged → fall through to the plain update RPC
                 // Implementation is client-side delete + recreate; not
                 // atomic, but the window is < ~300ms and the failure mode
                 // (delete succeeds, create fails) leaves the user without
                 // the expense — recoverable by retry. An RPC-level wrapper
                 // is tracked for a future migration.
-                if sourceChanged && isMainExpense {
+                if isMainExpense && (sourceChanged || movedAutoTransfer) {
                     try await reassignExpenseSource(
                         tx: tx,
                         amountInAccountCurrency: amountInAccountCurrency,
@@ -928,16 +981,23 @@ struct TransactionFormView: View {
                                 && other.type == .expense
                                 && other.id != tx.id
                         }
-                        if let outAccountId = outLeg?.accountId,
+                        if let outLeg,
+                           let outAccountId = outLeg.accountId,
                            let srcAccount = accounts.first(where: { $0.id == outAccountId }),
                            srcAccount.currency.lowercased() != accountCode.code.lowercased() {
                             let srcCode = srcAccount.currencyCode
-                            editSourceAmount = Self.crossConvert(
-                                amount: amountInAccountCurrency,
-                                from: accountCode,
-                                to: srcCode,
-                                using: cm
-                            )
+                            // M10: unchanged money → the out-leg keeps its
+                            // stored amount instead of today's rate.
+                            if unchangedOriginal != nil {
+                                editSourceAmount = outLeg.amountNative.displayAmount
+                            } else {
+                                editSourceAmount = try TransactionMath.convertForStorage(
+                                    amountInAccountCurrency,
+                                    from: accountCode.code,
+                                    to: srcCode.code,
+                                    rates: cm.rates
+                                )
+                            }
                             editSourceCurrency = srcCode.code
                         }
                     }
@@ -966,32 +1026,17 @@ struct TransactionFormView: View {
                 }
             } else {
                 // Resolve payment source — only record it when target is shared AND source != target.
-                let resolvedPaymentSource: String? = {
-                    guard selectedType == .expense,
-                          let sourceId = selectedPaymentSourceId,
-                          sourceId != selectedAccountId
-                    else { return nil }
-                    return sourceId
-                }()
+                let resolvedPaymentSource = resolvedPaymentSource()
                 // Cross-currency: when the source account uses a different
                 // currency than the TARGET account, convert the target-currency
                 // amount into the source's currency for the transfer-out leg.
                 // This is independent of the user's entry currency — ADR-001
                 // already normalized to `amountInAccountCurrency` above.
-                var sourceAmount: Decimal? = nil
-                var sourceCurrency: String? = nil
-                if let srcId = resolvedPaymentSource,
-                   let src = accounts.first(where: { $0.id == srcId }),
-                   src.currency.lowercased() != accountCode.code.lowercased() {
-                    let srcCode = src.currencyCode
-                    sourceAmount = Self.crossConvert(
-                        amount: amountInAccountCurrency,
-                        from: accountCode,
-                        to: srcCode,
-                        using: cm
-                    )
-                    sourceCurrency = srcCode.code
-                }
+                let source = try sourceLegAmount(
+                    sourceId: resolvedPaymentSource,
+                    targetCode: accountCode,
+                    amountInAccountCurrency: amountInAccountCurrency
+                )
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: selectedAccountId,
@@ -1007,8 +1052,8 @@ struct TransactionFormView: View {
                     category_id: selectedCategoryId,
                     merchant_name: nil,
                     payment_source_account_id: resolvedPaymentSource,
-                    source_amount: sourceAmount,
-                    source_currency: sourceCurrency
+                    source_amount: source.amount,
+                    source_currency: source.currency
                 )
                 _ = try await appViewModel.dataStore.addTransaction(input)
                 // No auto-upsert of payment-source defaults — managed
@@ -1019,10 +1064,44 @@ struct TransactionFormView: View {
             await onSave()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
 
         isLoading = false
+    }
+
+    /// The payment source to record, or nil for a plain expense: only what
+    /// the user can see in the «Оплачено с» picker. After moving an expense
+    /// to a personal account the stale selection (hidden, not reset in edit
+    /// mode) must not resurrect an auto-transfer.
+    private func resolvedPaymentSource() -> String? {
+        guard shouldShowPaymentSource,
+              let sourceId = selectedPaymentSourceId,
+              sourceId != selectedAccountId
+        else { return nil }
+        return sourceId
+    }
+
+    /// Transfer-out amount in the SOURCE account's currency when it differs
+    /// from the target's (routes the RPC to the cross-currency overload).
+    /// Throws `MissingFXRateError` instead of writing a 1:1 leg (M3).
+    private func sourceLegAmount(
+        sourceId: String?,
+        targetCode: CurrencyCode,
+        amountInAccountCurrency: Decimal
+    ) throws -> (amount: Decimal?, currency: String?) {
+        guard let srcId = sourceId,
+              let src = accounts.first(where: { $0.id == srcId }),
+              src.currency.lowercased() != targetCode.code.lowercased()
+        else { return (nil, nil) }
+        let srcCode = src.currencyCode
+        let amount = try TransactionMath.convertForStorage(
+            amountInAccountCurrency,
+            from: targetCode.code,
+            to: srcCode.code,
+            rates: appViewModel.currencyManager.rates
+        )
+        return (amount, srcCode.code)
     }
 
     /// Client-side payment-source reassignment when editing an existing
@@ -1040,44 +1119,36 @@ struct TransactionFormView: View {
         dateStr: String,
         newSource: String?
     ) async throws {
+        // 0. Everything that can fail without touching the server first: a
+        //    missing FX rate for the new source leg must not leave the user
+        //    with the old expense deleted and no new one.
+        let targetCode: CurrencyCode = selectedAccount?.currencyCode ?? appViewModel.currencyManager.dataCurrency
+        let source = try sourceLegAmount(
+            sourceId: newSource,
+            targetCode: targetCode,
+            amountInAccountCurrency: amountInAccountCurrency
+        )
+
         // 1. Delete the old row. `DataStore.deleteTransaction` routes
         //    through `delete_expense_with_auto_transfer` when the row has
         //    `auto_transfer_group_id` set, removing all three rows
         //    atomically. For a plain expense it's a single delete.
-        //    The method swallows its own errors and reports them through
-        //    `dataStore.error`; we re-throw upstream if that field
-        //    surfaces a fresh message.
-        let priorError = appViewModel.dataStore.error
-        await appViewModel.dataStore.deleteTransaction(tx)
-        if let err = appViewModel.dataStore.error, err != priorError {
+        //    The method swallows its own errors (reports them through
+        //    `dataStore.error`) and drops the row locally only on success
+        //    or when it queued the delete offline — so "the row is still
+        //    there" is the reliable failure signal. Comparing error strings
+        //    missed a second failure with the same message and then
+        //    created a duplicate expense.
+        let dataStore = appViewModel.dataStore
+        await dataStore.deleteTransaction(tx)
+        if dataStore.transactions.contains(where: { $0.id == tx.id }) {
             throw NSError(
                 domain: "TransactionFormView.reassign", code: -1,
-                userInfo: [NSLocalizedDescriptionKey: err]
+                userInfo: [NSLocalizedDescriptionKey: dataStore.error ?? String(localized: "common.error")]
             )
         }
 
-        // 2. Rebuild the cross-currency source amount if needed. Uses the
-        //    target account's currency (ADR-001) as the reference, not the
-        //    user's entry currency — the RPC expects the transfer-out leg
-        //    expressed in the source's own currency.
-        let cm = appViewModel.currencyManager
-        let targetCode: CurrencyCode = selectedAccount?.currencyCode ?? cm.dataCurrency
-        var sourceAmount: Decimal? = nil
-        var sourceCurrency: String? = nil
-        if let srcId = newSource,
-           let src = accounts.first(where: { $0.id == srcId }),
-           src.currency.lowercased() != targetCode.code.lowercased() {
-            let srcCode = src.currencyCode
-            sourceAmount = Self.crossConvert(
-                amount: amountInAccountCurrency,
-                from: targetCode,
-                to: srcCode,
-                using: cm
-            )
-            sourceCurrency = srcCode.code
-        }
-
-        // 3. Recreate with the new shape. `addTransaction` will route to
+        // 2. Recreate with the new shape. `addTransaction` will route to
         //    `create_expense_with_auto_transfer` when `newSource != nil`
         //    and `newSource != accountId`, or to a plain INSERT otherwise.
         let input = CreateTransactionInput(
@@ -1095,12 +1166,60 @@ struct TransactionFormView: View {
             category_id: selectedCategoryId,
             merchant_name: nil,
             payment_source_account_id: newSource,
-            source_amount: sourceAmount,
-            source_currency: sourceCurrency
+            source_amount: source.amount,
+            source_currency: source.currency
         )
-        _ = try await appViewModel.dataStore.addTransaction(input)
+        _ = try await dataStore.addTransaction(input)
         // Saved-default management lives in Settings only — see the
         // matching note in performSave().
+    }
+
+    /// What a save writes for the user's entry (ADR-001 decomposition).
+    struct EntryAmounts: Equatable, Sendable {
+        /// Main units of the ACCOUNT currency → `amount_native`.
+        let native: Decimal
+        let foreignAmount: Decimal?
+        let foreignCurrency: String?
+        let fxRate: Decimal?
+    }
+
+    /// Pure core of the save path.
+    /// - Entry in the account currency → stored verbatim, no `foreign_*`.
+    /// - `unchangedOriginal` (the caller saw amount, currency and account
+    ///   unchanged) with the same foreign entry → the stored amounts and
+    ///   frozen `fx_rate` are kept (M10).
+    /// - Otherwise converted at the current rate, rounded for the account
+    ///   currency; a missing rate throws `MissingFXRateError` (M3).
+    nonisolated static func entryAmounts(
+        amount: Decimal,
+        entryCurrency: String,
+        accountCurrency: String,
+        rates: [String: Double],
+        unchangedOriginal: Transaction? = nil
+    ) throws -> EntryAmounts {
+        let entry = entryCurrency.uppercased()
+        let account = accountCurrency.uppercased()
+        if entry == account {
+            return EntryAmounts(native: amount, foreignAmount: nil, foreignCurrency: nil, fxRate: nil)
+        }
+        if let original = unchangedOriginal,
+           original.foreignCurrency?.uppercased() == entry,
+           original.foreignAmount == amount {
+            let storedNative = original.amountNative.displayAmount
+            return EntryAmounts(
+                native: storedNative,
+                foreignAmount: original.foreignAmount,
+                foreignCurrency: entry,
+                fxRate: original.fxRate ?? (amount != 0 ? storedNative / amount : nil)
+            )
+        }
+        let native = try TransactionMath.convertForStorage(amount, from: entry, to: account, rates: rates)
+        return EntryAmounts(
+            native: native,
+            foreignAmount: amount,
+            foreignCurrency: entry,
+            fxRate: amount != 0 ? native / amount : nil
+        )
     }
 
     /// Formats an amount already expressed in the transaction's currency
@@ -1117,17 +1236,13 @@ struct TransactionFormView: View {
         return "\(formatted) \(currency.symbol)"
     }
 
-    /// Convert an amount between two arbitrary currencies using the rate
-    /// table inside `CurrencyManager`. The rates are USD-based, so
-    /// `amount_to = amount_from / rate[from] * rate[to]`. Used for the
-    /// cross-currency picker hint and for the RPC `p_source_amount` leg.
+    /// DISPLAY-ONLY conversion between two currencies using the USD-based
+    /// rate table in `CurrencyManager` (`amount_to = amount_from /
+    /// rate[from] * rate[to]`) — the picker hint and the "≈ …" preview.
+    /// Returns the input unchanged when a rate is missing, which is fine
+    /// for a hint and fatal for a write: the save paths use
+    /// `TransactionMath.convertForStorage`, which refuses instead (M3).
     @MainActor
-    /// Cross-currency conversion. Returns the input unchanged when either
-    /// rate is missing — coercing to 1.0 is what produced the 2 000 000 VND
-    /// → 26 315 USD save bug (rates["VND"] was absent from fallbackRates,
-    /// fixed in 2026-04-19). The form's UI has a separate FX-preview that
-    /// flags missing rates; the Save action is now a no-op rather than a
-    /// silent corruption.
     static func crossConvert(
         amount: Decimal,
         from: CurrencyCode,
@@ -1140,6 +1255,87 @@ struct TransactionFormView: View {
             return amount
         }
         return amount / Decimal(fromRate) * Decimal(toRate)
+    }
+}
+
+/// User-facing text for write errors the server raises on purpose
+/// (migrations 20261117120000 / 20261117120200). Anything else falls back to
+/// the error's own description.
+enum FormErrorMessage {
+
+    static func text(for error: Error) -> String {
+        guard let pg = error as? PostgrestError else { return error.localizedDescription }
+        let context = [pg.message, pg.hint ?? "", pg.details ?? ""].joined(separator: " ")
+        switch pg.code {
+        case "42501":
+            // update_/delete_expense_with_auto_transfer: the triplet has a
+            // row on the payer's personal card.
+            if context.localizedCaseInsensitiveContains("paid") || context.localizedCaseInsensitiveContains("payer") {
+                return String(localized: "tx.error.onlyPayerCanEdit")
+            }
+            // guard_account_owner_currency: currency is the owner's call.
+            if context.localizedCaseInsensitiveContains("currency") {
+                return String(localized: "account.currency.ownerOnly.hint")
+            }
+            return String(localized: "tx.error.noPermission")
+        case "P0002":
+            // update_expense_with_auto_transfer: the main row is gone
+            // (deleted on the partner's phone meanwhile).
+            return String(localized: "tx.error.alreadyDeleted")
+        case "23514" where context.localizedCaseInsensitiveContains("currency"):
+            // guard_account_owner_currency: the account already has rows.
+            return String(localized: "account.currency.locked.hint")
+        default:
+            return error.localizedDescription
+        }
+    }
+}
+
+/// Wall-clock timestamps for the transaction / transfer forms (D8).
+///
+/// The forms write `transactions.date` as local wall-clock digits without an
+/// offset ("2026-11-17T00:30:00"). The column is `timestamptz` and PostgREST
+/// runs in UTC, so the digits are stored verbatim and come back as
+/// "2026-11-17T00:30:00+00:00" (prod: `date − created_at` is +7 h for the
+/// UTC+7 user's iOS rows). `tx.date` = the first 10 characters is therefore
+/// the user's local day, and the whole app relies on that.
+///
+/// Reading back must use the SAME convention: take the first 19 characters
+/// and interpret them in the writer's time zone. The old parser required the
+/// exact "yyyy-MM-dd'T'HH:mm:ss" string, so every server row ("+00:00"
+/// suffix) failed to parse, the form fell back to midnight, and any edit —
+/// even of the description — rewrote the time as 00:00. Parsing the digits
+/// as real UTC would be just as wrong: each edit would shift the time by the
+/// user's offset.
+enum TransactionFormDates {
+
+    static func formatter(timeZone: TimeZone) -> DateFormatter {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.calendar = Calendar(identifier: .gregorian)
+        df.timeZone = timeZone
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return df
+    }
+
+    /// `date` as the wall-clock string the forms write.
+    static func string(from date: Date, timeZone: TimeZone = .current) -> String {
+        formatter(timeZone: timeZone).string(from: date)
+    }
+
+    /// Inverse of `string(from:)` for anything the DB or the offline queue
+    /// hands back: "2026-11-17T00:30:00+00:00", "…T00:30:00.123+00:00",
+    /// "2026-11-17 00:30:00+00", the bare "2026-11-17T00:30:00", or a
+    /// date-only "2026-11-17" (→ local midnight).
+    static func parse(rawDateTime: String, fallbackDate: String, timeZone: TimeZone = .current) -> Date? {
+        let full = formatter(timeZone: timeZone)
+        if rawDateTime.count >= 19 {
+            let digits = String(rawDateTime.prefix(19)).replacingOccurrences(of: " ", with: "T")
+            if let date = full.date(from: digits) { return date }
+        }
+        let day = formatter(timeZone: timeZone)
+        day.dateFormat = "yyyy-MM-dd"
+        return day.date(from: String(rawDateTime.prefix(10))) ?? day.date(from: String(fallbackDate.prefix(10)))
     }
 }
 
