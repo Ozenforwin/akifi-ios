@@ -129,19 +129,88 @@ final class OfflineReplayClassificationTests: XCTestCase {
         }
     }
 
-    /// The RPC triplet create mints server-side ids: if the write may have
-    /// committed, replaying duplicates it. Surface timeouts at any layer;
-    /// still queue when the server was definitely not reached.
-    func test_rpcCreate_surfacesWhenWriteMayHaveCommitted() {
-        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(TimeoutError(seconds: 10), routesToAutoTransferRPC: true))
-        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(URLError(.timedOut), routesToAutoTransferRPC: true))
-        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(httpError(status: 504), routesToAutoTransferRPC: true))
-        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(PostgrestError(message: "Gateway Timeout"), routesToAutoTransferRPC: true),
+    /// The RPC triplet create carries the expense's client id as `p_id`
+    /// (Y3): a replay after a commit fails with 23505 → synced, so it is
+    /// queued on every "no answer" error like a plain create.
+    func test_rpcCreateWithClientId_queuesEvenWhenWriteMayHaveCommitted() {
+        let errors: [Error] = [
+            TimeoutError(seconds: 10),
+            URLError(.timedOut),
+            httpError(status: 504),
+            PostgrestError(message: "Gateway Timeout"),
+            URLError(.notConnectedToInternet),
+            httpError(status: 503),
+        ]
+        for error in errors {
+            XCTAssertTrue(
+                OfflineQueue.shouldQueueFailedCreate(error, routesToAutoTransferRPC: true, hasClientId: true),
+                "\(error)"
+            )
+        }
+    }
+
+    /// Without a client id the RPC mints the expense id server-side: if the
+    /// write may have committed, replaying duplicates it. Surface timeouts
+    /// at any layer; still queue when the server was definitely not reached.
+    func test_rpcCreateWithoutClientId_surfacesWhenWriteMayHaveCommitted() {
+        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(TimeoutError(seconds: 10), routesToAutoTransferRPC: true, hasClientId: false))
+        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(URLError(.timedOut), routesToAutoTransferRPC: true, hasClientId: false))
+        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(httpError(status: 504), routesToAutoTransferRPC: true, hasClientId: false))
+        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(PostgrestError(message: "Gateway Timeout"), routesToAutoTransferRPC: true, hasClientId: false),
                        "no status on a codeless envelope — assume it may have committed")
 
-        XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(URLError(.notConnectedToInternet), routesToAutoTransferRPC: true))
-        XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(httpError(status: 503), routesToAutoTransferRPC: true),
+        XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(URLError(.notConnectedToInternet), routesToAutoTransferRPC: true, hasClientId: false))
+        XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(httpError(status: 503), routesToAutoTransferRPC: true, hasClientId: false),
                       "503 = upstream unavailable, the request was never processed")
+    }
+
+    // MARK: - Transient server errors (Y5)
+
+    /// PostgREST pool / connection errors, statement timeout, serialization
+    /// failure, too many connections, rejected JWT: the request was fine,
+    /// the server wasn't. Halt the round — never burn attempts — even at
+    /// the dead-letter cap.
+    func test_transientPostgrestCodes_haltRound() {
+        for code in ["PGRST000", "PGRST001", "PGRST002", "PGRST003", "57014", "40001", "53300", "PGRST301"] {
+            let error = PostgrestError(code: code, message: "transient")
+            XCTAssertTrue(OfflineQueue.isTransientServerError(error), code)
+            for op in [createOp(), updateOp(), deleteOp()] {
+                XCTAssertEqual(
+                    OfflineQueue.outcome(for: error, operation: op, attempts: OfflineQueue.maxAttempts - 1),
+                    .haltTransport, code
+                )
+            }
+            XCTAssertTrue(OfflineQueue.shouldQueueFailedWrite(error), "online write falls back to the queue: \(code)")
+        }
+    }
+
+    func test_permanentCodes_areNotTransient() {
+        for code in ["42501", "23514", "23503", "22P02", "PGRST116", "PGRST204"] {
+            XCTAssertFalse(OfflineQueue.isTransientServerError(PostgrestError(code: code, message: "x")), code)
+        }
+    }
+
+    /// Attempts are counted at most once per window: three replays inside
+    /// a minute (every form save triggers one) must not dead-letter an op.
+    func test_attemptsCountedOncePerWindow() {
+        let error = PostgrestError(code: "42501", message: "permission denied")
+        let last = Date(timeIntervalSince1970: 1_000_000)
+
+        XCTAssertEqual(
+            OfflineQueue.outcome(for: error, operation: createOp(), attempts: OfflineQueue.maxAttempts - 1,
+                                 lastAttemptAt: last, now: last.addingTimeInterval(30)),
+            .retryUncounted, "inside the window: keep, don't count, don't dead-letter"
+        )
+        XCTAssertEqual(
+            OfflineQueue.outcome(for: error, operation: createOp(), attempts: OfflineQueue.maxAttempts - 1,
+                                 lastAttemptAt: last, now: last.addingTimeInterval(OfflineQueue.attemptWindow + 1)),
+            .deadLetter, "outside the window the attempt counts"
+        )
+        XCTAssertEqual(
+            OfflineQueue.outcome(for: error, operation: createOp(), attempts: 0,
+                                 lastAttemptAt: nil, now: last),
+            .retryCounted, "first failure always counts"
+        )
     }
 
     /// A database rejection is never queued — it would fail again the same

@@ -4,22 +4,39 @@ import Supabase
 final class FinancialNoteRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    /// Position in the journal feed: the last note of the previous page.
+    struct PageCursor: Sendable, Equatable {
+        let createdAt: String
+        let id: String
+    }
+
     /// Infinite-scroll window — `JournalViewModel` pages through the feed
     /// itself, so a bounded slice is the contract here, not a bug.
-    func fetchAll(limit: Int = 50, offset: Int = 0, noteType: NoteType? = nil) async throws -> [FinancialNote] {
+    /// One page of the feed, newest first, ordered by `(created_at, id)`.
+    /// Keyset paging: the next page starts strictly after `cursor`, so a
+    /// note created or deleted between pages can't shift the window the
+    /// way `OFFSET` did (one note duplicated or skipped per change).
+    func fetchPage(limit: Int = 50, after cursor: PageCursor?) async throws -> [FinancialNote] {
         var query = supabase
             .from("financial_notes")
             .select()
-
-        if let noteType {
-            query = query.eq("note_type", value: noteType.rawValue)
+        if let cursor {
+            // Quoted values: timestamps contain ':' '.' '+', reserved in
+            // PostgREST's logic-tree syntax.
+            let ts = Self.quoted(cursor.createdAt)
+            let id = Self.quoted(cursor.id)
+            query = query.or("created_at.lt.\(ts),and(created_at.eq.\(ts),id.lt.\(id))")
         }
-
         return try await query
             .order("created_at", ascending: false)
-            .range(from: offset, to: offset + limit - 1)
+            .order("id", ascending: false)
+            .limit(limit)
             .execute()
             .value
+    }
+
+    private static func quoted(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
     func fetchByTransaction(transactionId: String) async throws -> [FinancialNote] {

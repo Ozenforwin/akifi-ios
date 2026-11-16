@@ -109,7 +109,9 @@ final class DataStoreOfflineTests: XCTestCase {
         _ = try await store.addTransaction(makeCreateInput())
 
         // Simulate app kill + relaunch offline: a fresh store over the same
-        // cache directory must resurrect the placeholder.
+        // cache directory must resurrect the placeholder. (Cache writes are
+        // background now; the app flushes them on `.background`.)
+        persistence.flushPendingWrites()
         let cached = persistence.loadTransactions()
         XCTAssertEqual(cached?.count, 1, "placeholder must survive an app kill while offline")
         XCTAssertEqual(cached?.first?.status, "pending")
@@ -157,7 +159,36 @@ final class DataStoreOfflineTests: XCTestCase {
         XCTAssertEqual(store.balance(for: source), 97_000_00)
     }
 
-    func test_editingPendingAutoTransferOffline_isBlocked() async throws {
+    /// The RPC now carries the expense's client id (`p_id`), so an edit of
+    /// the pending expense folds into the queued create like any other.
+    func test_editingPendingAutoTransferExpenseOffline_coalescesIntoCreate() async throws {
+        let store = makeOfflineStore(accounts: [
+            makeAccount(id: "acc-shared", name: "Семейный"),
+            makeAccount(id: "acc-personal", name: "Личный")
+        ])
+        let tx = try await store.addTransaction(makeCreateInput(
+            accountId: "acc-shared", amount: 3_000,
+            paymentSourceAccountId: "acc-personal"
+        ))
+
+        try await store.updateTransaction(id: tx.id, UpdateTransactionInput(
+            amount: 3_500, amount_native: 3_500, description: "Правка", useAutoTransferUpdate: true
+        ))
+
+        XCTAssertEqual(store.offlineQueue.pendingCount, 1, "folded into the queued create")
+        guard case .create(let merged) = store.offlineQueue.pendingOperations[0].operation else {
+            return XCTFail("expected the create")
+        }
+        XCTAssertEqual(merged.id, tx.id)
+        XCTAssertEqual(merged.amount, 3_500)
+        XCTAssertEqual(merged.description, "Правка")
+        let source = store.accounts.first { $0.id == "acc-personal" }!
+        XCTAssertEqual(store.balance(for: source), 96_500_00, "the out-leg moved with the expense")
+    }
+
+    /// The legs of a pending triplet are placeholders derived from the
+    /// expense — they can't be edited on their own.
+    func test_editingPendingAutoTransferLegOffline_isBlocked() async throws {
         let store = makeOfflineStore(accounts: [
             makeAccount(id: "acc-shared", name: "Семейный"),
             makeAccount(id: "acc-personal", name: "Личный")
@@ -168,8 +199,8 @@ final class DataStoreOfflineTests: XCTestCase {
         ))
 
         do {
-            try await store.updateTransaction(id: tx.id, UpdateTransactionInput(description: "Правка"))
-            XCTFail("editing a pending RPC-created triplet must be blocked")
+            try await store.updateTransaction(id: "\(tx.id)-out", UpdateTransactionInput(description: "Правка"))
+            XCTFail("editing a leg of a pending RPC-created triplet must be blocked")
         } catch let error as OfflineMutationError {
             guard case .pendingAutoTransferEdit = error else {
                 return XCTFail("wrong error: \(error)")

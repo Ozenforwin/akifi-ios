@@ -29,6 +29,20 @@ final class NetWorthViewModel {
     private let liabilityRepo = LiabilityRepository()
     private let snapshotRepo = NetWorthSnapshotRepository()
 
+    /// The last `load` got assets, liabilities AND snapshots.
+    @ObservationIgnored private(set) var hasLoadedAllCollections = false
+
+    /// A snapshot is the stored net worth of the day — the history chart
+    /// and the server-side digests read it back. Writing one from partial
+    /// data (debts failed to load → net worth too high; balances still from
+    /// the offline cache) overwrites the day with a wrong number. Capture
+    /// only when every input is fresh (Y8): all three collections loaded
+    /// AND `DataStore` has completed a server refresh of accounts and
+    /// transactions in this session.
+    static func canCaptureSnapshot(allFetchesSucceeded: Bool, dataStore: DataStore) -> Bool {
+        allFetchesSucceeded && dataStore.lastCompleteLoadAt != nil
+    }
+
     /// Fetches assets + liabilities + snapshots in parallel, recomputes
     /// the breakdown, and (if today's snapshot is missing) automatically
     /// captures it. Failures are non-fatal — the VM surfaces the last
@@ -41,14 +55,16 @@ final class NetWorthViewModel {
         async let liabilitiesFetch = liabilityRepo.fetchAll()
         async let snapshotsFetch = snapshotRepo.fetchForUser(limit: 365)
 
+        var allFetched = true
         do { assets = try await assetsFetch }
-        catch { errorMessage = error.localizedDescription; AppLogger.data.warning("assets: \(error.localizedDescription)") }
+        catch { allFetched = false; errorMessage = error.localizedDescription; AppLogger.data.warning("assets: \(error.localizedDescription)") }
 
         do { liabilities = try await liabilitiesFetch }
-        catch { errorMessage = error.localizedDescription; AppLogger.data.warning("liabilities: \(error.localizedDescription)") }
+        catch { allFetched = false; errorMessage = error.localizedDescription; AppLogger.data.warning("liabilities: \(error.localizedDescription)") }
 
         do { snapshots = try await snapshotsFetch }
-        catch { errorMessage = error.localizedDescription; AppLogger.data.warning("snapshots: \(error.localizedDescription)") }
+        catch { allFetched = false; errorMessage = error.localizedDescription; AppLogger.data.warning("snapshots: \(error.localizedDescription)") }
+        hasLoadedAllCollections = allFetched
 
         // Recompute breakdown locally — always in the user's base currency
         // (dataCurrency), not the display currency, so stored snapshots
@@ -59,7 +75,9 @@ final class NetWorthViewModel {
         // silently on failure so a broken write doesn't block the dashboard.
         let today = NetWorthSnapshotRepository.dateFormatter.string(from: Date())
         let alreadyCapturedToday = snapshots.contains { $0.snapshotDate == today }
-        if !alreadyCapturedToday, let breakdown {
+        if !alreadyCapturedToday,
+           Self.canCaptureSnapshot(allFetchesSucceeded: allFetched, dataStore: dataStore),
+           let breakdown {
             let base = currencyManager.dataCurrency.code
             do {
                 let snap = try await snapshotRepo.upsertToday(
@@ -84,7 +102,8 @@ final class NetWorthViewModel {
     /// existing row if present.
     func captureSnapshot(dataStore: DataStore, currencyManager: CurrencyManager) async {
         recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        guard let breakdown else { return }
+        guard Self.canCaptureSnapshot(allFetchesSucceeded: hasLoadedAllCollections, dataStore: dataStore),
+              let breakdown else { return }
         let base = currencyManager.dataCurrency.code
         do {
             let snap = try await snapshotRepo.upsertToday(

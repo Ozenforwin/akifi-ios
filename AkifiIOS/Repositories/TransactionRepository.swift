@@ -62,8 +62,9 @@ final class TransactionRepository: Sendable {
     }
 
     private func createExpenseWithAutoTransfer(_ input: CreateTransactionInput) async throws -> Transaction {
-        // PostgREST matches RPC overloads by the exact set of argument *names*
-        // present in the JSON body. Swift's default Encodable DROPS keys whose
+        // See `CreateExpenseWithAutoTransferParams`. PostgREST matches RPC
+        // overloads by the exact set of argument *names* present in the JSON
+        // body. Swift's default Encodable DROPS keys whose
         // value is nil, which would make the 8-arg signature no longer match
         // the 10-arg overload (or vice versa), returning "Could not find the
         // function". Force all keys into the payload by using a custom
@@ -74,91 +75,10 @@ final class TransactionRepository: Sendable {
         // → Postgres routes to the 10-arg cross-currency overload. When
         // they're nil we DROP those keys from the payload → Postgres routes
         // to the 8-arg same-currency version.
-        struct Params: Encodable {
-            let p_account_id: String
-            let p_category_id: String?
-            let p_amount: Decimal
-            let p_currency: String
-            let p_date: String
-            let p_description: String?
-            let p_merchant_name: String?
-            let p_payment_source_account_id: String?
-            let p_source_amount: Decimal?
-            let p_source_currency: String?
-            let p_foreign_amount: Decimal?
-            let p_foreign_currency: String?
-            let p_fx_rate: Decimal?
-            /// When true we emit `p_source_amount` + `p_source_currency`
-            /// keys (even if null) so Postgres picks the 10-arg overload.
-            /// When false we drop them entirely — 8-arg matches.
-            let includeSourceKeys: Bool
-            /// When true we emit `p_foreign_amount` + `p_foreign_currency` +
-            /// `p_fx_rate` keys so Postgres picks the 13-arg multi-currency
-            /// overload (ADR-001 Phase 3). Implies `includeSourceKeys`.
-            let includeForeignKeys: Bool
+        let params = try CreateExpenseWithAutoTransferParams(input: input)
 
-            enum CodingKeys: String, CodingKey {
-                case p_account_id, p_category_id, p_amount, p_currency
-                case p_date, p_description, p_merchant_name
-                case p_payment_source_account_id
-                case p_source_amount, p_source_currency
-                case p_foreign_amount, p_foreign_currency, p_fx_rate
-            }
-
-            func encode(to encoder: Encoder) throws {
-                var c = encoder.container(keyedBy: CodingKeys.self)
-                try c.encode(p_account_id, forKey: .p_account_id)
-                try c.encode(p_category_id, forKey: .p_category_id)
-                try c.encode(p_amount, forKey: .p_amount)
-                try c.encode(p_currency, forKey: .p_currency)
-                try c.encode(p_date, forKey: .p_date)
-                try c.encode(p_description, forKey: .p_description)
-                try c.encode(p_merchant_name, forKey: .p_merchant_name)
-                try c.encode(p_payment_source_account_id, forKey: .p_payment_source_account_id)
-                if includeSourceKeys || includeForeignKeys {
-                    try c.encode(p_source_amount, forKey: .p_source_amount)
-                    try c.encode(p_source_currency, forKey: .p_source_currency)
-                }
-                if includeForeignKeys {
-                    try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
-                    try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
-                    try c.encode(p_fx_rate, forKey: .p_fx_rate)
-                }
-            }
-        }
-        guard let accountId = input.account_id else {
-            throw NSError(
-                domain: "TransactionRepository", code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "account_id is required for expense with auto-transfer"]
-            )
-        }
-        // The DB has 8/10/13-arg overloads of create_expense_with_auto_transfer
-        // (kept around by the ADR-001 Phase-3 migration "for older clients").
-        // PostgREST cannot disambiguate when the request is a subset of any
-        // of them — a 10-key call matches both the 10-arg AND the 13-arg
-        // overload (the extra params default to NULL in the 13-arg) and we
-        // get "Could not choose the best candidate function". Always emit
-        // ALL 13 keys; only the 13-arg overload has those names so routing
-        // is unambiguous.
-        let params = Params(
-            p_account_id: accountId,
-            p_category_id: input.category_id,
-            p_amount: input.amount,
-            p_currency: input.currency ?? "RUB",
-            p_date: input.date,
-            p_description: input.description,
-            p_merchant_name: input.merchant_name,
-            p_payment_source_account_id: input.payment_source_account_id,
-            p_source_amount: input.source_amount,
-            p_source_currency: input.source_currency,
-            p_foreign_amount: input.foreign_amount,
-            p_foreign_currency: input.foreign_currency,
-            p_fx_rate: input.fx_rate,
-            includeSourceKeys: true,
-            includeForeignKeys: true
-        )
-
-        // RPC returns UUID as a JSON string → decode and re-fetch the row.
+        // RPC returns the expense id (= `p_id` when sent) as a JSON string →
+        // decode and re-fetch the row.
         let newId: String = try await supabase
             .rpc("create_expense_with_auto_transfer", params: params)
             .execute()
@@ -305,6 +225,105 @@ final class TransactionRepository: Sendable {
             .delete()
             .eq("id", value: id)
             .execute()
+    }
+}
+
+/// Body of `create_expense_with_auto_transfer`.
+struct CreateExpenseWithAutoTransferParams: Encodable, Sendable {
+    /// Client-generated id of the expense row (`CreateTransactionInput.id`).
+    /// Makes the RPC idempotent: a replay after a lost response fails
+    /// with 23505 on this id instead of writing a second triplet, and
+    /// the local placeholder and the server row share identity.
+    /// Always emitted (JSON null when absent) — the key set selects
+    /// the 14-arg overload.
+    let p_id: String?
+    let p_account_id: String
+    let p_category_id: String?
+    let p_amount: Decimal
+    let p_currency: String
+    let p_date: String
+    let p_description: String?
+    let p_merchant_name: String?
+    let p_payment_source_account_id: String?
+    let p_source_amount: Decimal?
+    let p_source_currency: String?
+    let p_foreign_amount: Decimal?
+    let p_foreign_currency: String?
+    let p_fx_rate: Decimal?
+    /// When true we emit `p_source_amount` + `p_source_currency`
+    /// keys (even if null) so Postgres picks the 10-arg overload.
+    /// When false we drop them entirely — 8-arg matches.
+    let includeSourceKeys: Bool
+    /// When true we emit `p_foreign_amount` + `p_foreign_currency` +
+    /// `p_fx_rate` keys so Postgres picks the 13-arg multi-currency
+    /// overload (ADR-001 Phase 3). Implies `includeSourceKeys`.
+    let includeForeignKeys: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case p_id
+        case p_account_id, p_category_id, p_amount, p_currency
+        case p_date, p_description, p_merchant_name
+        case p_payment_source_account_id
+        case p_source_amount, p_source_currency
+        case p_foreign_amount, p_foreign_currency, p_fx_rate
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(p_id, forKey: .p_id)
+        try c.encode(p_account_id, forKey: .p_account_id)
+        try c.encode(p_category_id, forKey: .p_category_id)
+        try c.encode(p_amount, forKey: .p_amount)
+        try c.encode(p_currency, forKey: .p_currency)
+        try c.encode(p_date, forKey: .p_date)
+        try c.encode(p_description, forKey: .p_description)
+        try c.encode(p_merchant_name, forKey: .p_merchant_name)
+        try c.encode(p_payment_source_account_id, forKey: .p_payment_source_account_id)
+        if includeSourceKeys || includeForeignKeys {
+            try c.encode(p_source_amount, forKey: .p_source_amount)
+            try c.encode(p_source_currency, forKey: .p_source_currency)
+        }
+        if includeForeignKeys {
+            try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
+            try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
+            try c.encode(p_fx_rate, forKey: .p_fx_rate)
+        }
+    }
+}
+
+extension CreateExpenseWithAutoTransferParams {
+    /// The DB has 8/10/13/14-arg overloads of create_expense_with_auto_transfer
+    /// (older ones kept "for older clients"). PostgREST cannot disambiguate
+    /// when the request is a subset of any of them — a 10-key call matches
+    /// both the 10-arg AND the 13-arg overload (the extra params default to
+    /// NULL) and we get "Could not choose the best candidate function".
+    /// Always emit ALL 14 keys; only the 14-arg overload (13 + `p_id`,
+    /// migration 2026111712…) has those names so routing is unambiguous.
+    init(input: CreateTransactionInput) throws {
+        guard let accountId = input.account_id else {
+            throw NSError(
+                domain: "TransactionRepository", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "account_id is required for expense with auto-transfer"]
+            )
+        }
+        self.init(
+            p_id: input.id,
+            p_account_id: accountId,
+            p_category_id: input.category_id,
+            p_amount: input.amount,
+            p_currency: input.currency ?? "RUB",
+            p_date: input.date,
+            p_description: input.description,
+            p_merchant_name: input.merchant_name,
+            p_payment_source_account_id: input.payment_source_account_id,
+            p_source_amount: input.source_amount,
+            p_source_currency: input.source_currency,
+            p_foreign_amount: input.foreign_amount,
+            p_foreign_currency: input.foreign_currency,
+            p_fx_rate: input.fx_rate,
+            includeSourceKeys: true,
+            includeForeignKeys: true
+        )
     }
 }
 
