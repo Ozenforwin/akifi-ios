@@ -35,12 +35,14 @@ actor ExchangeRateService {
 
     /// Hard-coded fallback rates against USD (1 USD = X currency).
     /// Used when the public FX API is unreachable AND the on-disk cache is
-    /// empty. MUST cover every CurrencyCode in the app — a missing entry
-    /// silently coerces to 1.0 in CurrencyManager.crossConvert and produces
-    /// catastrophic conversions (e.g. 2 000 000 VND → 26 315 USD when
-    /// rates["VND"] defaults to 1.0).
-    /// Approximate rates as of 2026-04 — they only matter as a last resort;
-    /// the API refreshes hourly via fetchRates().
+    /// empty. Approximate rates as of 2026-04 — they only matter as a last
+    /// resort; the API refreshes hourly via fetchRates().
+    ///
+    /// A code missing here is NOT coerced to 1.0 on the write path any
+    /// more: `TransactionMath.convertForStorage` refuses the save with
+    /// "no exchange rate" (M3 — 100 USD on a KZT account used to be stored
+    /// as 100 ₸). Display paths still fall back to face value. Extend this
+    /// table only for currencies users actually hold; never add 1:1 guesses.
     private let fallbackRates: [String: Double] = [
         "USD": 1.0,
         "RUB": 92.5,
@@ -125,9 +127,7 @@ actor ExchangeRateService {
     /// Endpoint: `https://api.apilayer.com/exchangerates_data/{YYYY-MM-DD}`
     /// Auth: `apikey: <EXCHANGE_RATE_API_KEY>` header.
     func fetchHistoricalRate(from: String, to: String, date: Date) async -> Double? {
-        let df = ISO8601DateFormatter()
-        df.formatOptions = [.withFullDate]
-        let dateStr = df.string(from: date)
+        let dateStr = Self.historicalDateKey(for: date)
         let cacheKey = "\(from.uppercased())-\(to.uppercased())-\(dateStr)"
 
         // Persistent cache: historical quotes never change.
@@ -169,12 +169,23 @@ actor ExchangeRateService {
         var out: [String: Double] = [:]
         for pair in pairs {
             if let rate = await fetchHistoricalRate(from: pair.from, to: pair.to, date: pair.date) {
-                let df = ISO8601DateFormatter()
-                df.formatOptions = [.withFullDate]
-                out["\(pair.from.uppercased())-\(pair.to.uppercased())-\(df.string(from: pair.date))"] = rate
+                out["\(pair.from.uppercased())-\(pair.to.uppercased())-\(Self.historicalDateKey(for: pair.date))"] = rate
             }
         }
         return out
+    }
+
+    /// The calendar day the user means by `date`, as "YYYY-MM-DD".
+    ///
+    /// Callers pass a transaction's day parsed as LOCAL midnight. The old
+    /// `ISO8601DateFormatter` formats in GMT, so for a UTC+7 user local
+    /// midnight of the 17th became "…-16" and the quote was for the
+    /// previous day. Gregorian digits regardless of the device calendar.
+    static func historicalDateKey(for date: Date, timeZone: TimeZone = .current) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
     private func loadHistoricalCache() -> [String: Double] {

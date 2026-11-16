@@ -10111,6 +10111,28 @@
         }
       }
     },
+    "csv.currency" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currency"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moneda"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюта"
+          }
+        }
+      }
+    },
     "csv.date" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14889,6 +14911,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Пессимистично"
+          }
+        }
+      }
+    },
+    "fx.error.missingRate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No exchange rate for %1$@ → %2$@. Connect to the internet and try again — without a rate the amount would be saved incorrectly."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay tipo de cambio %1$@ → %2$@. Conéctate a internet y vuelve a intentarlo: sin el tipo de cambio el importe se guardaría mal."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет курса %1$@ → %2$@. Подключитесь к интернету и повторите — без курса сумма сохранится неверно."
           }
         }
       }
@@ -34734,6 +34778,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Нельзя удалить напрямую"
+          }
+        }
+      }
+    },
+    "tx.autoTransfer.legReadOnly.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This transfer was created together with the expense «%@». To change the amount, date or account, edit the expense itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta transferencia se creó junto con el gasto «%@». Para cambiar el importe, la fecha o la cuenta, edita el propio gasto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот перевод создан вместе с расходом «%@». Чтобы изменить сумму, дату или счёт, отредактируйте сам расход."
+          }
+        }
+      }
+    },
+    "tx.autoTransfer.legReadOnly.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Part of an auto-transfer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parte de una transferencia automática"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Часть автоперевода"
           }
         }
       }
