@@ -38,7 +38,7 @@ final class AnalyticsViewModelTests: XCTestCase {
     }
 
     private func dateStr(daysAgo: Int) -> String {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.dateFormat = "yyyy-MM-dd"
         return df.string(from: Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date())!)
     }
