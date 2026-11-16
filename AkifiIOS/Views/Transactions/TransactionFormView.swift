@@ -1265,7 +1265,10 @@ enum FormErrorMessage {
 
     static func text(for error: Error) -> String {
         guard let pg = error as? PostgrestError else { return error.localizedDescription }
-        let context = [pg.message, pg.hint ?? "", pg.details ?? ""].joined(separator: " ")
+        // message + hint only: the detail field's name differs between
+        // supabase-swift releases (`details` → `detail`), and the server puts
+        // the explanation into HINT anyway.
+        let context = [pg.message, pg.hint ?? ""].joined(separator: " ")
         switch pg.code {
         case "42501":
             // update_/delete_expense_with_auto_transfer: the triplet has a
