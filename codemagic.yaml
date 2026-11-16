@@ -73,8 +73,8 @@ workflows:
         # Blocking from 2026-11-17 (D1). A bare DateFormatter() inherits the
         # device calendar/locale: a Buddhist-calendar phone would write 2569
         # into transactions.date. Parsing/writing goes through AppDateFormatters;
-        # files that predate the lint are capped by
-        # Scripts/lint-date-formatters.baseline (counts may only go down).
+        # a display formatter carries `// date-formatter-ok: <reason>`. No
+        # baseline: zero unannotated constructions are allowed.
         script: |
           bash Scripts/lint-date-formatters.sh --strict
 

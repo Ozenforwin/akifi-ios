@@ -17,9 +17,8 @@
 #     // date-formatter-ok: <reason>
 # Display is not parsing: never use such a formatter for a stored string.
 #
-# Files written before this lint existed are listed with their current hit
-# count in Scripts/lint-date-formatters.baseline. A file may not exceed its
-# baseline; new files get 0. When you fix a file, lower (or delete) its line.
+# There is no baseline: every construction outside the factory must be
+# annotated (the last 65 were converted or annotated on 2026-11-17).
 #
 # Usage:
 #   bash Scripts/lint-date-formatters.sh           # report, exit 0
@@ -36,7 +35,6 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 FACTORY="AkifiIOS/Services/DateFormatters.swift"
-BASELINE="Scripts/lint-date-formatters.baseline"
 
 SCAN_DIRS=()
 for d in AkifiIOS AkifiWidget; do
@@ -44,13 +42,17 @@ for d in AkifiIOS AkifiWidget; do
 done
 
 # path:line: code   — one line per unannotated construction outside the factory.
+# Matches `DateFormatter()`, `ISO8601DateFormatter()`, `DateFormatter.init()`
+# and `let f: DateFormatter = .init()`.
 HITS="$(find "${SCAN_DIRS[@]}" -name '*.swift' -type f -print0 | sort -z | xargs -0 awk -v factory="$FACTORY" '
     FNR == 1 { prev = "" }
     {
         line = $0
         code = line
         sub(/^[ \t]+/, "", code)
-        if (FILENAME != factory && code !~ /^\/\// && line ~ /DateFormatter[ \t]*(\.init)?[ \t]*\([ \t]*\)/) {
+        bare = (line ~ /DateFormatter[ \t]*(\.init)?[ \t]*\([ \t]*\)/) ||
+               (line ~ /DateFormatter[ \t]*=[ \t]*\.init[ \t]*\([ \t]*\)/)
+        if (FILENAME != factory && code !~ /^\/\// && bare) {
             ok = (line ~ /date-formatter-ok:[ \t]*[^ \t]/) || (prev ~ /^[ \t]*\/\/.*date-formatter-ok:[ \t]*[^ \t]/)
             if (!ok) print FILENAME ":" FNR ": " code
         }
@@ -58,54 +60,19 @@ HITS="$(find "${SCAN_DIRS[@]}" -name '*.swift' -type f -print0 | sort -z | xargs
     }
 ')"
 
-# Per-file counts of the current hits.
-COUNTS="$(printf '%s\n' "$HITS" | awk -F: 'NF > 1 { n[$1]++ } END { for (f in n) print f ":" n[f] }' | sort)"
-
-baseline_for() {
-    local file="$1"
-    [[ -f "$BASELINE" ]] || { echo 0; return; }
-    awk -F: -v f="$file" '$0 !~ /^#/ && $1 == f { print $2; found = 1 } END { if (!found) print 0 }' "$BASELINE"
-}
-
-violations=0
-stale=0
-
-while IFS=: read -r file count; do
-    [[ -z "$file" ]] && continue
-    allowed="$(baseline_for "$file")"
-    if (( count > allowed )); then
-        violations=$((violations + count - allowed))
-        echo "✗ $file: $count bare date formatter(s), baseline allows $allowed"
-        printf '%s\n' "$HITS" | grep -F "$file:" | sed 's/^/    /'
-    fi
-done <<< "$COUNTS"
-
-# Baseline entries that can be lowered — the file got better.
-if [[ -f "$BASELINE" ]]; then
-    while IFS=: read -r file allowed; do
-        [[ -z "$file" || "$file" == \#* ]] && continue
-        current="$(printf '%s\n' "$COUNTS" | awk -F: -v f="$file" '$1 == f { print $2 }')"
-        current="${current:-0}"
-        if (( current < allowed )); then
-            stale=$((stale + 1))
-            if (( current == 0 )); then
-                echo "↓ $file is clean now — delete its line from $BASELINE"
-            else
-                echo "↓ $file: $current hit(s) left — lower its baseline from $allowed to $current"
-            fi
-        fi
-    done < "$BASELINE"
-fi
-
-total="$(printf '%s\n' "$HITS" | grep -c . || true)"
-echo ""
-echo "Bare date formatters: $total (baseline-covered: $((total - violations))), new violations: $violations, baseline lines to lower: $stale"
+violations="$(printf '%s\n' "$HITS" | grep -c . || true)"
 
 if (( violations > 0 )); then
+    printf '%s\n' "$HITS" | sed 's/^/✗ /'
+    echo ""
+    echo "Bare date formatters: $violations"
     echo "Use AppDateFormatters (AkifiIOS/Services/DateFormatters.swift) for anything stored or parsed;"
     echo "for a locale-following display formatter add '// date-formatter-ok: <reason>'."
     if (( STRICT == 1 )); then
         exit 1
     fi
+    exit 0
 fi
+
+echo "Bare date formatters: 0"
 exit 0
