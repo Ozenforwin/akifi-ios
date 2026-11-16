@@ -1,0 +1,44 @@
+# Bare DateFormatter()/ISO8601DateFormatter() constructions that predate
+# Scripts/lint-date-formatters.sh (2026-11-17), as <path>:<count>.
+# A file may not exceed its count; files not listed get 0. Lower or delete a
+# line when you move that file onto AppDateFormatters — never raise one.
+AkifiIOS/Models/AiConversation.swift:1
+AkifiIOS/Preview Content/DemoData.swift:1
+AkifiIOS/Repositories/NetWorthSnapshotRepository.swift:1
+AkifiIOS/Repositories/NotificationRepository.swift:1
+AkifiIOS/Services/BudgetMath.swift:2
+AkifiIOS/Services/CashFlowEngine.swift:1
+AkifiIOS/Services/DataStore.swift:3
+AkifiIOS/Services/ExchangeRateService.swift:2
+AkifiIOS/Services/InsightEngine.swift:2
+AkifiIOS/Services/PDFReportGenerator.swift:2
+AkifiIOS/Services/SettlementCalculator.swift:3
+AkifiIOS/Services/SharedSnapshotWriter.swift:1
+AkifiIOS/Services/TransactionGuards.swift:1
+AkifiIOS/ViewModels/AnalyticsViewModel.swift:2
+AkifiIOS/ViewModels/BudgetsViewModel.swift:1
+AkifiIOS/ViewModels/SavingsViewModel.swift:1
+AkifiIOS/ViewModels/SettlementViewModel.swift:5
+AkifiIOS/Views/Account/SharedAccountDetailView.swift:1
+AkifiIOS/Views/Account/TxnSettlementSheetView.swift:2
+AkifiIOS/Views/Analytics/CashflowTrendView.swift:2
+AkifiIOS/Views/Analytics/CategoryBreakdownView.swift:1
+AkifiIOS/Views/Analytics/DailyLimitWidgetView.swift:1
+AkifiIOS/Views/Budgets/BudgetCardView.swift:4
+AkifiIOS/Views/Budgets/BudgetFormView.swift:3
+AkifiIOS/Views/Budgets/BudgetTransactionsSheet.swift:1
+AkifiIOS/Views/Home/StreakBadgeView.swift:1
+AkifiIOS/Views/Home/SummaryCardsView.swift:1
+AkifiIOS/Views/Journal/JournalNoteCardView.swift:3
+AkifiIOS/Views/Journal/JournalNoteDetailView.swift:4
+AkifiIOS/Views/Journal/JournalNoteFormView.swift:4
+AkifiIOS/Views/Journal/JournalTabView.swift:2
+AkifiIOS/Views/Journal/TransactionPickerSheet.swift:2
+AkifiIOS/Views/NetWorth/Investment/InvestmentHoldingFormView.swift:1
+AkifiIOS/Views/Planning/FIREProjectionView.swift:1
+AkifiIOS/Views/Settings/BankImportView.swift:1
+AkifiIOS/Views/Shared/ReceiptScannerView.swift:2
+AkifiIOS/Views/Transactions/TransactionFormView.swift:2
+AkifiIOS/Views/Transactions/TransactionsMiniDashboardView.swift:1
+AkifiIOS/Views/Transactions/TransactionsTabView.swift:1
+AkifiIOS/Views/Transactions/TransferFormView.swift:2

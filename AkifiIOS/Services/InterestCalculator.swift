@@ -28,10 +28,10 @@ enum InterestCalculator {
     ///     `amount` (kopecks) and `contributedAt` (yyyy-MM-dd).
     ///   - rate: annual percentage (12.5 → 12.5%).
     ///   - frequency: compounding schedule.
-    ///   - asOf: the "today" timestamp. Use UTC for consistency.
-    ///   - calendar: injected for deterministic tests. Defaults to
-    ///     `Calendar(identifier: .gregorian)` with UTC tz so reproduction
-    ///     on any user locale is identical.
+    ///   - asOf: the "today" instant; its day is taken in `calendar`'s zone.
+    ///   - calendar: injected for deterministic tests. Defaults to a
+    ///     gregorian calendar in the device's time zone — the zone the
+    ///     `contributedAt` day strings are written in.
     static func accrueInterest(
         contributions: [DepositContribution],
         rate: Decimal,
@@ -170,32 +170,17 @@ enum InterestCalculator {
         return Int64(truncating: rounded as NSDecimalNumber)
     }
 
-    private static let isoDayFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(identifier: "UTC")
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df
-    }()
-
-    /// Default calendar matches the ISO date formatter — UTC + Gregorian.
-    static let defaultCalendar: Calendar = {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC") ?? .current
-        return cal
-    }()
+    /// Gregorian calendar in the device's time zone. Deposit day strings
+    /// (`contributed_at`, `start_date`, `end_date`) are local calendar days
+    /// (`DepositsViewModel.formatDate`), and "today" must be the local day
+    /// too: with UTC, interest and maturity ran a day behind between 00:00
+    /// and 07:00 in UTC+7. Gregorian is pinned so a Buddhist-calendar device
+    /// counts the same days.
+    static var defaultCalendar: Calendar { AppDateFormatters.localCalendar }
 
     private static func parseDate(_ str: String, calendar: Calendar) -> Date? {
-        // Respect the injected calendar's timezone. Callers that supply a
-        // non-UTC calendar (tests) still parse "yyyy-MM-dd" the same way —
-        // we anchor to the calendar's timezone so `startOfDay` calls later
-        // don't cross date boundaries.
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.timeZone = calendar.timeZone
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.calendar = calendar
-        return df.date(from: str)
+        // Respect the injected calendar's timezone so `startOfDay` calls
+        // later don't cross date boundaries (tests inject UTC).
+        AppDateFormatters.day(str, calendar: calendar)
     }
 }

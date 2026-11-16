@@ -11,17 +11,26 @@ struct ExportView: View {
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
-    private static let df: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     private var filteredTransactions: [Transaction] {
-        return dataStore.transactions.filter { tx in
-            guard let date = Self.df.date(from: tx.date) else { return false }
-            if date < startDate || date > endDate { return false }
-            if let accountId = selectedAccountId, tx.accountId != accountId { return false }
+        Self.filter(dataStore.transactions, from: startDate, to: endDate, accountId: selectedAccountId)
+    }
+
+    /// Transactions whose local day lies in the picked days, both ends
+    /// included. Compared as `yyyy-MM-dd` strings: the pickers return the
+    /// current time of day, so `txMidnight < startDate` used to drop the
+    /// whole "From" day.
+    static func filter(
+        _ transactions: [Transaction],
+        from start: Date,
+        to end: Date,
+        accountId: String?
+    ) -> [Transaction] {
+        let fromDay = AppDateFormatters.isoDate.string(from: min(start, end))
+        let toDay = AppDateFormatters.isoDate.string(from: max(start, end))
+        return transactions.filter { tx in
+            let day = String(tx.date.prefix(10))
+            guard day >= fromDay, day <= toDay else { return false }
+            if let accountId, tx.accountId != accountId { return false }
             return true
         }
     }
@@ -85,9 +94,7 @@ struct ExportView: View {
             accounts: dataStore.accounts
         )
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let fileName = "akifi_export_\(df.string(from: Date())).csv"
+        let fileName = "akifi_export_\(AppDateFormatters.isoDate.string(from: Date())).csv"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
 
         do {

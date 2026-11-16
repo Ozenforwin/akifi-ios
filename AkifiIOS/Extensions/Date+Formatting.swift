@@ -3,54 +3,30 @@ import Foundation
 // MARK: - Transaction formatted date+time (mirrors Mini App logic)
 
 extension Transaction {
-    /// Formatted date+time like Mini App: "25 мар 2026, 14:30"
+    /// Formatted date+time like Mini App: "25 мар 2026, 14:30".
+    ///
+    /// The day comes from `date` (the user's local day — see
+    /// `AppDateFormatters`), the time from `created_at`, an instant that
+    /// PostgREST returns as `2026-03-25T07:30:00.123+00:00` and is shown in
+    /// the device's time zone.
     var formattedDateTime: String {
         let datePart: String
-        if let d = Self.isoDF.date(from: date) {
-            datePart = Self.outDateDF.string(from: d)
+        if let d = AppDateFormatters.isoDate.date(from: date) {
+            datePart = AppDateFormatters.shortDate.string(from: d)
         } else {
             datePart = date
         }
 
-        if let createdAt,
-           let d = Self.createdAtDF.date(from: String(createdAt.prefix(19))) {
-            return "\(datePart), \(Self.outTimeDF.string(from: d))"
+        if let createdAt, let d = AppDateFormatters.parseTimestamp(createdAt) {
+            return "\(datePart), \(AppDateFormatters.shortTime.string(from: d))"
         }
 
         return datePart
     }
-
-    private static let isoDF: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df
-    }()
-
-    private static let outDateDF: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "d MMM yyyy"
-        return df
-    }()
-
-    private static let createdAtDF: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.timeZone = TimeZone(identifier: "UTC")
-        return df
-    }()
-
-    private static let outTimeDF: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "HH:mm"
-        return df
-    }()
 }
 
 extension Date {
+    /// The local calendar day, `yyyy-MM-dd`.
     var isoDateString: String {
         AppDateFormatters.isoDate.string(from: self)
     }
@@ -59,6 +35,7 @@ extension Date {
         AppDateFormatters.displayDate.string(from: self)
     }
 
+    /// Parses a local `yyyy-MM-dd` day (start of that day, device time zone).
     static func fromISO(_ string: String) -> Date? {
         AppDateFormatters.isoDate.date(from: string)
     }

@@ -45,11 +45,7 @@ final class SavingsChallengesViewModel {
     ) async -> SavingsChallenge? {
         do {
             let userId = try await SupabaseManager.shared.currentUserId()
-            let calendar = Calendar.current
-            let today = Date()
-            let endDate = calendar.date(byAdding: .day, value: durationDays, to: today) ?? today
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
+            let period = Self.period(durationDays: durationDays)
 
             let input = CreateChallengeInput(
                 user_id: userId,
@@ -58,8 +54,8 @@ final class SavingsChallengesViewModel {
                 description: description,
                 target_amount: targetAmount.map { Double($0) / 100.0 },
                 duration_days: durationDays,
-                start_date: df.string(from: today),
-                end_date: df.string(from: endDate),
+                start_date: period.start,
+                end_date: period.end,
                 status: ChallengeStatus.active.rawValue,
                 progress_amount: 0,
                 category_id: categoryId,
@@ -74,6 +70,15 @@ final class SavingsChallengesViewModel {
             AppLogger.data.warning("Challenge create: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    /// `start_date` = today (local day), `end_date` = start + duration,
+    /// EXCLUSIVE: a 7-day challenge started on the 1st covers the 1st–7th.
+    nonisolated static func period(durationDays: Int, now: Date = Date()) -> (start: String, end: String) {
+        let cal = AppDateFormatters.localCalendar
+        let today = cal.startOfDay(for: now)
+        let end = cal.date(byAdding: .day, value: max(1, durationDays), to: today) ?? today
+        return (AppDateFormatters.isoDate.string(from: today), AppDateFormatters.isoDate.string(from: end))
     }
 
     func abandon(_ challenge: SavingsChallenge) async {
