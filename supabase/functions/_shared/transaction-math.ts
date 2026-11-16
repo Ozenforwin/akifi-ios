@@ -6,16 +6,18 @@
  * so analytics/AI/digests all read the same canonical number.
  *
  * Contract (ADR-001):
- * - `amount_native` is in the minor units of the TRANSACTION'S OWN
- *   account currency (i.e. `accounts.currency`). For legacy rows it may
- *   be missing — we fall back to the legacy `amount` column, which on
- *   post-Phase-1 backfill equals `amount_native`.
+ * - `amount_native` is in the MAIN units (numeric, e.g. 848.54 ₽ or
+ *   15.86 $) of the TRANSACTION'S OWN account currency (`accounts.currency`).
+ *   The iOS client multiplies by 100 on decode; the database does not.
+ *   For legacy rows it may be missing — we fall back to the legacy
+ *   `amount` column, which on post-Phase-1 backfill equals `amount_native`.
  * - `fxRates` is a USD-pivoted rate map (same convention as
  *   `ExchangeRateService.fetchRates` and `NetWorthCalculator.convert`):
  *   `fxRates[code]` = units of `code` per 1 USD.
  * - `amount_in_base = amount_native * (fxRates[base] / fxRates[accountCurrency])`
- *   (both sides in minor units; the ratio of major-unit rates is
- *   dimensionally a pure number).
+ *   (same units on both sides; the ratio of rates is a pure number).
+ *   NOT rounded: rounding main units to whole numbers turned $15.86 into
+ *   $16 and $0.40 into $0 before any sum was taken.
  *
  * Usage:
  * - Pre-enrich once per request: `const rich = enrichTransactions(txs, accountsById, fxRates, base);`
@@ -32,7 +34,7 @@ export interface TxMathAccount {
 export interface TxMathRow {
   id: string;
   account_id?: string | null;
-  /** Canonical amount in the account's own currency, minor units. */
+  /** Canonical amount in the account's own currency, main units. */
   amount_native?: number | null;
   /** Legacy fallback (pre-backfill rows). */
   amount?: number | null;
@@ -43,12 +45,12 @@ export interface TxMathRow {
 
 export type EnrichedTxRow<T extends TxMathRow> = T & {
   /** FX-normalized into the caller's base currency. Always populated
-   *  by `enrichTransactions`, in minor units of `base`. */
+   *  by `enrichTransactions`, in main units of `base` (unrounded). */
   amount_in_base: number;
 };
 
 /**
- * Convert `tx.amount_native` into `base`. Returns minor units.
+ * Convert `tx.amount_native` into `base`. Returns main units, unrounded.
  * On missing data falls back to `tx.amount` (legacy) without FX —
  * which is only correct when all accounts share `base` (single-
  * currency user). For multi-currency users this is the regression-
@@ -77,7 +79,7 @@ export function computeAmountInBase<T extends TxMathRow>(
     return native;
   }
 
-  return Math.round(native * (rateBase / rateAccount));
+  return native * (rateBase / rateAccount);
 }
 
 /**

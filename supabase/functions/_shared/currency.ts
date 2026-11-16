@@ -51,3 +51,24 @@ export function convertCurrency(
   if (!fromRate || fromRate <= 0 || !toRate || toRate <= 0) return roundCurrency(amount);
   return roundCurrency(amount / fromRate * toRate);
 }
+
+/// Strict variant for aggregations shown to the user (digests, pushes,
+/// price conversion): returns `null` instead of silently passing the
+/// amount through 1:1 when either rate is unknown, so the caller can
+/// refuse or flag the number rather than add dollars to roubles (M3/M4).
+/// Not rounded — format at the edge.
+export function tryConvertCurrency(
+  amount: number,
+  fromCurrency: string | null | undefined,
+  toCurrency: string | null | undefined,
+  rates: Record<string, number>,
+): number | null {
+  if (!Number.isFinite(amount)) return null;
+  const from = (fromCurrency || "RUB").toUpperCase();
+  const to = (toCurrency || "RUB").toUpperCase();
+  if (from === to) return amount;
+  const fromRate = rates[from] ?? FALLBACK_RATES[from];
+  const toRate = rates[to] ?? FALLBACK_RATES[to];
+  if (!fromRate || fromRate <= 0 || !toRate || toRate <= 0) return null;
+  return amount / fromRate * toRate;
+}

@@ -1,6 +1,7 @@
 import { createOpenAIJsonCompletion } from '../_shared/openai.ts';
 import { createAnthropicJsonCompletion } from '../_shared/anthropic.ts';
-import { formatMoney } from '../_shared/utils.ts';
+import { formatMoney } from './utils.ts';
+import { requestToday } from './request-context.ts';
 import type { AssistantAction } from '../_shared/assistant-schema.ts';
 import { retrieveKnowledgeSections } from './knowledge-retrieval.ts';
 import { detectFinancialStage, type UserFinancialProfile } from './profile-detector.ts';
@@ -617,9 +618,11 @@ export async function buildHabitCheckResponse(
   );
 
   // Analyze tracking consistency
-  const last30Days = new Date();
-  last30Days.setDate(last30Days.getDate() - 30);
-  const last30Str = last30Days.toISOString().slice(0, 10);
+  // The user's local calendar (transactions.date is local wall-clock time).
+  const today = requestToday();
+  const last30 = new Date(`${today}T00:00:00Z`);
+  last30.setUTCDate(last30.getUTCDate() - 30);
+  const last30Str = last30.toISOString().slice(0, 10);
 
   const recentTx = transactions.filter((t) => t.date >= last30Str);
   const uniqueDays = new Set(recentTx.map((t) => t.date)).size;
@@ -628,7 +631,7 @@ export async function buildHabitCheckResponse(
   // Days since last transaction
   const lastTxDate = transactions.length > 0 ? transactions[0].date : null;
   const daysSinceLastTx = lastTxDate
-    ? Math.round((Date.now() - new Date(lastTxDate).getTime()) / (1000 * 60 * 60 * 24))
+    ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${lastTxDate.slice(0, 10)}T00:00:00Z`)) / (1000 * 60 * 60 * 24))
     : 999;
 
   const llmAnswer = await coachingLLMCall(

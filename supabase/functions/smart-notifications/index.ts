@@ -1,6 +1,21 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
-import { toDateOnly } from "../_shared/utils.ts";
+import { formatMoney, toDateOnly } from "../_shared/utils.ts";
+import { isCronAuthorized } from "../_shared/auth.ts";
+import { fetchAll } from "../_shared/paging.ts";
+import { getRubRates } from "../_shared/fx.ts";
+import { tryConvertCurrency } from "../_shared/currency.ts";
+import { localDate, localHour, resolveTimeZone, startOfLocalDayUtc } from "../_shared/timezone.ts";
+import {
+  describeError,
+  escapeHtml,
+  fcmConfigured,
+  type InlineButton,
+  pushTextFromHtml,
+  sendFcmPush,
+  sendTelegramMessage,
+  telegramConfigured,
+} from "../_shared/notify.ts";
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -8,11 +23,7 @@ import { toDateOnly } from "../_shared/utils.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TELEGRAM_BOT_USERNAME = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "akifiapp_bot";
-const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON") ?? "";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,21 +42,18 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function isAuthorized(req: Request): boolean {
-  // Supabase gateway already validates JWT (verify_jwt = true by default).
-  // Any request that reaches this function has a valid anon/service-role key.
-  const bearer = (req.headers.get("authorization") ?? "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
-  const cronHeader = (req.headers.get("x-cron-secret") ?? "").trim();
-  if (CRON_SECRET && (bearer === CRON_SECRET || cronHeader === CRON_SECRET))
-    return true;
-  if (bearer) return true;
-  return false;
-}
+// Auth: only the DB trigger and pg_cron call this function, with
+// CRON_SECRET (`_shared/auth.ts`). verify_jwt = false (config.toml), so the
+// old "any non-empty bearer is fine" fallback let anyone holding the public
+// anon key push a fake «крупная трата» to any user (S4).
 
 function formatRub(amount: number): string {
   return Math.round(amount).toLocaleString("ru-RU");
+}
+
+/** An amount in ITS OWN currency, separators by the user's language (M4). */
+function money(amount: number, currency: string | null | undefined, lang: Lang): string {
+  return formatMoney(amount, (currency || "RUB").toUpperCase(), lang);
 }
 
 function plural(n: number, one: string, few: string, many: string): string {
@@ -178,6 +186,20 @@ function resolvePeriodWindow(
 // toDateOnly — imported from _shared/utils.ts
 
 // ---------------------------------------------------------------------------
+// User time zone (profiles.timezone → ai_user_settings.timezone → UTC),
+// cached per request batch.
+// ---------------------------------------------------------------------------
+const tzCache = new Map<string, string>();
+
+async function userTimeZone(supabase: SupabaseClient, userId: string): Promise<string> {
+  const cached = tzCache.get(userId);
+  if (cached) return cached;
+  const tz = await resolveTimeZone(supabase, userId);
+  tzCache.set(userId, tz);
+  return tz;
+}
+
+// ---------------------------------------------------------------------------
 // Quiet hours check
 // ---------------------------------------------------------------------------
 async function isInQuietHours(
@@ -186,19 +208,14 @@ async function isInQuietHours(
 ): Promise<boolean> {
   const { data } = await supabase
     .from("ai_user_settings")
-    .select("quiet_hours_start,quiet_hours_end,timezone")
+    .select("quiet_hours_start,quiet_hours_end")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (!data || data.quiet_hours_start === null || data.quiet_hours_end === null)
     return false;
 
-  const tz = data.timezone || "Europe/Moscow";
-  const nowInTz = new Date(
-    new Date().toLocaleString("en-US", { timeZone: tz }),
-  );
-  const hour = nowInTz.getHours();
-
+  const hour = localHour(new Date(), await userTimeZone(supabase, userId));
   const start = data.quiet_hours_start as number;
   const end = data.quiet_hours_end as number;
 
@@ -210,15 +227,14 @@ async function isInQuietHours(
 }
 
 // ---------------------------------------------------------------------------
-// Rate limit check
+// Rate limit check — "per day" is the user's local day, not the server's.
 // ---------------------------------------------------------------------------
 async function isRateLimited(
   supabase: SupabaseClient,
   userId: string,
   dailyLimit: number,
 ): Promise<boolean> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = startOfLocalDayUtc(new Date(), await userTimeZone(supabase, userId));
 
   const { count } = await supabase
     .from("notification_log")
@@ -229,150 +245,13 @@ async function isRateLimited(
   return (count ?? 0) >= dailyLimit;
 }
 
-// ---------------------------------------------------------------------------
-// Telegram send
-// ---------------------------------------------------------------------------
-interface InlineButton {
-  text: string;
-  url: string;
-}
-
-async function sendTelegramMessage(
-  chatId: string | number,
-  text: string,
-  buttons?: InlineButton[],
-): Promise<void> {
-  const body: Record<string, unknown> = {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-  };
-
-  if (buttons && buttons.length > 0) {
-    body.reply_markup = {
-      inline_keyboard: [buttons.map((b) => ({ text: b.text, url: b.url }))],
-    };
-  }
-
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  );
-  const payload = await res.json().catch(() => null);
-  if (!res.ok || !payload?.ok) {
-    throw new Error(
-      `Telegram API failed (${res.status}): ${JSON.stringify(payload)}`,
-    );
-  }
-}
-
 function deepLink(tab: string): string {
   return `https://t.me/${TELEGRAM_BOT_USERNAME}/app?startapp=tab_${tab}`;
 }
 
 // ---------------------------------------------------------------------------
-// FCM Push Notification (Firebase Cloud Messaging HTTP v1 API)
-// ---------------------------------------------------------------------------
-let _fcmAccessToken: string | null = null;
-let _fcmTokenExpiry = 0;
-
-async function getFCMAccessToken(): Promise<string | null> {
-  if (_fcmAccessToken && Date.now() < _fcmTokenExpiry) return _fcmAccessToken;
-  if (!FIREBASE_SERVICE_ACCOUNT_JSON) return null;
-
-  try {
-    const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
-    const now = Math.floor(Date.now() / 1000);
-    const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-    const payload = btoa(JSON.stringify({
-      iss: sa.client_email,
-      scope: "https://www.googleapis.com/auth/firebase.messaging",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    }));
-
-    // Sign JWT with service account private key
-    const key = await crypto.subtle.importKey(
-      "pkcs8",
-      pemToBuf(sa.private_key),
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["sign"],
-    );
-    const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${payload}`));
-    const jwt = `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
-
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-    });
-    const data = await res.json();
-    _fcmAccessToken = data.access_token;
-    _fcmTokenExpiry = Date.now() + (data.expires_in ?? 3500) * 1000;
-    return _fcmAccessToken;
-  } catch (err) {
-    console.error("FCM auth error:", err);
-    return null;
-  }
-}
-
-function pemToBuf(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
-}
-
-async function sendFCMPush(
-  fcmToken: string,
-  title: string,
-  body: string,
-  data?: Record<string, string>,
-): Promise<boolean> {
-  const accessToken = await getFCMAccessToken();
-  if (!accessToken) return false;
-
-  try {
-    const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
-    const projectId = sa.project_id;
-
-    const res = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: {
-            token: fcmToken,
-            notification: { title, body },
-            data: data ?? {},
-            apns: {
-              payload: { aps: { sound: "default", badge: 1 } },
-            },
-          },
-        }),
-      },
-    );
-    return res.ok;
-  } catch (err) {
-    console.error("FCM send error:", err);
-    return false;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Notification delivery helper
+// Notification delivery helper (Telegram + FCM via _shared/notify.ts, which
+// keeps the bot token out of error logs)
 // ---------------------------------------------------------------------------
 interface NotificationCandidate {
   type: string;
@@ -403,7 +282,7 @@ async function deliverNotifications(
   } catch { /* ignore */ }
 
   for (const c of candidates) {
-    // Dedup via unique constraint — if already exists, skip
+    // Dedup via unique (user_id, notification_key) — if already logged, skip.
     const { data: inserted, error } = await supabase
       .from("notification_log")
       .insert({
@@ -422,34 +301,25 @@ async function deliverNotifications(
 
     let delivered = false;
 
-    // Send via Telegram (if user has chat_id)
-    try {
-      if (chatId) {
+    if (chatId && telegramConfigured()) {
+      try {
         const buttons: InlineButton[] = [
           { text: tt('openAkifi', lang), url: deepLink(c.tab ?? "home") },
         ];
-        await sendTelegramMessage(chatId, c.message, buttons);
+        await sendTelegramMessage(chatId, c.message, { html: true, buttons });
+        delivered = true;
+      } catch (err) {
+        console.error(`Telegram send failed for ${userId}:`, describeError(err));
+      }
+    }
+
+    if (fcmToken && fcmConfigured()) {
+      const { title, body } = pushTextFromHtml(c.message);
+      if (await sendFcmPush(fcmToken, title, body, { type: c.type, tab: c.tab ?? "home" })) {
         delivered = true;
       }
-    } catch (err) {
-      console.error(`Telegram send failed for ${userId}:`, err);
     }
 
-    // Send via FCM (if user has iOS token)
-    try {
-      if (fcmToken) {
-        // Strip HTML tags for FCM notification body
-        const plainText = c.message.replace(/<[^>]+>/g, "");
-        const title = plainText.split("\n")[0].substring(0, 80);
-        const body = plainText.split("\n").slice(1).join(" ").substring(0, 200) || title;
-        const fcmOk = await sendFCMPush(fcmToken, title, body, { type: c.type, tab: c.tab ?? "home" });
-        if (fcmOk) delivered = true;
-      }
-    } catch (err) {
-      console.error(`FCM send failed for ${userId}:`, err);
-    }
-
-    // Update delivery status
     if (delivered) {
       await supabase
         .from("notification_log")
@@ -584,73 +454,104 @@ async function evaluateBudgetWarning(
 // ---------------------------------------------------------------------------
 // Evaluator: Large Expense
 // ---------------------------------------------------------------------------
+
+/** The inserted transaction, re-read from the database (never from the request body). */
+interface InsertedTx {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number | string | null;
+  amount_native: number | string | null;
+  category_id: string | null;
+  account_id: string | null;
+  transfer_group_id: string | null;
+  date: string;
+  account: { currency: string | null } | null;
+}
+
+const INSERTED_TX_COLUMNS =
+  "id,user_id,type,amount,amount_native,category_id,account_id,transfer_group_id,date,account:accounts!transactions_account_id_fkey(currency)";
+
+/** |amount_native| in the account's currency (ADR-001), legacy `amount` fallback. */
+function nativeAmount(tx: { amount: number | string | null; amount_native: number | string | null }): number {
+  const n = Number(tx.amount_native ?? tx.amount ?? 0); // allowlisted-amount: amount_native with legacy fallback
+  return Number.isFinite(n) ? Math.abs(n) : 0;
+}
+
+interface MoneyContext {
+  /** The user's display currency (profiles.default_currency). Thresholds are in it. */
+  base: string;
+  rates: Record<string, number>;
+}
+
 async function evaluateLargeExpense(
   supabase: SupabaseClient,
-  userId: string,
-  transactionId: string,
-  amount: number,
-  categoryId: string,
+  tx: InsertedTx,
   threshold: number,
-  lang: Lang = 'ru',
+  lang: Lang,
+  ctx: MoneyContext,
 ): Promise<NotificationCandidate[]> {
-  const candidates: NotificationCandidate[] = [];
+  const accountCurrency = (tx.account?.currency ?? "RUB").toUpperCase();
+  const native = nativeAmount(tx);
+  // Comparable number: every amount goes into the user's base currency
+  // first — $50 and 5 000 ₽ are not "50 vs 5 000".
+  const inBase = tryConvertCurrency(native, accountCurrency, ctx.base, ctx.rates);
+  if (inBase === null || inBase <= 0) return [];
 
-  let effectiveThreshold = threshold;
+  let effectiveThreshold = Number(threshold) || 0;
 
   if (effectiveThreshold <= 0) {
-    // Auto-calculate: mean + 2σ over last 30 days, min 3x average
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Auto: max(mean + 2σ, 3 × mean) over the last 30 local days.
+    const tz = await userTimeZone(supabase, tx.user_id);
+    const since = new Date(`${localDate(new Date(), tz)}T00:00:00.000Z`);
+    since.setUTCDate(since.getUTCDate() - 30);
 
-    const { data: recentTx } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
-      .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .gte("date", toDateOnly(thirtyDaysAgo));
+    type RecentRow = { id: string; amount: number | null; amount_native: number | null; account: { currency: string | null } | null };
+    const recent = await fetchAll<RecentRow>("large_expense.recent", () =>
+      supabase
+        .from("transactions")
+        .select("id,amount,amount_native,account:accounts!transactions_account_id_fkey(currency)", { count: "exact" })
+        .eq("user_id", tx.user_id)
+        .eq("type", "expense")
+        .is("transfer_group_id", null)
+        .gte("date", toDateOnly(since)));
 
-    const amounts = (recentTx ?? []).map(
-      (t: { amount: number; amount_native?: number }) => t.amount_native ?? t.amount, // allowlisted-amount: anomaly detector prefers amount_native
-    );
+    const amounts: number[] = [];
+    for (const row of recent) {
+      const v = tryConvertCurrency(nativeAmount(row), (row.account?.currency ?? "RUB").toUpperCase(), ctx.base, ctx.rates);
+      if (v !== null) amounts.push(v);
+    }
 
     // Need at least 5 transactions for meaningful stats
-    if (amounts.length < 5) return candidates;
+    if (amounts.length < 5) return [];
 
-    const mean = amounts.reduce((s: number, v: number) => s + v, 0) / amounts.length;
-    const variance =
-      amounts.reduce((s: number, v: number) => s + (v - mean) ** 2, 0) /
-      amounts.length;
-    const stdDev = Math.sqrt(variance);
-
-    effectiveThreshold = Math.max(mean + 2 * stdDev, mean * 3);
+    const mean = amounts.reduce((s, v) => s + v, 0) / amounts.length;
+    const variance = amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length;
+    effectiveThreshold = Math.max(mean + 2 * Math.sqrt(variance), mean * 3);
   }
 
-  if (amount < effectiveThreshold) return candidates;
+  if (inBase < effectiveThreshold) return [];
 
-  // Get category name
-  const { data: category } = await supabase
-    .from("categories")
-    .select("name,icon")
-    .eq("id", categoryId)
-    .maybeSingle();
+  const { data: category } = tx.category_id
+    ? await supabase.from("categories").select("name,icon").eq("id", tx.category_id).maybeSingle()
+    : { data: null };
 
   const catLabel = category
-    ? `${category.icon} ${category.name}`
+    ? escapeHtml(`${category.icon ?? ""} ${category.name ?? ""}`.trim())
     : tt('other', lang);
 
+  const approx = accountCurrency !== ctx.base.toUpperCase() ? ` (≈ ${money(inBase, ctx.base, lang)})` : "";
   const message =
     `💸 <b>${tt('largeExpense', lang)}</b>\n\n` +
-    `${formatRub(amount)} ${currencySymbol(lang)} — ${catLabel}`;
+    `${money(native, accountCurrency, lang)}${approx} — ${catLabel}`;
 
-  candidates.push({
+  return [{
     type: "large_expense",
-    key: `large_expense:${transactionId}`,
+    // Real transaction id from the database — one push per transaction.
+    key: `large_expense:${tx.id}`,
     message,
     tab: "transactions",
-  });
-
-  return candidates;
+  }];
 }
 
 // ---------------------------------------------------------------------------
@@ -669,7 +570,7 @@ async function evaluateInactivityForUser(
 
   if ((totalCount ?? 0) < 3) return null;
 
-  // Check last transaction
+  // bounded-fetch: the single newest row.
   const { data: lastTx } = await supabase
     .from("transactions")
     .select("date")
@@ -680,15 +581,16 @@ async function evaluateInactivityForUser(
 
   if (!lastTx) return null;
 
-  const lastDate = new Date(lastTx.date);
-  const now = new Date();
-  const daysSinceLast = Math.floor(
-    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
+  // `date` is the user's local wall-clock time, so compare calendar days
+  // in the user's zone, not instants against the server clock.
+  const today = localDate(new Date(), await userTimeZone(supabase, userId));
+  const daysSinceLast = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${String(lastTx.date).slice(0, 10)}T00:00:00Z`)) /
+      (1000 * 60 * 60 * 24),
   );
 
   if (daysSinceLast < 3) return null;
 
-  const today = toDateOnly(now);
   const d = daysWord(daysSinceLast, lang);
 
   return {
@@ -711,29 +613,33 @@ async function evaluateSavingsMilestones(
 ): Promise<NotificationCandidate[]> {
   const candidates: NotificationCandidate[] = [];
 
-  const { data: goals } = await supabase
-    .from("savings_goals")
-    .select("id,name,target_amount,current_amount,icon")
-    .eq("user_id", userId)
-    .eq("status", "active");
+  type GoalRow = { id: string; name: string; target_amount: number; current_amount: number; icon: string; currency: string | null };
+  const goals = await fetchAll<GoalRow>("savings_goals", () =>
+    supabase
+      .from("savings_goals")
+      .select("id,name,target_amount,current_amount,icon,currency", { count: "exact" })
+      .eq("user_id", userId)
+      .eq("status", "active"));
 
-  if (!goals || goals.length === 0) return candidates;
+  if (goals.length === 0) return candidates;
 
   const milestones = [25, 50, 75, 100];
 
-  for (const goal of goals as { id: string; name: string; target_amount: number; current_amount: number; icon: string }[]) {
-    if (goal.target_amount <= 0) continue;
-    const percent = (goal.current_amount / goal.target_amount) * 100;
+  for (const goal of goals) {
+    const target = Number(goal.target_amount);
+    const current = Number(goal.current_amount);
+    if (!(target > 0)) continue;
+    const percent = (current / target) * 100;
 
-    for (const milestone of milestones) {
+    for (const milestone of [...milestones].reverse()) {
       if (percent >= milestone) {
         const key = `savings_milestone:${goal.id}:${milestone}`;
         const emoji = milestone >= 100 ? "🎉" : milestone >= 75 ? "🔥" : milestone >= 50 ? "💪" : "🌱";
 
-        const sym = currencySymbol(lang);
+        // The goal's own currency, not a symbol picked by language.
         const message =
-          `${emoji} <b>${tt('goalHeader', lang)} «${goal.name}» — ${milestone}%!</b>\n\n` +
-          `${tt('saved', lang)}: ${formatRub(goal.current_amount)} ${sym} ${tt('of', lang)} ${formatRub(goal.target_amount)} ${sym}` +
+          `${emoji} <b>${tt('goalHeader', lang)} «${escapeHtml(goal.name ?? "")}» — ${milestone}%!</b>\n\n` +
+          `${tt('saved', lang)}: ${money(current, goal.currency, lang)} ${tt('of', lang)} ${money(target, goal.currency, lang)}` +
           (milestone >= 100 ? tt('goalReached', lang) : "");
 
         candidates.push({
@@ -840,27 +746,39 @@ async function evaluateWeeklyPace(
 // ---------------------------------------------------------------------------
 // Handler: transaction_insert
 // ---------------------------------------------------------------------------
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function handleTransactionInsert(
   supabase: SupabaseClient,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  const userId = body.user_id as string;
-  const transactionId = body.transaction_id as string;
-  const amount = body.amount as number;
-  const type = body.type as string;
-  const categoryId = body.category_id as string;
-
-  if (!userId || !transactionId) {
-    return json({ error: "Missing user_id or transaction_id" }, 400);
+  // Only the id is taken from the request. user_id / amount / type /
+  // category are re-read from the row itself (service role), so a caller
+  // cannot make up a «крупная трата» for someone else (S4).
+  const transactionId = typeof body.transaction_id === "string" ? body.transaction_id.trim() : "";
+  if (!UUID_RE.test(transactionId)) {
+    return json({ error: "Missing or invalid transaction_id" }, 400);
   }
 
-  // Skip transfers — they are not real expenses/income
-  const { data: txRecord } = await supabase
-    .from('transactions')
-    .select('transfer_group_id')
-    .eq('id', transactionId)
+  const { data: txRow, error: txError } = await supabase
+    .from("transactions")
+    .select(INSERTED_TX_COLUMNS)
+    .eq("id", transactionId)
     .maybeSingle();
-  if (txRecord?.transfer_group_id) {
+  if (txError) {
+    console.error("transaction_insert: read failed:", txError.message);
+    return json({ error: "transaction_read_failed" }, 500);
+  }
+  if (!txRow) {
+    return json({ ok: true, skipped: true, reason: "transaction_not_found" });
+  }
+  const tx = txRow as unknown as InsertedTx;
+  const userId = tx.user_id;
+  const type = tx.type;
+  const categoryId = tx.category_id ?? "";
+
+  // Skip transfers — they are not real expenses/income
+  if (tx.transfer_group_id) {
     return json({ ok: true, skipped: true, reason: 'transfer' });
   }
 
@@ -876,10 +794,10 @@ async function handleTransactionInsert(
     return json({ ok: true, skipped: true, reason: "disabled" });
   }
 
-  // Get user's delivery channels + language preference
+  // Get user's delivery channels + language + display currency
   const { data: profile } = await supabase
     .from("profiles")
-    .select("telegram_chat_id,fcm_token,preferred_language")
+    .select("telegram_chat_id,fcm_token,preferred_language,default_currency")
     .eq("id", userId)
     .maybeSingle();
 
@@ -915,14 +833,14 @@ async function handleTransactionInsert(
 
   // Large expense
   if (settings.large_expenses && type === "expense") {
+    const { rates } = await getRubRates();
+    const base = String((profile as { default_currency?: string | null }).default_currency || "RUB").toUpperCase();
     const largeCandidates = await evaluateLargeExpense(
       supabase,
-      userId,
-      transactionId,
-      amount,
-      categoryId,
-      settings.large_expense_threshold,
+      tx,
+      Number(settings.large_expense_threshold) || 0,
       lang,
+      { base, rates },
     );
     candidates.push(...largeCandidates);
   }
@@ -968,20 +886,18 @@ async function handleTransactionInsert(
 async function handleCronInactivity(
   supabase: SupabaseClient,
 ): Promise<Response> {
-  // Get all users with at least one delivery channel (Telegram or FCM)
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id,telegram_chat_id,fcm_token,preferred_language")
-    .or("telegram_chat_id.not.is.null,fcm_token.not.is.null");
-
-  if (profilesError) throw profilesError;
-
-  const users = (profiles ?? []) as {
+  // Get all users with at least one delivery channel (Telegram or FCM).
+  // Paged (ADR-003): a bare select stops at max-rows silently.
+  const users = await fetchAll<{
     id: string;
     telegram_chat_id: string | number | null;
     fcm_token: string | null;
     preferred_language: string | null;
-  }[];
+  }>("profiles.delivery", () =>
+    supabase
+      .from("profiles")
+      .select("id,telegram_chat_id,fcm_token,preferred_language", { count: "exact" })
+      .or("telegram_chat_id.not.is.null,fcm_token.not.is.null"));
 
   if (users.length === 0) {
     return json({ ok: true, checked: 0, sent: 0 });
@@ -1099,21 +1015,23 @@ Deno.serve(async (req) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || (!TELEGRAM_BOT_TOKEN && !FIREBASE_SERVICE_ACCOUNT_JSON)) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || (!telegramConfigured() && !fcmConfigured())) {
     return json({ error: "Missing required environment variables" }, 500);
   }
 
-  if (!isAuthorized(req)) {
+  if (!(await isCronAuthorized(req))) {
     return json({ error: "Unauthorized" }, 401);
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  // Per-invocation cache; the isolate may serve many invocations.
+  tzCache.clear();
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
-    const trigger = body.trigger as string;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const trigger = String(body.trigger ?? "");
 
     if (trigger === "transaction_insert") {
       return await handleTransactionInsert(supabase, body);
@@ -1127,9 +1045,9 @@ Deno.serve(async (req) => {
       return await handleCronWeeklyPace(supabase);
     }
 
-    return json({ error: `Unknown trigger: ${trigger}` }, 400);
+    return json({ error: "Unknown trigger" }, 400);
   } catch (err) {
-    console.error("Smart notifications failed:", err);
-    return json({ error: String(err) }, 500);
+    console.error("Smart notifications failed:", describeError(err));
+    return json({ error: "smart_notifications_failed" }, 500);
   }
 });

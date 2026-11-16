@@ -14,8 +14,11 @@ export interface AssistantQueryContext {
   /// into the user's display currency (ADR-001). Falls back to the
   /// server's `DEFAULT_FX_RATES` when absent.
   fx_rates?: Record<string, number>;
-  /// User's display currency code. Defaults to 'RUB' when absent.
+  /// User's display currency code. Falls back to profiles.default_currency, then 'RUB'.
   display_currency?: string;
+  /// Device IANA time zone (optional). When valid it defines the user's
+  /// "today"; otherwise profiles.timezone → ai_user_settings.timezone → UTC.
+  timezone?: string;
 }
 
 export interface AssistantQueryRequest {
