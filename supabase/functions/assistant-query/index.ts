@@ -32,7 +32,14 @@ import {
   enrichTransactions,
   accountsMap,
   fxRatesMap,
+  type TxMathRow,
 } from '../_shared/transaction-math.ts';
+import { timingSafeEqual } from '../_shared/auth.ts';
+import { fetchAll, fetchAllIn } from '../_shared/paging.ts';
+import { getRubRates, toUsdPivot } from '../_shared/fx.ts';
+import { localDate, resolveTimeZone, startOfLocalDayUtc } from '../_shared/timezone.ts';
+import { createRequestContext, requestContext, runWithRequestContext } from './request-context.ts';
+import { graceEligibleSub, type Jwk, verifyJwtSignature } from './jwt.ts';
 
 /**
  * FX rates baked into the edge function as a last-resort fallback.
@@ -222,98 +229,73 @@ function json(data: unknown, status = 200): Response {
 }
 
 // ── Auth helper ──
+//
+// Normal path: GoTrue validates the bearer (`auth.getUser()`) and every
+// query runs as that user, under RLS.
+//
+// Grace path (S10) — for an iOS token that expired moments ago. It used to
+// accept ANY token GoTrue rejected (sign-out, revoked session) if its HS256
+// signature verified, and then queried with an unscoped service-role
+// client. Now a token is accepted only when ALL of these hold:
+//   1. its signature verifies (ES256 via the project JWKS — the key the
+//      project signs user tokens with — or HS256 when JWT_SECRET is set);
+//   2. it is EXPIRED, by at most 2 h (a token GoTrue rejects while still
+//      valid was revoked or forged — never graced); role = authenticated;
+//   3. the user still exists and is not banned;
+//   4. its session is still alive: RPC `auth_session_is_active(session_id)`
+//      (SECURITY DEFINER, service_role only). Until that RPC exists the
+//      grace path stays closed — fail closed, the client refreshes + retries.
+// Grace-path requests then use the service client, but every query in this
+// function and its builders is explicitly scoped by the verified user id
+// (user_id / account_members / budget_members filters; audited 2026-11-17).
 
-// Grace period: accept expired JWTs that are less than 2 hours old.
-// This eliminates the "session expired" error for users whose iOS app
-// sends a slightly stale token (background suspension, race conditions).
-const JWT_GRACE_PERIOD_SEC = 2 * 60 * 60; // 2 hours
+const JWKS_TTL_MS = 10 * 60 * 1000;
+let jwksCache: { keys: Jwk[]; at: number } | null = null;
 
-/**
- * Decode a base64url string (no padding) to a UTF-8 string.
- */
-function base64UrlDecode(str: string): string {
-  // Replace URL-safe chars and add padding
-  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = base64.length % 4;
-  if (pad === 2) base64 += '==';
-  else if (pad === 3) base64 += '=';
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+async function loadJwks(): Promise<Jwk[]> {
+  if (jwksCache && Date.now() - jwksCache.at < JWKS_TTL_MS) return jwksCache.keys;
+  let keys: Jwk[] = [];
+  const raw = Deno.env.get('SUPABASE_JWKS');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      keys = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.keys) ? parsed.keys : []);
+    } catch {
+      console.warn('[auth] SUPABASE_JWKS is not valid JSON');
+    }
+  }
+  if (keys.length === 0 && SUPABASE_URL) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) keys = ((await res.json())?.keys ?? []) as Jwk[];
+    } catch {
+      console.warn('[auth] JWKS fetch failed');
+    }
+  }
+  jwksCache = { keys, at: Date.now() };
+  return keys;
 }
 
-/**
- * Verify HMAC-SHA256 signature and extract user ID from a Supabase JWT.
- * Returns the user ID (sub claim) if the signature is valid AND the token
- * is either not expired or expired within the grace period.
- * Returns null if the JWT is malformed, signature is invalid, or too old.
- */
-async function verifyJwtManually(token: string): Promise<string | null> {
-  if (!SUPABASE_JWT_SECRET) {
-    console.warn('[auth] JWT_SECRET not available, cannot verify JWT manually');
+async function verifyGraceToken(token: string, serviceClient: SupabaseClient): Promise<string | null> {
+  const claims = await verifyJwtSignature(token, { jwks: loadJwks, hmacSecret: SUPABASE_JWT_SECRET || undefined });
+  if (!claims) return null;
+  const sub = graceEligibleSub(claims, Math.floor(Date.now() / 1000));
+  if (!sub) return null;
+
+  const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(sub);
+  const user = userData?.user as { banned_until?: string | null; deleted_at?: string | null } | undefined;
+  if (userError || !user) return null;
+  if (user.deleted_at) return null;
+  if (user.banned_until && Date.parse(user.banned_until) > Date.now()) return null;
+
+  const { data: alive, error: sessionError } = await serviceClient.rpc('auth_session_is_active', {
+    p_session_id: claims.session_id,
+  });
+  if (sessionError) {
+    console.warn('[auth] grace path unavailable: session check failed');
     return null;
   }
-
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const [headerB64, payloadB64, signatureB64] = parts;
-
-    // Verify HMAC-SHA256 signature
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(SUPABASE_JWT_SECRET);
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-
-    const signedInput = encoder.encode(`${headerB64}.${payloadB64}`);
-    // Decode base64url signature to ArrayBuffer
-    let sigB64 = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
-    const sigPad = sigB64.length % 4;
-    if (sigPad === 2) sigB64 += '==';
-    else if (sigPad === 3) sigB64 += '=';
-    const sigBinary = atob(sigB64);
-    const sigBytes = new Uint8Array(sigBinary.length);
-    for (let i = 0; i < sigBinary.length; i++) sigBytes[i] = sigBinary.charCodeAt(i);
-
-    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, signedInput);
-    if (!isValid) {
-      console.warn('[auth] JWT signature verification failed');
-      return null;
-    }
-
-    // Parse payload
-    const payload = JSON.parse(base64UrlDecode(payloadB64));
-    const sub = payload.sub;
-    if (typeof sub !== 'string' || !sub) {
-      console.warn('[auth] JWT has no sub claim');
-      return null;
-    }
-
-    // Check expiry with grace period
-    const exp = payload.exp;
-    if (typeof exp === 'number') {
-      const now = Math.floor(Date.now() / 1000);
-      if (now > exp + JWT_GRACE_PERIOD_SEC) {
-        console.warn(`[auth] JWT expired ${now - exp}s ago (grace=${JWT_GRACE_PERIOD_SEC}s), rejecting`);
-        return null;
-      }
-      if (now > exp) {
-        console.info(`[auth] JWT expired ${now - exp}s ago but within grace period, accepting user ${sub}`);
-      }
-    }
-
-    return sub;
-  } catch (err) {
-    console.error('[auth] JWT manual verification error:', err);
-    return null;
-  }
+  return alive === true ? sub : null;
 }
 
 interface ResolveResult {
@@ -322,8 +304,8 @@ interface ResolveResult {
   viaGracePeriod: boolean;
 }
 
-async function resolveUserId(authHeader: string): Promise<ResolveResult | null> {
-  // Stage 1: Try standard GoTrue validation (fast path for valid tokens)
+async function resolveUserId(authHeader: string, serviceClient: SupabaseClient): Promise<ResolveResult | null> {
+  // Stage 1: standard GoTrue validation (valid, unrevoked tokens).
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: authHeader } },
@@ -332,18 +314,19 @@ async function resolveUserId(authHeader: string): Promise<ResolveResult | null> 
   const { data, error } = await anonClient.auth.getUser();
   if (!error && data.user?.id) return { userId: data.user.id, viaGracePeriod: false };
 
-  // Stage 2: GoTrue rejected the token (likely expired JWT).
-  // Manually verify signature and accept within grace period.
-  console.info(`[auth] GoTrue rejected token (${error?.message ?? 'no user'}), trying manual JWT verification`);
-  const token = authHeader.replace(/^bearer\s+/i, '');
-  const manualUserId = await verifyJwtManually(token);
-  if (manualUserId) return { userId: manualUserId, viaGracePeriod: true };
+  // Stage 2: strictly an expired-but-genuine token (see above).
+  const token = authHeader.replace(/^bearer\s+/i, '').trim();
+  const graceUserId = await verifyGraceToken(token, serviceClient);
+  if (graceUserId) {
+    console.info('[auth] accepted an expired token within the grace period');
+    return { userId: graceUserId, viaGracePeriod: true };
+  }
   return null;
 }
 
-function startOfTodayIso(): string {
-  const now = new Date();
-  return `${now.toISOString().slice(0, 10)}T00:00:00.000Z`;
+/** ISO code check for client-supplied currencies. */
+function isCurrencyCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z]{3}$/.test(value.trim());
 }
 
 // ── Response cache (in-memory, TTL 5 min, max 200 entries) ──
@@ -444,7 +427,7 @@ async function loadConversationHistory(
       .eq('conversation_id', conversationId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(12);
+      .limit(12); // bounded-fetch: the last 12 turns are the live window by design
 
     if (error || !data) return [];
 
@@ -464,7 +447,7 @@ async function loadConversationHistory(
 
 // ── Main handler ──
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -484,8 +467,16 @@ Deno.serve(async (req) => {
 
   let userId: string;
   let anonClient: SupabaseClient;
+  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 
-  if (internalSecret && INTERNAL_SECRET && internalSecret === INTERNAL_SECRET && internalUserId) {
+  // Constant-time secret comparison (global rule); evaluated only when both
+  // sides are present.
+  const internalAuthorized = !!internalSecret && !!INTERNAL_SECRET && !!internalUserId &&
+    await timingSafeEqual(internalSecret, INTERNAL_SECRET);
+
+  if (internalAuthorized) {
     userId = internalUserId;
     anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -496,19 +487,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized', detail: 'Missing bearer token' }, 401);
     }
 
-    const resolveResult = await resolveUserId(authHeader);
+    const resolveResult = await resolveUserId(authHeader, serviceClient);
     if (!resolveResult) {
       return json({ error: 'Unauthorized', detail: 'Failed to resolve user from token' }, 401);
     }
     userId = resolveResult.userId;
 
     if (resolveResult.viaGracePeriod) {
-      // Token expired but accepted via grace period — use service_role for DB queries
-      // since the expired JWT won't pass PostgREST validation.
-      console.info(`[auth] User ${userId} authenticated via grace period, using service client`);
-      anonClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+      // The expired JWT cannot pass PostgREST; queries below are all
+      // explicitly scoped by the verified `userId` (see the auth notes).
+      anonClient = serviceClient;
     } else {
       anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
@@ -516,10 +504,6 @@ Deno.serve(async (req) => {
       });
     }
   }
-
-  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   let body: AssistantQueryRequest = {};
   try {
@@ -544,6 +528,26 @@ Deno.serve(async (req) => {
   }
   const ctxForLang = body.context as { response_language?: unknown; locale?: unknown } | undefined;
   const lang = detectLang(rawQuery, ctxForLang);
+
+  // Request context (D6, M9): the user's LOCAL today — transactions.date is
+  // local wall-clock time, and «сегодня» at 06:00 in UTC+7 must not mean
+  // yesterday — and the display currency every formatted amount is in.
+  const reqCtx = requestContext();
+  reqCtx.lang = lang;
+  reqCtx.timeZone = await resolveTimeZone(serviceClient, userId, body.context?.timezone);
+  reqCtx.today = localDate(new Date(), reqCtx.timeZone);
+  if (isCurrencyCode(body.context?.display_currency)) {
+    reqCtx.displayCurrency = body.context!.display_currency!.trim().toUpperCase();
+  } else {
+    const { data: profileRow } = await serviceClient
+      .from('profiles')
+      .select('default_currency')
+      .eq('id', userId)
+      .maybeSingle();
+    if (isCurrencyCode(profileRow?.default_currency)) {
+      reqCtx.displayCurrency = String(profileRow!.default_currency).trim().toUpperCase();
+    }
+  }
 
   const incomingConversationId = typeof body.conversation_id === 'string' && body.conversation_id.trim()
     ? body.conversation_id.trim()
@@ -597,7 +601,7 @@ Deno.serve(async (req) => {
       .from('ai_requests')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .gte('created_at', startOfTodayIso());
+      .gte('created_at', startOfLocalDayUtc(new Date(), reqCtx.timeZone).toISOString());
 
     if (countError && countError.code !== '42P01') {
       throw new Error(`Failed to count daily quota: ${countError.message}`);
@@ -775,7 +779,7 @@ Deno.serve(async (req) => {
     // Load user AI settings for tone personalization
     const userSettings = await loadUserSettings(serviceClient, userId);
 
-    const today = toDateOnly(new Date());
+    const today = reqCtx.today;
     // Explicit date/range queries («вчера», «7 июля», «в 2025 году»)
     // override the period-derived window — the regex date is exact.
     const currentWindow = classification.explicitDate
@@ -829,60 +833,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch transactions from all accessible accounts
-    let txQuery = anonClient
-      .from('transactions')
-      .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description')
-      .gte('date', lookbackStart)
-      // `date` is timestamptz; a date-only upper bound casts to midnight
-      // and silently drops every transaction ON the window's last day.
-      .lt('date', addDays(currentWindow.end, 1))
-      .order('date', { ascending: false })
-      .limit(5000);
-
-    if (accessibleAccountIds.length > 0) {
-      txQuery = txQuery.in('account_id', accessibleAccountIds);
-    } else {
-      txQuery = txQuery.eq('user_id', userId);
-    }
-
-    const txWithMerchant = await txQuery;
-
-    let txData: unknown[] | null = txWithMerchant.data as unknown[] | null;
-    let txError: { code?: string; message?: string } | null = txWithMerchant.error;
-
-    // Backward-compatible fallback for environments where merchant columns are not migrated yet
-    if (
-      txError
-      && (
-        isMissingColumnError(txError, 'merchant_name')
-        || isMissingColumnError(txError, 'merchant_normalized')
-      )
-    ) {
-      let fallbackQuery = anonClient
-        .from('transactions')
-        .select('id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,transfer_group_id,category:categories(name),description')
+    // Fetch transactions from all accessible accounts — the COMPLETE set
+    // (ADR-003). `.limit(5000)` never helped: PostgREST's max-rows (1000)
+    // still truncated silently, and the shared «Семейный» account alone has
+    // ~1 100 rows (M9).
+    const TX_COLUMNS = 'id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,merchant_name,merchant_normalized,transfer_group_id,category:categories(name),description';
+    const TX_COLUMNS_LEGACY = 'id,amount,amount_native,currency,foreign_amount,foreign_currency,fx_rate,date,type,category_id,account_id,user_id,transfer_group_id,category:categories(name),description';
+    const loadTransactions = (columns: string): Promise<TxRow[]> => {
+      const windowed = (q: any) => q
         .gte('date', lookbackStart)
+        // `date` is timestamptz; a date-only upper bound casts to midnight
+        // and silently drops every transaction ON the window's last day.
         .lt('date', addDays(currentWindow.end, 1))
-        .order('date', { ascending: false })
-        .limit(5000);
+        .order('date', { ascending: false });
+      return accessibleAccountIds.length > 0
+        ? fetchAllIn<TxRow>('transactions', accessibleAccountIds, (ids) =>
+          windowed(anonClient.from('transactions').select(columns, { count: 'exact' }).in('account_id', ids)))
+        : fetchAll<TxRow>('transactions', () =>
+          windowed(anonClient.from('transactions').select(columns, { count: 'exact' }).eq('user_id', userId)));
+    };
 
-      if (accessibleAccountIds.length > 0) {
-        fallbackQuery = fallbackQuery.in('account_id', accessibleAccountIds);
+    let txData: TxRow[];
+    try {
+      txData = await loadTransactions(TX_COLUMNS);
+    } catch (txError) {
+      // Backward-compatible fallback for environments where merchant columns are not migrated yet
+      if (isMissingColumnError(txError, 'merchant_name') || isMissingColumnError(txError, 'merchant_normalized')) {
+        txData = await loadTransactions(TX_COLUMNS_LEGACY);
       } else {
-        fallbackQuery = fallbackQuery.eq('user_id', userId);
+        throw new Error(`Failed to fetch transactions: ${(txError as Error)?.message ?? 'unknown'}`);
       }
-
-      const txLegacy = await fallbackQuery;
-      txData = txLegacy.data as unknown[] | null;
-      txError = txLegacy.error;
     }
+    // Several account chunks are merged — restore newest-first.
+    txData.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-    if (txError) {
-      throw new Error(`Failed to fetch transactions: ${txError.message ?? 'unknown'}`);
-    }
-
-    const rawTransactions = (txData ?? []) as TxRow[];
+    const rawTransactions = txData;
 
     // Lazy-load categories and accounts only when needed
     let allCategories: CategoryRow[] | null = null;
@@ -894,9 +879,14 @@ Deno.serve(async (req) => {
     // FX context. When iOS omits `fx_rates` we fall back to baked-in
     // rates — better than silent 1:1 which re-introduces the VND-as-
     // RUB phantom.
-    const displayCurrency = (body.context?.display_currency ?? 'RUB').toUpperCase();
+    const displayCurrency = reqCtx.displayCurrency;
+    // Rates: the client's (freshest, what the app shows) over live server
+    // rates over the baked-in table — so Telegram/system callers without
+    // `fx_rates` do not fall back to stale 2026-04 constants.
+    const liveRates = await getRubRates();
     const fxRatesSource: Record<string, number> = {
       ...DEFAULT_FX_RATES,
+      ...(liveRates.live ? toUsdPivot(liveRates.rates) : {}),
       ...(body.context?.fx_rates ?? {}),
     };
     const fxRates = fxRatesMap(fxRatesSource);
@@ -906,12 +896,13 @@ Deno.serve(async (req) => {
       const accountsIndex = accountsMap(
         accounts.map((a) => ({ id: a.id, currency: a.currency ?? null })),
       );
+      // TxRow has no index signature; the enrichment only adds amount_in_base.
       return enrichTransactions(
-        rawTransactions,
+        rawTransactions as unknown as TxMathRow[],
         accountsIndex,
         fxRates,
         displayCurrency,
-      );
+      ) as unknown as TxRow[];
     }
 
     let transactions: TxRow[] = rawTransactions;
@@ -931,12 +922,8 @@ Deno.serve(async (req) => {
       // either user — without co-member categories, names won't resolve and the
       // LLM sees "Другое" instead of "Coffee", breaking by-category answers.
       const memberIds = Array.from(allMemberUserIds);
-      const { data } = await anonClient
-        .from('categories')
-        .select('id,name,type')
-        .in('user_id', memberIds.length > 0 ? memberIds : [userId])
-        .limit(2000);
-      allCategories = (data ?? []) as CategoryRow[];
+      allCategories = await fetchAllIn<CategoryRow>('categories', memberIds.length > 0 ? memberIds : [userId], (ids) =>
+        anonClient.from('categories').select('id,name,type', { count: 'exact' }).in('user_id', ids));
       return allCategories;
     }
 
@@ -945,18 +932,14 @@ Deno.serve(async (req) => {
       // Load ALL accessible accounts (own + shared via account_members).
       // Previously this filtered by user_id only, so a member like Olya never saw
       // the "Family" account that Vladimir owns and silently got "account not found".
-      const idsToFetch = accessibleAccountIds.length > 0 ? accessibleAccountIds : null;
-      let accQuery = anonClient
-        .from('accounts')
-        .select('id,name,initial_balance,currency,user_id')
-        .limit(200);
-      if (idsToFetch) {
-        accQuery = accQuery.in('id', idsToFetch);
-      } else {
-        accQuery = accQuery.eq('user_id', userId);
-      }
-      const { data } = await accQuery;
-      allAccounts = ((data ?? []) as Array<AccountRow & { initial_balance?: number; user_id?: string }>).map((row) => {
+      type AccountDbRow = AccountRow & { initial_balance?: number; user_id?: string };
+      const ACCOUNT_COLUMNS = 'id,name,initial_balance,currency,user_id';
+      const data = accessibleAccountIds.length > 0
+        ? await fetchAllIn<AccountDbRow>('accounts', accessibleAccountIds, (ids) =>
+          anonClient.from('accounts').select(ACCOUNT_COLUMNS, { count: 'exact' }).in('id', ids))
+        : await fetchAll<AccountDbRow>('accounts', () =>
+          anonClient.from('accounts').select(ACCOUNT_COLUMNS, { count: 'exact' }).eq('user_id', userId));
+      allAccounts = data.map((row) => {
         const role = memberRoleByAccount.get(row.id);
         const ownerUserId = row.user_id;
         const isShared = ownerUserId !== undefined && ownerUserId !== userId;
@@ -988,11 +971,14 @@ Deno.serve(async (req) => {
         // For shared accounts, we need ALL transactions on that account (not just current user's)
         const accountIds = allAccounts.map((a) => a.id);
         if (accountIds.length > 0) {
-          const { data: allTxData } = await anonClient
-            .from('transactions')
-            .select('account_id,amount,amount_native,type')
-            .in('account_id', accountIds)
-            .limit(50000);
+          // Balance = initial_balance + Σ over the WHOLE history, so the
+          // set must be complete (ADR-003) — `.limit(50000)` was capped at
+          // 1000 rows by the server.
+          const allTxData = await fetchAllIn<{ id: string; account_id: string | null; amount: number | null; amount_native: number | null; type: string }>(
+            'transactions.balance',
+            accountIds,
+            (ids) => anonClient.from('transactions').select('id,account_id,amount,amount_native,type', { count: 'exact' }).in('account_id', ids),
+          );
 
           if (allTxData?.length) {
             const incomeByAccount = new Map<string, number>();
@@ -1048,32 +1034,21 @@ Deno.serve(async (req) => {
       let budgets: import('./types.ts').BudgetRow[] = [];
       if (['budget_remaining', 'budget_risk', 'smart_budget_create'].includes(intent)) {
         const BUDGET_COLS = 'id,name,amount,currency,category_ids,account_ids,period_type,custom_start_date,custom_end_date,is_active';
-        const { data: budgetData } = await anonClient
-          .from('budgets')
-          .select(BUDGET_COLS)
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .limit(20);
-        budgets = (budgetData ?? []) as import('./types.ts').BudgetRow[];
+        budgets = await fetchAll<import('./types.ts').BudgetRow>('budgets', () =>
+          anonClient.from('budgets').select(BUDGET_COLS, { count: 'exact' }).eq('user_id', userId).eq('is_active', true));
 
         // Shared budgets: the app shows budgets the user joined via
         // budget_members — without them «как дела с бюджетом на питание»
         // answered «нет бюджетов» while three cards sat on the Budgets tab.
-        const { data: memberBudgetRows } = await anonClient
-          .from('budget_members')
-          .select('budget_id')
-          .eq('user_id', userId);
-        const memberBudgetIds = (memberBudgetRows ?? [])
+        const memberBudgetRows = await fetchAll<{ id: string; budget_id: string }>('budget_members', () =>
+          anonClient.from('budget_members').select('id,budget_id', { count: 'exact' }).eq('user_id', userId));
+        const memberBudgetIds = memberBudgetRows
           .map((r: { budget_id: string }) => r.budget_id)
           .filter((id: string) => !budgets.some((b) => b.id === id));
         if (memberBudgetIds.length > 0) {
-          const { data: sharedBudgetData } = await anonClient
-            .from('budgets')
-            .select(BUDGET_COLS)
-            .in('id', memberBudgetIds)
-            .eq('is_active', true)
-            .limit(20);
-          budgets = budgets.concat((sharedBudgetData ?? []) as import('./types.ts').BudgetRow[]);
+          const sharedBudgetData = await fetchAllIn<import('./types.ts').BudgetRow>('budgets.shared', memberBudgetIds, (ids) =>
+            anonClient.from('budgets').select(BUDGET_COLS, { count: 'exact' }).in('id', ids).eq('is_active', true));
+          budgets = budgets.concat(sharedBudgetData);
         }
       }
 
@@ -1081,24 +1056,16 @@ Deno.serve(async (req) => {
       // подписки»; transaction history alone misses annual/quiet ones.
       let subscriptions: import('./data-context-builder.ts').SubscriptionRow[] = [];
       if (intent === 'recurring_patterns') {
-        const { data: subsData } = await anonClient
-          .from('subscriptions')
-          .select('service_name,amount,currency,billing_period,status')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .limit(50);
-        subscriptions = (subsData ?? []) as import('./data-context-builder.ts').SubscriptionRow[];
+        subscriptions = await fetchAll<import('./data-context-builder.ts').SubscriptionRow>('subscriptions', () =>
+          anonClient.from('subscriptions').select('id,service_name,amount,currency,billing_period,status', { count: 'exact' })
+            .eq('user_id', userId).eq('status', 'active'));
       }
 
       let savingsGoals: Array<{ name: string; target_amount: number; current_amount: number; deadline: string | null; status: string }> = [];
       if (['savings_advice'].includes(intent)) {
-        const { data: goalsData } = await anonClient
-          .from('savings_goals')
-          .select('name,target_amount,current_amount,deadline,status')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .limit(20);
-        savingsGoals = (goalsData ?? []) as typeof savingsGoals;
+        savingsGoals = await fetchAll<(typeof savingsGoals)[number]>('savings_goals', () =>
+          anonClient.from('savings_goals').select('id,name,target_amount,current_amount,deadline,status', { count: 'exact' })
+            .eq('user_id', userId).eq('status', 'active'));
       }
 
       // FX-converted net worth across accounts — computed here where the
@@ -1111,7 +1078,8 @@ Deno.serve(async (req) => {
         const rateAcc = fxRates.get(cur);
         const rateBase = fxRates.get(displayCurrency);
         if (!rateAcc || !rateBase || rateAcc <= 0) return sum + bal;
-        return sum + Math.round(bal * (rateBase / rateAcc));
+        // Not rounded: main units (rounding $0.40 to $0 before summing).
+        return sum + bal * (rateBase / rateAcc);
       }, 0);
 
       // Build structured data context for LLM
@@ -1211,13 +1179,9 @@ Deno.serve(async (req) => {
     } else if (intent === 'savings_advice') {
       computed = await buildSavingsAdviceResponse(anonClient, userId);
     } else if (intent === 'savings_contribute') {
-      const { data: goalsData } = await anonClient
-        .from('savings_goals')
-        .select('id,name,target_amount,current_amount,deadline,status,monthly_target')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .limit(20);
-      const goals = (goalsData ?? []) as SavingsGoalRow[];
+      const goals = await fetchAll<SavingsGoalRow>('savings_goals', () =>
+        anonClient.from('savings_goals').select('id,name,target_amount,current_amount,deadline,status,monthly_target', { count: 'exact' })
+          .eq('user_id', userId).eq('status', 'active'));
       computed = buildSavingsContributeResponse(rawQuery, goals, classification.llmEntities);
     } else if (intent === 'financial_advice') {
       computed = await buildFinancialAdviceResponse(serviceClient, userId, transactions, rawQuery, history);
@@ -1255,7 +1219,8 @@ Deno.serve(async (req) => {
           accounts,
           categories,
           today,
-          baseCurrency: accounts[0]?.currency ?? 'USD',
+          // Transactions are enriched into the display currency.
+          baseCurrency: displayCurrency,
         },
         { lang, tone: userSettingsForAgent.tone },
       );
@@ -1453,4 +1418,8 @@ Deno.serve(async (req) => {
       ...fallback,
     });
   }
-});
+}
+
+// Every request runs in its own context (display currency, language, the
+// user's local today) — see request-context.ts.
+Deno.serve((req) => runWithRequestContext(createRequestContext(), () => handleRequest(req)));

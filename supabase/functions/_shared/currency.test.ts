@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { convertCurrency } from "../_shared/currency.ts";
+import { convertCurrency, tryConvertCurrency } from "../_shared/currency.ts";
 
 // Rates are units per 1 RUB, as normalized in `fetchRates` (2026-09-01).
 const rates = { RUB: 1, USD: 0.011573, EUR: 0.009971, THB: 0.383795, VND: 301.02 };
@@ -45,6 +45,17 @@ Deno.test("unknown currency falls back to 1:1 instead of NaN", () => {
 
 Deno.test("missing currency is treated as base RUB", () => {
   assertEquals(convertCurrency(500, null, "RUB", rates), 500);
+});
+
+Deno.test("tryConvertCurrency: converts like convertCurrency, unrounded", () => {
+  near(tryConvertCurrency(10, "USD", "RUB", rates)!, 864);
+  assertEquals(tryConvertCurrency(5, "usd", "USD", rates), 5);
+});
+
+Deno.test("tryConvertCurrency: unknown currency is null, never 1:1", () => {
+  assertEquals(tryConvertCurrency(10, "XYZ", "RUB", rates), null);
+  assertEquals(tryConvertCurrency(10, "USD", "XYZ", rates), null);
+  assertEquals(tryConvertCurrency(Number.NaN, "USD", "RUB", rates), null);
 });
 
 Deno.test("lowercase codes resolve like uppercase", () => {

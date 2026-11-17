@@ -367,22 +367,21 @@ final class SettlementCalculatorTests: XCTestCase {
 
     // MARK: - FX-correct settlement
 
-    /// V records a 100-USD auto-transfer on a RUB shared account. With
-    /// USD rate 1.0 and RUB rate 75.0 (both USD-based), the source-leg
-    /// in USD should normalize to 75 RUB worth of contribution.
-    /// Target-currency leg on shared stays RUB.
-    func test_crossCurrency_usdContribution_normalizedToBase() {
-        // Build a manual cross-currency triplet. The RPC writes:
-        //   - expense row on shared (RUB, amount 7500_00 kopecks)
-        //   - transfer-out on V-bybit (USD, amount 100_00 kopecks)
-        //   - transfer-in on shared (RUB, amount 7500_00 kopecks)
-        // The calculator walks legs by `transfer_group_id` and attributes
-        // based on the peer account, so cross-currency correctness is
-        // about scaling the source-leg amount back to base (RUB).
+    /// V pays 100 USD from his ByBit card into a RUB shared account. The
+    /// RPC writes the main expense and the transfer-in leg on the shared
+    /// account in RUB (7 500 ₽) and the transfer-out leg on ByBit in USD.
+    /// Only rows ON the shared account are summed, and their `amountNative`
+    /// is already in its currency (ADR-001) — the USD leg identifies the
+    /// payer and is never added. M11: the local fallback used to "normalise"
+    /// by each row's legacy `currency` label; on old TMA rows that label
+    /// disagrees with the account (here: "VND" / "USD" on RUB rows), which
+    /// multiplied correct ruble figures by the rate. The server
+    /// (`get_account_settlement`) ignores labels — both must agree.
+    func test_crossCurrency_rowsOnSharedAccount_useAmountNativeIgnoringLabel() {
         let group = UUID().uuidString
         let mainExpense = Transaction(
             id: UUID().uuidString, userId: "V", accountId: sharedAccId,
-            amount: 7500_00, currency: "RUB", description: nil,
+            amount: 7500_00, currency: "VND", description: nil,  // legacy mislabel
             categoryId: nil, type: .expense, date: "2026-04-15",
             merchantName: nil, merchantFuzzy: nil,
             transferGroupId: nil, paymentSourceAccountId: "V-bybit",
@@ -400,7 +399,7 @@ final class SettlementCalculatorTests: XCTestCase {
         )
         let inLeg = Transaction(
             id: UUID().uuidString, userId: "V", accountId: sharedAccId,
-            amount: 7500_00, currency: "RUB", description: nil,
+            amount: 7500_00, currency: "USD", description: nil,  // legacy mislabel
             categoryId: nil, type: .income, date: "2026-04-15",
             merchantName: nil, merchantFuzzy: nil,
             transferGroupId: group, paymentSourceAccountId: nil,
@@ -409,33 +408,38 @@ final class SettlementCalculatorTests: XCTestCase {
         )
         let txs = [mainExpense, outLeg, inLeg]
 
+        // Rates and a base are passed (the production caller does) — they
+        // must have no effect.
         let balances = SettlementCalculator.compute(
             sharedAccountId: sharedAccId,
             transactions: txs,
             memberUserIds: ["V", "O"],
             personalAccountsByUser: ["V": ["V-bybit"], "O": ["O-cash"]],
             period: period,
-            fxRates: ["USD": 1.0, "RUB": 75.0],
+            fxRates: ["USD": 1.0, "RUB": 75.0, "VND": 25_000.0],
             baseCurrency: "RUB"
         )
 
         let v = balances.first { $0.userId == "V" }!
         let o = balances.first { $0.userId == "O" }!
-        // TotalExpenses = 7500_00 RUB kopecks. Fair = 3750_00.
+        // Total = 7 500 ₽ as stored — not "7 500 VND" or "7 500 USD" in rubles.
         XCTAssertEqual(v.fairShare, 3750_00)
         XCTAssertEqual(o.fairShare, 3750_00)
-        // V's contribution via auto-transfer legs sums to:
-        //   + 7500_00 RUB (transfer-in on shared, in base already)
-        //   - 7500_00 RUB (transfer-out on V-bybit, normalized from 100 USD
-        //                  → 100 * 75 = 7500_00 RUB kopecks).
-        // Net contribution: 0. But that's the leg-pair cancellation on
-        // shared-side views; the calculator only counts rows WHERE
-        // `accountId == sharedAccountId`. So V gets just +7500_00 from
-        // the in-leg, which is the effective contribution.
+        // V's contribution is the in-leg on the shared account, as stored.
         XCTAssertEqual(v.contributed, 7500_00)
         XCTAssertEqual(o.contributed, 0)
         XCTAssertEqual(v.delta, 3750_00)
         XCTAssertEqual(o.delta, -3750_00)
+
+        // Same answer with no FX context at all — rates are irrelevant.
+        let noFx = SettlementCalculator.compute(
+            sharedAccountId: sharedAccId,
+            transactions: txs,
+            memberUserIds: ["V", "O"],
+            personalAccountsByUser: ["V": ["V-bybit"], "O": ["O-cash"]],
+            period: period
+        )
+        XCTAssertEqual(noFx, balances)
     }
 
     /// Missing fxRates must not crash or yield wildly wrong numbers —
@@ -602,6 +606,97 @@ final class SettlementCalculatorTests: XCTestCase {
         // Identical to the no-settlement baseline: V +150, O -150.
         XCTAssertEqual(balances.first { $0.userId == "V" }!.delta, 150_00)
         XCTAssertEqual(balances.first { $0.userId == "O" }!.delta, -150_00)
+    }
+
+    /// Regression (2026-11-16, «Семейный»): the same data showed −1 541 ₽ on
+    /// one member's phone and +43 622 ₽ on the other's. RLS hides each
+    /// member's personal card from the other, so each phone sees only its own
+    /// transfer-out legs. The per-transaction marks walk skipped every group
+    /// whose peer leg was hidden, i.e. each phone ignored the marks on the
+    /// OTHER member's payments. Every member must get the same balances as
+    /// a full-visibility view.
+    func test_perMember_marks_sameBalancesOnEveryMembersPhone() {
+        let vPaid = autoTransfer(user: "V", amount: 1000_00, sourceAcc: "V-card", targetAcc: sharedAccId)
+        let oPaid = autoTransfer(user: "O", amount: 600_00, sourceAcc: "O-card", targetAcc: sharedAccId)
+        let all = vPaid + oPaid
+        let vExpense = vPaid.first { $0.type == .expense && $0.transferGroupId == nil }!
+        let oExpense = oPaid.first { $0.type == .expense && $0.transferGroupId == nil }!
+
+        // O closes her share of V's payment; V's share of O's payment is closed too.
+        let marks = [
+            TransactionMemberSettlement(id: "m1", transactionId: vExpense.id, sharedAccountId: sharedAccId,
+                                        settledForUserId: "O", settledByUserId: "O", settledAt: nil, note: nil),
+            TransactionMemberSettlement(id: "m2", transactionId: oExpense.id, sharedAccountId: sharedAccId,
+                                        settledForUserId: "V", settledByUserId: "O", settledAt: nil, note: nil)
+        ]
+
+        func balances(visible: [Transaction], personal: [String: Set<String>]) -> [String: Int64] {
+            let b = SettlementCalculator.compute(
+                sharedAccountId: sharedAccId,
+                transactions: visible,
+                memberUserIds: ["V", "O"],
+                personalAccountsByUser: personal,
+                period: period,
+                transactionMemberSettlements: marks
+            )
+            return Dictionary(uniqueKeysWithValues: b.map { ($0.userId, $0.delta) })
+        }
+
+        let full = balances(visible: all, personal: ["V": ["V-card"], "O": ["O-card"]])
+        // What RLS lets each member load: the shared account + their own card.
+        let onVsPhone = balances(
+            visible: all.filter { $0.accountId == sharedAccId || $0.accountId == "V-card" },
+            personal: ["V": ["V-card"]]
+        )
+        let onOsPhone = balances(
+            visible: all.filter { $0.accountId == sharedAccId || $0.accountId == "O-card" },
+            personal: ["O": ["O-card"]]
+        )
+
+        // Total 1600 → fair share 800 each. Contributions 1000 / 600, then
+        // m1 moves 500 to O and m2 moves 300 to V → 800 / 800.
+        XCTAssertEqual(full, ["V": 0, "O": 0])
+        XCTAssertEqual(onVsPhone, full, "V's phone must not drop the marks on O's payments")
+        XCTAssertEqual(onOsPhone, full, "O's phone must not drop the marks on V's payments")
+    }
+
+    // MARK: - Server settlement (get_account_settlement)
+
+    /// Shape copied from the prod RPC response (ids shortened).
+    func test_serverSettlement_decodesRpcPayload() throws {
+        let json = """
+        {"version": 1, "account_id": "acc", "currency": "rub", "total_expenses": 39999513, "tx_count": 158,
+         "balances": [{"user_id": "V", "contributed": 19413865, "fair_share": 19999757},
+                      {"user_id": "O", "contributed": 20585648, "fair_share": 19999756}],
+         "payers": {"exp-1": "V", "exp-2": "O"}}
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(ServerSettlement.self, from: json)
+        XCTAssertEqual(s.totalExpenses, 39_999_513)
+        XCTAssertEqual(s.payers["exp-2"], "O")
+        let b = s.memberBalances
+        XCTAssertEqual(b.map(\.userId), ["v", "o"])
+        XCTAssertEqual(b[0].delta, -585_892)
+        XCTAssertEqual(b[1].delta, 585_892)
+        XCTAssertEqual(b.map(\.delta).reduce(0, +), 0)
+    }
+
+    func test_integrityMismatch_toleratesResidualKopeck() {
+        let server = [SettlementCalculator.MemberBalance(userId: "V", contributed: 100, fairShare: 51),
+                      SettlementCalculator.MemberBalance(userId: "O", contributed: 1, fairShare: 50)]
+        let local = [SettlementCalculator.MemberBalance(userId: "O", contributed: 1, fairShare: 51),
+                     SettlementCalculator.MemberBalance(userId: "V", contributed: 100, fairShare: 50)]
+        XCTAssertNil(SettlementViewModel.integrityMismatch(server: server, local: local))
+    }
+
+    func test_integrityMismatch_reportsRealDisagreement() {
+        // The 2026-11-16 shape: one phone dropped 32 548.19 ₽ of marks.
+        let server = [SettlementCalculator.MemberBalance(userId: "V", contributed: 0, fairShare: 585_892),
+                      SettlementCalculator.MemberBalance(userId: "O", contributed: 585_892, fairShare: 0)]
+        let local = [SettlementCalculator.MemberBalance(userId: "V", contributed: 0, fairShare: 3_840_711),
+                     SettlementCalculator.MemberBalance(userId: "O", contributed: 3_840_711, fairShare: 0)]
+        XCTAssertEqual(SettlementViewModel.integrityMismatch(server: server, local: local), 3_254_819)
+        XCTAssertNotNil(SettlementViewModel.integrityMismatch(server: server, local: []),
+                        "local fallback producing nothing while the server has balances is a mismatch")
     }
 
     // MARK: - Rounding-residual regression ("−0 ₽ должен доплатить" cosmetic)

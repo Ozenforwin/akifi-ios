@@ -29,12 +29,15 @@ import Foundation
 ///
 /// Contributions are credited by walking auto-transfer groups: the peer
 /// leg of each auto-transfer on the shared account is mapped back to a
-/// member via `personalAccountsByUser`. Cross-currency source legs are
-/// normalized to the shared-account's base currency at read time when
-/// the caller supplies `fxRates` + `baseCurrency`. Missing FX data falls
-/// back to face-value — the old behavior, documented historically. A
-/// follow-up migration will move to per-row stored FX to avoid snapshot
-/// drift; for now we accept a small live-rate dependency.
+/// member via `personalAccountsByUser`.
+///
+/// **No FX.** Only rows ON the shared account are summed, and ADR-001 keeps
+/// their `amountNative` in that account's currency — a cross-currency
+/// payment's source leg (on the payer's card) is used to identify the payer,
+/// never added. This is the local offline fallback / cross-check of the
+/// server's `get_account_settlement`, which sums `amount_native` the same
+/// way; the two must agree (M11 removed a label-based conversion that
+/// made them differ on legacy rows).
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
@@ -90,8 +93,9 @@ enum SettlementCalculator {
     ///     short-circuits to `[]`.
     ///   - personalAccountsByUser: `userId → Set<personal account ids>`.
     ///     Required to attribute a transfer-leg to a member — the server
-    ///     RLS will often hide other users' personal accounts, so missing
-    ///     peers just get 0 contribution (delta = -fairShare).
+    ///     RLS hides other users' personal accounts; a leg whose peer can't
+    ///     be resolved is attributed to the leg's creator (the payer — the
+    ///     RPC writes all three legs as the paying user).
     ///   - period: `DateInterval` — only transactions whose date falls
     ///     inside this interval count toward expenses & contributions.
     ///   - pastSettlements: settlements already marked as done for this
@@ -111,14 +115,10 @@ enum SettlementCalculator {
     ///     Default empty or all-equal collapses to equal split. Members
     ///     missing from the map get weight 1.0 (backward-compat with
     ///     rows that predate the `split_weight` column).
-    ///   - fxRates: USD-based currency rates (`["USD": 1.0, "RUB": 92.5, …]`)
-    ///     used to normalize cross-currency source legs into the base
-    ///     currency. Source: `CurrencyManager.rates`. Empty or missing
-    ///     rates fall back to face-value math (legacy behavior).
-    ///   - baseCurrency: ISO 4217 of the shared account. All cross-
-    ///     currency contributions are converted TO this currency before
-    ///     being added into `contributions`. `nil` / unknown → fall back
-    ///     to face-value.
+    ///   - fxRates, baseCurrency: IGNORED, kept so existing call sites
+    ///     compile. Every summed row is already in the shared account's
+    ///     currency (see the type doc); converting by the row's legacy
+    ///     `currency` label was the M11 bug.
     static func compute(
         sharedAccountId: String,
         transactions: [Transaction],
@@ -134,14 +134,8 @@ enum SettlementCalculator {
         guard !memberUserIds.isEmpty else { return [] }
 
         // Parse DB "yyyy-MM-dd" (or "yyyy-MM-dd'T'HH:mm:ss") into Date.
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
-        let parserFull = DateFormatter()
-        parserFull.locale = Locale(identifier: "en_US_POSIX")
-        parserFull.timeZone = TimeZone(identifier: "UTC")
-        parserFull.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        let parser = AppDateFormatters.utcDate
+        let parserFull = AppDateFormatters.utcDateTime
 
         func inPeriod(_ raw: String) -> Bool {
             let dateStr = String(raw.prefix(10))
@@ -174,21 +168,13 @@ enum SettlementCalculator {
                 && $0.transferGroupId == nil
                 && $0.autoTransferGroupId != nil
         }
-        // Normalize each row to the caller's `baseCurrency` before summing.
-        // Without this step a mixed-currency shared account (e.g. some
-        // transfer-in legs in VND, the account itself in RUB) would feed
-        // raw VND numbers into `totalExpenses`, while `contributions` are
-        // already FX-converted — yielding a fairshare wildly out of scale
-        // with what each member actually put in. (Symptom: «Olya должна
-        // 78 000 ₽» when she'd actually owe ~280 ₽.)
-        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) {
-            $0 + normalizeToBase(
-                amount: $1.amountNative,
-                rowCurrency: $1.currency,
-                baseCurrency: baseCurrency,
-                fxRates: fxRates
-            )
-        }
+        // Every row here lives on the shared account, so its `amountNative`
+        // is already in the shared account's currency (ADR-001) — no FX.
+        // M11: this used to "normalise" by the row's legacy `currency`
+        // label, which on old TMA rows disagrees with the account and
+        // turned a correct kopeck figure into a ×rate one. The server
+        // (`get_account_settlement`) sums `amount_native` the same way.
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative }
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
@@ -242,9 +228,8 @@ enum SettlementCalculator {
         // 3. Contributions.
         //    Walk auto-transfer triplets (transfer_group_id AND
         //    auto_transfer_group_id both set). The peer leg on the
-        //    user's personal account tells us who to credit. Source
-        //    legs on a different-currency account are normalized
-        //    into the shared account's base currency via `fxRates`.
+        //    user's personal account tells us who to credit; only the
+        //    legs on the shared account itself are summed.
         //    Direct expenses on the shared account and manual transfer
         //    pairs that predate the feature are ignored.
         var contributions: [String: Int64] = Dictionary(uniqueKeysWithValues: memberUserIds.map { ($0, 0) })
@@ -253,54 +238,44 @@ enum SettlementCalculator {
             $0.transferGroupId != nil && $0.autoTransferGroupId != nil
         }
 
-        for row in autoTransferLegsOnShared {
-            guard let groupId = row.transferGroupId else { continue }
-
-            // Peer leg: same transfer_group_id, different account.
-            let peer = transactions.first { $0.transferGroupId == groupId && $0.id != row.id }
-
-            guard let peer, let peerAccountId = peer.accountId else {
-                // Peer hidden by RLS — attribute to the row creator as best-effort.
-                let uid = row.userId
-                let normalized = normalizeToBase(
-                    amount: row.amountNative,
-                    rowCurrency: row.currency,
-                    baseCurrency: baseCurrency,
-                    fxRates: fxRates
-                )
-                if row.type == .income {
-                    contributions[uid, default: 0] += normalized
-                } else if row.type == .expense {
-                    contributions[uid, default: 0] -= normalized
-                }
-                continue
-            }
-
-            // Attribute to whichever member's personal-account set contains the
-            // peer. If not found (rare: peer is an account of a non-member or
-            // a different shared account), fall back to the row creator.
-            let attributedUser = personalAccountsByUser.first { _, accounts in
+        // Who funded an auto-transfer leg on the shared account. This ONE
+        // resolver serves both the contributions walk and the per-transaction
+        // marks (4b). They must never disagree: RLS hides every other member's
+        // personal account, so on each phone the peer leg of the *other*
+        // member's payments is invisible. When the marks walk skipped those
+        // groups instead of falling back like the contributions walk did, each
+        // member's phone dropped the other side's marks and the two phones
+        // showed different debts for the same data (2026-11-16, «Семейный»:
+        // −1 541 ₽ on one phone, +43 622 ₽ on the other).
+        //
+        // Peer visible → owner of the peer's account (via
+        // `personalAccountsByUser`). Peer hidden, or its account unknown →
+        // the leg's creator: the RPC writes all three legs as the paying user.
+        let legsByTransferGroup = Dictionary(
+            grouping: transactions.filter { $0.transferGroupId != nil },
+            by: { $0.transferGroupId ?? "" }
+        )
+        func payer(of leg: Transaction) -> String {
+            guard let groupId = leg.transferGroupId,
+                  let peer = legsByTransferGroup[groupId]?.first(where: { $0.id != leg.id }),
+                  let peerAccountId = peer.accountId
+            else { return leg.userId }
+            return personalAccountsByUser.first { _, accounts in
                 accounts.contains(peerAccountId)
-            }?.key ?? row.userId
+            }?.key ?? leg.userId
+        }
 
-            // Normalize the row amount from its source currency back to
-            // base. `row` here is the leg on the shared account (target
-            // currency) OR the source leg (personal currency); peer legs
-            // inside the triplet live on two different currencies when
-            // cross-currency. We always normalize using the row's own
-            // `currency` field so the transfer-out leg (in source ccy)
-            // converts correctly.
-            let normalized = normalizeToBase(
-                amount: row.amountNative,
-                rowCurrency: row.currency,
-                baseCurrency: baseCurrency,
-                fxRates: fxRates
-            )
+        for row in autoTransferLegsOnShared {
+            let attributedUser = payer(of: row)
 
+            // `row` is a leg ON the shared account (`accountRows`), so its
+            // `amountNative` is in the shared account's currency already —
+            // the source leg on the payer's personal card is never summed
+            // (it only identifies the payer). No FX, no label (M11).
             if row.type == .income {
-                contributions[attributedUser, default: 0] += normalized
+                contributions[attributedUser, default: 0] += row.amountNative
             } else if row.type == .expense {
-                contributions[attributedUser, default: 0] -= normalized
+                contributions[attributedUser, default: 0] -= row.amountNative
             }
         }
 
@@ -308,10 +283,7 @@ enum SettlementCalculator {
         //    contributions so the greedy pass doesn't re-suggest them.
         //    Only settlements whose period-end falls inside the current
         //    view's period are applied (different periods are independent).
-        let periodDateFormatter = DateFormatter()
-        periodDateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        periodDateFormatter.timeZone = TimeZone(identifier: "UTC")
-        periodDateFormatter.dateFormat = "yyyy-MM-dd"
+        let periodDateFormatter = AppDateFormatters.utcDate
 
         for settlement in pastSettlements {
             guard settlement.sharedAccountId == sharedAccountId else { continue }
@@ -334,19 +306,14 @@ enum SettlementCalculator {
             let expensesById = Dictionary(
                 uniqueKeysWithValues: autoTransferExpenses.map { ($0.id, $0) }
             )
-            // Map auto_transfer_group_id → payer user id, derived from the
-            // peer leg's account. Using the same attribution logic as the
-            // contributions walk above so the payer matches who got the
-            // contribution credit.
+            // Map auto_transfer_group_id → payer user id via the same
+            // `payer(of:)` the contributions walk used, so the payer here is
+            // always the member who got the contribution credit — including
+            // when RLS hides the peer leg.
             var payerByGroupId: [String: String] = [:]
             for leg in autoTransferLegsOnShared where leg.type == .income {
-                guard let groupId = leg.transferGroupId else { continue }
-                let peer = transactions.first { $0.transferGroupId == groupId && $0.id != leg.id }
-                guard let peerAccountId = peer?.accountId else { continue }
-                let payer = personalAccountsByUser.first { _, accounts in
-                    accounts.contains(peerAccountId)
-                }?.key ?? leg.userId
-                payerByGroupId[groupId] = payer
+                guard let groupId = leg.autoTransferGroupId else { continue }
+                payerByGroupId[groupId] = payer(of: leg)
             }
 
             for memberSettlement in transactionMemberSettlements
@@ -358,15 +325,10 @@ enum SettlementCalculator {
                 // owe themselves anything for this txn.
                 if payer == memberSettlement.settledForUserId { continue }
 
-                // Share for the settled member, in base currency.
-                let normalizedTotal = normalizeToBase(
-                    amount: expense.amountNative,
-                    rowCurrency: expense.currency,
-                    baseCurrency: baseCurrency,
-                    fxRates: fxRates
-                )
+                // Share for the settled member, in the shared account's
+                // currency (the expense row lives on it — no FX, M11).
                 let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
-                let share = Decimal(normalizedTotal) * weight / sumWeights
+                let share = Decimal(expense.amountNative) * weight / sumWeights
                 var rounded = Decimal()
                 var src = share
                 NSDecimalRound(&rounded, &src, 0, .plain)
@@ -391,40 +353,6 @@ enum SettlementCalculator {
                 fairShare: fairShares[uid] ?? 0
             )
         }
-    }
-
-    /// Converts an `amount` (kopecks, interpreted as whatever `rowCurrency`
-    /// says the row was recorded in) into `baseCurrency` kopecks using
-    /// `fxRates` (USD-based). Falls back to the face-value amount when:
-    /// - `rowCurrency` or `baseCurrency` is nil/unknown,
-    /// - they match (no conversion needed),
-    /// - any of the required rates is missing/zero.
-    /// This keeps the engine robust when `CurrencyManager` hasn't loaded
-    /// rates yet (cold start, offline, etc) — a small currency drift is
-    /// preferable to a crash or wildly wrong settlement.
-    static func normalizeToBase(
-        amount: Int64,
-        rowCurrency: String?,
-        baseCurrency: String?,
-        fxRates: [String: Double]
-    ) -> Int64 {
-        guard let rowCurrency, let baseCurrency else { return amount }
-        let row = rowCurrency.uppercased()
-        let base = baseCurrency.uppercased()
-        if row == base { return amount }
-        guard let fromRate = fxRates[row], fromRate != 0,
-              let toRate = fxRates[base], toRate != 0
-        else { return amount }
-        // USD-based rates: rate[row] = rows-per-USD. To convert rows → base:
-        //   base_amount = amount / fromRate * toRate.
-        let decAmount = Decimal(amount)
-        let decFrom = Decimal(fromRate)
-        let decTo = Decimal(toRate)
-        let converted = decAmount / decFrom * decTo
-        var rounded = Decimal()
-        var src = converted
-        NSDecimalRound(&rounded, &src, 0, .plain)
-        return Int64(truncating: rounded as NSDecimalNumber)
     }
 
     /// Imbalances at or below this magnitude (kopecks) are treated as

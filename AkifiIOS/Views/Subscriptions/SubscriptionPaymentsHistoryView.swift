@@ -85,7 +85,7 @@ struct SubscriptionPaymentsHistoryView: View {
                 Text(formatDate(payment.paymentDate))
                     .font(.subheadline.weight(.medium))
                 if let createdAt = payment.createdAt {
-                    Text(formatDate(createdAt))
+                    Text(formatInstant(createdAt))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -125,12 +125,17 @@ struct SubscriptionPaymentsHistoryView: View {
 
     // MARK: - Formatting
 
+    /// A `yyyy-MM-dd` local day (`payment_date`).
     private func formatDate(_ raw: String) -> String {
         guard let date = SubscriptionDateEngine.parseDbDate(raw) else { return raw }
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .none
-        return df.string(from: date)
+        return AppDateFormatters.displayDate.string(from: date)
+    }
+
+    /// A timestamptz (`created_at`) — its first 10 characters are the UTC
+    /// day, not the user's, so it is parsed as an instant.
+    private func formatInstant(_ raw: String) -> String {
+        guard let date = AppDateFormatters.parseTimestamp(raw) else { return formatDate(raw) }
+        return AppDateFormatters.displayDate.string(from: date)
     }
 
     private func formatAmount(_ amountCents: Int64, currency: String) -> String {

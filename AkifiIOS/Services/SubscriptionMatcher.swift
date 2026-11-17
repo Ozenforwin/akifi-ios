@@ -10,12 +10,22 @@ import Foundation
 ///                            FX-converted into the sub's currency before the
 ///                            ±5 % comparison — so a 668 RUB-eq charge can still
 ///                            match a $9 USD subscription.
-///   * Date        — 30 pts — linear: `30 * (1 - daysDiff / windowDays)` inside a ±7-day window.
+///   * Date        — 30 pts — linear: `30 * (1 - daysDiff / windowDays)`, where
+///                            `daysDiff` is the distance to the nearest charge date
+///                            of the subscription's schedule (`SubscriptionDateEngine`).
 ///   * Merchant    — 20 pts — case-insensitive substring match between
 ///                             `tx.merchantName` (or `description`) and `sub.serviceName`.
 ///
-/// A candidate is a *match* iff `score >= 60`. If several subscriptions clear
-/// the threshold, the highest-scoring one wins (ties → first in input order).
+/// Date gate (D7, 2026-11-17): a transaction more than `dateWindowDays` away
+/// from every scheduled charge date scores a total of 0 — amount + merchant
+/// alone (70) used to clear the threshold, so a bank charge entered on the
+/// 7th for a subscription the server had already charged on the 5th became a
+/// second payment and moved the schedule to the 7th.
+///
+/// A candidate is a *match* iff `score >= 60`. `bestMatch` additionally never
+/// matches a charge date that is already paid (at or before the cycle settled
+/// by `lastPaymentDate`). If several subscriptions clear the threshold, the
+/// highest-scoring one wins (ties → first in input order).
 enum SubscriptionMatcher {
 
     // MARK: - Configuration
@@ -34,6 +44,8 @@ enum SubscriptionMatcher {
     struct Match: Sendable {
         let subscription: SubscriptionTracker
         let score: Int
+        /// The scheduled charge date this transaction pays.
+        let chargeDate: Date
 
         /// Break-down for debugging / analytics.
         let amountScore: Int
@@ -107,15 +119,11 @@ enum SubscriptionMatcher {
             return ratio <= amountTolerance ? 50 : 0
         }()
 
-        // --- Date proximity (30) ---
+        // --- Date proximity (30) + window gate ---
+        let days = daysToNearestCharge(transaction: transaction, subscription: subscription, calendar: calendar)
+        let inWindow = days.map { $0 <= dateWindowDays } ?? false
         let dateScore: Int = {
-            guard let nextStr = subscription.nextPaymentDate,
-                  let nextDate = SubscriptionDateEngine.parseDbDate(nextStr),
-                  let txDate = SubscriptionDateEngine.parseDbDate(transaction.date) else {
-                return 0
-            }
-            let days = abs(calendar.dateComponents([.day], from: txDate, to: nextDate).day ?? Int.max)
-            guard days <= dateWindowDays else { return 0 }
+            guard let days, inWindow else { return 0 }
             let fraction = 1.0 - Double(days) / Double(dateWindowDays)
             return Int((30.0 * fraction).rounded())
         }()
@@ -139,8 +147,60 @@ enum SubscriptionMatcher {
             return matched ? 20 : 0
         }()
 
-        let total = amountScore + dateScore + merchantScore
+        // Outside the window nothing counts: amount + merchant (70) would
+        // otherwise clear the threshold on their own.
+        let total = inWindow ? amountScore + dateScore + merchantScore : 0
         return (total, amountScore, dateScore, merchantScore)
+    }
+
+    /// The scheduled charge date nearest to the transaction's day, when the
+    /// subscription has a schedule.
+    static func expectedChargeDate(
+        for transaction: Transaction,
+        subscription: SubscriptionTracker,
+        calendar: Calendar = .current
+    ) -> Date? {
+        let cal = scheduleCalendar(calendar)
+        guard let anchor = SubscriptionDateEngine.anchor(for: subscription, calendar: cal),
+              let txDate = SubscriptionDateEngine.parseDay(transaction.date, calendar: cal) else { return nil }
+        return SubscriptionDateEngine.nearestChargeDate(
+            to: txDate, anchor: anchor, period: subscription.billingPeriod, calendar: cal
+        )
+    }
+
+    private static func daysToNearestCharge(
+        transaction: Transaction,
+        subscription: SubscriptionTracker,
+        calendar: Calendar
+    ) -> Int? {
+        let cal = scheduleCalendar(calendar)
+        guard let expected = expectedChargeDate(for: transaction, subscription: subscription, calendar: cal),
+              let txDate = SubscriptionDateEngine.parseDay(transaction.date, calendar: cal) else { return nil }
+        return abs(SubscriptionDateEngine.daysBetween(txDate, expected, calendar: cal))
+    }
+
+    /// True when `chargeDate` is already paid: at or before the cycle that
+    /// `lastPaymentDate` settled (or `lastPaymentDate` itself when that
+    /// payment was off-schedule).
+    static func isAlreadyCharged(
+        _ chargeDate: Date,
+        subscription: SubscriptionTracker,
+        calendar: Calendar = .current
+    ) -> Bool {
+        let cal = scheduleCalendar(calendar)
+        guard let last = SubscriptionDateEngine.parseDay(subscription.lastPaymentDate, calendar: cal) else {
+            return false
+        }
+        let settled = SubscriptionDateEngine.chargedCycle(
+            forPaymentOn: last, subscription: subscription, calendar: cal
+        ) ?? last
+        return SubscriptionDateEngine.daysBetween(settled, chargeDate, calendar: cal) <= 0
+    }
+
+    /// Gregorian calendar in the caller's time zone — `Calendar.current`
+    /// can be Buddhist; stored day strings are gregorian.
+    private static func scheduleCalendar(_ calendar: Calendar) -> Calendar {
+        AppDateFormatters.gregorian(timeZone: calendar.timeZone)
     }
 
     /// Find the best matching subscription for a transaction, if any crosses
@@ -168,8 +228,11 @@ enum SubscriptionMatcher {
                 fxRates: fxRates,
                 baseCode: baseCode
             )
-            guard total >= matchThreshold else { return nil }
-            return Match(subscription: sub, score: total, amountScore: a, dateScore: d, merchantScore: m)
+            guard total >= matchThreshold,
+                  let chargeDate = expectedChargeDate(for: transaction, subscription: sub, calendar: calendar),
+                  !isAlreadyCharged(chargeDate, subscription: sub, calendar: calendar) else { return nil }
+            return Match(subscription: sub, score: total, chargeDate: chargeDate,
+                         amountScore: a, dateScore: d, merchantScore: m)
         }
 
         // Highest score wins; stable — first candidate kept on ties.

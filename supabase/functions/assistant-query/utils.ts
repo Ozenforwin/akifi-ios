@@ -12,8 +12,7 @@ export {
 } from '../_shared/utils.ts';
 import { parseDateOnly, toDateOnly, addDays } from '../_shared/utils.ts';
 import { formatMoney as _formatMoney } from '../_shared/utils.ts';
-
-const DEFAULT_CURRENCY = (Deno.env.get('BOT_DEFAULT_CURRENCY') ?? 'RUB').toUpperCase();
+import { requestCurrency, requestLang } from './request-context.ts';
 
 export function diffDaysInclusive(start: string, end: string): number {
   const ms = parseDateOnly(end).getTime() - parseDateOnly(start).getTime();
@@ -74,15 +73,18 @@ export function safeNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/// Format an amount that is in the user's DISPLAY currency (everything
+/// derived from `amount_in_base`). The currency comes from the request
+/// (iOS `display_currency`, else `profiles.default_currency`) — it used to
+/// be hard-wired to RUB, so a USD user read «1 234 ₽» for $1 234 (M9).
 export function formatMoney(value: number): string {
-  return _formatMoney(value, DEFAULT_CURRENCY);
+  return _formatMoney(value, requestCurrency(), requestLang());
 }
 
 /// Format in a specific currency (account/budget-local amounts). Falls
-/// back to the default when the code is missing — never label a foreign
-/// amount with the base symbol.
+/// back to the display currency when the code is missing.
 export function formatMoneyIn(value: number, currency?: string | null): string {
-  return _formatMoney(value, (currency || DEFAULT_CURRENCY).toUpperCase());
+  return _formatMoney(value, (currency || requestCurrency()).toUpperCase(), requestLang());
 }
 
 export function periodLabel(period: AssistantPeriod | string, customDays?: number): string {

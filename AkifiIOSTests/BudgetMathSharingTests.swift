@@ -17,7 +17,7 @@ final class BudgetMathSharingTests: XCTestCase {
 
     /// Current month so the tx lands inside the budget's period.
     private var todayStr: String {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.dateFormat = "yyyy-MM-dd"
         return df.string(from: Date())
     }
@@ -185,7 +185,7 @@ final class BudgetMathSharingTests: XCTestCase {
     // MARK: - External spend (partner rows via RPC)
 
     private func makeExternalRow(amount: Decimal, currency: String = "RUB", daysAgo: Int = 0) -> BudgetMath.ExternalSpendRow {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.dateFormat = "yyyy-MM-dd"
         let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date())!
         return BudgetMath.ExternalSpendRow(

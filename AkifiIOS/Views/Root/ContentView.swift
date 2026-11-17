@@ -61,6 +61,9 @@ struct ContentView: View {
             }
         }
         .task {
+            // `initialize()` returns as soon as the disk cache is on screen
+            // (P3) — the network refresh continues behind the UI. Without a
+            // cache (first launch) it waits for the network.
             let initTask = Task { await appViewModel.initialize() }
             try? await Task.sleep(for: .seconds(1.5))
             // The splash must never be held hostage by the network: if
@@ -80,11 +83,12 @@ struct ContentView: View {
             withAnimation(.easeOut(duration: 0.4)) {
                 showSplash = false
             }
-            // After the initial load settles, reconcile pending notifications
-            // with the current subscription list. Non-blocking — runs after
-            // `loadAll` has populated `dataStore.subscriptions`.
-            let subs = appViewModel.dataStore.subscriptions
+            // Once the background refresh has fresh subscriptions, reconcile
+            // pending notifications with them. Non-blocking for the UI.
             Task {
+                await appViewModel.waitForInitialRefresh()
+                guard appViewModel.authManager.isAuthenticated else { return }
+                let subs = appViewModel.dataStore.subscriptions
                 await NotificationManager.rescheduleAllReminders(subscriptions: subs)
                 await scheduleWeeklyDigestIfNeeded()
             }
@@ -93,6 +97,8 @@ struct ContentView: View {
             if isAuth {
                 Task {
                     await appViewModel.loadAfterAuth()
+                    await appViewModel.waitForInitialRefresh()
+                    guard appViewModel.authManager.isAuthenticated else { return }
                     let subs = appViewModel.dataStore.subscriptions
                     await NotificationManager.rescheduleAllReminders(subscriptions: subs)
                     await scheduleWeeklyDigestIfNeeded()
@@ -253,24 +259,41 @@ struct MainTabView: View {
                 .zIndex(3)
             }
 
-            // Subscription auto-match banner (non-modal, above tab bar, below overlays)
-            if let match = appViewModel.dataStore.pendingAutoMatch {
-                VStack {
-                    SubscriptionMatchBanner(
-                        match: match,
-                        onUndo: {
-                            Task { await appViewModel.dataStore.undoAutoMatch() }
-                        },
-                        onDismiss: {
-                            appViewModel.dataStore.clearPendingAutoMatch()
-                        }
-                    )
-                    .id(match.id)
+            // Top banners (non-modal, below overlays): data problems (Y7) and
+            // the subscription auto-match undo. Stacked, never overlapping.
+            let dataIssue = appViewModel.dataStore.issue
+            let match = appViewModel.dataStore.pendingAutoMatch
+            if dataIssue != nil || match != nil {
+                VStack(spacing: 8) {
+                    if let dataIssue {
+                        DataIssueBanner(
+                            issue: dataIssue,
+                            onRetry: dataIssue.kind == .load
+                                ? { Task { await appViewModel.dataStore.loadAll() } }
+                                : nil,
+                            onDismiss: { appViewModel.dataStore.dismissIssue() }
+                        )
+                        .id(dataIssue.id)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    if let match {
+                        SubscriptionMatchBanner(
+                            match: match,
+                            onUndo: {
+                                Task { await appViewModel.dataStore.undoAutoMatch() }
+                            },
+                            onDismiss: {
+                                appViewModel.dataStore.clearPendingAutoMatch()
+                            }
+                        )
+                        .id(match.id)
+                    }
                     Spacer()
                 }
                 .padding(.top, 8)
                 .zIndex(2)
-                .animation(.easeInOut(duration: 0.25), value: appViewModel.dataStore.pendingAutoMatch)
+                .animation(.easeInOut(duration: 0.25), value: match)
+                .animation(.easeInOut(duration: 0.25), value: dataIssue)
             }
 
             // Spotlight onboarding overlay (must be LAST — above everything)
@@ -314,14 +337,19 @@ struct MainTabView: View {
                 spotlightManager.start()
             }
         }
-        .onChange(of: appViewModel.dataStore.transactions.count) { _, newCount in
-            if newCount > 0 {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1.0))
-                    spotlightManager.start()
+        .background {
+            // Observes `transactions` in its own tiny view: an `onChange` here
+            // made every data change re-run this whole body and rebuild the
+            // struct of every kept-alive tab (P2).
+            TransactionCountObserver { newCount in
+                if newCount > 0 {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(1.0))
+                        spotlightManager.start()
+                    }
+                    // Streak milestone check (piggy-backs on transaction change).
+                    checkStreakMilestone()
                 }
-                // Streak milestone check (piggy-backs on transaction change).
-                checkStreakMilestone()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pushNotificationTapped)) { notification in
@@ -508,6 +536,79 @@ struct MainTabView: View {
         } catch {
             // Silent — achievements are non-critical
         }
+    }
+}
+
+// MARK: - Data issue banner (Y7)
+
+/// Small top banner for `DataStore.issue`: a refresh that only partly
+/// succeeded (cached values are showing) or a user action that failed.
+/// Auto-dismisses; a load problem offers "Повторить".
+private struct DataIssueBanner: View {
+    let issue: DataStore.Issue
+    let onRetry: (() -> Void)?
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: issue.kind == .load ? "exclamationmark.arrow.triangle.2.circlepath" : "exclamationmark.triangle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            Text(issue.message)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.primary)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let onRetry {
+                Button(String(localized: "sync.error.retry")) {
+                    onRetry()
+                    onDismiss()
+                }
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.borderless)
+            }
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "common.close"))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
+        )
+        .padding(.horizontal, 16)
+        .accessibilityElement(children: .combine)
+        .task(id: issue.id) {
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            onDismiss()
+        }
+    }
+}
+
+/// Zero-size observer of the transaction count, so `MainTabView.body`
+/// itself doesn't depend on `transactions`.
+private struct TransactionCountObserver: View {
+    @Environment(AppViewModel.self) private var appViewModel
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .onChange(of: appViewModel.dataStore.transactions.count) { _, newCount in
+                onChange(newCount)
+            }
     }
 }
 

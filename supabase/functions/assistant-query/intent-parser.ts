@@ -1,6 +1,7 @@
 import { isIntent, isPeriod, type AssistantIntent, type AssistantPeriod } from '../_shared/assistant-schema.ts';
 import { createOpenAIJsonCompletion, type OpenAIUsage } from '../_shared/openai.ts';
 import { normalizeForMatch } from './utils.ts';
+import { requestToday } from './request-context.ts';
 import type {
   ParsedIntent,
   ConversationMessage,
@@ -104,7 +105,7 @@ function setClassifyCache(key: string, result: ClassificationResult): void {
   classifyCache.set(key, { result, ts: Date.now() });
 }
 
-export function parseIntentAndPeriod(query: string): ParsedIntent {
+export function parseIntentAndPeriod(query: string, today?: string): ParsedIntent {
   const normalized = normalizeForMatch(query);
 
   let period: AssistantPeriod = 'month';
@@ -116,7 +117,10 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
   let explicitDate: string | undefined;
   let explicitEndDate: string | undefined;
   {
-    const now = new Date();
+    // «вчера» / «7 июля» are relative to the USER's calendar day, not the
+    // server's UTC date (D6: at 06:00 in UTC+7 «вчера» meant two days ago).
+    const todayIso = today ?? requestToday();
+    const now = new Date(`${todayIso}T12:00:00.000Z`);
     const isoDay = (offset: number): string => {
       const d = new Date(now);
       d.setUTCDate(d.getUTCDate() - offset);
@@ -151,7 +155,7 @@ export function parseIntentAndPeriod(query: string): ParsedIntent {
           const dd = String(day).padStart(2, '0');
           let candidate = `${year}-${mm}-${dd}`;
           // «7 декабря» asked in July means last December, not the future.
-          if (!m[4] && candidate > now.toISOString().slice(0, 10)) {
+          if (!m[4] && candidate > todayIso) {
             year -= 1;
             candidate = `${year}-${mm}-${dd}`;
           }

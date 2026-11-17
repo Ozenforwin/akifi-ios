@@ -1,6 +1,226 @@
 {
   "sourceLanguage" : "ru",
   "strings" : {
+    "budget.accounts.hiddenLinked %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other members' accounts: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuentas de otros miembros: %lld"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ещё счетов участников: %lld"
+          }
+        }
+      }
+    },
+    "budget.history.byMember" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spending by member"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gasto por miembro"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кто сколько потратил"
+          }
+        }
+      }
+    },
+    "budget.history.member.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Member"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miembro"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Участник"
+          }
+        }
+      }
+    },
+    "budget.history.member.you" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tú"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вы"
+          }
+        }
+      }
+    },
+    "budget.partial.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Members' spending may be incomplete — no connection to the server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El gasto de los miembros puede estar incompleto: no hay conexión con el servidor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Траты участников могут быть неполными — нет связи с сервером"
+          }
+        }
+      }
+    },
+    "common.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Другое"
+          }
+        }
+      }
+    },
+    "currencyReconciliation.error.rateMissing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't get the exchange rate. Try again later"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo obtener el tipo de cambio. Inténtalo más tarde"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось получить курс. Попробуйте позже"
+          }
+        }
+      }
+    },
+    "currencyReconciliation.rate.approximate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's rate (approximate)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo de hoy (aproximado)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Курс на сегодня (приблизительно)"
+          }
+        }
+      }
+    },
+    "currencyReconciliation.rate.pair" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate from the linked transaction"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo de la transacción vinculada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Курс из связанной транзакции"
+          }
+        }
+      }
+    },
+    "currencyReconciliation.rate.historical %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate on %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo del %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Курс на %@"
+          }
+        }
+      }
+    },
     "" : {
 
     },
@@ -327,6 +547,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Чтобы сменить валюту, создайте новый счёт — у этого уже есть транзакции в текущей."
+          }
+        }
+      }
+    },
+    "account.currency.ownerOnly.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the account owner can change its currency."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el propietario de la cuenta puede cambiar su moneda."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюту счёта может изменить только его владелец."
           }
         }
       }
@@ -10111,6 +10353,28 @@
         }
       }
     },
+    "csv.currency" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currency"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moneda"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Валюта"
+          }
+        }
+      }
+    },
     "csv.date" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14889,6 +15153,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Пессимистично"
+          }
+        }
+      }
+    },
+    "fx.error.missingRate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No exchange rate for %1$@ → %2$@. Connect to the internet and try again — without a rate the amount would be saved incorrectly."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay tipo de cambio %1$@ → %2$@. Conéctate a internet y vuelve a intentarlo: sin el tipo de cambio el importe se guardaría mal."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет курса %1$@ → %2$@. Подключитесь к интернету и повторите — без курса сумма сохранится неверно."
           }
         }
       }
@@ -22050,6 +22336,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Удалить"
+          }
+        }
+      }
+    },
+    "offline.syncFailed.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторить"
           }
         }
       }
@@ -32967,6 +33275,72 @@
         }
       }
     },
+    "sync.error.deleteFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete the transaction: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo eliminar la transacción: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось удалить операцию: %@"
+          }
+        }
+      }
+    },
+    "sync.error.partialLoad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't refresh everything — showing saved data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo actualizar todo: se muestran los datos guardados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не всё обновилось — показаны сохранённые данные"
+          }
+        }
+      }
+    },
+    "sync.error.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторить"
+          }
+        }
+      }
+    },
     "tab.analytics" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -34738,6 +35112,50 @@
         }
       }
     },
+    "tx.autoTransfer.legReadOnly.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This transfer was created together with the expense «%@». To change the amount, date or account, edit the expense itself."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta transferencia se creó junto con el gasto «%@». Para cambiar el importe, la fecha o la cuenta, edita el propio gasto."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот перевод создан вместе с расходом «%@». Чтобы изменить сумму, дату или счёт, отредактируйте сам расход."
+          }
+        }
+      }
+    },
+    "tx.autoTransfer.legReadOnly.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Part of an auto-transfer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parte de una transferencia automática"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Часть автоперевода"
+          }
+        }
+      }
+    },
     "tx.category" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -34849,6 +35267,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Редактирование"
+          }
+        }
+      }
+    },
+    "tx.error.alreadyDeleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This transaction has already been deleted. Refresh the list."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta operación ya se eliminó. Actualiza la lista."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта операция уже удалена. Обновите список."
+          }
+        }
+      }
+    },
+    "tx.error.noPermission" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You don't have permission to change this transaction."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tienes permiso para modificar esta operación."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недостаточно прав, чтобы изменить эту операцию."
+          }
+        }
+      }
+    },
+    "tx.error.onlyPayerCanEdit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This expense was paid from another member's card — only they can edit or delete it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este gasto se pagó con la tarjeta de otro miembro: solo esa persona puede editarlo o eliminarlo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот расход оплачен с карты другого участника — изменить или удалить его может только он."
           }
         }
       }

@@ -89,12 +89,21 @@ final class SubscriptionsViewModel {
             let amountDecimal = Decimal(amount) / 100
             let nextStr = SubscriptionDateEngine.formatDbDate(nextPaymentDate)
             let lastStr = lastPaymentDate.map(SubscriptionDateEngine.formatDbDate)
+            // start_date is the schedule anchor the server bills from
+            // (SubscriptionDateEngine contract): the last payment — or today
+            // when none was given — if the chosen next date is on its
+            // schedule, otherwise the next date itself.
+            let anchor = SubscriptionDateEngine.resolveAnchor(
+                candidates: [lastPaymentDate ?? Date()],
+                nextPayment: nextPaymentDate,
+                period: period
+            )
             let input = CreateSubscriptionInput(
                 user_id: resolvedUserId,
                 service_name: name,
                 amount: amountDecimal,
                 billing_period: period.rawValue,
-                start_date: lastStr ?? SubscriptionDateEngine.formatDbDate(Date()),
+                start_date: SubscriptionDateEngine.formatDbDate(anchor),
                 last_payment_date: lastStr,
                 next_payment_date: nextStr,
                 icon_color: color,
@@ -127,11 +136,17 @@ final class SubscriptionsViewModel {
         error = nil
         do {
             let amountDecimal = Decimal(amount) / 100
+            let startDate = Self.startDateToWrite(
+                stored: subscriptions.first(where: { $0.id == id }),
+                period: period,
+                lastPaymentDate: lastPaymentDate,
+                nextPaymentDate: nextPaymentDate
+            )
             let input = UpdateSubscriptionInput(
                 service_name: name,
                 amount: amountDecimal,
                 billing_period: period.rawValue,
-                start_date: nil,
+                start_date: startDate,
                 last_payment_date: lastPaymentDate.map(SubscriptionDateEngine.formatDbDate),
                 next_payment_date: SubscriptionDateEngine.formatDbDate(nextPaymentDate),
                 icon_color: color,
@@ -152,6 +167,7 @@ final class SubscriptionsViewModel {
                 sub.iconColor = color
                 sub.categoryId = categoryId
                 sub.accountId = accountId
+                if let startDate { sub.startDate = startDate }
                 sub.lastPaymentDate = lastPaymentDate.map(SubscriptionDateEngine.formatDbDate)
                 sub.nextPaymentDate = SubscriptionDateEngine.formatDbDate(nextPaymentDate)
                 if let status {
@@ -166,6 +182,39 @@ final class SubscriptionsViewModel {
             self.error = error.localizedDescription
             return false
         }
+    }
+
+    /// The `start_date` (schedule anchor) an edit must write, or nil to leave
+    /// it alone.
+    ///
+    /// Only when the schedule itself changed — the next date or the period.
+    /// Then the stored anchor is kept if the new next date is still on its
+    /// schedule (a 31st billing day survives February), else the last
+    /// payment, else the next date.
+    ///
+    /// Leaving it alone otherwise also keeps the DB trigger
+    /// `subscription_set_default_next_payment` quiet: it recomputes
+    /// next_payment_date whenever start_date changes while next_payment_date
+    /// does not.
+    nonisolated static func startDateToWrite(
+        stored: SubscriptionTracker?,
+        period: BillingPeriod,
+        lastPaymentDate: Date?,
+        nextPaymentDate: Date
+    ) -> String? {
+        let nextStr = SubscriptionDateEngine.formatDbDate(nextPaymentDate)
+        if let stored,
+           stored.billingPeriod == period,
+           stored.nextPaymentDate.map({ String($0.prefix(10)) }) == nextStr {
+            return nil
+        }
+        let anchor = SubscriptionDateEngine.resolveAnchor(
+            candidates: [SubscriptionDateEngine.parseDbDate(stored?.startDate), lastPaymentDate],
+            nextPayment: nextPaymentDate,
+            period: period
+        )
+        let anchorStr = SubscriptionDateEngine.formatDbDate(anchor)
+        return anchorStr == stored.map({ String($0.startDate.prefix(10)) }) ? nil : anchorStr
     }
 
     // MARK: - Status transitions
@@ -209,6 +258,11 @@ final class SubscriptionsViewModel {
     /// Records a payment, advances the subscription's `lastPaymentDate`,
     /// recalculates `nextPaymentDate`, and reschedules the reminder.
     ///
+    /// The next date follows the schedule (anchor + k periods), not the
+    /// payment day: paying on the 20th for a subscription billed on the 17th
+    /// keeps the 17th. Recording an older payment never moves
+    /// `nextPaymentDate` or `lastPaymentDate` backwards.
+    ///
     /// Not a DB transaction — payment row is created first (source of truth),
     /// then subscription dates are patched. See ADR-004.
     @discardableResult
@@ -228,13 +282,14 @@ final class SubscriptionsViewModel {
         do {
             let payment = try await repo.addPayment(insertInput)
 
-            let nextPayment = SubscriptionDateEngine.nextPaymentDate(from: date, period: sub.billingPeriod)
+            let nextPayment = SubscriptionDateEngine.nextPaymentDate(for: sub, afterPaymentOn: date)
             let nextStr = SubscriptionDateEngine.formatDbDate(nextPayment)
-            try await repo.updateDates(id: subscriptionId, lastPaymentDate: paymentDateStr, nextPaymentDate: nextStr)
+            let lastStr = max(paymentDateStr, sub.lastPaymentDate.map { String($0.prefix(10)) } ?? "")
+            try await repo.updateDates(id: subscriptionId, lastPaymentDate: lastStr, nextPaymentDate: nextStr)
 
             if let idx = subscriptions.firstIndex(where: { $0.id == subscriptionId }) {
                 var updated = subscriptions[idx]
-                updated.lastPaymentDate = paymentDateStr
+                updated.lastPaymentDate = lastStr
                 updated.nextPaymentDate = nextStr
                 subscriptions[idx] = updated
                 await scheduleReminder(for: updated)

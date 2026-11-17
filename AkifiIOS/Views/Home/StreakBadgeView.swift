@@ -69,11 +69,7 @@ struct StreakBadgeView: View {
         return String(localized: "streak.days.many")
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private static var dateFormatter: DateFormatter { AppDateFormatters.isoDate }
 
     private func calculateStreak() {
         let df = Self.dateFormatter

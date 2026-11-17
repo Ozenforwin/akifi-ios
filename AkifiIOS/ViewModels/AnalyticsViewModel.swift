@@ -16,11 +16,27 @@ enum AnalyticsPeriod: String, CaseIterable, Sendable {
     }
 }
 
-struct CashflowPoint: Identifiable, Sendable {
-    let id = UUID()
+struct CashflowPoint: Identifiable, Sendable, Equatable {
     let label: String
     let income: Decimal
     let expense: Decimal
+
+    /// Bucket labels are unique within one chart, so the label is a stable
+    /// identity — a fresh `UUID()` per recompute made Charts rebuild every bar.
+    var id: String { label }
+}
+
+extension AnalyticsPeriod {
+    /// Cashflow bucketing for the period picker shared by the analytics
+    /// panels: days for a day/week, weeks for a month, months beyond.
+    init(_ period: WidgetPeriod) {
+        switch period {
+        case .day, .week: self = .week
+        case .month: self = .month
+        case .threeMonths: self = .quarter
+        case .year: self = .year
+        }
+    }
 }
 
 struct CategorySpending: Identifiable, Sendable {
@@ -75,8 +91,9 @@ final class AnalyticsViewModel {
     }
 
     /// "dd.MM" bucket label for week/month period modes.
+    /// Axis label only — buckets are keyed by date, never by this string.
     private static let dayLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.dateFormat = "dd.MM"
         return df
@@ -84,36 +101,56 @@ final class AnalyticsViewModel {
 
     /// "MM.yy" bucket label for quarter/year period modes.
     private static let monthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
         df.dateFormat = "MM.yy"
         return df
     }()
 
     func cashflowData(from transactions: [Transaction], dataStore: DataStore) -> [CashflowPoint] {
+        Self.cashflowData(from: transactions, period: selectedPeriod, dataStore: dataStore)
+    }
+
+    /// Buckets non-transfer income / expense by `period` (see
+    /// `AnalyticsPeriod.init(_: WidgetPeriod)`), oldest bucket first.
+    static func cashflowData(
+        from transactions: [Transaction],
+        period: AnalyticsPeriod,
+        dataStore: DataStore
+    ) -> [CashflowPoint] {
         let calendar = Calendar.current
+        let dateFormatter = AppDateFormatters.isoDate
         // Keyed by the bucket's anchor DATE (not its label) so the output
         // can be sorted chronologically — dictionary order previously drove
         // the bar order and charts could render buckets shuffled.
         var grouped: [Date: (income: Decimal, expense: Decimal)] = [:]
+        // A year of rows spans at most ~366 distinct days: parse and bucket
+        // each day once instead of once per row.
+        var bucketByDay: [String: Date?] = [:]
 
-        let labelFormatter = selectedPeriod == .quarter || selectedPeriod == .year
-            ? Self.monthLabelFormatter
-            : Self.dayLabelFormatter
+        let labelFormatter = period == .quarter || period == .year
+            ? monthLabelFormatter
+            : dayLabelFormatter
 
         for tx in transactions {
             guard !tx.isTransfer else { continue }
-            guard let txDate = dateFormatter.date(from: tx.date) else { continue }
-
-            let bucket: Date
-            switch selectedPeriod {
-            case .week:
-                bucket = calendar.startOfDay(for: txDate)
-            case .month:
-                bucket = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: txDate))!
-            case .quarter, .year:
-                bucket = calendar.date(from: calendar.dateComponents([.year, .month], from: txDate))!
+            let bucket: Date?
+            if let cached = bucketByDay[tx.date] {
+                bucket = cached
+            } else {
+                bucket = dateFormatter.date(from: tx.date).map { txDate in
+                    switch period {
+                    case .week:
+                        return calendar.startOfDay(for: txDate)
+                    case .month:
+                        return calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: txDate))!
+                    case .quarter, .year:
+                        return calendar.date(from: calendar.dateComponents([.year, .month], from: txDate))!
+                    }
+                }
+                bucketByDay[tx.date] = bucket
             }
+            guard let bucket else { continue }
 
             var entry = grouped[bucket, default: (income: .zero, expense: .zero)]
             let amount = dataStore.amountInBaseDisplay(tx)

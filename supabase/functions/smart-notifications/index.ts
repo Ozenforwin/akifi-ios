@@ -1,6 +1,21 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
-import { toDateOnly } from "../_shared/utils.ts";
+import { formatMoney, toDateOnly } from "../_shared/utils.ts";
+import { isCronAuthorized } from "../_shared/auth.ts";
+import { fetchAll } from "../_shared/paging.ts";
+import { getRubRates } from "../_shared/fx.ts";
+import { tryConvertCurrency } from "../_shared/currency.ts";
+import { localDate, localHour, resolveTimeZone, startOfLocalDayUtc } from "../_shared/timezone.ts";
+import {
+  describeError,
+  escapeHtml,
+  fcmConfigured,
+  type InlineButton,
+  pushTextFromHtml,
+  sendFcmPush,
+  sendTelegramMessage,
+  telegramConfigured,
+} from "../_shared/notify.ts";
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -8,11 +23,7 @@ import { toDateOnly } from "../_shared/utils.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const TELEGRAM_BOT_USERNAME = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "akifiapp_bot";
-const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON") ?? "";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,21 +42,18 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function isAuthorized(req: Request): boolean {
-  // Supabase gateway already validates JWT (verify_jwt = true by default).
-  // Any request that reaches this function has a valid anon/service-role key.
-  const bearer = (req.headers.get("authorization") ?? "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
-  const cronHeader = (req.headers.get("x-cron-secret") ?? "").trim();
-  if (CRON_SECRET && (bearer === CRON_SECRET || cronHeader === CRON_SECRET))
-    return true;
-  if (bearer) return true;
-  return false;
-}
+// Auth: only the DB trigger and pg_cron call this function, with
+// CRON_SECRET (`_shared/auth.ts`). verify_jwt = false (config.toml), so the
+// old "any non-empty bearer is fine" fallback let anyone holding the public
+// anon key push a fake «крупная трата» to any user (S4).
 
 function formatRub(amount: number): string {
   return Math.round(amount).toLocaleString("ru-RU");
+}
+
+/** An amount in ITS OWN currency, separators by the user's language (M4). */
+function money(amount: number, currency: string | null | undefined, lang: Lang): string {
+  return formatMoney(amount, (currency || "RUB").toUpperCase(), lang);
 }
 
 function plural(n: number, one: string, few: string, many: string): string {
@@ -178,6 +186,20 @@ function resolvePeriodWindow(
 // toDateOnly — imported from _shared/utils.ts
 
 // ---------------------------------------------------------------------------
+// User time zone (profiles.timezone → ai_user_settings.timezone → UTC),
+// cached per request batch.
+// ---------------------------------------------------------------------------
+const tzCache = new Map<string, string>();
+
+async function userTimeZone(supabase: SupabaseClient, userId: string): Promise<string> {
+  const cached = tzCache.get(userId);
+  if (cached) return cached;
+  const tz = await resolveTimeZone(supabase, userId);
+  tzCache.set(userId, tz);
+  return tz;
+}
+
+// ---------------------------------------------------------------------------
 // Quiet hours check
 // ---------------------------------------------------------------------------
 async function isInQuietHours(
@@ -186,19 +208,14 @@ async function isInQuietHours(
 ): Promise<boolean> {
   const { data } = await supabase
     .from("ai_user_settings")
-    .select("quiet_hours_start,quiet_hours_end,timezone")
+    .select("quiet_hours_start,quiet_hours_end")
     .eq("user_id", userId)
     .maybeSingle();
 
   if (!data || data.quiet_hours_start === null || data.quiet_hours_end === null)
     return false;
 
-  const tz = data.timezone || "Europe/Moscow";
-  const nowInTz = new Date(
-    new Date().toLocaleString("en-US", { timeZone: tz }),
-  );
-  const hour = nowInTz.getHours();
-
+  const hour = localHour(new Date(), await userTimeZone(supabase, userId));
   const start = data.quiet_hours_start as number;
   const end = data.quiet_hours_end as number;
 
@@ -210,15 +227,14 @@ async function isInQuietHours(
 }
 
 // ---------------------------------------------------------------------------
-// Rate limit check
+// Rate limit check — "per day" is the user's local day, not the server's.
 // ---------------------------------------------------------------------------
 async function isRateLimited(
   supabase: SupabaseClient,
   userId: string,
   dailyLimit: number,
 ): Promise<boolean> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = startOfLocalDayUtc(new Date(), await userTimeZone(supabase, userId));
 
   const { count } = await supabase
     .from("notification_log")
@@ -229,150 +245,13 @@ async function isRateLimited(
   return (count ?? 0) >= dailyLimit;
 }
 
-// ---------------------------------------------------------------------------
-// Telegram send
-// ---------------------------------------------------------------------------
-interface InlineButton {
-  text: string;
-  url: string;
-}
-
-async function sendTelegramMessage(
-  chatId: string | number,
-  text: string,
-  buttons?: InlineButton[],
-): Promise<void> {
-  const body: Record<string, unknown> = {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-  };
-
-  if (buttons && buttons.length > 0) {
-    body.reply_markup = {
-      inline_keyboard: [buttons.map((b) => ({ text: b.text, url: b.url }))],
-    };
-  }
-
-  const res = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  );
-  const payload = await res.json().catch(() => null);
-  if (!res.ok || !payload?.ok) {
-    throw new Error(
-      `Telegram API failed (${res.status}): ${JSON.stringify(payload)}`,
-    );
-  }
-}
-
 function deepLink(tab: string): string {
   return `https://t.me/${TELEGRAM_BOT_USERNAME}/app?startapp=tab_${tab}`;
 }
 
 // ---------------------------------------------------------------------------
-// FCM Push Notification (Firebase Cloud Messaging HTTP v1 API)
-// ---------------------------------------------------------------------------
-let _fcmAccessToken: string | null = null;
-let _fcmTokenExpiry = 0;
-
-async function getFCMAccessToken(): Promise<string | null> {
-  if (_fcmAccessToken && Date.now() < _fcmTokenExpiry) return _fcmAccessToken;
-  if (!FIREBASE_SERVICE_ACCOUNT_JSON) return null;
-
-  try {
-    const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
-    const now = Math.floor(Date.now() / 1000);
-    const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-    const payload = btoa(JSON.stringify({
-      iss: sa.client_email,
-      scope: "https://www.googleapis.com/auth/firebase.messaging",
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-    }));
-
-    // Sign JWT with service account private key
-    const key = await crypto.subtle.importKey(
-      "pkcs8",
-      pemToBuf(sa.private_key),
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["sign"],
-    );
-    const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${payload}`));
-    const jwt = `${header}.${payload}.${btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
-
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-    });
-    const data = await res.json();
-    _fcmAccessToken = data.access_token;
-    _fcmTokenExpiry = Date.now() + (data.expires_in ?? 3500) * 1000;
-    return _fcmAccessToken;
-  } catch (err) {
-    console.error("FCM auth error:", err);
-    return null;
-  }
-}
-
-function pemToBuf(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
-}
-
-async function sendFCMPush(
-  fcmToken: string,
-  title: string,
-  body: string,
-  data?: Record<string, string>,
-): Promise<boolean> {
-  const accessToken = await getFCMAccessToken();
-  if (!accessToken) return false;
-
-  try {
-    const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
-    const projectId = sa.project_id;
-
-    const res = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: {
-            token: fcmToken,
-            notification: { title, body },
-            data: data ?? {},
-            apns: {
-              payload: { aps: { sound: "default", badge: 1 } },
-            },
-          },
-        }),
-      },
-    );
-    return res.ok;
-  } catch (err) {
-    console.error("FCM send error:", err);
-    return false;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Notification delivery helper
+// Notification delivery helper (Telegram + FCM via _shared/notify.ts, which
+// keeps the bot token out of error logs)
 // ---------------------------------------------------------------------------
 interface NotificationCandidate {
   type: string;
@@ -403,7 +282,7 @@ async function deliverNotifications(
   } catch { /* ignore */ }
 
   for (const c of candidates) {
-    // Dedup via unique constraint — if already exists, skip
+    // Dedup via unique (user_id, notification_key) — if already logged, skip.
     const { data: inserted, error } = await supabase
       .from("notification_log")
       .insert({
@@ -422,34 +301,25 @@ async function deliverNotifications(
 
     let delivered = false;
 
-    // Send via Telegram (if user has chat_id)
-    try {
-      if (chatId) {
+    if (chatId && telegramConfigured()) {
+      try {
         const buttons: InlineButton[] = [
           { text: tt('openAkifi', lang), url: deepLink(c.tab ?? "home") },
         ];
-        await sendTelegramMessage(chatId, c.message, buttons);
+        await sendTelegramMessage(chatId, c.message, { html: true, buttons });
+        delivered = true;
+      } catch (err) {
+        console.error(`Telegram send failed for ${userId}:`, describeError(err));
+      }
+    }
+
+    if (fcmToken && fcmConfigured()) {
+      const { title, body } = pushTextFromHtml(c.message);
+      if (await sendFcmPush(fcmToken, title, body, { type: c.type, tab: c.tab ?? "home" })) {
         delivered = true;
       }
-    } catch (err) {
-      console.error(`Telegram send failed for ${userId}:`, err);
     }
 
-    // Send via FCM (if user has iOS token)
-    try {
-      if (fcmToken) {
-        // Strip HTML tags for FCM notification body
-        const plainText = c.message.replace(/<[^>]+>/g, "");
-        const title = plainText.split("\n")[0].substring(0, 80);
-        const body = plainText.split("\n").slice(1).join(" ").substring(0, 200) || title;
-        const fcmOk = await sendFCMPush(fcmToken, title, body, { type: c.type, tab: c.tab ?? "home" });
-        if (fcmOk) delivered = true;
-      }
-    } catch (err) {
-      console.error(`FCM send failed for ${userId}:`, err);
-    }
-
-    // Update delivery status
     if (delivered) {
       await supabase
         .from("notification_log")
@@ -469,188 +339,366 @@ async function deliverNotifications(
 }
 
 // ---------------------------------------------------------------------------
-// Evaluator: Budget Warning
+// Budget metrics — the SAME numbers the app shows (findings B2, M4, D4)
 // ---------------------------------------------------------------------------
-interface BudgetRow {
-  id: string;
-  user_id: string;
-  category_ids: string[];
-  amount: number;
-  period_type: string;
+// Budget pushes used to sum the author's own `amount_native` across
+// currencies, over a UTC calendar month, for the author's own budgets only.
+// They now read `get_budget_metrics` (migration 20261117130003) as the
+// service role on behalf of each member: same window (30-day rolling month,
+// inclusive end), same spend (every member, every linked account, FX via
+// fx_rates), in that member's local day, and the alert goes to every member
+// of a shared budget. Dedup is per user + budget + period + threshold via
+// notification_log's unique (user_id, notification_key).
+
+interface BudgetMetricRow {
+  budget_id: string;
+  name: string | null;
+  currency: string;
+  period_start: string;
+  period_end: string;
+  total_days: number;
+  elapsed_days: number;
+  remaining_days: number;
+  effective_limit: number;
+  spent: number;
+  utilization: number;
+  member_ids: string[];
   alert_thresholds: number[] | null;
-  custom_start_date: string | null;
-  custom_end_date: string | null;
-  is_active: boolean;
 }
 
-async function evaluateBudgetWarning(
+interface MemberContext {
+  tz: string;
+  lang: Lang;
+  chatId: string | number | null;
+  fcmToken: string | null;
+}
+
+function isValidTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== "string" || tz.length === 0) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/// "YYYY-MM-DD" of `now` in `tz` — the member's own "today".
+function localDateIn(tz: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/// Monday of the ISO week containing `dateOnly`.
+function weekStartOf(dateOnly: string): string {
+  const d = new Date(`${dateOnly}T00:00:00Z`);
+  const back = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadMemberContext(
   supabase: SupabaseClient,
   userId: string,
-  categoryId: string,
-  warningPercent: number,
-  lang: Lang = 'ru',
-): Promise<NotificationCandidate[]> {
-  const candidates: NotificationCandidate[] = [];
-
-  // Find active budgets that contain this category
-  const { data: budgets } = await supabase
-    .from("budgets")
-    .select(
-      "id,user_id,category_ids,amount,period_type,alert_thresholds,custom_start_date,custom_end_date,is_active",
-    )
-    .eq("user_id", userId)
-    .eq("is_active", true);
-
-  if (!budgets || budgets.length === 0) return candidates;
-
-  const now = new Date();
-
-  for (const budget of budgets as BudgetRow[]) {
-    // Check if budget contains this category
-    if (
-      !budget.category_ids ||
-      !budget.category_ids.includes(categoryId)
-    )
-      continue;
-
-    const thresholds = budget.alert_thresholds ?? [warningPercent, 100];
-    const period = resolvePeriodWindow(
-      budget.period_type ?? "monthly",
-      now,
-      budget.custom_start_date,
-      budget.custom_end_date,
-    );
-    const periodStart = toDateOnly(period.start);
-    const periodEnd = toDateOnly(period.end);
-
-    // Calculate spent in current period — ADR-001: prefer amount_native
-    // so multi-currency rows sum in the account's own currency rather than
-    // the raw foreign value.
-    const { data: txRows } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
+): Promise<MemberContext> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone,preferred_language,telegram_chat_id,fcm_token")
+    .eq("id", userId)
+    .maybeSingle();
+  let tz: unknown = (profile as { timezone?: unknown } | null)?.timezone;
+  if (!isValidTimeZone(tz)) {
+    const { data: ai } = await supabase
+      .from("ai_user_settings")
+      .select("timezone")
       .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .in("category_id", budget.category_ids)
-      .gte("date", periodStart)
-      .lt("date", periodEnd);
+      .maybeSingle();
+    tz = (ai as { timezone?: unknown } | null)?.timezone;
+  }
+  return {
+    tz: isValidTimeZone(tz) ? tz : "UTC",
+    lang: normalizeLang((profile as { preferred_language?: unknown } | null)?.preferred_language),
+    chatId: (profile as { telegram_chat_id?: string | number | null } | null)?.telegram_chat_id ?? null,
+    fcmToken: (profile as { fcm_token?: string | null } | null)?.fcm_token ?? null,
+  };
+}
 
-    const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: read amount_native with legacy fallback
-      0,
-    );
-    const percent = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+async function fetchBudgetMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  ctx: MemberContext,
+  budgetIds?: string[],
+): Promise<BudgetMetricRow[]> {
+  // One jsonb value, not a row set — max-rows cannot truncate it (ADR-003).
+  const { data, error } = await supabase.rpc("get_budget_metrics", {
+    p_today: localDateIn(ctx.tz),
+    p_tz: ctx.tz,
+    p_budget_ids: budgetIds ?? null,
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error(`get_budget_metrics failed for ${userId}:`, error.code ?? error.message);
+    return [];
+  }
+  return ((data as { budgets?: BudgetMetricRow[] } | null)?.budgets ?? []).filter(Boolean);
+}
 
-    // Check thresholds (descending) — pick the highest crossed
-    const sortedThresholds = [...thresholds].sort((a, b) => b - a);
-    for (const threshold of sortedThresholds) {
-      if (percent >= threshold) {
-        const key = `budget_warning:${budget.id}:${periodStart}:${threshold}`;
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  RUB: "₽", USD: "$", EUR: "€", GBP: "£", VND: "₫", THB: "฿", IDR: "Rp",
+  KZT: "₸", TRY: "₺", GEL: "₾", UAH: "₴", CNY: "¥", JPY: "¥", INR: "₹", AED: "AED",
+};
 
-        let emoji = "⚠️";
-        if (threshold >= 120) emoji = "🚨";
-        else if (threshold >= 100) emoji = "🔴";
+function localeFor(lang: Lang): string {
+  return lang === "ru" ? "ru-RU" : lang === "es" ? "es-ES" : "en-US";
+}
 
-        const remaining = budget.amount - spent;
-        const sym = currencySymbol(lang);
-        const coachingTip = threshold >= 100
-          ? '\n\n' + tt('tip5030', lang)
-          : threshold >= 80
-          ? '\n\n' + tt('tipImpulse', lang)
-          : '';
-        const message =
-          `${emoji} <b>${tt('budgetHeader', lang)} ${threshold}%</b>\n\n` +
-          `${tt('spent', lang)}: ${formatRub(spent)} ${sym} ${tt('of', lang)} ${formatRub(budget.amount)} ${sym}\n` +
-          (remaining > 0
-            ? `${tt('remaining', lang)}: ${formatRub(remaining)} ${sym}`
-            : `${tt('overspent', lang)}: ${formatRub(Math.abs(remaining))} ${sym}`) +
-          coachingTip;
+/// Minor units of `currency` → "12 345 ₽". Whole units, like the budget
+/// card; the symbol follows the budget's currency, not the UI language.
+function formatBudgetMoney(minor: number, currency: string, lang: Lang): string {
+  const code = (currency || "RUB").toUpperCase();
+  const whole = Math.round(Math.abs(minor) / 100);
+  return `${whole.toLocaleString(localeFor(lang))} ${CURRENCY_SYMBOLS[code] ?? code}`;
+}
 
-        candidates.push({
-          type: "budget_warning",
-          key,
-          message,
-          tab: "budget",
-        });
-        break; // Only one notification per budget per transaction
-      }
+/// «2 нояб. – 1 дек.» — the window the card shows (D4).
+function formatWindow(start: string, end: string, lang: Lang): string {
+  const fmt = new Intl.DateTimeFormat(localeFor(lang), { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${fmt.format(new Date(`${start}T00:00:00Z`))} – ${fmt.format(new Date(`${end}T00:00:00Z`))}`;
+}
+
+function budgetTitle(m: BudgetMetricRow): string {
+  const name = (m.name ?? "").trim();
+  return name ? ` «${escapeHtml(name)}»` : "";
+}
+
+/// The highest alert threshold this budget has crossed, as one candidate.
+function budgetWarningFor(
+  m: BudgetMetricRow,
+  warningPercent: number,
+  lang: Lang,
+): NotificationCandidate | null {
+  if (!(m.effective_limit > 0)) return null;
+  const thresholds = m.alert_thresholds && m.alert_thresholds.length > 0
+    ? m.alert_thresholds
+    : [warningPercent, 100];
+  const crossed = [...thresholds].sort((a, b) => b - a).find((t) => m.utilization >= t);
+  if (crossed === undefined) return null;
+
+  const emoji = crossed >= 120 ? "🚨" : crossed >= 100 ? "🔴" : "⚠️";
+  const left = m.effective_limit - m.spent;
+  const tip = crossed >= 100
+    ? "\n\n" + tt("tip5030", lang)
+    : crossed >= 80
+    ? "\n\n" + tt("tipImpulse", lang)
+    : "";
+  const message =
+    `${emoji} <b>${tt("budgetHeader", lang)}${budgetTitle(m)} ${crossed}%</b>\n\n` +
+    `${tt("spent", lang)}: ${formatBudgetMoney(m.spent, m.currency, lang)} ${tt("of", lang)} ${formatBudgetMoney(m.effective_limit, m.currency, lang)}\n` +
+    (left > 0
+      ? `${tt("remaining", lang)}: ${formatBudgetMoney(left, m.currency, lang)}`
+      : `${tt("overspent", lang)}: ${formatBudgetMoney(-left, m.currency, lang)}`) +
+    `\n${formatWindow(m.period_start, m.period_end, lang)}` +
+    tip;
+
+  return {
+    type: "budget_warning",
+    key: `budget_warning:${m.budget_id}:${m.period_start}:${crossed}`,
+    message,
+    tab: "budget",
+  };
+}
+
+const MAX_BUDGET_ALERTS_PER_MEMBER = 2;
+
+/// Sends budget alerts to the OTHER members of `authorId`'s shared budgets,
+/// each with their own settings, quiet hours, rate limit, language and local
+/// day. Safe to call more than once per event: notification_log dedups.
+/// Pass `authorMetrics` when already fetched; otherwise they are loaded.
+/// (The edge stream may also call this before handleTransactionInsert's
+/// author-only gates, so partners are told even when the author has
+/// notifications off or no delivery channel.)
+async function notifyBudgetPartners(
+  supabase: SupabaseClient,
+  authorId: string,
+  authorMetrics?: BudgetMetricRow[],
+): Promise<number> {
+  let metrics = authorMetrics;
+  if (!metrics) {
+    metrics = await fetchBudgetMetrics(supabase, authorId, await loadMemberContext(supabase, authorId));
+  }
+  const budgetsByPartner = new Map<string, string[]>();
+  for (const m of metrics) {
+    for (const memberId of m.member_ids ?? []) {
+      if (memberId === authorId) continue;
+      const list = budgetsByPartner.get(memberId) ?? [];
+      list.push(m.budget_id);
+      budgetsByPartner.set(memberId, list);
     }
   }
 
+  let sent = 0;
+  for (const [partnerId, budgetIds] of budgetsByPartner) {
+    try {
+      const { data: settings } = await supabase
+        .from("notification_settings")
+        .select("enabled,budget_warnings,budget_warning_percent,daily_limit")
+        .eq("user_id", partnerId)
+        .maybeSingle();
+      if (!settings || !settings.enabled || settings.budget_warnings === false) continue;
+
+      const ctx = await loadMemberContext(supabase, partnerId);
+      if (!ctx.chatId && !ctx.fcmToken) continue;
+      if (await isInQuietHours(supabase, partnerId)) continue;
+      if (await isRateLimited(supabase, partnerId, settings.daily_limit)) continue;
+
+      const partnerMetrics = await fetchBudgetMetrics(supabase, partnerId, ctx, budgetIds);
+      const candidates = partnerMetrics
+        .map((m) => budgetWarningFor(m, settings.budget_warning_percent ?? 80, ctx.lang))
+        .filter((c): c is NotificationCandidate => c !== null)
+        .slice(0, MAX_BUDGET_ALERTS_PER_MEMBER);
+      if (candidates.length === 0) continue;
+
+      const result = await deliverNotifications(supabase, partnerId, ctx.chatId ?? 0, candidates, ctx.lang);
+      sent += result.sent;
+    } catch (err) {
+      console.error(`budget partner alert failed for ${partnerId}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return sent;
+}
+
+// ---------------------------------------------------------------------------
+// Evaluator: Budget Warning
+// ---------------------------------------------------------------------------
+/// Candidates for the AUTHOR of a new expense (delivered by the caller) and,
+/// as a side effect, alerts for the partners in the author's shared budgets.
+/// Every budget the author takes part in is checked, not only the ones
+/// containing this category: a budget without categories, or one pushed over
+/// its threshold by a partner, must alert too. `categoryId` is kept for the
+/// call-site signature.
+async function evaluateBudgetWarning(
+  supabase: SupabaseClient,
+  userId: string,
+  _categoryId: string,
+  warningPercent: number,
+  lang: Lang = 'ru',
+): Promise<NotificationCandidate[]> {
+  const ctx = await loadMemberContext(supabase, userId);
+  const metrics = await fetchBudgetMetrics(supabase, userId, ctx);
+  if (metrics.length === 0) return [];
+
+  const candidates = metrics
+    .map((m) => budgetWarningFor(m, warningPercent, lang))
+    .filter((c): c is NotificationCandidate => c !== null);
+
+  // Partners were already notified at the top of handleTransactionInsert.
   return candidates;
 }
 
 // ---------------------------------------------------------------------------
 // Evaluator: Large Expense
 // ---------------------------------------------------------------------------
+
+/** The inserted transaction, re-read from the database (never from the request body). */
+interface InsertedTx {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number | string | null;
+  amount_native: number | string | null;
+  category_id: string | null;
+  account_id: string | null;
+  transfer_group_id: string | null;
+  date: string;
+  account: { currency: string | null } | null;
+}
+
+const INSERTED_TX_COLUMNS =
+  "id,user_id,type,amount,amount_native,category_id,account_id,transfer_group_id,date,account:accounts!transactions_account_id_fkey(currency)";
+
+/** |amount_native| in the account's currency (ADR-001), legacy `amount` fallback. */
+function nativeAmount(tx: { amount: number | string | null; amount_native: number | string | null }): number {
+  const n = Number(tx.amount_native ?? tx.amount ?? 0); // allowlisted-amount: amount_native with legacy fallback
+  return Number.isFinite(n) ? Math.abs(n) : 0;
+}
+
+interface MoneyContext {
+  /** The user's display currency (profiles.default_currency). Thresholds are in it. */
+  base: string;
+  rates: Record<string, number>;
+}
+
 async function evaluateLargeExpense(
   supabase: SupabaseClient,
-  userId: string,
-  transactionId: string,
-  amount: number,
-  categoryId: string,
+  tx: InsertedTx,
   threshold: number,
-  lang: Lang = 'ru',
+  lang: Lang,
+  ctx: MoneyContext,
 ): Promise<NotificationCandidate[]> {
-  const candidates: NotificationCandidate[] = [];
+  const accountCurrency = (tx.account?.currency ?? "RUB").toUpperCase();
+  const native = nativeAmount(tx);
+  // Comparable number: every amount goes into the user's base currency
+  // first — $50 and 5 000 ₽ are not "50 vs 5 000".
+  const inBase = tryConvertCurrency(native, accountCurrency, ctx.base, ctx.rates);
+  if (inBase === null || inBase <= 0) return [];
 
-  let effectiveThreshold = threshold;
+  let effectiveThreshold = Number(threshold) || 0;
 
   if (effectiveThreshold <= 0) {
-    // Auto-calculate: mean + 2σ over last 30 days, min 3x average
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Auto: max(mean + 2σ, 3 × mean) over the last 30 local days.
+    const tz = await userTimeZone(supabase, tx.user_id);
+    const since = new Date(`${localDate(new Date(), tz)}T00:00:00.000Z`);
+    since.setUTCDate(since.getUTCDate() - 30);
 
-    const { data: recentTx } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
-      .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .gte("date", toDateOnly(thirtyDaysAgo));
+    type RecentRow = { id: string; amount: number | null; amount_native: number | null; account: { currency: string | null } | null };
+    const recent = await fetchAll<RecentRow>("large_expense.recent", () =>
+      supabase
+        .from("transactions")
+        .select("id,amount,amount_native,account:accounts!transactions_account_id_fkey(currency)", { count: "exact" })
+        .eq("user_id", tx.user_id)
+        .eq("type", "expense")
+        .is("transfer_group_id", null)
+        .gte("date", toDateOnly(since)));
 
-    const amounts = (recentTx ?? []).map(
-      (t: { amount: number; amount_native?: number }) => t.amount_native ?? t.amount, // allowlisted-amount: anomaly detector prefers amount_native
-    );
+    const amounts: number[] = [];
+    for (const row of recent) {
+      const v = tryConvertCurrency(nativeAmount(row), (row.account?.currency ?? "RUB").toUpperCase(), ctx.base, ctx.rates);
+      if (v !== null) amounts.push(v);
+    }
 
     // Need at least 5 transactions for meaningful stats
-    if (amounts.length < 5) return candidates;
+    if (amounts.length < 5) return [];
 
-    const mean = amounts.reduce((s: number, v: number) => s + v, 0) / amounts.length;
-    const variance =
-      amounts.reduce((s: number, v: number) => s + (v - mean) ** 2, 0) /
-      amounts.length;
-    const stdDev = Math.sqrt(variance);
-
-    effectiveThreshold = Math.max(mean + 2 * stdDev, mean * 3);
+    const mean = amounts.reduce((s, v) => s + v, 0) / amounts.length;
+    const variance = amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length;
+    effectiveThreshold = Math.max(mean + 2 * Math.sqrt(variance), mean * 3);
   }
 
-  if (amount < effectiveThreshold) return candidates;
+  if (inBase < effectiveThreshold) return [];
 
-  // Get category name
-  const { data: category } = await supabase
-    .from("categories")
-    .select("name,icon")
-    .eq("id", categoryId)
-    .maybeSingle();
+  const { data: category } = tx.category_id
+    ? await supabase.from("categories").select("name,icon").eq("id", tx.category_id).maybeSingle()
+    : { data: null };
 
   const catLabel = category
-    ? `${category.icon} ${category.name}`
+    ? escapeHtml(`${category.icon ?? ""} ${category.name ?? ""}`.trim())
     : tt('other', lang);
 
+  const approx = accountCurrency !== ctx.base.toUpperCase() ? ` (≈ ${money(inBase, ctx.base, lang)})` : "";
   const message =
     `💸 <b>${tt('largeExpense', lang)}</b>\n\n` +
-    `${formatRub(amount)} ${currencySymbol(lang)} — ${catLabel}`;
+    `${money(native, accountCurrency, lang)}${approx} — ${catLabel}`;
 
-  candidates.push({
+  return [{
     type: "large_expense",
-    key: `large_expense:${transactionId}`,
+    // Real transaction id from the database — one push per transaction.
+    key: `large_expense:${tx.id}`,
     message,
     tab: "transactions",
-  });
-
-  return candidates;
+  }];
 }
 
 // ---------------------------------------------------------------------------
@@ -669,7 +717,7 @@ async function evaluateInactivityForUser(
 
   if ((totalCount ?? 0) < 3) return null;
 
-  // Check last transaction
+  // bounded-fetch: the single newest row.
   const { data: lastTx } = await supabase
     .from("transactions")
     .select("date")
@@ -680,15 +728,16 @@ async function evaluateInactivityForUser(
 
   if (!lastTx) return null;
 
-  const lastDate = new Date(lastTx.date);
-  const now = new Date();
-  const daysSinceLast = Math.floor(
-    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
+  // `date` is the user's local wall-clock time, so compare calendar days
+  // in the user's zone, not instants against the server clock.
+  const today = localDate(new Date(), await userTimeZone(supabase, userId));
+  const daysSinceLast = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${String(lastTx.date).slice(0, 10)}T00:00:00Z`)) /
+      (1000 * 60 * 60 * 24),
   );
 
   if (daysSinceLast < 3) return null;
 
-  const today = toDateOnly(now);
   const d = daysWord(daysSinceLast, lang);
 
   return {
@@ -711,29 +760,33 @@ async function evaluateSavingsMilestones(
 ): Promise<NotificationCandidate[]> {
   const candidates: NotificationCandidate[] = [];
 
-  const { data: goals } = await supabase
-    .from("savings_goals")
-    .select("id,name,target_amount,current_amount,icon")
-    .eq("user_id", userId)
-    .eq("status", "active");
+  type GoalRow = { id: string; name: string; target_amount: number; current_amount: number; icon: string; currency: string | null };
+  const goals = await fetchAll<GoalRow>("savings_goals", () =>
+    supabase
+      .from("savings_goals")
+      .select("id,name,target_amount,current_amount,icon,currency", { count: "exact" })
+      .eq("user_id", userId)
+      .eq("status", "active"));
 
-  if (!goals || goals.length === 0) return candidates;
+  if (goals.length === 0) return candidates;
 
   const milestones = [25, 50, 75, 100];
 
-  for (const goal of goals as { id: string; name: string; target_amount: number; current_amount: number; icon: string }[]) {
-    if (goal.target_amount <= 0) continue;
-    const percent = (goal.current_amount / goal.target_amount) * 100;
+  for (const goal of goals) {
+    const target = Number(goal.target_amount);
+    const current = Number(goal.current_amount);
+    if (!(target > 0)) continue;
+    const percent = (current / target) * 100;
 
-    for (const milestone of milestones) {
+    for (const milestone of [...milestones].reverse()) {
       if (percent >= milestone) {
         const key = `savings_milestone:${goal.id}:${milestone}`;
         const emoji = milestone >= 100 ? "🎉" : milestone >= 75 ? "🔥" : milestone >= 50 ? "💪" : "🌱";
 
-        const sym = currencySymbol(lang);
+        // The goal's own currency, not a symbol picked by language.
         const message =
-          `${emoji} <b>${tt('goalHeader', lang)} «${goal.name}» — ${milestone}%!</b>\n\n` +
-          `${tt('saved', lang)}: ${formatRub(goal.current_amount)} ${sym} ${tt('of', lang)} ${formatRub(goal.target_amount)} ${sym}` +
+          `${emoji} <b>${tt('goalHeader', lang)} «${escapeHtml(goal.name ?? "")}» — ${milestone}%!</b>\n\n` +
+          `${tt('saved', lang)}: ${money(current, goal.currency, lang)} ${tt('of', lang)} ${money(target, goal.currency, lang)}` +
           (milestone >= 100 ? tt('goalReached', lang) : "");
 
         candidates.push({
@@ -753,85 +806,56 @@ async function evaluateSavingsMilestones(
 // ---------------------------------------------------------------------------
 // Evaluator: Weekly Pace
 // ---------------------------------------------------------------------------
+// Amounts carry their own currency symbol (formatMoney), so this replaces
+// T.paceBody, whose "{sym}" placeholders assumed one symbol per language.
+const PACE_BODY: Record<Lang, string> = {
+  ru: 'При текущем темпе расходы составят ~{projected} ({pct}% от лимита {limit})',
+  en: 'At current pace, spending will reach ~{projected} ({pct}% of the {limit} limit)',
+  es: 'Al ritmo actual, gastarás ~{projected} ({pct}% del límite {limit})',
+};
+
+/// Wednesday nudge when the projected spend for the period exceeds 120 % of
+/// the limit. Uses the server metrics (same window, spend and currency as
+/// the app) for EVERY budget the user takes part in — shared budgets
+/// included, so each member gets it — in the user's own local day.
 async function evaluateWeeklyPace(
   supabase: SupabaseClient,
   userId: string,
   lang: Lang = 'ru',
 ): Promise<NotificationCandidate[]> {
+  // The cron fires on Wednesdays (UTC); guard against off-schedule triggers.
+  if (new Date().getUTCDay() !== 3) return [];
+
+  const ctx = await loadMemberContext(supabase, userId);
+  const today = localDateIn(ctx.tz);
+  const weekStart = weekStartOf(today);
+  const metrics = await fetchBudgetMetrics(supabase, userId, ctx);
+
   const candidates: NotificationCandidate[] = [];
-  const now = new Date();
+  for (const m of metrics) {
+    if (!(m.effective_limit > 0) || m.elapsed_days <= 0 || m.remaining_days <= 0) continue;
 
-  // Only run on Wednesdays
-  if (now.getDay() !== 3) return candidates;
+    // Same projection the card's pace uses: spend so far over the elapsed
+    // days (today included), extended to the whole window.
+    const projected = (m.spent / m.elapsed_days) * m.total_days;
+    const projectedPercent = (projected / m.effective_limit) * 100;
+    if (projectedPercent <= 120) continue;
 
-  const { data: budgets } = await supabase
-    .from("budgets")
-    .select("id,amount,category_ids,period_type,custom_start_date,custom_end_date,is_active")
-    .eq("user_id", userId)
-    .eq("is_active", true);
+    const body = PACE_BODY[lang]
+      .replace("{projected}", formatBudgetMoney(projected, m.currency, lang))
+      .replace("{pct}", String(Math.round(projectedPercent)))
+      .replace("{limit}", formatBudgetMoney(m.effective_limit, m.currency, lang));
+    const message =
+      `📊 <b>${tt('paceHeader', lang)}${budgetTitle(m)}</b>\n\n` +
+      body +
+      `\n${formatWindow(m.period_start, m.period_end, lang)}`;
 
-  if (!budgets || budgets.length === 0) return candidates;
-
-  for (const budget of budgets as BudgetRow[]) {
-    const period = resolvePeriodWindow(
-      budget.period_type ?? "monthly",
-      now,
-      budget.custom_start_date,
-      budget.custom_end_date,
-    );
-
-    const periodStart = toDateOnly(period.start);
-    const periodEnd = toDateOnly(period.end);
-    const totalDays = Math.max(1, (period.end.getTime() - period.start.getTime()) / (1000 * 60 * 60 * 24));
-    const daysPassed = Math.max(1, (now.getTime() - period.start.getTime()) / (1000 * 60 * 60 * 24));
-
-    const { data: txRows } = await supabase
-      .from("transactions")
-      .select("amount,amount_native")
-      .eq("user_id", userId)
-      .eq("type", "expense")
-      .is("transfer_group_id", null)
-      .in("category_id", budget.category_ids)
-      .gte("date", periodStart)
-      .lt("date", periodEnd);
-
-    const spent = (txRows ?? []).reduce(
-      (sum: number, t: { amount: number; amount_native?: number }) => sum + (t.amount_native ?? t.amount), // allowlisted-amount: budget projection prefers amount_native
-      0,
-    );
-
-    // Project to end of period
-    const dailyPace = spent / daysPassed;
-    const projected = dailyPace * totalDays;
-    const projectedPercent = budget.amount > 0 ? (projected / budget.amount) * 100 : 0;
-
-    if (projectedPercent > 120) {
-      // Week start for dedup key
-      const weekDay = now.getDay();
-      const weekDiff = weekDay === 0 ? 6 : weekDay - 1;
-      const weekStart = new Date(now);
-      weekStart.setDate(weekStart.getDate() - weekDiff);
-      const weekStartStr = toDateOnly(weekStart);
-
-      const key = `weekly_pace:${budget.id}:${weekStartStr}`;
-
-      const sym = currencySymbol(lang);
-      const message =
-        `📊 <b>${tt('paceHeader', lang)}</b>\n\n` +
-        tt('paceBody', lang, {
-          projected: formatRub(projected),
-          pct: Math.round(projectedPercent),
-          limit: formatRub(budget.amount),
-          sym,
-        });
-
-      candidates.push({
-        type: "weekly_pace",
-        key,
-        message,
-        tab: "budget",
-      });
-    }
+    candidates.push({
+      type: "weekly_pace",
+      key: `weekly_pace:${m.budget_id}:${weekStart}`,
+      message,
+      tab: "budget",
+    });
   }
 
   return candidates;
@@ -840,28 +864,52 @@ async function evaluateWeeklyPace(
 // ---------------------------------------------------------------------------
 // Handler: transaction_insert
 // ---------------------------------------------------------------------------
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function handleTransactionInsert(
   supabase: SupabaseClient,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  const userId = body.user_id as string;
-  const transactionId = body.transaction_id as string;
-  const amount = body.amount as number;
-  const type = body.type as string;
-  const categoryId = body.category_id as string;
-
-  if (!userId || !transactionId) {
-    return json({ error: "Missing user_id or transaction_id" }, 400);
+  // Only the id is taken from the request. user_id / amount / type /
+  // category are re-read from the row itself (service role), so a caller
+  // cannot make up a «крупная трата» for someone else (S4).
+  const transactionId = typeof body.transaction_id === "string" ? body.transaction_id.trim() : "";
+  if (!UUID_RE.test(transactionId)) {
+    return json({ error: "Missing or invalid transaction_id" }, 400);
   }
 
-  // Skip transfers — they are not real expenses/income
-  const { data: txRecord } = await supabase
-    .from('transactions')
-    .select('transfer_group_id')
-    .eq('id', transactionId)
+  const { data: txRow, error: txError } = await supabase
+    .from("transactions")
+    .select(INSERTED_TX_COLUMNS)
+    .eq("id", transactionId)
     .maybeSingle();
-  if (txRecord?.transfer_group_id) {
+  if (txError) {
+    console.error("transaction_insert: read failed:", txError.message);
+    return json({ error: "transaction_read_failed" }, 500);
+  }
+  if (!txRow) {
+    return json({ ok: true, skipped: true, reason: "transaction_not_found" });
+  }
+  const tx = txRow as unknown as InsertedTx;
+  const userId = tx.user_id;
+  const type = tx.type;
+  const categoryId = tx.category_id ?? "";
+
+  // Skip transfers — they are not real expenses/income
+  if (tx.transfer_group_id) {
     return json({ ok: true, skipped: true, reason: 'transfer' });
+  }
+
+  // Partners in the author's shared budgets are told BEFORE the author-only
+  // gates below: the author having notifications off or no delivery channel
+  // must not silence the partner's 80 % / 100 % alert (B2). Dedup per
+  // budget + period + threshold makes this safe to run on every expense.
+  if (type === "expense") {
+    try {
+      await notifyBudgetPartners(supabase, userId);
+    } catch (err) {
+      console.error("budget partner alerts failed:", err instanceof Error ? err.message : err);
+    }
   }
 
   // Load notification settings
@@ -876,10 +924,10 @@ async function handleTransactionInsert(
     return json({ ok: true, skipped: true, reason: "disabled" });
   }
 
-  // Get user's delivery channels + language preference
+  // Get user's delivery channels + language + display currency
   const { data: profile } = await supabase
     .from("profiles")
-    .select("telegram_chat_id,fcm_token,preferred_language")
+    .select("telegram_chat_id,fcm_token,preferred_language,default_currency")
     .eq("id", userId)
     .maybeSingle();
 
@@ -915,14 +963,14 @@ async function handleTransactionInsert(
 
   // Large expense
   if (settings.large_expenses && type === "expense") {
+    const { rates } = await getRubRates();
+    const base = String((profile as { default_currency?: string | null }).default_currency || "RUB").toUpperCase();
     const largeCandidates = await evaluateLargeExpense(
       supabase,
-      userId,
-      transactionId,
-      amount,
-      categoryId,
-      settings.large_expense_threshold,
+      tx,
+      Number(settings.large_expense_threshold) || 0,
       lang,
+      { base, rates },
     );
     candidates.push(...largeCandidates);
   }
@@ -968,20 +1016,18 @@ async function handleTransactionInsert(
 async function handleCronInactivity(
   supabase: SupabaseClient,
 ): Promise<Response> {
-  // Get all users with at least one delivery channel (Telegram or FCM)
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id,telegram_chat_id,fcm_token,preferred_language")
-    .or("telegram_chat_id.not.is.null,fcm_token.not.is.null");
-
-  if (profilesError) throw profilesError;
-
-  const users = (profiles ?? []) as {
+  // Get all users with at least one delivery channel (Telegram or FCM).
+  // Paged (ADR-003): a bare select stops at max-rows silently.
+  const users = await fetchAll<{
     id: string;
     telegram_chat_id: string | number | null;
     fcm_token: string | null;
     preferred_language: string | null;
-  }[];
+  }>("profiles.delivery", () =>
+    supabase
+      .from("profiles")
+      .select("id,telegram_chat_id,fcm_token,preferred_language", { count: "exact" })
+      .or("telegram_chat_id.not.is.null,fcm_token.not.is.null"));
 
   if (users.length === 0) {
     return json({ ok: true, checked: 0, sent: 0 });
@@ -1099,21 +1145,23 @@ Deno.serve(async (req) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || (!TELEGRAM_BOT_TOKEN && !FIREBASE_SERVICE_ACCOUNT_JSON)) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || (!telegramConfigured() && !fcmConfigured())) {
     return json({ error: "Missing required environment variables" }, 500);
   }
 
-  if (!isAuthorized(req)) {
+  if (!(await isCronAuthorized(req))) {
     return json({ error: "Unauthorized" }, 401);
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  // Per-invocation cache; the isolate may serve many invocations.
+  tzCache.clear();
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
-    const trigger = body.trigger as string;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const trigger = String(body.trigger ?? "");
 
     if (trigger === "transaction_insert") {
       return await handleTransactionInsert(supabase, body);
@@ -1127,9 +1175,9 @@ Deno.serve(async (req) => {
       return await handleCronWeeklyPace(supabase);
     }
 
-    return json({ error: `Unknown trigger: ${trigger}` }, 400);
+    return json({ error: "Unknown trigger" }, 400);
   } catch (err) {
-    console.error("Smart notifications failed:", err);
-    return json({ error: String(err) }, 500);
+    console.error("Smart notifications failed:", describeError(err));
+    return json({ error: "smart_notifications_failed" }, 500);
   }
 });

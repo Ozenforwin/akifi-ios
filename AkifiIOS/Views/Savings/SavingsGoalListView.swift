@@ -107,7 +107,21 @@ struct SavingsGoalListView: View {
             }
         }
         .task {
+            // Contributions with a linked account go through DataStore's
+            // offline queue instead of a bare insert (Y10).
+            viewModel.dataStore = appViewModel.dataStore
             await viewModel.load()
+        }
+        .alert(
+            String(localized: "common.error"),
+            isPresented: Binding(
+                get: { viewModel.error != nil },
+                set: { if !$0 { viewModel.error = nil } }
+            )
+        ) {
+            Button(String(localized: "common.ok"), role: .cancel) {}
+        } message: {
+            Text(viewModel.error ?? "")
         }
         .sheet(isPresented: $viewModel.showForm) {
             SavingsGoalFormView(accounts: dataStore.accounts) { name, icon, color, amount, deadline, accountId in

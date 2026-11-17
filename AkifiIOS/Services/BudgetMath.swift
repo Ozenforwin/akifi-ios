@@ -18,8 +18,20 @@ struct BudgetMetrics {
     let progressColor: String     // hex
     let subscriptionCommitted: Int64
     let freeRemaining: Int64
+    /// Rollover carried into this period (minor units of the budget
+    /// currency), already included in `effectiveLimit`. 0 without rollover.
+    var carryIn: Int64 = 0
+    /// The window these numbers cover (local midnight). The card labels
+    /// THIS window — «19 окт – 17 ноя» — not a calendar month (D4).
+    var periodStart: Date = .distantPast
+    var periodEnd: Date = .distantPast
 }
 
+/// Budget math. Since 2026-11-17 the server (`get_budget_metrics`,
+/// migration 20261117130003) is the source of truth — it sees every
+/// member's rows, so a shared budget shows the same numbers to everyone.
+/// This file is the offline fallback and the cross-check, and the server SQL
+/// mirrors it rule for rule: change one, change the other.
 enum BudgetMath {
 
     /// Alias of `TransactionMath.CurrencyContext` so existing call sites
@@ -27,9 +39,18 @@ enum BudgetMath {
     /// canonical spelling lives with the math helper itself.
     typealias CurrencyContext = TransactionMath.CurrencyContext
 
+    /// Gregorian in the device zone — never the user's display calendar
+    /// (a Buddhist-calendar iPhone must not shift periods, D1).
+    static var calendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .current
+        return cal
+    }
+
     /// The currency the budget's `amount` — and therefore every value in
     /// its `BudgetMetrics` — is denominated in. Resolution order:
-    ///   1. `budget.currency` — set explicitly in `BudgetFormView`.
+    ///   1. `budget.currency` — NOT NULL on the server since migration
+    ///      20261117130002; nil only in caches written before it.
     ///   2. The linked account's currency, when `budget.accountId` is set.
     ///   3. The user's base currency — legacy default.
     static func budgetCurrency(for budget: Budget, currencyContext: CurrencyContext) -> String {
@@ -62,42 +83,85 @@ enum BudgetMath {
         subscriptions: [SubscriptionTracker] = [],
         categories: [Category] = [],
         externalSpendRows: [ExternalSpendRow] = [],
-        currencyContext: CurrencyContext
+        currencyContext: CurrencyContext,
+        now: Date = Date(),
+        period overridePeriod: (start: Date, end: Date)? = nil
     ) -> BudgetMetrics {
-        let period = currentPeriod(for: budget)
+        let period = overridePeriod ?? currentPeriod(for: budget, now: now)
         let spent = spentAmount(budget: budget, transactions: transactions, period: period, categories: categories, currencyContext: currencyContext)
             + externalSpent(rows: externalSpendRows, budget: budget, period: period, currencyContext: currencyContext)
-        let limit = budget.amount
-        let remaining = max(0, limit - spent)
-
+        let carry = rolloverCarry(
+            budget: budget, currentPeriod: period, transactions: transactions,
+            categories: categories, externalSpendRows: externalSpendRows,
+            currencyContext: currencyContext
+        )
         let subCommitted = subscriptionCommitted(
             budget: budget, subscriptions: subscriptions, categories: categories, currencyContext: currencyContext
         )
+        return assemble(
+            limit: budget.amount, carryIn: carry, spent: spent,
+            subscriptionCommitted: subCommitted, period: period, today: now
+        )
+    }
+
+    /// Derives every metric from its inputs. Shared by the local path, the
+    /// server-backed path when local data moved since the last fetch, and
+    /// tests — one set of formulas (and the server SQL mirrors them).
+    static func assemble(
+        limit: Int64,
+        carryIn: Int64,
+        spent: Int64,
+        subscriptionCommitted subCommitted: Int64,
+        period: (start: Date, end: Date),
+        today: Date
+    ) -> BudgetMetrics {
+        let effective = limit + carryIn
+        let remaining = max(0, effective - spent)
         let freeRemaining = max(0, remaining - subCommitted)
 
-        let utilization = computeProgress(spent: spent, limit: limit)
-        let days = daysMeta(start: period.start, end: period.end)
-        let safe = computeSafeToSpend(limit: limit, spent: spent + subCommitted, remainingDays: days.remaining)
-        let pace = computePace(limit: limit, spent: spent, elapsed: days.elapsed, total: days.total)
+        let utilization = computeProgress(spent: spent, limit: effective)
+        let days = daysMeta(start: period.start, end: period.end, today: today)
+        let safe = computeSafeToSpend(limit: effective, spent: spent + subCommitted, remainingDays: days.remaining)
+        let pace = computePace(limit: effective, spent: spent, elapsed: days.elapsed, total: days.total)
         let risk = computeRiskLevel(utilization: utilization, pace: pace, remainingDays: days.remaining)
         let status = computeStatus(utilization: utilization, pace: pace)
         let color = progressColorHex(utilization: utilization)
 
         return BudgetMetrics(
-            spent: spent, effectiveLimit: limit, remaining: remaining,
+            spent: spent, effectiveLimit: effective, remaining: remaining,
             utilization: utilization,
             totalDays: days.total, elapsedDays: days.elapsed, remainingDays: days.remaining,
             safeToSpendDaily: safe, paceRatio: pace,
             riskLevel: risk, status: status, progressColor: color,
-            subscriptionCommitted: subCommitted, freeRemaining: freeRemaining
+            subscriptionCommitted: subCommitted, freeRemaining: freeRemaining,
+            carryIn: carryIn,
+            periodStart: period.start, periodEnd: period.end
+        )
+    }
+
+    /// Metrics exactly as the server computed them. Presentation-only
+    /// fields (risk, status, colour) derive from the server's utilization /
+    /// pace / remaining days with the same thresholds as everywhere else.
+    static func metrics(fromServer s: ServerBudgetMetrics) -> BudgetMetrics {
+        let period = s.period ?? (.distantPast, .distantPast)
+        return BudgetMetrics(
+            spent: s.spent, effectiveLimit: s.effectiveLimit, remaining: s.remaining,
+            utilization: s.utilization,
+            totalDays: s.totalDays, elapsedDays: s.elapsedDays, remainingDays: s.remainingDays,
+            safeToSpendDaily: s.safeToSpendDaily, paceRatio: s.paceRatio,
+            riskLevel: computeRiskLevel(utilization: s.utilization, pace: s.paceRatio, remainingDays: s.remainingDays),
+            status: computeStatus(utilization: s.utilization, pace: s.paceRatio),
+            progressColor: progressColorHex(utilization: s.utilization),
+            subscriptionCommitted: s.subscriptionCommitted, freeRemaining: s.freeRemaining,
+            carryIn: s.carryIn,
+            periodStart: period.start, periodEnd: period.end
         )
     }
 
     // MARK: - Period
 
-    static func currentPeriod(for budget: Budget) -> (start: Date, end: Date) {
-        let cal = Calendar.current
-        let now = Date()
+    static func currentPeriod(for budget: Budget, now: Date = Date()) -> (start: Date, end: Date) {
+        let cal = calendar
         switch budget.billingPeriod {
         case .weekly:
             let weekday = cal.component(.weekday, from: now)
@@ -121,9 +185,7 @@ enum BudgetMath {
                 let end = cal.date(byAdding: .day, value: periodLen - 1, to: start)!
                 return (start, end)
             }
-            let start = cal.date(from: cal.dateComponents([.year, .month], from: now))!
-            let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
-            return (start, end)
+            return calendarMonth(containing: now, calendar: cal)
         case .quarterly:
             let month = cal.component(.month, from: now)
             let qStart = ((month - 1) / 3) * 3 + 1
@@ -144,10 +206,56 @@ enum BudgetMath {
                let end = df.date(from: endStr) {
                 return (start, end)
             }
-            let start = cal.date(from: cal.dateComponents([.year, .month], from: now))!
-            let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
-            return (start, end)
+            return calendarMonth(containing: now, calendar: cal)
         }
+    }
+
+    private static func calendarMonth(containing now: Date, calendar cal: Calendar) -> (start: Date, end: Date) {
+        let start = cal.date(from: cal.dateComponents([.year, .month], from: now))!
+        let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
+        return (start, end)
+    }
+
+    /// The period right before `currentStart`, or nil when there is none:
+    /// custom budgets, the first rolling window, or a previous period the
+    /// budget didn't exist for in full (same rule as the server).
+    static func previousPeriod(for budget: Budget, currentStart: Date) -> (start: Date, end: Date)? {
+        let cal = calendar
+        let anchor = parseCreatedAt(budget.createdAt).map { cal.startOfDay(for: $0) }
+        let previous: (start: Date, end: Date)
+        switch budget.billingPeriod {
+        case .custom:
+            return nil
+        case .monthly where anchor != nil:
+            let start = cal.date(byAdding: .day, value: -30, to: currentStart)!
+            previous = (start, cal.date(byAdding: .day, value: -1, to: currentStart)!)
+        default:
+            let dayBefore = cal.date(byAdding: .day, value: -1, to: currentStart)!
+            previous = currentPeriod(for: budget, now: dayBefore)
+        }
+        if let anchor, anchor > previous.start { return nil }
+        return previous
+    }
+
+    /// Rollover (M10): the previous period's leftover, never negative.
+    /// The server additionally honours a `budget_rollovers` ledger row the
+    /// Mini App may write; RLS hides those rows from partners, so the
+    /// client fallback only does the computed carry.
+    static func rolloverCarry(
+        budget: Budget,
+        currentPeriod period: (start: Date, end: Date),
+        transactions: [Transaction],
+        categories: [Category],
+        externalSpendRows: [ExternalSpendRow],
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        guard budget.rolloverEnabled,
+              let previous = previousPeriod(for: budget, currentStart: period.start) else { return 0 }
+        let prevSpent = spentAmount(budget: budget, transactions: transactions, period: previous,
+                                    categories: categories, currencyContext: currencyContext)
+            + externalSpent(rows: externalSpendRows, budget: budget, period: previous,
+                            currencyContext: currencyContext)
+        return max(0, budget.amount - prevSpent)
     }
 
     // MARK: - Forecast Overrun Date
@@ -158,7 +266,7 @@ enum BudgetMath {
         guard dailyRate > 0 else { return nil }
         let daysToOverrun = Double(metrics.effectiveLimit - metrics.spent) / dailyRate
         guard daysToOverrun < Double(metrics.remainingDays) else { return nil }
-        return Calendar.current.date(byAdding: .day, value: Int(daysToOverrun), to: Date())
+        return calendar.date(byAdding: .day, value: Int(daysToOverrun), to: Date())
     }
 
     // MARK: - Spent
@@ -191,6 +299,25 @@ enum BudgetMath {
                 baseCode: budgetCurrency
             )
         }
+    }
+
+    /// Spent on one calendar day (own visible rows + partner rows) in the
+    /// budget currency — the widget's «потрачено сегодня» offline fallback,
+    /// with exactly the card's matching rules (B8).
+    static func spentOnDay(
+        _ day: Date,
+        budget: Budget,
+        transactions: [Transaction],
+        categories: [Category] = [],
+        externalSpendRows: [ExternalSpendRow] = [],
+        currencyContext: CurrencyContext
+    ) -> Int64 {
+        let start = calendar.startOfDay(for: day)
+        let period = (start: start, end: start)
+        return spentAmount(budget: budget, transactions: transactions, period: period,
+                           categories: categories, currencyContext: currencyContext)
+            + externalSpent(rows: externalSpendRows, budget: budget, period: period,
+                            currencyContext: currencyContext)
     }
 
     /// The expenses that make up `spentAmount` — same category, account and
@@ -274,11 +401,14 @@ enum BudgetMath {
 
         let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
-        let df = AppDateFormatters.isoDate
+        // Same string comparison as `matchingTransactions` — inclusive on
+        // both ends, no per-row date parsing.
+        let startKey = AppDateFormatters.isoDate.string(from: period.start)
+        let endKey = AppDateFormatters.isoDate.string(from: period.end)
         var total: Int64 = 0
         for row in rows {
-            guard let d = df.date(from: row.txDate),
-                  d >= period.start && d <= period.end else { continue }
+            let day = String(row.txDate.prefix(10))
+            guard day >= startKey && day <= endKey else { continue }
             total += NetWorthCalculator.convert(
                 amount: row.amountNative.kopecks,
                 from: row.currency.uppercased(),
@@ -341,6 +471,9 @@ enum BudgetMath {
     /// Without the FX step a $9.99/mo subscription on a RUB budget gets
     /// added as 9.99 roubles instead of ~925 — silently understating the
     /// committed total by two orders of magnitude.
+    ///
+    /// Offline fallback only sees THIS user's subscriptions (RLS); the
+    /// server counts every member's (B3).
     static func subscriptionCommitted(
         budget: Budget,
         subscriptions: [SubscriptionTracker],
@@ -420,24 +553,22 @@ enum BudgetMath {
         }
     }
 
-    /// Supabase stores `created_at` as ISO-8601 with fractional seconds.
-    /// Accept both the fractional + plain variants.
+    /// Supabase stores `created_at` as ISO-8601 with or without fractional
+    /// seconds; `AppDateFormatters.parseTimestamp` reads both (and allocates
+    /// no formatter per call — that was measurable on the budgets tab, P5).
     static func parseCreatedAt(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = fractional.date(from: raw) { return d }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: raw)
+        return AppDateFormatters.parseTimestamp(raw)
     }
 
     // MARK: - Daily safe-to-spend across budgets
 
     /// The recommended daily limit: the MINIMUM safe-to-spend-per-day across
-    /// all budgets (the most restrictive budget wins). Budgets whose period
-    /// already ended (`remainingDays == 0`) are skipped. Zero when there are
-    /// no budgets; never negative.
+    /// all budgets (the most restrictive budget wins), in the BASE currency
+    /// (display units). Each budget's allowance is converted before the
+    /// comparison — a $15.90/day USD budget must not beat 3 000 ₽/day as
+    /// "15.90" (M6). Budgets whose period already ended (`remainingDays ==
+    /// 0`) are skipped. Zero when there are no budgets; never negative.
     static func minDailySafeToSpend(
         budgets: [Budget],
         transactions: [Transaction],
@@ -445,23 +576,30 @@ enum BudgetMath {
         externalSpendByBudget: [String: [ExternalSpendRow]] = [:],
         currencyContext: CurrencyContext
     ) -> Decimal {
-        guard !budgets.isEmpty else { return 0 }
-
-        var minDaily: Decimal?
-        for budget in budgets {
-            let metrics = compute(
+        let items = budgets.map { budget in
+            (budget, compute(
                 budget: budget,
                 transactions: transactions,
                 categories: categories,
                 externalSpendRows: externalSpendByBudget[budget.id] ?? [],
                 currencyContext: currencyContext
-            )
-            guard metrics.remainingDays > 0 else { continue }
-            let daily = metrics.remaining.displayAmount / Decimal(metrics.remainingDays)
+            ))
+        }
+        return minDailySafeToSpend(items, currencyContext: currencyContext)
+    }
+
+    /// Same as above for metrics already resolved (server or local).
+    static func minDailySafeToSpend(
+        _ items: [(budget: Budget, metrics: BudgetMetrics)],
+        currencyContext: CurrencyContext
+    ) -> Decimal {
+        var minDaily: Int64?
+        for item in items {
+            guard item.metrics.remainingDays > 0 else { continue }
+            let daily = amountInBase(item.metrics.safeToSpendDaily, budget: item.budget, currencyContext: currencyContext)
             minDaily = minDaily.map { min($0, daily) } ?? daily
         }
-
-        return max(0, minDaily ?? 0)
+        return max(0, minDaily ?? 0).displayAmount
     }
 
     // MARK: - Progress (0–999 %)
@@ -473,11 +611,22 @@ enum BudgetMath {
 
     // MARK: - Days
 
-    static func daysMeta(start: Date, end: Date) -> (total: Int, elapsed: Int, remaining: Int) {
-        let day: TimeInterval = 86_400
-        let total = max(1, Int(round((end.timeIntervalSince(start)) / day)) + 1)
-        let elapsed = max(0, min(total, Int(round((Date().timeIntervalSince(start)) / day)) + 1))
-        return (total, elapsed, total - elapsed)
+    /// Whole calendar days (D5). `elapsed` counts the start through today,
+    /// `remaining` counts today through the end — today is in both, because
+    /// today's allowance is still spendable. The old `round(interval /
+    /// 86 400)` hit 0 remaining a day and a half before the end, so the
+    /// daily limit showed a red zero for the last days of every period.
+    static func daysMeta(start: Date, end: Date, today: Date = Date()) -> (total: Int, elapsed: Int, remaining: Int) {
+        let cal = calendar
+        let s = cal.startOfDay(for: start)
+        let e = cal.startOfDay(for: end)
+        let t = cal.startOfDay(for: today)
+        let total = max(1, (cal.dateComponents([.day], from: s, to: e).day ?? 0) + 1)
+        let sinceStart = cal.dateComponents([.day], from: s, to: t).day ?? 0
+        let untilEnd = cal.dateComponents([.day], from: t, to: e).day ?? 0
+        let elapsed = min(total, max(0, sinceStart + 1))
+        let remaining = min(total, max(0, untilEnd + 1))
+        return (total, elapsed, remaining)
     }
 
     // MARK: - Safe to spend daily

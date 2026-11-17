@@ -14,7 +14,8 @@ final class JournalViewModel {
 
     private let repo = FinancialNoteRepository()
     private var hasMorePages = true
-    private var currentOffset = 0
+    /// Keyset position: the last note of the last page fetched (Y12).
+    private var pageCursor: FinancialNoteRepository.PageCursor?
     private let pageSize = 50
     private var lastLoadedAt: Date?
     private let cacheTTL: TimeInterval = 60
@@ -64,13 +65,15 @@ final class JournalViewModel {
         // Only show full-screen spinner on very first load.
         if !hasLoadedOnce { isLoading = true }
         error = nil
-        currentOffset = 0
         hasMorePages = true
 
         do {
-            // fetchAll currently does not support an IN filter, so we fetch all
-            // and filter client-side when `selectedFilter` groups multiple types.
-            notes = try await repo.fetchAll(limit: pageSize, offset: 0, noteType: nil)
+            // The page fetch has no IN filter, so we fetch all types and
+            // filter client-side when `selectedFilter` groups multiple types.
+            let firstPage = try await repo.fetchPage(limit: pageSize, after: nil)
+            notes = firstPage
+            pageCursor = Self.cursor(after: firstPage)
+            hasMorePages = firstPage.count == pageSize
             let fetchedTags = try await repo.fetchAllTags()
             allTags = fetchedTags.filter { !hiddenTags.contains($0) }
             applyFilters()
@@ -83,17 +86,55 @@ final class JournalViewModel {
     }
 
     func loadMore() async {
-        guard hasMorePages, !isLoading else { return }
-        currentOffset += pageSize
+        guard hasMorePages, !isLoading, !isLoadingMore, let cursor = pageCursor else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
 
         do {
-            let newNotes = try await repo.fetchAll(limit: pageSize, offset: currentOffset, noteType: nil)
+            let newNotes = try await repo.fetchPage(limit: pageSize, after: cursor)
+            // A reload replaced the feed while this page was in flight.
+            guard pageCursor == cursor else { return }
             if newNotes.count < pageSize { hasMorePages = false }
-            notes.append(contentsOf: newNotes)
+            notes = Self.appendingPage(newNotes, to: notes)
+            pageCursor = Self.cursor(after: newNotes) ?? cursor
             applyFilters()
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    @ObservationIgnored private var isLoadingMore = false
+
+    /// Cursor after `page` (its last row), nil for an empty page or a row
+    /// without `created_at`.
+    static func cursor(after page: [FinancialNote]) -> FinancialNoteRepository.PageCursor? {
+        guard let last = page.last, let createdAt = last.createdAt else { return nil }
+        return FinancialNoteRepository.PageCursor(createdAt: createdAt, id: last.id)
+    }
+
+    /// Appends a page, skipping notes already in the list (a note created
+    /// locally on this device is inserted at the top before any page has
+    /// reached it). Pure for unit testing.
+    static func appendingPage(_ page: [FinancialNote], to notes: [FinancialNote]) -> [FinancialNote] {
+        let known = Set(notes.map(\.id))
+        return notes + page.filter { !known.contains($0.id) }
+    }
+
+    /// Sign-out: nothing of the previous user's journal may survive into
+    /// the next session (the view-model lives as long as the app).
+    func reset() {
+        notes = []
+        filteredNotes = []
+        isLoading = false
+        hasLoadedOnce = false
+        error = nil
+        searchText = ""
+        selectedFilter = .all
+        allTags = []
+        selectedTag = nil
+        hasMorePages = true
+        pageCursor = nil
+        lastLoadedAt = nil
     }
 
     func search() async {

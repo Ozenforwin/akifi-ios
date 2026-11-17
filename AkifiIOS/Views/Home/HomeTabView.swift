@@ -15,8 +15,13 @@ struct HomeTabView: View {
     @State private var showReceiptScanner = false
     @State private var showAddTransaction = false
 
+    @Environment(\.scenePhase) private var scenePhase
+
     private var dataStore: DataStore { appViewModel.dataStore }
-    private let accountRepo = AccountRepository()
+    /// Static, not an instance stored on the view: a class instance in a
+    /// View's stored properties makes every value of the view "different",
+    /// so each MainTabView pass re-ran this whole body (P4).
+    private static let accountRepo = AccountRepository()
 
     private var isNewUser: Bool { dataStore.transactions.isEmpty }
 
@@ -24,31 +29,29 @@ struct HomeTabView: View {
         viewModel.selectedAccount(from: dataStore.accounts)
     }
 
-    /// True if the given account has transactions from more than one user
-    /// — same heuristic used inside `AccountCarouselView` to render the
-    /// "shared" badge.
+    /// Shared = the account has more than one member in `account_members`
+    /// (B7). Until the membership snapshot is loaded (first launch offline)
+    /// fall back to the old signal — someone else has rows on it — read from
+    /// the memoized index instead of scanning every transaction per render.
     private func isSharedAccount(_ account: Account) -> Bool {
-        let uid = dataStore.profile?.id
+        let viewerId = dataStore.profile?.id
+        if let shared = dataStore.accountMembership.isShared(account.id, viewerId: viewerId) {
+            return shared
+        }
         return dataStore.profilesMap.count > 1
-            && dataStore.transactions.contains { $0.accountId == account.id && $0.userId != uid }
+            && dataStore.derivedCache.transactionIndex(for: dataStore).accountsWithOtherAuthors.contains(account.id)
     }
 
+    /// Latest 10 rows (one per transfer group) for the carousel's account,
+    /// memoized per data revision.
     private var recentTransactionsForAccount: [Transaction] {
-        let txs: [Transaction]
-        if let account = selectedAccount {
-            txs = dataStore.transactions.filter { $0.accountId == account.id }
-        } else {
-            txs = dataStore.transactions
-        }
-        // Deduplicate transfers: show only one per transfer_group_id
-        var seenGroups: Set<String> = []
-        return Array(txs.filter { tx in
-            if let groupId = tx.transferGroupId {
-                if seenGroups.contains(groupId) { return false }
-                seenGroups.insert(groupId)
-            }
-            return true
-        }.prefix(10))
+        dataStore.derivedCache.recentTransactions(for: dataStore, accountId: selectedAccount?.id)
+    }
+
+    /// Changes when the signed-in user or the set of accounts changes —
+    /// both can change who is a member of what.
+    private var membershipTrigger: String {
+        (dataStore.profile?.id ?? "") + "|" + dataStore.accounts.map(\.id).sorted().joined(separator: ",")
     }
 
     var body: some View {
@@ -111,6 +114,16 @@ struct HomeTabView: View {
             }
             .refreshable {
                 await dataStore.loadAll()
+                await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id, force: true)
+            }
+            .task(id: membershipTrigger) {
+                await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // A partner accepting an invite changes membership without
+                // touching our account list — re-check on return to the app.
+                guard phase == .active else { return }
+                Task { await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id) }
             }
             .animation(.easeOut(duration: 0.4), value: isNewUser)
             .navigationBarHidden(true)
@@ -229,7 +242,7 @@ struct HomeTabView: View {
                     guard !account.isPrimary else { return }
                     Task {
                         do {
-                            try await accountRepo.setPrimary(id: account.id)
+                            try await Self.accountRepo.setPrimary(id: account.id)
                             await dataStore.loadAll()
                             viewModel.selectedAccountIndex = 0
                         } catch {

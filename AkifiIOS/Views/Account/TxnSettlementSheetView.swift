@@ -235,16 +235,14 @@ struct TxnSettlementSheetView: View {
         return (total * m.weight / sumWeights) / 100  // kopecks → major units
     }
 
+    // `transactions.date` prefix is the LOCAL day; parse it in the zone it is shown in.
+    private static var dayParser: DateFormatter { AppDateFormatters.isoDate }
+
+    private static var dayDisplay: DateFormatter { AppDateFormatters.displayDate }
+
     private var formattedDate: String {
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
-        parser.dateFormat = "yyyy-MM-dd"
-        guard let d = parser.date(from: String(transaction.date.prefix(10))) else { return transaction.date }
-        let display = DateFormatter()
-        display.locale = Locale.current
-        display.dateStyle = .medium
-        return display.string(from: d)
+        guard let d = Self.dayParser.date(from: String(transaction.date.prefix(10))) else { return transaction.date }
+        return Self.dayDisplay.string(from: d)
     }
 
     private func name(for userId: String) -> String {

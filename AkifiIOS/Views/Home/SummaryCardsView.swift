@@ -5,48 +5,63 @@ struct SummaryCardsView: View {
     let transactions: [Transaction]
     let selectedAccount: Account?
 
-    private static let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private struct TotalsKey: Equatable {
+        let transactions: ArrayIdentity<Transaction>
+        let token: UInt64
+        let accountId: String?
+        let monthStart: String
+    }
 
-    /// Transactions in the current calendar month, restricted to the
-    /// account currently selected in the carousel when `selectedAccount`
-    /// is non-nil. The hero card already shows balance + month income/
-    /// expense chips for the selected account; without this filter the
-    /// big summary cards beneath the carousel would still show the
-    /// global sum and disagree with everything else on the screen.
-    private var currentMonthTransactions: [Transaction] {
-        let cal = Calendar.current
-        let now = Date()
-        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now))!
-        let df = Self.dateFormatter
-        let accountId = selectedAccount?.id
-        return transactions.filter { tx in
-            if let accountId, tx.accountId != accountId { return false }
-            guard let d = df.date(from: tx.date) else { return false }
-            return d >= monthStart
+    /// Month totals, recomputed only when the rows, FX context, account or
+    /// month change — they were re-derived with 2 N date parses per render.
+    @State private var memo = Memo<TotalsKey, (income: Int64, expense: Int64)>()
+
+    /// Current-calendar-month income / expense, restricted to the account
+    /// selected in the carousel when `accountId` is non-nil (the hero card
+    /// shows that account, the cards beneath must agree with it).
+    ///
+    /// "In the current month" is a string comparison against the month's
+    /// first day — exactly the old "parsed local midnight ≥ local month
+    /// start" test, without a date parse per row.
+    ///
+    /// ADR-001: aggregate via `amountInBase` so VND/EUR/USD rows on
+    /// differently-denominated accounts are FX-normalized into the base
+    /// currency (summing raw amounts showed 76 000 ₫ as 76 000 ₽).
+    static func monthTotals(
+        _ transactions: [Transaction],
+        accountId: String?,
+        monthStart: String,
+        amountInBase: (Transaction) -> Int64
+    ) -> (income: Int64, expense: Int64) {
+        var income: Int64 = 0
+        var expense: Int64 = 0
+        for tx in transactions {
+            if let accountId, tx.accountId != accountId { continue }
+            guard DayKey.isDay(tx.date), tx.date >= monthStart, !tx.isTransfer else { continue }
+            switch tx.type {
+            case .income: income += amountInBase(tx)
+            case .expense: expense += amountInBase(tx)
+            case .transfer: break
+            }
         }
-    }
-
-    // ADR-001: aggregate via dataStore.amountInBase so VND/EUR/USD rows
-    // on differently-denominated accounts get FX-normalized into the user's
-    // base currency. Summing `tx.amount` directly lets a 76 000 ₫ row
-    // appear as 76 000 ₽ (the original multi-currency bug).
-    private var monthlyIncome: Int64 {
-        currentMonthTransactions
-            .filter { $0.type == .income && !$0.isTransfer }
-            .reduce(0) { $0 + appViewModel.dataStore.amountInBase($1) }
-    }
-
-    private var monthlyExpense: Int64 {
-        currentMonthTransactions
-            .filter { $0.type == .expense && !$0.isTransfer }
-            .reduce(0) { $0 + appViewModel.dataStore.amountInBase($1) }
+        return (income, expense)
     }
 
     var body: some View {
+        let store = appViewModel.dataStore
+        let key = TotalsKey(
+            transactions: ArrayIdentity(transactions),
+            token: store.txGenerationToken,
+            accountId: selectedAccount?.id,
+            monthStart: DayKey.month(Date()) + "-01"
+        )
+        let totals = memo.value(for: key) {
+            Self.monthTotals(transactions, accountId: key.accountId, monthStart: key.monthStart) {
+                store.amountInBase($0)
+            }
+        }
+        let monthlyIncome = totals.income
+        let monthlyExpense = totals.expense
         HStack(spacing: 8) {
             SummaryCard(
                 title: String(localized: "summary.monthlyIncome"),

@@ -4,7 +4,9 @@ struct HomeSavingsSnapshotView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var goals: [SavingsGoal] = []
 
-    private let repo = SavingsGoalRepository()
+    /// Static: a class instance stored on the view makes every value of the
+    /// view compare unequal, so each Home pass re-rendered this card.
+    private static let repo = SavingsGoalRepository()
 
     var body: some View {
         Group {
@@ -69,6 +71,6 @@ struct HomeSavingsSnapshotView: View {
     }
 
     private func loadGoals() async {
-        goals = (try? await repo.fetchAll().filter { $0.status == .active }) ?? []
+        goals = (try? await Self.repo.fetchAll().filter { $0.status == .active }) ?? []
     }
 }

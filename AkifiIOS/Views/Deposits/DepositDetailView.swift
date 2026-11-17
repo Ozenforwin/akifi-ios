@@ -459,9 +459,6 @@ struct DepositDetailView: View {
 
     private func formatDateDisplay(_ isoDate: String) -> String {
         guard let date = DepositsViewModel.parseDate(isoDate) else { return isoDate }
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.locale = Locale.current
-        return f.string(from: date)
+        return AppDateFormatters.displayDate.string(from: date)
     }
 }

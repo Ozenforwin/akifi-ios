@@ -5,11 +5,7 @@ import Foundation
 enum DemoData {
     // MARK: - Helpers
 
-    private static let df: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
+    private static var df: DateFormatter { AppDateFormatters.isoDate }
 
     private static func daysAgo(_ n: Int) -> String {
         df.string(from: Calendar.current.date(byAdding: .day, value: -n, to: Date())!)

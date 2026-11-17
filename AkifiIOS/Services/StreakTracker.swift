@@ -22,22 +22,17 @@ enum StreakTracker {
     // MARK: - Public API
 
     /// Recompute the current streak from transactions.
-    static func currentStreak(from transactions: [Transaction]) -> Int {
+    ///
+    /// Works on the stored `yyyy-MM-dd` local-day strings directly, walking
+    /// back from today's local day — no locale-dependent parsing.
+    static func currentStreak(from transactions: [Transaction], now: Date = Date()) -> Int {
         guard !transactions.isEmpty else { return 0 }
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
+        let days = Set(transactions.map { String($0.date.prefix(10)) })
 
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let uniqueDates = Set(
-            transactions
-                .compactMap { df.date(from: $0.date) }
-                .map { calendar.startOfDay(for: $0) }
-        )
-
+        let calendar = AppDateFormatters.localCalendar
+        var checkDate = calendar.startOfDay(for: now)
         var streak = 0
-        var checkDate = today
-        while uniqueDates.contains(checkDate) {
+        while days.contains(AppDateFormatters.isoDate.string(from: checkDate)) {
             streak += 1
             guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
             checkDate = prev

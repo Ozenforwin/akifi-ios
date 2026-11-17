@@ -254,17 +254,12 @@ struct JournalTabView: View {
     }
 
     private func formatSectionDate(_ dateStr: String) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        guard let date = df.date(from: dateStr) else { return dateStr }
+        guard let date = AppDateFormatters.isoDate.date(from: dateStr) else { return dateStr }
 
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return String(localized: "date.today") }
         if calendar.isDateInYesterday(date) { return String(localized: "date.yesterday") }
 
-        let display = DateFormatter()
-        display.dateStyle = .medium
-        display.timeStyle = .none
-        return display.string(from: date)
+        return AppDateFormatters.displayDate.string(from: date)
     }
 }

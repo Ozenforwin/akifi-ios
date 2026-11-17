@@ -32,7 +32,7 @@ struct PortfolioChartView: View {
     /// antipattern (the current frame reads the *previous* values). We
     /// keep the heavy lifting on the `DataStore` side via the balance
     /// cache and the `Layout`-based stacked bar instead.
-    private var portfolioData: [(account: Account, balance: Decimal)] {
+    private func makePortfolioData() -> [(account: Account, balance: Decimal)] {
         dataStore.accounts
             .filter { !excludedIds.contains($0.id) }
             .map { account in
@@ -41,27 +41,24 @@ struct PortfolioChartView: View {
             .sorted { $0.balance > $1.balance }
     }
 
-    private var totalBalance: Decimal {
-        portfolioData.reduce(.zero) { $0 + $1.balance }
-    }
-
-    private var totalPositive: Decimal {
-        portfolioData.reduce(.zero) { $0 + max(0, $1.balance) }
-    }
-
     var body: some View {
+        // One pass per body: rows, total and positive total were each
+        // recomputed (filter + map + sort) by every reader.
+        let portfolioData = makePortfolioData()
+        let totalBalance = portfolioData.reduce(Decimal.zero) { $0 + $1.balance }
+        let totalPositive = portfolioData.reduce(Decimal.zero) { $0 + max(0, $1.balance) }
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack(alignment: .firstTextBaseline) {
                 Text(String(localized: "analytics.portfolio"))
                     .font(.headline)
                 Spacer()
-                filterMenu
+                filterMenu(includedCount: portfolioData.count)
             }
 
             // Total balance with sign
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(formattedTotal)
+                Text(formattedTotal(totalBalance))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(totalBalance < 0 ? Color.expense : .primary)
             }
@@ -98,7 +95,7 @@ struct PortfolioChartView: View {
 
                 VStack(spacing: 0) {
                     ForEach(Array(portfolioData.enumerated()), id: \.element.account.id) { index, item in
-                        accountRow(item: item)
+                        accountRow(item: item, totalPositive: totalPositive)
                             .padding(.vertical, 10)
 
                         if index < portfolioData.count - 1 {
@@ -125,7 +122,7 @@ struct PortfolioChartView: View {
     /// the total or the stacked bar. The label shows a counter pip when
     /// the filter is active so users notice the rollup is partial.
     @ViewBuilder
-    private var filterMenu: some View {
+    private func filterMenu(includedCount: Int) -> some View {
         Menu {
             if !excludedIds.isEmpty {
                 Button {
@@ -169,8 +166,8 @@ struct PortfolioChartView: View {
                         .font(.caption)
                 } else {
                     Text(String(format: String(localized: "portfolio.filter.activeCounter %lld %lld"),
-                                portfolioData.count,
-                                allAccountsSorted.count))
+                                includedCount,
+                                dataStore.accounts.count))
                         .font(.caption.weight(.semibold))
                 }
             }
@@ -207,7 +204,7 @@ struct PortfolioChartView: View {
 
     // MARK: - Account row
 
-    private func accountRow(item: (account: Account, balance: Decimal)) -> some View {
+    private func accountRow(item: (account: Account, balance: Decimal), totalPositive: Decimal) -> some View {
         HStack(spacing: 10) {
             Circle()
                 .fill(Color(hex: item.account.color))
@@ -247,13 +244,17 @@ struct PortfolioChartView: View {
 
     // MARK: - Formatting
 
-    private var formattedTotal: String {
-        let cm = appViewModel.currencyManager
-        let converted = cm.convert(abs(totalBalance))
+    private static let wholeNumberFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 0
-        let formatted = formatter.string(from: converted as NSDecimalNumber) ?? "0"
+        return formatter
+    }()
+
+    private func formattedTotal(_ totalBalance: Decimal) -> String {
+        let cm = appViewModel.currencyManager
+        let converted = cm.convert(abs(totalBalance))
+        let formatted = Self.wholeNumberFormatter.string(from: converted as NSDecimalNumber) ?? "0"
         let sign = totalBalance < 0 ? "-" : ""
         return "\(sign)\(formatted) \(cm.selectedCurrency.symbol)"
     }

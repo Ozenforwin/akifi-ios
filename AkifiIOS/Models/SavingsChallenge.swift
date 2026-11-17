@@ -109,9 +109,10 @@ enum ChallengeType: String, Codable, CaseIterable, Sendable {
     /// "Round up to 100 and save the difference" — progress = sum of
     /// round-up deltas across all expense transactions in the period.
     case roundUp = "round_up"
-    /// "Save 500 RUB per week" — progress = sum of contributions to the
-    /// linked goal (or all savings-category income) during the period.
-    /// `targetAmount` = weekly amount.
+    /// "Save 500 RUB per week" — progress = money set aside during the
+    /// period: what was booked in `categoryId` when one is set, otherwise
+    /// transfers INTO savings / deposit / investment accounts. Ordinary
+    /// income (a salary) does not count. `targetAmount` = weekly amount.
     case weeklyAmount = "weekly_amount"
     /// "Don't spend more than X on category Y" — progress = total expenses
     /// in `categoryId` during the period; success = progress < targetAmount.
@@ -167,28 +168,45 @@ enum ChallengeStatus: String, Codable, Sendable {
     case abandoned
 }
 
+/// # Period
+/// A challenge covers the local days `startDate ..< endDate` — `endDate` is
+/// EXCLUSIVE and `endDate = startDate + durationDays`, so a 7-day challenge
+/// started on the 1st runs the 1st…7th and is over on the 8th. (It used to
+/// count `endDate` as well, i.e. 8 days.) Day strings are local calendar
+/// days, see `AppDateFormatters`.
 extension SavingsChallenge {
+    /// Last day of the challenge (`endDate − 1`), for display.
+    var lastDay: Date? {
+        guard let end = AppDateFormatters.day(endDate) else { return nil }
+        return AppDateFormatters.localCalendar.date(byAdding: .day, value: -1, to: end)
+    }
+
+    /// True once the period is over (today ≥ `endDate`).
+    func isFinished(now: Date = Date()) -> Bool {
+        AppDateFormatters.isoDate.string(from: now) >= String(endDate.prefix(10))
+    }
+
     /// Fraction of duration elapsed since `startDate` clamped to 0...1.
     /// Used for time-progress UI.
-    var timeProgress: Double {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        guard let start = df.date(from: startDate),
-              let end = df.date(from: endDate) else { return 0 }
+    func elapsedFraction(now: Date = Date()) -> Double {
+        guard let start = AppDateFormatters.day(startDate),
+              let end = AppDateFormatters.day(endDate) else { return 0 }
         let total = end.timeIntervalSince(start)
         guard total > 0 else { return 1 }
-        let elapsed = Date().timeIntervalSince(start)
+        let elapsed = now.timeIntervalSince(start)
         return max(0, min(1, elapsed / total))
     }
 
-    /// Days remaining until `endDate`, never negative.
-    var daysRemaining: Int {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        guard let end = df.date(from: endDate) else { return 0 }
-        let comps = Calendar.current.dateComponents([.day], from: Date(), to: end)
-        return max(0, comps.day ?? 0)
+    var timeProgress: Double { elapsedFraction() }
+
+    /// Days left including today: 7 on the first day of a 7-day challenge,
+    /// 1 on its last day, 0 once it is over.
+    func daysLeft(now: Date = Date()) -> Int {
+        guard let end = AppDateFormatters.day(endDate) else { return 0 }
+        return max(0, SubscriptionDateEngine.daysBetween(now, end))
     }
+
+    var daysRemaining: Int { daysLeft() }
 
     /// Success/progress fraction per challenge semantics; 1.0 = complete.
     /// Note: `noCafe` returns 1.0 only when `progressAmount == 0` — any

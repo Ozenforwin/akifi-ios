@@ -57,6 +57,18 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
     /// user has no assets/liabilities recorded.
     let netWorth: Int64?
 
+    // MARK: Day rollover (Y11) — optional, so older payloads still decode.
+    /// "yyyy-MM-dd" (device zone, Gregorian) the "today" fields belong to.
+    /// `nil` in payloads written before this field: the day of
+    /// `lastUpdated` is used instead.
+    var dayKey: String? = nil
+    /// Primary budget's leftover after subscriptions (base-currency minor
+    /// units) — lets the widget re-spread the allowance over the days left
+    /// after midnight without the app running.
+    var dailyLimitLeftover: Int64? = nil
+    /// Last day of the primary budget's window, "yyyy-MM-dd".
+    var dailyLimitPeriodEnd: String? = nil
+
     /// A neutral placeholder used by widget previews and cold-start cases
     /// when the App Group container is empty.
     static let placeholder = SharedSnapshot(
@@ -78,4 +90,68 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
         todayNet: 3_750_00,
         netWorth: 325_000_00
     )
+}
+
+extension SharedSnapshot {
+    /// Gregorian in the device zone — the calendar the app uses for "today".
+    static var dayCalendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .current
+        return cal
+    }
+
+    static func dayKey(for date: Date, calendar: Calendar = SharedSnapshot.dayCalendar) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    /// The day the "today" fields were computed for.
+    var effectiveDayKey: String { dayKey ?? Self.dayKey(for: lastUpdated) }
+
+    /// The snapshot as it should read on `date` (Y11). The app computes the
+    /// "today" fields only while it runs, so after midnight they belong to
+    /// yesterday: income / expense / net / spent-today drop to zero, and the
+    /// daily allowance is the stored leftover re-spread over the days now
+    /// left in the budget window (today included). Same day → unchanged.
+    func rolledOver(to date: Date, calendar: Calendar = SharedSnapshot.dayCalendar) -> SharedSnapshot {
+        let today = Self.dayKey(for: date, calendar: calendar)
+        guard today != effectiveDayKey else { return self }
+
+        var limit = dailyLimit
+        if let leftover = dailyLimitLeftover, let endKey = dailyLimitPeriodEnd,
+           let end = Self.date(fromDayKey: endKey, calendar: calendar) {
+            let days = (calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: end).day ?? -1) + 1
+            if days > 0 { limit = max(0, leftover / Int64(days)) }
+        }
+
+        var copy = SharedSnapshot(
+            schemaVersion: schemaVersion,
+            lastUpdated: lastUpdated,
+            baseCurrency: baseCurrency,
+            baseCurrencySymbol: baseCurrencySymbol,
+            baseCurrencyDecimals: baseCurrencyDecimals,
+            totalBalance: totalBalance,
+            accountCount: accountCount,
+            dailyLimit: limit,
+            dailyLimitBudgetName: dailyLimitBudgetName,
+            dailySpentToday: 0,
+            dailyLimitUtilization: dailyLimitUtilization,
+            currentStreak: currentStreak,
+            nextMilestone: nextMilestone,
+            todayIncome: 0,
+            todayExpense: 0,
+            todayNet: 0,
+            netWorth: netWorth
+        )
+        copy.dayKey = today
+        copy.dailyLimitLeftover = dailyLimitLeftover
+        copy.dailyLimitPeriodEnd = dailyLimitPeriodEnd
+        return copy
+    }
+
+    private static func date(fromDayKey key: String, calendar: Calendar) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
 }

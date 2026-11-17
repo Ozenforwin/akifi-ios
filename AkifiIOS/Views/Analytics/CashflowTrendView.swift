@@ -11,20 +11,9 @@ struct CashflowTrendView: View {
 
     @State private var selectedLabel: String?
 
-    private static let monthKeyFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.timeZone = TimeZone(identifier: "UTC")
-        return df
-    }()
+    private static var monthKeyFormatter: DateFormatter { AppDateFormatters.localMonth }
 
-    private static let monthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "LLL"
-        df.locale = Locale.current
-        return df
-    }()
+    private static var monthLabelFormatter: DateFormatter { AppDateFormatters.shortMonth }
 
     private static let axisNumberFormatter: NumberFormatter = {
         let nf = NumberFormatter()
@@ -40,7 +29,7 @@ struct CashflowTrendView: View {
     /// Points are converted into the *display* currency here, so the
     /// Y-axis magnitudes follow the currency toggle instead of always
     /// showing base-currency values.
-    private var trendData: [TrendPoint] {
+    private func makeTrendData() -> [TrendPoint] {
         let keyFmt = Self.monthKeyFormatter
         let labelFmt = Self.monthLabelFormatter
         let cm = appViewModel.currencyManager
@@ -52,6 +41,7 @@ struct CashflowTrendView: View {
                 label = agg.monthKey
             }
             return TrendPoint(
+                id: agg.monthKey,
                 label: label,
                 income: cm.convert(Decimal(agg.income) / Decimal(100)),
                 expense: cm.convert(Decimal(agg.expense) / Decimal(100))
@@ -59,12 +49,11 @@ struct CashflowTrendView: View {
         }
     }
 
-    private var selectedPoint: TrendPoint? {
-        guard let selectedLabel else { return nil }
-        return trendData.first { $0.label == selectedLabel }
-    }
-
     var body: some View {
+        // Built once per body (it was rebuilt for every read: the empty
+        // check, the selection lookup and the chart each paid for it).
+        let trendData = makeTrendData()
+        let selectedPoint = selectedLabel.flatMap { label in trendData.first { $0.label == label } }
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "analytics.cashflowTrend"))
                 .font(.headline)
@@ -81,7 +70,7 @@ struct CashflowTrendView: View {
                         .animation(.easeOut(duration: 0.15), value: selectedLabel)
                 }
 
-                trendChart
+                trendChart(trendData, selectedPoint: selectedPoint)
                     .frame(height: 200)
 
                 // Legend
@@ -104,7 +93,7 @@ struct CashflowTrendView: View {
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 
-    private var trendChart: some View {
+    private func trendChart(_ trendData: [TrendPoint], selectedPoint: TrendPoint?) -> some View {
         Chart {
             ForEach(trendData) { point in
                 incomeMarks(point: point)
@@ -205,7 +194,9 @@ struct CashflowTrendView: View {
 }
 
 private struct TrendPoint: Identifiable {
-    let id = UUID()
+    /// The "yyyy-MM" month key — stable across recomputes, so Charts can
+    /// diff marks instead of rebuilding them.
+    let id: String
     let label: String
     let income: Decimal
     let expense: Decimal

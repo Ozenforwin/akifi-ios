@@ -292,9 +292,7 @@ struct ReceiptScannerView: View {
             selectedCategoryId = result.suggestedCategoryId ?? result.categoryId
 
             if let dateStr = result.purchaseDate {
-                let df = DateFormatter()
-                df.dateFormat = "yyyy-MM-dd"
-                if let d = df.date(from: dateStr),
+                if let d = AppDateFormatters.isoDate.date(from: dateStr),
                    d.timeIntervalSinceNow > -365 * 24 * 3600 { // Not older than 1 year
                     transactionDate = d
                 }
@@ -399,8 +397,7 @@ struct ReceiptScannerView: View {
             let foreignAmount = foreignAmountDouble.map { Decimal($0) }
             let fxRate = fxRateDouble.map { Decimal($0) }
 
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
+            let df = AppDateFormatters.isoDate
 
             let originalSuffix = editCurrency != accountCode
                 ? " · \(editAmount) \(editCurrency.code)"

@@ -95,21 +95,24 @@ final class ReportsViewModel {
 
     // MARK: - Period Navigation
 
-    func nextPeriod() {
-        guard let step = periodStep else { return }
-        let cal = Calendar.current
-        if let next = cal.date(byAdding: step.component, value: step.value, to: selectedMonth),
-           next <= Date() {
+    func nextPeriod(now: Date = Date()) {
+        if let next = nextPeriodDate(now: now) {
             selectedMonth = next
         }
     }
 
     func previousPeriod() {
-        guard let step = periodStep, canGoPrevious else { return }
-        let cal = Calendar.current
-        if let prev = cal.date(byAdding: step.component, value: -step.value, to: selectedMonth) {
-            selectedMonth = prev
-        }
+        guard periodStep != nil, canGoPrevious else { return }
+        selectedMonth = prevPeriodDate()
+    }
+
+    /// Start of the period `selectedMonth` falls into under the current
+    /// mode. The pager steps from here, not from `selectedMonth` itself:
+    /// after month navigation `selectedMonth` can be any month (say
+    /// September), and September + 3 months lay in the future, so the
+    /// "next" button vanished even though Q4 — which holds today — was next.
+    private var currentPeriodStart: Date {
+        periodBounds(for: selectedMonth).start
     }
 
     /// False once the previous period lies entirely before the user's
@@ -200,57 +203,31 @@ final class ReportsViewModel {
     func prevPeriodDate() -> Date {
         guard let step = periodStep else { return customStart }
         let cal = Calendar.current
-        return cal.date(byAdding: step.component, value: -step.value, to: selectedMonth)!
+        return cal.date(byAdding: step.component, value: -step.value, to: currentPeriodStart)!
     }
 
-    func nextPeriodDate() -> Date? {
+    /// Start of the next period, or nil when that period has not begun yet.
+    func nextPeriodDate(now: Date = Date()) -> Date? {
         guard let step = periodStep else { return nil }
         let cal = Calendar.current
-        let next = cal.date(byAdding: step.component, value: step.value, to: selectedMonth)
-        guard let next, next <= Date() else { return nil }
+        let next = cal.date(byAdding: step.component, value: step.value, to: currentPeriodStart)
+        guard let next, next <= now else { return nil }
         return next
     }
 
     // MARK: - Private formatters
 
-    private static let txDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
+    private static var txDateFormatter: DateFormatter { AppDateFormatters.isoDate }
 
-    /// Parses a stored `yyyy-MM-dd` transaction date.
+    /// Parses a stored `yyyy-MM-dd` transaction date (local day).
     static func parseDate(_ raw: String) -> Date? {
-        txDateFormatter.date(from: raw)
+        txDateFormatter.date(from: String(raw.prefix(10)))
     }
 
-    private static let monthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "LLLL yyyy"
-        return df
-    }()
-
-    private static let shortMonthLabelFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "LLL yyyy"
-        return df
-    }()
-
-    private static let rangeDayFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.setLocalizedDateFormatFromTemplate("d MMM")
-        return df
-    }()
-
-    private static let rangeDayYearFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.setLocalizedDateFormatFromTemplate("d MMM yyyy")
-        return df
-    }()
+    private static var monthLabelFormatter: DateFormatter { AppDateFormatters.monthYear }
+    private static var shortMonthLabelFormatter: DateFormatter { AppDateFormatters.shortMonthYear }
+    private static var rangeDayFormatter: DateFormatter { AppDateFormatters.dayMonth }
+    private static var rangeDayYearFormatter: DateFormatter { AppDateFormatters.dayMonthYear }
 
     // MARK: - Filtered transactions (respects periodMode)
 

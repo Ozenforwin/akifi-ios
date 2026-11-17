@@ -6,7 +6,7 @@ struct DaySummaryProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
-        completion(SnapshotEntry(date: Date(), snapshot: SnapshotTimelinePolicy.loadSnapshot()))
+        completion(SnapshotTimelinePolicy.currentEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {

@@ -84,6 +84,40 @@ final class SupabaseManager: Sendable {
         return try await client.auth.session
     }
 
+    /// A session whose access token is valid right now, refreshing it first
+    /// when it has expired — or nil.
+    ///
+    /// The SDK never fails a request for a missing session: when there is
+    /// none (signed out, refresh failed offline, refresh token revoked) it
+    /// silently sends the **anon key** instead. Under RLS that turns every
+    /// read into `[]` and every UPDATE/DELETE into a zero-row "success".
+    /// Callers that cache what they read or replay queued writes must check
+    /// this first and treat nil as offline.
+    func validSession(timeout seconds: Double = 10) async -> Session? {
+        await sessionCoordinator.waitForPendingRefresh()
+        let client = self.client
+        guard let session = try? await withTimeout(seconds: seconds, operation: {
+            try await client.auth.session
+        }) else { return nil }
+        return session.isExpired ? nil : session
+    }
+
+    func hasValidSession() async -> Bool {
+        await validSession() != nil
+    }
+
+    /// Lowercased id of the user behind a valid session, or nil.
+    func validSessionUserId() async -> String? {
+        await validSession()?.user.id.uuidString.lowercased()
+    }
+
+    /// Cheap synchronous check that a session object still exists locally —
+    /// used after a long fetch to detect a sign-out / failed refresh that
+    /// happened mid-flight (later requests then went out as anon).
+    var hasLocalSession: Bool {
+        client.auth.currentSession != nil
+    }
+
     // MARK: - User ID helper
     //
     // Every user-owned table in Supabase has:

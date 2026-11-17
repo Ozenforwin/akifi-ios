@@ -6,36 +6,20 @@ struct BudgetCardView: View {
     let budget: Budget
     let metrics: BudgetMetrics
     let categories: [Category]
+    /// The budget's categories as the server sees them — a partner can't
+    /// load the owner's personal categories (RLS), so without these the card
+    /// read «Все категории» on the partner's phone (B1).
+    var serverCategories: [ServerBudgetMetrics.CategoryRef] = []
+    /// A partner's latest spending may be missing (server unreachable, B5).
+    var isPartial: Bool = false
 
     // MARK: - Formatters
 
     private static let forecastFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "d MMM"
+        let df = DateFormatter() // date-formatter-ok: display, follows user locale
         df.locale = Locale.current
-        return df
-    }()
-
-    // DateFormatter init costs ~ms — creating them inside `periodLabel` on
-    // every render of every card was a scroll-jank contributor.
-    private static let dayMonthFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "d MMM"
-        return df
-    }()
-
-    private static let monthYearFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "LLLL yyyy"
-        return df
-    }()
-
-    private static let dayMonthYearFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.locale = Locale.current
-        df.dateFormat = "d MMM yyyy"
+        df.calendar = Calendar(identifier: .gregorian)
+        df.setLocalizedDateFormatFromTemplate("d MMM")
         return df
     }()
 
@@ -82,17 +66,28 @@ struct BudgetCardView: View {
         )
     }
 
-    private var categoryNames: String {
-        guard let catIds = budget.categories, !catIds.isEmpty else {
-            return String(localized: "budget.allCategories")
+    /// (name, icon) of every budget category: local rows first, the
+    /// server's for ids this phone can't see.
+    private var budgetCategoryLabels: [(name: String, icon: String)] {
+        guard let catIds = budget.categories, !catIds.isEmpty else { return [] }
+        let localById = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let serverById = Dictionary(serverCategories.map { ($0.id.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+        return catIds.compactMap { id in
+            if let local = localById[id] { return (local.name, local.icon) }
+            if let remote = serverById[id.lowercased()] { return (remote.name, remote.icon ?? "") }
+            return nil
         }
-        let names = categories.filter { catIds.contains($0.id) }.map(\.name)
+    }
+
+    private var categoryNames: String {
+        let names = budgetCategoryLabels.map(\.name)
         return names.isEmpty ? String(localized: "budget.allCategories") : names.joined(separator: ", ")
     }
 
     private var categoryIcons: String {
-        guard let catIds = budget.categories, !catIds.isEmpty else { return "📊" }
-        return categories.filter { catIds.contains($0.id) }.map(\.icon).prefix(3).joined()
+        let labels = budgetCategoryLabels
+        guard !labels.isEmpty else { return "📊" }
+        return labels.map(\.icon).prefix(3).joined()
     }
 
     private var statusLabel: (text: String, color: Color) {
@@ -126,27 +121,15 @@ struct BudgetCardView: View {
         metrics.paceRatio <= 1.1 ? .green : Color.warning
     }
 
+    /// The window the numbers cover (D4): a 30-day rolling budget made on
+    /// the 19th reads «19 окт – 17 ноя», not «Ноябрь 2026». Same window as
+    /// the server and the push.
     private var periodLabel: String {
-        let cal = Calendar.current
-        switch budget.billingPeriod {
-        case .weekly:
-            let period = BudgetMath.currentPeriod(for: budget)
-            let df = Self.dayMonthFormatter
-            return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
-        case .monthly:
-            return Self.monthYearFormatter.string(from: Date()).capitalized
-        case .quarterly:
-            let month = cal.component(.month, from: Date())
-            let quarter = (month - 1) / 3 + 1
-            let year = cal.component(.year, from: Date())
-            return "\(String(localized: "budget.quarter")) \(quarter), \(year)"
-        case .yearly:
-            return String(cal.component(.year, from: Date()))
-        case .custom:
-            let period = BudgetMath.currentPeriod(for: budget)
-            let df = Self.dayMonthYearFormatter
-            return "\(df.string(from: period.start)) – \(df.string(from: period.end))"
+        if metrics.periodStart != .distantPast {
+            return BudgetsViewModel.periodLabel(start: metrics.periodStart, end: metrics.periodEnd)
         }
+        let period = BudgetMath.currentPeriod(for: budget)
+        return BudgetsViewModel.periodLabel(start: period.start, end: period.end)
     }
 
     private var forecastDate: Date? {
@@ -326,6 +309,18 @@ struct BudgetCardView: View {
                     Text(String(localized: "budget.exceeded.\(budgetFmt(abs(metrics.remaining)))"))
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.primary)
+                }
+            }
+
+            if isPartial {
+                HStack(spacing: 6) {
+                    Image(systemName: "icloud.slash")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(String(localized: "budget.partial.hint",
+                                defaultValue: "Траты участников могут быть неполными — нет связи с сервером"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 

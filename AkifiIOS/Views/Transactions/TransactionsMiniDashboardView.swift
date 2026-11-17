@@ -7,54 +7,28 @@ struct TransactionsMiniDashboardView: View {
 
     @Environment(AppViewModel.self) private var appVM
 
-    private var monthlyData: [MonthEntry] {
-        let cal = Calendar.current
-        let now = Date()
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-
-        let months: [(date: Date, key: String)] = (0..<6).reversed().compactMap { offset in
-            guard let d = cal.date(byAdding: .month, value: -offset, to: now) else { return nil }
-            let comps = cal.dateComponents([.year, .month], from: d)
-            return (d, "\(comps.year!)-\(String(format: "%02d", comps.month!))")
-        }
-
-        let shortLabels: [Int: String] = [
-            1: String(localized: "month.jan"), 2: String(localized: "month.feb"), 3: String(localized: "month.mar"), 4: String(localized: "month.apr"),
-            5: String(localized: "month.may"), 6: String(localized: "month.jun"), 7: String(localized: "month.jul"), 8: String(localized: "month.aug"),
-            9: String(localized: "month.sep"), 10: String(localized: "month.oct"), 11: String(localized: "month.nov"), 12: String(localized: "month.dec")
-        ]
-
-        let currentKey: String = {
-            let c = cal.dateComponents([.year, .month], from: now)
-            return "\(c.year!)-\(String(format: "%02d", c.month!))"
-        }()
-
-        let dataStore = appVM.dataStore
-        return months.map { item in
-            let filtered = transactions.filter { tx in
-                !tx.isTransfer && tx.date.hasPrefix(item.key)
-            }
-            // ADR-001: FX-normalize to base currency before summing so
-            // VND/USD rows on their own accounts don't get read as rubles.
-            let inc = filtered.filter { $0.type == .income }.reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
-            let exp = filtered.filter { $0.type == .expense }.reduce(Int64(0)) { $0 + dataStore.amountInBase($1) }
-            let month = cal.component(.month, from: item.date)
-            return MonthEntry(
-                label: shortLabels[month] ?? "",
-                income: Double(inc) / 100,
-                expense: Double(exp) / 100,
-                isCurrent: item.key == currentKey
-            )
-        }
+    private struct MonthsKey: Equatable {
+        let transactions: ArrayIdentity<Transaction>
+        let token: UInt64
+        let currentMonth: String
     }
 
-    private var maxValue: Double {
-        let vals = monthlyData.flatMap { [$0.income, $0.expense] }
-        return max(vals.max() ?? 1, 1)
-    }
+    /// Six months of income / expense, computed once per data revision.
+    /// It used to be rebuilt by every reader — the chart, `maxValue` and
+    /// each x-axis label — i.e. ~8 × 6 × N FX conversions per render.
+    @State private var memo = Memo<MonthsKey, [MiniDashboardMonth]>()
 
     var body: some View {
+        let store = appVM.dataStore
+        let key = MonthsKey(
+            transactions: ArrayIdentity(transactions),
+            token: store.txGenerationToken,
+            currentMonth: DayKey.month(Date())
+        )
+        let monthlyData = memo.value(for: key) {
+            Self.months(transactions, amountInBase: { store.amountInBase($0) })
+        }
+        let currentLabels = Set(monthlyData.filter(\.isCurrent).map(\.label))
         VStack(alignment: .leading, spacing: 8) {
             Chart(monthlyData) { entry in
                 BarMark(
@@ -86,7 +60,7 @@ struct TransactionsMiniDashboardView: View {
                 AxisMarks { value in
                     AxisValueLabel {
                         if let label = value.as(String.self) {
-                            let isCurrent = monthlyData.first(where: { $0.label == label })?.isCurrent == true
+                            let isCurrent = currentLabels.contains(label)
                             Text(label)
                                 .font(.caption2)
                                 .fontWeight(isCurrent ? .bold : .regular)
@@ -114,10 +88,64 @@ struct TransactionsMiniDashboardView: View {
         if value >= 1_000 { return "\(Int(value / 1_000))k" }
         return "\(Int(value))"
     }
+
+    /// Last six calendar months (oldest first) of non-transfer income /
+    /// expense in base currency, in a single pass over `transactions`.
+    /// ADR-001: every row is FX-normalized via `amountInBase` before summing.
+    static func months(
+        _ transactions: [Transaction],
+        now: Date = Date(),
+        timeZone: TimeZone = .current,
+        amountInBase: (Transaction) -> Int64
+    ) -> [MiniDashboardMonth] {
+        let keys = DayKey.recentMonths(6, now: now, timeZone: timeZone)
+        let window = Set(keys)
+        var income: [String: Int64] = [:]
+        var expense: [String: Int64] = [:]
+        for tx in transactions where !tx.isTransfer {
+            let key = String(tx.date.prefix(7))
+            guard window.contains(key) else { continue }
+            switch tx.type {
+            case .income: income[key, default: 0] += amountInBase(tx)
+            case .expense: expense[key, default: 0] += amountInBase(tx)
+            case .transfer: break
+            }
+        }
+        let currentKey = keys.last
+        return keys.map { key in
+            MiniDashboardMonth(
+                id: key,
+                label: shortLabel(forMonthKey: key),
+                income: Double(income[key] ?? 0) / 100,
+                expense: Double(expense[key] ?? 0) / 100,
+                isCurrent: key == currentKey
+            )
+        }
+    }
+
+    private static func shortLabel(forMonthKey key: String) -> String {
+        switch Int(key.suffix(2)) ?? 0 {
+        case 1: String(localized: "month.jan")
+        case 2: String(localized: "month.feb")
+        case 3: String(localized: "month.mar")
+        case 4: String(localized: "month.apr")
+        case 5: String(localized: "month.may")
+        case 6: String(localized: "month.jun")
+        case 7: String(localized: "month.jul")
+        case 8: String(localized: "month.aug")
+        case 9: String(localized: "month.sep")
+        case 10: String(localized: "month.oct")
+        case 11: String(localized: "month.nov")
+        case 12: String(localized: "month.dec")
+        default: ""
+        }
+    }
 }
 
-private struct MonthEntry: Identifiable {
-    let id = UUID()
+struct MiniDashboardMonth: Identifiable, Equatable {
+    /// "yyyy-MM" — stable across recomputes (a fresh `UUID()` per render
+    /// made the chart rebuild every bar).
+    let id: String
     let label: String
     let income: Double
     let expense: Double

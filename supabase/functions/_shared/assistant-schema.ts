@@ -46,7 +46,8 @@ export type AssistantActionType =
   | 'delete_transaction'
   | 'edit_budget'
   | 'savings_contribute'
-  | 'smart_budget_create';
+  | 'smart_budget_create'
+  | 'create_savings_goal';
 
 export interface AssistantAction {
   type: AssistantActionType;
@@ -248,5 +249,8 @@ function isActionType(value: unknown): value is AssistantActionType {
     || value === 'delete_transaction'
     || value === 'edit_budget'
     || value === 'savings_contribute'
-    || value === 'smart_budget_create';
+    || value === 'smart_budget_create'
+    // Emitted by the savings-plan coach and handled by iOS (AssistantModels
+    // .createSavingsGoal); without it sanitize dropped the button.
+    || value === 'create_savings_goal';
 }

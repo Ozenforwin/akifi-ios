@@ -26,7 +26,7 @@ final class StreakTrackerTests: XCTestCase {
     }
 
     private static let isoFormatter: DateFormatter = {
-        let df = DateFormatter()
+        let df = AppDateFormatters.posix("yyyy-MM-dd", timeZone: .current)
         df.dateFormat = "yyyy-MM-dd"
         return df
     }()

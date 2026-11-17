@@ -65,6 +65,12 @@ final class SettlementViewModel {
     /// Refreshed alongside `pastSettlements` on every `load`. The UI groups
     /// these by `transaction_id` to render the row toggle / per-member sheet.
     var transactionMemberSettlements: [TransactionMemberSettlement] = []
+    /// Main expense id → payer, as resolved by the server. Empty when the
+    /// server call failed (offline) — callers fall back to local attribution.
+    var serverPayers: [String: String] = [:]
+    /// `true` when `balances` came from `get_account_settlement` (identical
+    /// for every member); `false` when we fell back to the local calculator.
+    var isServerComputed = false
     var isLoading = false
     var errorMessage: String?
 
@@ -94,18 +100,27 @@ final class SettlementViewModel {
         isLoading = true
         errorMessage = nil
 
+        // All four reads are independent — run them concurrently so the card
+        // costs one round-trip, not four sequential ones.
+        let client = supabase
+        let settlementRepo = settlementRepo
+        let txMemberRepo = txMemberRepo
+        // Members come from the app-wide membership snapshot when it's loaded
+        // (Home and the account screen share it — P7); only a cold screen
+        // pays for its own read.
+        let cachedMembers = dataStore.accountMembership.members(of: sharedAccountId, viewerId: dataStore.profile?.id)
+        async let membersFetch: [AccountMember] = Self.members(cached: cachedMembers, client: client, accountId: sharedAccountId)
+        async let settlementsFetch = settlementRepo.fetchForAccount(sharedAccountId)
+        async let marksFetch = txMemberRepo.fetchForAccount(sharedAccountId)
+        async let serverFetch = settlementRepo.fetchServerSettlement(sharedAccountId)
+
         // Pull canonical member list from `account_members` (falls back to
         // transaction-authors if the network call fails — keeps legacy
         // behavior for accounts without the join). Read split_weight at
         // the same time so the settlement math can honor per-member shares.
         var members: [AccountMember] = []
         do {
-            members = try await SupabasePaging.all("account_members") { count in
-                supabase
-                    .from("account_members")
-                    .select(count: count)
-                    .eq("account_id", value: sharedAccountId)
-            }
+            members = try await membersFetch
         } catch {
             // Non-fatal — fall back to deriving from transactions below.
             AppLogger.data.debug("settlement members load: \(error.localizedDescription)")
@@ -139,12 +154,12 @@ final class SettlementViewModel {
         // map the same way an aggregate settlement does, but at txn-row
         // granularity (used by the swipe / sheet UX).
         do {
-            pastSettlements = try await settlementRepo.fetchForAccount(sharedAccountId)
+            pastSettlements = try await settlementsFetch
         } catch {
             errorMessage = error.localizedDescription
         }
         do {
-            transactionMemberSettlements = try await txMemberRepo.fetchForAccount(sharedAccountId)
+            transactionMemberSettlements = try await marksFetch
         } catch {
             // Non-fatal — feature is additive; falling through with the
             // previous list (or empty) keeps the rest of the card working.
@@ -163,7 +178,11 @@ final class SettlementViewModel {
         // Always cumulative: every transaction on the shared account and every
         // recorded settlement counts toward the running net. The period selector
         // filters the history & transaction lists, not the balance card.
-        balances = SettlementCalculator.compute(
+        //
+        // The local computation is the offline fallback and a cross-check;
+        // the server's answer (identical for every member) is the source of
+        // truth whenever it is available.
+        let local = SettlementCalculator.compute(
             sharedAccountId: sharedAccountId,
             transactions: dataStore.transactions,
             memberUserIds: memberUserIds,
@@ -175,9 +194,64 @@ final class SettlementViewModel {
             fxRates: fxRates,
             baseCurrency: baseCurrency
         )
+
+        do {
+            let server = try await serverFetch
+            balances = server.memberBalances
+            serverPayers = server.payers
+            isServerComputed = true
+            if let diff = Self.integrityMismatch(server: balances, local: local) {
+                // The phone's own view disagrees with the server — the class
+                // of bug that showed different debts to the two members of
+                // «Семейный». Server wins; we want to hear about it.
+                AppLogger.data.error(
+                    "settlement mismatch: server vs local differ by \(diff) kopecks (members: \(self.balances.count, privacy: .public))"
+                )
+                AnalyticsService.logEvent("settlement_integrity_mismatch", params: [
+                    "max_diff_kopecks": diff,
+                    "members": balances.count,
+                ])
+            }
+        } catch {
+            // Offline / RPC unavailable → local fallback.
+            AppLogger.data.error("get_account_settlement failed, using local fallback: \(error.localizedDescription)")
+            balances = local
+            serverPayers = [:]
+            isServerComputed = false
+        }
         suggestions = SettlementCalculator.settlements(from: balances)
 
         isLoading = false
+    }
+
+    nonisolated private static func members(
+        cached: [AccountMember]?,
+        client: SupabaseClient,
+        accountId: String
+    ) async throws -> [AccountMember] {
+        if let cached, !cached.isEmpty { return cached }
+        return try await SupabasePaging.all("account_members") { count in
+            client
+                .from("account_members")
+                .select(count: count)
+                .eq("account_id", value: accountId)
+        }
+    }
+
+    /// Largest per-member delta disagreement between the server and the local
+    /// computation, or `nil` when they agree. Up to one kopeck per member is
+    /// tolerated: the rounding residual of the fair share lands on a different
+    /// member when the two sides order members differently.
+    nonisolated static func integrityMismatch(
+        server: [SettlementCalculator.MemberBalance],
+        local: [SettlementCalculator.MemberBalance]
+    ) -> Int64? {
+        let localById = Dictionary(local.map { ($0.userId.lowercased(), $0.delta) }, uniquingKeysWith: { a, _ in a })
+        let serverById = Dictionary(server.map { ($0.userId.lowercased(), $0.delta) }, uniquingKeysWith: { a, _ in a })
+        let ids = Set(localById.keys).union(serverById.keys)
+        let maxDiff = ids.map { abs((serverById[$0] ?? 0) - (localById[$0] ?? 0)) }.max() ?? 0
+        let tolerance = Int64(max(serverById.count, localById.count))
+        return maxDiff > tolerance ? maxDiff : nil
     }
 
     /// Past settlements *recorded* during the currently selected period —
@@ -192,16 +266,10 @@ final class SettlementViewModel {
     /// happened* keeps each row in exactly one period view.
     var pastSettlementsForCurrentPeriod: [Settlement] {
         let interval = selectedPeriod.dateInterval()
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoNoFrac = ISO8601DateFormatter()
-        isoNoFrac.formatOptions = [.withInternetDateTime]
 
         return pastSettlements.filter { s in
             let raw = s.settledAt ?? s.createdAt
-            guard let raw else { return false }
-            let parsed = iso.date(from: raw) ?? isoNoFrac.date(from: raw)
-            guard let parsed else { return false }
+            guard let raw, let parsed = AppDateFormatters.parseTimestamp(raw) else { return false }
             return interval.contains(parsed)
         }
     }
@@ -228,13 +296,9 @@ final class SettlementViewModel {
     /// settlements. Factored out so it's unit-testable without standing up
     /// the view model (which pulls in Supabase).
     nonisolated static func watermark(from settlements: [Settlement]) -> Date? {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let isoNoFrac = ISO8601DateFormatter()
-        isoNoFrac.formatOptions = [.withInternetDateTime]
-        return settlements.compactMap { s -> Date? in
+        settlements.compactMap { s -> Date? in
             guard let raw = s.settledAt ?? s.createdAt else { return nil }
-            return iso.date(from: raw) ?? isoNoFrac.date(from: raw)
+            return AppDateFormatters.parseTimestamp(raw)
         }.max()
     }
 
@@ -249,10 +313,7 @@ final class SettlementViewModel {
     ) async {
         do {
             let user = try await SupabaseManager.shared.currentUserId()
-            let fmt = DateFormatter()
-            fmt.locale = Locale(identifier: "en_US_POSIX")
-            fmt.timeZone = TimeZone(identifier: "UTC")
-            fmt.dateFormat = "yyyy-MM-dd"
+            let fmt = AppDateFormatters.utcDate
             let interval = selectedPeriod.dateInterval()
 
             let input = CreateSettlementInput(

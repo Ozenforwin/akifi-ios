@@ -85,9 +85,11 @@ struct CurrencyReconciliationView: View {
             }
 
             // 2) Historical quote from APILayer.
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            if let date = df.date(from: tx.date),
+            // `tx.date` is the user's local day. ExchangeRateService renders
+            // the Date as a UTC `yyyy-MM-dd` (ISO8601DateFormatter), so the
+            // day goes in as UTC midnight; local midnight in UTC+7 is 17:00
+            // UTC of the PREVIOUS day and fetched yesterday's rate.
+            if let date = AppDateFormatters.utcDate.date(from: String(tx.date.prefix(10))),
                let quote = await exchangeService.fetchHistoricalRate(
                     from: label, to: accountCcy, date: date) {
                 out[tx.id] = ResolvedRate(rate: Decimal(quote), source: .historical, date: tx.date)

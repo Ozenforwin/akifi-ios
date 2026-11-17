@@ -138,12 +138,6 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
 
     // MARK: - Cycle Progress
 
-    private static let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        return df
-    }()
-
     /// Days remaining until next payment
     var daysRemaining: Int {
         max(0, signedDaysToNextPayment)
@@ -160,35 +154,21 @@ struct SubscriptionTracker: Codable, Identifiable, Sendable {
 
     /// Negative when `nextPaymentDate` is in the past.
     private var signedDaysToNextPayment: Int {
-        guard let nextStr = nextPaymentDate,
-              let next = Self.dateFormatter.date(from: String(nextStr.prefix(10))) else { return 0 }
-        let today = Calendar.current.startOfDay(for: Date())
-        return Calendar.current.dateComponents([.day], from: today, to: next).day ?? 0
+        guard let next = SubscriptionDateEngine.parseDbDate(nextPaymentDate) else { return 0 }
+        return SubscriptionDateEngine.daysBetween(Date(), next)
     }
 
-    /// Progress through current billing cycle (0.0 – 1.0)
+    /// Progress through current billing cycle (0.0 – 1.0). The cycle starts
+    /// at the schedule's previous charge date, so a 31st-of-the-month
+    /// subscription runs 28 Feb → 31 Mar, not 28 Feb → 28 Mar.
     var cycleProgress: Double {
-        guard let nextStr = nextPaymentDate,
-              let cycleEnd = Self.dateFormatter.date(from: String(nextStr.prefix(10))) else { return 0 }
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-
-        let cycleStart: Date
-        switch billingPeriod {
-        case .weekly:
-            cycleStart = cal.date(byAdding: .weekOfYear, value: -1, to: cycleEnd)!
-        case .monthly:
-            cycleStart = cal.date(byAdding: .month, value: -1, to: cycleEnd)!
-        case .quarterly:
-            cycleStart = cal.date(byAdding: .month, value: -3, to: cycleEnd)!
-        case .yearly:
-            cycleStart = cal.date(byAdding: .year, value: -1, to: cycleEnd)!
-        case .custom:
-            cycleStart = cal.date(byAdding: .month, value: -1, to: cycleEnd)!
-        }
-
-        let totalDays = max(1, cal.dateComponents([.day], from: cycleStart, to: cycleEnd).day ?? 1)
-        let elapsed = min(totalDays, max(0, cal.dateComponents([.day], from: cycleStart, to: today).day ?? 0))
+        guard let cycleEnd = SubscriptionDateEngine.parseDbDate(nextPaymentDate) else { return 0 }
+        let anchor = SubscriptionDateEngine.anchor(for: self) ?? cycleEnd
+        let cycleStart = SubscriptionDateEngine.previousChargeDate(
+            before: cycleEnd, anchor: anchor, period: billingPeriod
+        )
+        let totalDays = max(1, SubscriptionDateEngine.daysBetween(cycleStart, cycleEnd))
+        let elapsed = min(totalDays, max(0, SubscriptionDateEngine.daysBetween(cycleStart, Date())))
         return Double(elapsed) / Double(totalDays)
     }
 }

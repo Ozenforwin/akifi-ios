@@ -15,7 +15,10 @@ struct BudgetFormView: View {
     @State private var period: BillingPeriod = .monthly
     @State private var budgetType: BudgetType = .hard
     @State private var selectedCategories: Set<String> = []
-    @State private var selectedAccountId: String?
+    /// Linked accounts, in their stored order. Empty = all accounts. A
+    /// budget may span several accounts — editing must keep all of them,
+    /// not only the first (the old single picker silently dropped the rest).
+    @State private var selectedAccountIds: [String] = []
     @State private var rolloverEnabled = false
     @State private var alertThresholds: [Int] = [80]
     @State private var showCategoryPicker = false
@@ -186,14 +189,9 @@ struct BudgetFormView: View {
                     DisclosureGroup(String(localized: "budget.advanced")) {
                         Toggle(String(localized: "budget.rollover"), isOn: $rolloverEnabled)
 
-                        // Account
-                        if !accounts.isEmpty {
-                            Picker(String(localized: "common.account"), selection: $selectedAccountId) {
-                                Text(String(localized: "budget.allAccounts")).tag(nil as String?)
-                                ForEach(accounts) { account in
-                                    Text("\(account.icon) \(account.name)").tag(account.id as String?)
-                                }
-                            }
+                        // Accounts (multi-select)
+                        if !accounts.isEmpty || !selectedAccountIds.isEmpty {
+                            accountSelection
                         }
 
                         // Alert thresholds
@@ -303,15 +301,68 @@ struct BudgetFormView: View {
         }
     }
 
+    // MARK: - Accounts
+
+    /// Linked accounts this user can't see (a partner's card on a shared
+    /// budget). They stay linked; the row just says they exist.
+    private var hiddenLinkedAccountCount: Int {
+        let visible = Set(accounts.map(\.id))
+        return selectedAccountIds.filter { !visible.contains($0) }.count
+    }
+
+    private var accountSelection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(String(localized: "common.account"))
+                .font(.subheadline)
+            accountRow(title: String(localized: "budget.allAccounts"), checked: selectedAccountIds.isEmpty) {
+                selectedAccountIds = []
+            }
+            ForEach(accounts) { account in
+                accountRow(title: "\(account.icon) \(account.name)",
+                           checked: selectedAccountIds.contains(account.id)) {
+                    if let index = selectedAccountIds.firstIndex(of: account.id) {
+                        selectedAccountIds.remove(at: index)
+                    } else {
+                        selectedAccountIds.append(account.id)
+                    }
+                }
+            }
+            if hiddenLinkedAccountCount > 0 {
+                Text(String(format: String(localized: "budget.accounts.hiddenLinked %lld",
+                                           defaultValue: "Ещё счетов участников: %lld"),
+                            hiddenLinkedAccountCount))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func accountRow(title: String, checked: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if checked {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accent)
+                }
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     /// Resolves the default currency for a brand-new budget. Priority:
-    /// 1. Currency of the currently-selected linked account (if any).
+    /// 1. Currency of the first selected linked account (if any).
     /// 2. The user's selected display currency (`CurrencyManager.selectedCurrency`).
     /// 3. The user's base/data currency.
     /// This matches what the user is most likely thinking of when they
     /// open the form — usually they want the same units as the account
     /// they're budgeting against.
     private func defaultCurrencyForNewBudget() -> Currency {
-        if let accId = selectedAccountId,
+        if let accId = selectedAccountIds.first,
            let acc = accounts.first(where: { $0.id == accId }),
            let code = Currency(code: acc.currency) {
             return code
@@ -330,18 +381,16 @@ struct BudgetFormView: View {
             period = budget.billingPeriod
             budgetType = budget.budgetTypeEnum
             selectedCategories = Set(budget.categoryIds ?? [])
-            selectedAccountId = budget.accountId
+            selectedAccountIds = budget.accountIds ?? []
             rolloverEnabled = budget.rolloverEnabled
             alertThresholds = budget.alertThresholds ?? [80]
+            // POSIX/Gregorian: a Buddhist-calendar phone must not read
+            // "2026-11-01" as year 2026 BE (D1).
             if let start = budget.customStartDate {
-                let df = DateFormatter()
-                df.dateFormat = "yyyy-MM-dd"
-                customStartDate = df.date(from: start) ?? Date()
+                customStartDate = AppDateFormatters.isoDate.date(from: start) ?? Date()
             }
             if let end = budget.customEndDate {
-                let df = DateFormatter()
-                df.dateFormat = "yyyy-MM-dd"
-                customEndDate = df.date(from: end) ?? Date()
+                customEndDate = AppDateFormatters.isoDate.date(from: end) ?? Date()
             }
 
             // Currency resolution for editing:
@@ -381,10 +430,13 @@ struct BudgetFormView: View {
         let amountForDB = decimalAmount
         let currencyCode = currency.code
         let cats = selectedCategories.isEmpty ? nil : Array(selectedCategories)
-        let accountIds = selectedAccountId.map { [$0] }
+        // Every linked account is saved (B: editing used to keep only the
+        // first). On update "all accounts" must be an explicit empty array —
+        // a nil is omitted from the JSON and would leave the old links in
+        // place; the DB trigger turns [] into NULL.
+        let accountIds: [String]? = selectedAccountIds.isEmpty ? nil : selectedAccountIds
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
+        let df = AppDateFormatters.isoDate
 
         do {
             if let budget = editingBudget {
@@ -395,7 +447,7 @@ struct BudgetFormView: View {
                     amount: amountForDB,
                     period_type: period.rawValue,
                     category_ids: cats ?? [],
-                    account_ids: accountIds,
+                    account_ids: accountIds ?? [],
                     rollover_enabled: rolloverEnabled,
                     alert_thresholds: alertThresholds,
                     budget_type: budgetType.rawValue,

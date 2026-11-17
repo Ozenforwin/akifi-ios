@@ -60,15 +60,27 @@ export function addDays(value: string, days: number): string {
 // Formatting
 // ---------------------------------------------------------------------------
 
-/** Format a number as currency using ru-RU locale. Defaults to RUB. */
-export function formatMoney(value: number, currency = 'RUB'): string {
+const LOCALE_BY_LANG: Record<string, string> = { ru: 'ru-RU', en: 'en-US', es: 'es-ES' };
+
+/**
+ * Format a main-unit amount in `currency` (defaults to RUB, ru-RU locale).
+ * `lang` (ru/en/es or a BCP-47 tag) only picks separators and symbol
+ * placement — never the currency: «$50» must not become «50 ₽» because
+ * the user reads Russian (M4).
+ */
+export function formatMoney(value: number, currency = 'RUB', lang?: string): string {
+  const code = (currency || 'RUB').toUpperCase();
+  const prefix = (lang ?? 'ru').toLowerCase().split(/[-_]/)[0];
+  const locale = LOCALE_BY_LANG[prefix] ?? (lang && lang.includes('-') ? lang : 'ru-RU');
   try {
-    return new Intl.NumberFormat('ru-RU', {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency,
-      maximumFractionDigits: currency === 'RUB' ? 0 : 2,
+      currency: code,
+      // Roubles have always been shown without kopecks; other currencies
+      // keep their own minor digits (USD 2, VND/JPY 0, ...).
+      ...(code === 'RUB' ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
     }).format(value);
   } catch {
-    return `${Math.round(value)} ${currency}`;
+    return `${Math.round(value)} ${code}`;
   }
 }
