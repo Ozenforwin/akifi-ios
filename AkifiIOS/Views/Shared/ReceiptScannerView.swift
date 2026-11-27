@@ -265,7 +265,8 @@ struct ReceiptScannerView: View {
     }
 
     private func analyzeImage(_ image: UIImage) async {
-        let resized = resizeImage(image, maxSize: 1800)
+        // 1800 px, not 1800 pt × screen scale (= 5400 px) — V5.
+        let resized = image.downscaled(toMaxEdge: 1800)
         guard let jpegData = resized.jpegData(compressionQuality: 0.82) else {
             error = String(localized: "receipt.compressError")
             return
@@ -436,14 +437,6 @@ struct ReceiptScannerView: View {
         isFinalizing = false
     }
 
-    private func resizeImage(_ image: UIImage, maxSize: CGFloat) -> UIImage {
-        let size = image.size
-        let ratio = min(maxSize / size.width, maxSize / size.height)
-        guard ratio < 1 else { return image }
-        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
-    }
 }
 
 // MARK: - Response Models

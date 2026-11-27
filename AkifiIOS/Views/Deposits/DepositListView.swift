@@ -39,6 +39,7 @@ struct DepositListView: View {
                                     Label(String(localized: "deposit.closeEarly"), systemImage: "xmark.seal.fill")
                                 }
                                 .tint(.orange)
+                                .disabled(viewModel.isClosing(deposit))
                                 Button(role: .destructive) {
                                     pendingDelete = deposit
                                 } label: {
@@ -138,6 +139,9 @@ struct DepositListView: View {
         } message: {
             Text(String(localized: "deposit.delete.confirmMessage"))
         }
+        // Load / auto-maturity / close / delete errors (V1): they were
+        // written to `errorMessage` and never shown.
+        .errorAlert($viewModel.errorMessage)
     }
 
     @ViewBuilder

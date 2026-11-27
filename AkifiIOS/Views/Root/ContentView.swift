@@ -292,7 +292,7 @@ struct MainTabView: View {
                                 Task { await appViewModel.dataStore.undoAutoMatch() }
                             },
                             onDismiss: {
-                                appViewModel.dataStore.clearPendingAutoMatch()
+                                appViewModel.dataStore.clearPendingAutoMatch(id: match.id)
                             }
                         )
                         .id(match.id)

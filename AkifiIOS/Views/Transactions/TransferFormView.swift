@@ -13,7 +13,16 @@ struct TransferFormView: View {
     @State private var toAccountId: String?
     @State private var date = Date()
     @State private var description = ""
-    @State private var selectedCurrency: CurrencyCode = .rub
+    /// Entry currency (M4): follows the SOURCE account until the user picks
+    /// one in the picker.
+    @State private var entryCurrency = EntryCurrencyState(.rub)
+    private var selectedCurrency: CurrencyCode { entryCurrency.currency }
+    private var currencyPickerSelection: Binding<CurrencyCode> {
+        Binding(
+            get: { entryCurrency.currency },
+            set: { entryCurrency.userSelected($0) }
+        )
+    }
     @State private var isLoading = false
     @State private var errorMessage: String?
     /// Entry as loaded in `prefillIfEditing` — when amount, currency and
@@ -30,6 +39,14 @@ struct TransferFormView: View {
 
     private var isEditing: Bool { editingTransaction != nil }
 
+    /// Editing a legacy one-row transfer (M15): only the row's own side is
+    /// known, and it is updated in place — "Update" used to insert a new
+    /// pair and leave the old row, debiting the account twice.
+    private var legacyRow: Transaction? {
+        guard let tx = editingTransaction, tx.isLegacySingleRowTransfer else { return nil }
+        return tx
+    }
+
     init(accounts: [Account], editingTransaction: Transaction? = nil, onSave: @escaping () async -> Void) {
         self.accounts = accounts
         self.editingTransaction = editingTransaction
@@ -38,6 +55,9 @@ struct TransferFormView: View {
 
     private var isValid: Bool {
         guard let amount = calculatorState.getResult(), amount > 0 else { return false }
+        if let legacy = legacyRow {
+            return (legacy.movesMoneyOut ? fromAccountId : toAccountId) != nil
+        }
         return fromAccountId != nil &&
                toAccountId != nil &&
                fromAccountId != toAccountId
@@ -103,50 +123,54 @@ struct TransferFormView: View {
                     CalculatorKeyboardView(state: calculatorState)
                 }
 
-                Section(String(localized: "transfer.from")) {
-                    ForEach(accounts) { account in
-                        Button {
-                            fromAccountId = account.id
-                        } label: {
-                            HStack {
-                                Text(account.icon)
-                                    .font(.title3)
-                                Text(account.name)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Text(appViewModel.currencyManager.formatAmount(
-                                    appViewModel.dataStore.balance(for: account).displayAmount
-                                ))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                if fromAccountId == account.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
+                if legacyRow.map({ $0.movesMoneyOut }) ?? true {
+                    Section(String(localized: "transfer.from")) {
+                        ForEach(accounts) { account in
+                            Button {
+                                fromAccountId = account.id
+                            } label: {
+                                HStack {
+                                    Text(account.icon)
+                                        .font(.title3)
+                                    Text(account.name)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(appViewModel.currencyManager.formatAmount(
+                                        appViewModel.dataStore.balance(for: account).displayAmount
+                                    ))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    if fromAccountId == account.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.green)
+                                    }
                                 }
                             }
+                            .disabled(toAccountId == account.id)
                         }
-                        .disabled(toAccountId == account.id)
                     }
                 }
 
-                Section(String(localized: "transfer.to")) {
-                    ForEach(accounts) { account in
-                        Button {
-                            toAccountId = account.id
-                        } label: {
-                            HStack {
-                                Text(account.icon)
-                                    .font(.title3)
-                                Text(account.name)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if toAccountId == account.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
+                if legacyRow.map({ !$0.movesMoneyOut }) ?? true {
+                    Section(String(localized: "transfer.to")) {
+                        ForEach(accounts) { account in
+                            Button {
+                                toAccountId = account.id
+                            } label: {
+                                HStack {
+                                    Text(account.icon)
+                                        .font(.title3)
+                                    Text(account.name)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    if toAccountId == account.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.green)
+                                    }
                                 }
                             }
+                            .disabled(fromAccountId == account.id)
                         }
-                        .disabled(fromAccountId == account.id)
                     }
                 }
 
@@ -157,7 +181,7 @@ struct TransferFormView: View {
                         Text(String(localized: "common.currency"))
                             .foregroundStyle(.primary)
                         Spacer()
-                        ActiveCurrencyPicker(selection: $selectedCurrency)
+                        ActiveCurrencyPicker(selection: currencyPickerSelection)
                     }
                     .frame(minHeight: 44)
                 }
@@ -175,6 +199,14 @@ struct TransferFormView: View {
             .onAppear {
                 prefillIfEditing()
             }
+            .onChange(of: fromAccountId) { _, newId in
+                // New transfer: the amount is in the source account's
+                // currency until the user picks another (M4).
+                guard !isEditing else { return }
+                entryCurrency.follow(
+                    accountCurrency: newId.flatMap { id in accounts.first(where: { $0.id == id }) }?.currencyCode
+                )
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
@@ -191,7 +223,9 @@ struct TransferFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
-            selectedCurrency = appViewModel.currencyManager.selectedCurrency
+            // M4: the source account's currency, not the display currency.
+            let source = fromAccountId.flatMap { id in accounts.first(where: { $0.id == id }) }
+            entryCurrency.load(source?.currencyCode ?? appViewModel.currencyManager.selectedCurrency)
             return
         }
 
@@ -214,7 +248,16 @@ struct TransferFormView: View {
         }
         let sourceLeg: Transaction
         let destLeg: Transaction?
-        if tx.type == .expense || tx.amountNative < 0 {
+        if tx.isLegacySingleRowTransfer {
+            // M15: one row, one known side.
+            sourceLeg = tx
+            destLeg = nil
+            if tx.movesMoneyOut {
+                fromAccountId = tx.accountId
+            } else {
+                toAccountId = tx.accountId
+            }
+        } else if tx.movesMoneyOut {
             sourceLeg = tx
             destLeg = pair
             fromAccountId = tx.accountId
@@ -234,13 +277,13 @@ struct TransferFormView: View {
         if let foreign = entryLeg.foreignAmount,
            let foreignCur = entryLeg.foreignCurrency,
            let code = Currency(code: foreignCur.uppercased()) {
-            selectedCurrency = code
+            entryCurrency.load(code)
             calculatorState.setValue(abs(foreign))
         } else {
             // Fall back to the source leg's account currency.
             let srcAccount = dataStore.accounts.first { $0.id == sourceLeg.accountId }
             let srcCode = srcAccount?.currencyCode ?? cm.dataCurrency
-            selectedCurrency = srcCode
+            entryCurrency.load(srcCode)
             calculatorState.setValue(abs(sourceLeg.amountNative.displayAmount))
         }
 
@@ -253,6 +296,10 @@ struct TransferFormView: View {
     }
 
     private func save() async {
+        if let legacy = legacyRow {
+            await saveLegacyRow(legacy)
+            return
+        }
         guard let amountValue = calculatorState.getResult(),
               amountValue > 0,
               let fromId = fromAccountId,
@@ -287,7 +334,7 @@ struct TransferFormView: View {
         var incomeLeg: Transaction?
         if let tx = editingTransaction, let groupId = tx.transferGroupId {
             let pair = dataStore.transactions.first { $0.transferGroupId == groupId && $0.id != tx.id }
-            if tx.type == .expense || tx.amountNative < 0 {
+            if tx.movesMoneyOut {
                 expenseLeg = tx
                 incomeLeg = pair
             } else {
@@ -305,17 +352,20 @@ struct TransferFormView: View {
         )
 
         // M3: a leg whose currency cannot be converted is refused, never
-        // written 1:1.
+        // written 1:1. M5: only real, recent quotes are frozen into a leg.
+        let rates = await cm.ratesForWrite([
+            selectedCurrency.code, fromAccount.currencyCode.code, toAccount.currencyCode.code,
+        ])
         let fromLeg: LegFields
         let toLeg: LegFields
         do {
             fromLeg = try Self.legFields(
                 amountValue: amountValue, entryCurrency: selectedCurrency, account: fromAccount,
-                rates: cm.rates, unchangedLeg: unchanged ? expenseLeg : nil
+                rates: rates, unchangedLeg: unchanged ? expenseLeg : nil
             )
             toLeg = try Self.legFields(
                 amountValue: amountValue, entryCurrency: selectedCurrency, account: toAccount,
-                rates: cm.rates, unchangedLeg: unchanged ? incomeLeg : nil
+                rates: rates, unchangedLeg: unchanged ? incomeLeg : nil
             )
         } catch {
             errorMessage = FormErrorMessage.text(for: error)
@@ -464,7 +514,85 @@ struct TransferFormView: View {
     }
 
     static func legFields(amountValue: Decimal, entryCurrency: CurrencyCode, account: Account, cm: CurrencyManager) throws -> LegFields {
-        try legFields(amountValue: amountValue, entryCurrency: entryCurrency, account: account, rates: cm.rates)
+        try legFields(amountValue: amountValue, entryCurrency: entryCurrency, account: account, rates: cm.writeRates())
+    }
+
+    // MARK: - Legacy one-row transfer (M15)
+
+    private func saveLegacyRow(_ stored: Transaction) async {
+        let accountId = stored.movesMoneyOut ? fromAccountId : toAccountId
+        guard let amountValue = calculatorState.getResult(), amountValue > 0,
+              let accountId,
+              let account = accounts.first(where: { $0.id == accountId }) else {
+            errorMessage = String(localized: "transfer.fillAllFields")
+            return
+        }
+        let cm = appViewModel.currencyManager
+        let unchanged = baseline == Baseline(
+            amount: amountValue, currency: selectedCurrency,
+            fromAccountId: fromAccountId, toAccountId: toAccountId
+        )
+        let rates = await cm.ratesForWrite([selectedCurrency.code, account.currencyCode.code])
+        let input: UpdateTransactionInput
+        do {
+            input = try Self.legacyRowUpdate(
+                stored: stored,
+                amountValue: amountValue,
+                entryCurrency: selectedCurrency,
+                account: account,
+                rates: rates,
+                unchanged: unchanged,
+                date: TransactionFormDates.string(from: date),
+                description: description.isEmpty ? nil : description
+            )
+        } catch {
+            errorMessage = FormErrorMessage.text(for: error)
+            return
+        }
+        isLoading = true
+        do {
+            try await appViewModel.dataStore.updateTransaction(id: stored.id, input)
+            await onSave()
+            dismiss()
+        } catch {
+            errorMessage = FormErrorMessage.text(for: error)
+        }
+        isLoading = false
+    }
+
+    /// The in-place update of a legacy one-row transfer: still ONE `.transfer`
+    /// row whose sign is its direction (`NativeBalance.signedAmount`), on
+    /// `account` (the user may move it to another account of the same side).
+    /// No second leg is created — the counter-account was never recorded and
+    /// its balance never moved.
+    static func legacyRowUpdate(
+        stored: Transaction,
+        amountValue: Decimal,
+        entryCurrency: CurrencyCode,
+        account: Account,
+        rates: [String: Double],
+        unchanged: Bool,
+        date: String,
+        description: String?
+    ) throws -> UpdateTransactionInput {
+        let leg = try legFields(
+            amountValue: amountValue, entryCurrency: entryCurrency, account: account,
+            rates: rates, unchangedLeg: unchanged ? stored : nil
+        )
+        let sign: Decimal = stored.movesMoneyOut ? -1 : 1
+        let native = sign * abs(leg.amountInAccount)
+        return UpdateTransactionInput(
+            amount: native,
+            amount_native: native,
+            currency: leg.currencyLabel,
+            foreign_amount: leg.foreignAmount.map { sign * abs($0) },
+            foreign_currency: leg.foreignCurrency,
+            fx_rate: leg.fxRate.map { abs($0) },
+            date: date,
+            description: description,
+            account_id: account.id,
+            replaceCurrencyFields: true
+        )
     }
 
     /// DISPLAY-ONLY conversion (same contract as

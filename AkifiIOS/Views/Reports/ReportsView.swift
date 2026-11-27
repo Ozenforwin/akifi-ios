@@ -248,7 +248,14 @@ struct ReportsView: View {
             budgets: dataStore.budgets,
             subscriptions: dataStore.subscriptions,
             fxRates: dataStore.currencyContext.fxRates,
-            externalSpendByBudget: dataStore.externalSpendByBudget
+            externalSpendByBudget: dataStore.externalSpendByBudget,
+            // M8: what the Budgets tab shows — current period, budget currency.
+            budgetLines: PDFReportGenerator.budgetLines(
+                budgets: dataStore.budgets,
+                resolved: BudgetMetricsStore.shared.resolved(for: dataStore),
+                currencyContext: dataStore.currencyContext,
+                periodLabel: { BudgetsViewModel.periodLabel(start: $0, end: $1) }
+            )
         )
 
         Task.detached(priority: .userInitiated) {

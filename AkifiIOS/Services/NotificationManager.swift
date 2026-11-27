@@ -322,18 +322,22 @@ final class NotificationManager {
 
     /// Whether this device schedules its own weekly digest (N2) — one
     /// source per device, the same rule as subscription reminders (D9):
-    /// - never while the user switched notifications off (`enabled`);
+    /// - never unless the user opted in (`ai_user_settings.digest_opt_in`):
+    ///   the toggle OFF means no digest at all (product decision
+    ///   2026-11-27);
+    /// - never while the user switched notifications off (`enabled`) — the
+    ///   server skips those users too;
     /// - never while the server sends it here: it does every Monday to
-    ///   users who opted in (`ai_user_settings.digest_opt_in`) and have a
-    ///   push channel to this device. The local copy was built from the
-    ///   numbers of the last app launch and arrived on top of the server's.
+    ///   opted-in users with a push channel to this device. The local copy
+    ///   was built from the numbers of the last app launch and arrived on
+    ///   top of the server's. The local one remains only for an opted-in
+    ///   user the server cannot reach on this device yet.
     nonisolated static func shouldScheduleLocalWeeklyDigest(
         notificationsEnabled: Bool,
         digestOptIn: Bool,
         serverPushRegistered: Bool
     ) -> Bool {
-        guard notificationsEnabled else { return false }
-        return !(digestOptIn && serverPushRegistered)
+        notificationsEnabled && digestOptIn && !serverPushRegistered
     }
 
     /// Schedules (or cancels) the local weekly digest for `userId` per

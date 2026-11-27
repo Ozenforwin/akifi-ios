@@ -6,7 +6,7 @@ import PhotosUI
 /// Handles uploading journal photos to Supabase Storage bucket `journal-photos`.
 ///
 /// Path format: `{userId}/{noteId}/{uuid}.jpg`
-/// Each photo resized to max 1600px on the longer edge, JPEG quality 0.75.
+/// Each photo resized to max 1600 px (pixels) on the longer edge, JPEG quality 0.75.
 /// Public bucket — public URL persisted on the note's `photo_urls` column.
 @MainActor
 final class JournalPhotoUploader {
@@ -47,7 +47,9 @@ final class JournalPhotoUploader {
         guard let image = UIImage(data: data) else {
             throw UploadError.decodeFailed
         }
-        let resized = resize(image, maxEdge: maxEdge)
+        // Pixels, not points: the old renderer ran at the screen scale and
+        // "shrank" 4032×3024 to 4800×3600 (V5).
+        let resized = image.downscaled(toMaxEdge: maxEdge)
         guard let jpegData = resized.jpegData(compressionQuality: compressionQuality) else {
             throw UploadError.compressionFailed
         }
@@ -93,17 +95,5 @@ final class JournalPhotoUploader {
             return nil
         }
         return components[(idx + 1)...].joined(separator: "/")
-    }
-
-    private static func resize(_ image: UIImage, maxEdge: CGFloat) -> UIImage {
-        let size = image.size
-        let longest = max(size.width, size.height)
-        guard longest > maxEdge else { return image }
-        let ratio = maxEdge / longest
-        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
     }
 }

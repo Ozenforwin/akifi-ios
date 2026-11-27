@@ -99,7 +99,7 @@ struct DepositsShortcutCard: View {
                 contributions: contributions,
                 rate: deposit.interestRate,
                 frequency: deposit.compoundFrequency,
-                asOf: Date()
+                asOf: deposit.accrualCutoff(now: Date())
             )
             result[ccy, default: 0] += total
         }

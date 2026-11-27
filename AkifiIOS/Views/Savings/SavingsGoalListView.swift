@@ -31,16 +31,16 @@ struct SavingsGoalListView: View {
                                             contributions: viewModel.contributions[goal.id] ?? [],
                                             progress: viewModel.progress(for: goal),
                                             daysRemaining: viewModel.daysRemaining(for: goal)
-                                        ) { amount, type, note in
-                                            let accountCurrency = goal.accountId.flatMap { accId in
-                                                appViewModel.dataStore.accounts.first(where: { $0.id == accId })?.currency
-                                            }
-                                            await viewModel.addContribution(
+                                        ) { amount, type, note, counterId in
+                                            let accounts = appViewModel.dataStore.accounts
+                                            try await viewModel.addContribution(
                                                 goalId: goal.id,
                                                 amount: amount,
                                                 type: type,
                                                 note: note,
-                                                accountCurrency: accountCurrency
+                                                linkedAccount: goal.accountId.flatMap { id in accounts.first { $0.id == id } },
+                                                counterAccount: counterId.flatMap { id in accounts.first { $0.id == id } },
+                                                currencyManager: appViewModel.currencyManager
                                             )
                                         }
                                         .task(id: goal.id) {
@@ -124,10 +124,11 @@ struct SavingsGoalListView: View {
             Text(viewModel.error ?? "")
         }
         .sheet(isPresented: $viewModel.showForm) {
-            SavingsGoalFormView(accounts: dataStore.accounts) { name, icon, color, amount, deadline, accountId in
-                await viewModel.createGoal(
-                    name: name, icon: icon, color: color,
-                    targetAmount: amount, deadline: deadline, accountId: accountId
+            SavingsGoalFormView(accounts: dataStore.accounts) { draft in
+                try await viewModel.createGoal(
+                    name: draft.name, icon: draft.icon, color: draft.color,
+                    targetAmount: draft.targetAmount, deadline: draft.deadline,
+                    accountId: draft.accountId, interest: draft.interest
                 )
             }
         }

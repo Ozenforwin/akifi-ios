@@ -133,11 +133,13 @@ struct AISettingsView: View {
         isSaving = true
         do {
             try await repo.upsertSettings(settings)
-            // The server now sends the Monday digest to this device — the
-            // local Sunday one must not arrive on top of it (N2).
+            // N2: toggle OFF = no digest at all; ON with a push channel =
+            // the server's Monday digest only. Either way the local Sunday
+            // one goes now (an opted-in user the server can't reach gets it
+            // back at the next launch).
             if let userId = try? await SupabaseManager.shared.currentUserId() {
                 NotificationPreferencesCache.storeDigestOptIn(settings.digestOptIn, userId: userId)
-                if settings.digestOptIn, NotificationManager.serverDeliversSubscriptionReminders(userId: userId) {
+                if !settings.digestOptIn || NotificationManager.serverDeliversSubscriptionReminders(userId: userId) {
                     NotificationManager.cancelWeeklyDigest()
                 }
             }

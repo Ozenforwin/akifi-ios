@@ -10,6 +10,7 @@ struct LiabilityListView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showForm = false
     @State private var editingLiability: Liability?
+    @State private var deleteError: String?
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var cm: CurrencyManager { appViewModel.currencyManager }
@@ -33,11 +34,15 @@ struct LiabilityListView: View {
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         Task {
-                                            await viewModel.deleteLiability(
-                                                id: liability.id,
-                                                dataStore: dataStore,
-                                                currencyManager: cm
-                                            )
+                                            do {
+                                                try await viewModel.deleteLiability(
+                                                    id: liability.id,
+                                                    dataStore: dataStore,
+                                                    currencyManager: cm
+                                                )
+                                            } catch {
+                                                deleteError = error.localizedDescription
+                                            }
                                         }
                                     } label: {
                                         Label(String(localized: "common.delete"), systemImage: "trash")
@@ -63,7 +68,7 @@ struct LiabilityListView: View {
             LiabilityFormView(
                 initialCategory: initialCategory,
                 onSave: { input in
-                    await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
         }
@@ -72,10 +77,11 @@ struct LiabilityListView: View {
                 editingLiability: liability,
                 onSave: { _ in /* unused for edit */ },
                 onUpdate: { id, input in
-                    await viewModel.updateLiability(id: id, input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.updateLiability(id: id, input, dataStore: dataStore, currencyManager: cm)
                 }
             )
         }
+        .errorAlert($deleteError)
     }
 
     @ViewBuilder

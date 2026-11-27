@@ -1610,11 +1610,14 @@ final class WeeklyDigestSourceTests: XCTestCase {
         XCTAssertTrue(NotificationManager.shouldScheduleLocalWeeklyDigest(
             notificationsEnabled: true, digestOptIn: true, serverPushRegistered: false
         ), "opted in, but no push channel to this device yet")
-        XCTAssertTrue(NotificationManager.shouldScheduleLocalWeeklyDigest(
-            notificationsEnabled: true, digestOptIn: false, serverPushRegistered: true
-        ), "the server sends only to opted-in users")
         XCTAssertFalse(NotificationManager.shouldScheduleLocalWeeklyDigest(
-            notificationsEnabled: false, digestOptIn: false, serverPushRegistered: false
+            notificationsEnabled: true, digestOptIn: false, serverPushRegistered: true
+        ), "toggle OFF means no digest at all")
+        XCTAssertFalse(NotificationManager.shouldScheduleLocalWeeklyDigest(
+            notificationsEnabled: true, digestOptIn: false, serverPushRegistered: false
+        ), "toggle OFF means no digest at all, push channel or not")
+        XCTAssertFalse(NotificationManager.shouldScheduleLocalWeeklyDigest(
+            notificationsEnabled: false, digestOptIn: true, serverPushRegistered: false
         ), "notifications switched off")
     }
 

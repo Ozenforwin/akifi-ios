@@ -147,7 +147,7 @@ struct ProfileEditView: View {
                 return
             }
 
-            let resized = resizeImage(uiImage, maxSize: 400)
+            let resized = uiImage.downscaled(toMaxEdge: 400)
             guard let jpegData = resized.jpegData(compressionQuality: 0.8) else {
                 error = String(localized: "profile.error.compression")
                 isUploadingAvatar = false
@@ -179,15 +179,6 @@ struct ProfileEditView: View {
 
         isUploadingAvatar = false
         selectedPhoto = nil
-    }
-
-    private func resizeImage(_ image: UIImage, maxSize: CGFloat) -> UIImage {
-        let size = image.size
-        let ratio = min(maxSize / size.width, maxSize / size.height)
-        guard ratio < 1 else { return image }
-        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
     }
 
     private func save() async {

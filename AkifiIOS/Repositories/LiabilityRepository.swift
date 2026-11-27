@@ -73,16 +73,41 @@ struct CreateLiabilityInput: Encodable, Sendable {
     let end_date: String?
 }
 
+/// Partial update. Single-optional fields: nil = leave the column alone.
+/// The nullable columns the form can CLEAR are double-optional (V4): `.none`
+/// leaves them alone, `.some(nil)` writes NULL. A synthesized Encodable
+/// drops nil keys, so an end date, rate, payment or note the user removed
+/// stayed on the server. (Same contract as `UpdateNoteInput`.)
 struct UpdateLiabilityInput: Encodable, Sendable {
     let name: String?
     let category: String?
     let current_balance: Int64?
-    let original_amount: Int64?
-    let interest_rate: Double?
+    let original_amount: Int64??
+    let interest_rate: Double??
     let currency: String?
     let icon: String?
     let color: String?
-    let notes: String?
-    let monthly_payment: Int64?
-    let end_date: String?
+    let notes: String??
+    let monthly_payment: Int64??
+    let end_date: String??
+
+    enum CodingKeys: String, CodingKey {
+        case name, category, current_balance, original_amount, interest_rate
+        case currency, icon, color, notes, monthly_payment, end_date
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(name, forKey: .name)
+        try c.encodeIfPresent(category, forKey: .category)
+        try c.encodeIfPresent(current_balance, forKey: .current_balance)
+        try c.encodeIfPresent(currency, forKey: .currency)
+        try c.encodeIfPresent(icon, forKey: .icon)
+        try c.encodeIfPresent(color, forKey: .color)
+        try c.encodeNullable(original_amount, forKey: .original_amount)
+        try c.encodeNullable(interest_rate, forKey: .interest_rate)
+        try c.encodeNullable(notes, forKey: .notes)
+        try c.encodeNullable(monthly_payment, forKey: .monthly_payment)
+        try c.encodeNullable(end_date, forKey: .end_date)
+    }
 }

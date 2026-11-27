@@ -806,7 +806,8 @@ final class DataStore {
             for: tx,
             in: subscriptions,
             fxRates: fxRatesDouble,
-            baseCode: ctx.baseCode
+            baseCode: ctx.baseCode,
+            accountsById: ctx.accountsById
         ) else { return }
 
         let sub = match.subscription
@@ -930,7 +931,8 @@ final class DataStore {
                 transaction: tx,
                 subscription: sub,
                 fxRates: fxRatesDouble,
-                baseCode: ctx.baseCode
+                baseCode: ctx.baseCode,
+                accountsById: ctx.accountsById
             )
             guard scored.total >= SubscriptionMatcher.matchThreshold else { continue }
             let cycle = SubscriptionDateEngine.cycleKey(forPaymentOn: tx.date, subscription: sub)
@@ -1055,7 +1057,10 @@ final class DataStore {
 
     /// Clears the pending-match banner (used when the user dismisses or the
     /// timer expires, without undoing).
-    func clearPendingAutoMatch() {
+    /// Clears the pending match — only `id` when given, so an expiring
+    /// banner can't dismiss a newer match (V9).
+    func clearPendingAutoMatch(id: UUID? = nil) {
+        if let id, pendingAutoMatch?.id != id { return }
         pendingAutoMatch = nil
     }
 
@@ -1295,10 +1300,12 @@ final class DataStore {
 
     /// Categories deduplicated by name+type for UI display (pickers, management).
     /// Prefers the current user's own categories over shared-account duplicates.
+    /// Active only: `categories` also holds hidden ones (M11 — budget math and
+    /// lookups need them), but nobody picks a hidden category.
     var displayCategories: [Category] {
         let currentUserId = profile?.id ?? ""
         // Sort: current user's categories first so they "win" in dedup
-        let sorted = categories.sorted { a, b in
+        let sorted = categories.filter(\.isActive).sorted { a, b in
             let aOwn = a.userId == currentUserId
             let bOwn = b.userId == currentUserId
             if aOwn != bOwn { return aOwn }
@@ -1555,7 +1562,10 @@ final class DataStore {
                     budget: budget, transactions: transactions, subscriptions: subscriptions,
                     categories: categories,
                     externalSpendRows: externalSpendByBudget[budget.id] ?? [],
-                    currencyContext: ctx
+                    currencyContext: ctx,
+                    members: BudgetMath.memberIds(
+                        for: budget, viewerId: profile?.id, budgetMembers: budgetMembersByBudget[budget.id]
+                    )
                 )
                 return AssistantContext.BudgetSummary(
                     name: budget.name,

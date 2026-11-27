@@ -61,32 +61,74 @@ enum CompoundProjector {
         var balance = Decimal(principal)
         let monthlyContrib = Decimal(monthlyContribution)
         var points: [Point] = [Point(year: 0, value: principal)]
+        // Past Int64 the chart can't show the value anyway; stop growing it
+        // there instead of compounding Decimal into overflow (NaN).
+        let ceiling = Decimal(Int64.max)
+        let floor = Decimal(Int64.min)
 
         for year in 1...n {
             for _ in 1...12 {
                 // Start-of-month deposit, then accrue.
                 balance = (balance + monthlyContrib) * (1 + monthlyRate)
+                if balance.isNaN || balance > ceiling { balance = ceiling }
+                else if balance < floor { balance = floor }
             }
             points.append(Point(year: year, value: clampToInt64(balance)))
         }
 
         let final = points.last?.value ?? principal
-        let contribs = principal + monthlyContribution * 12 * Int64(n)
+        let contribs = saturatingAdd(
+            principal,
+            saturatingMultiply(monthlyContribution, 12 * Int64(n))
+        )
         return Result(
             points: points,
             finalValue: final,
             totalContributions: contribs,
-            totalInterest: final - contribs
+            totalInterest: saturatingSubtract(final, contribs)
         )
     }
 
-    private static func clampToInt64(_ value: Decimal) -> Int64 {
+    /// The calculator's rate field, in percent, as the fraction `project`
+    /// takes — clamped to 0…100 % (V2). The field is free text; 7 000 %
+    /// compounded for 40 years overflowed Decimal into NaN and
+    /// `Int64(NaN)` crashed the app.
+    static let maxAnnualRatePercent: Decimal = 100
+
+    static func annualReturn(fromPercent percent: Decimal) -> Decimal {
+        guard !percent.isNaN else { return 0 }
+        return min(max(percent, 0), maxAnnualRatePercent) / 100
+    }
+
+    /// Saturating Decimal → Int64. NaN (a Decimal overflow) saturates to
+    /// `Int64.max` instead of reaching `Int64(_:)`, which traps on NaN.
+    static func clampToInt64(_ value: Decimal) -> Int64 {
+        guard !value.isNaN else { return Int64.max }
         var d = value
         var rounded = Decimal()
         NSDecimalRound(&rounded, &d, 0, .plain)
         let n = NSDecimalNumber(decimal: rounded).doubleValue
+        guard n.isFinite else { return n < 0 ? Int64.min : Int64.max }
         if n >= Double(Int64.max) { return Int64.max }
         if n <= Double(Int64.min) { return Int64.min }
         return Int64(n)
+    }
+
+    private static func saturatingAdd(_ a: Int64, _ b: Int64) -> Int64 {
+        let (sum, overflow) = a.addingReportingOverflow(b)
+        guard overflow else { return sum }
+        return b > 0 ? Int64.max : Int64.min
+    }
+
+    private static func saturatingSubtract(_ a: Int64, _ b: Int64) -> Int64 {
+        let (difference, overflow) = a.subtractingReportingOverflow(b)
+        guard overflow else { return difference }
+        return b < 0 ? Int64.max : Int64.min
+    }
+
+    private static func saturatingMultiply(_ a: Int64, _ b: Int64) -> Int64 {
+        let (product, overflow) = a.multipliedReportingOverflow(by: b)
+        guard overflow else { return product }
+        return (a < 0) == (b < 0) ? Int64.max : Int64.min
     }
 }

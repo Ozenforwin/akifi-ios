@@ -4,8 +4,20 @@ struct SavingsGoalFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     let accounts: [Account]
-    let onSave: (String, String, String, Int64, String?, String?) async -> Void
+    let onSave: (GoalDraft) async throws -> Void
     let editingGoal: SavingsGoal?
+
+    /// Everything the form collects (V7: the interest fields were collected
+    /// and then dropped by a six-argument callback).
+    struct GoalDraft: Equatable, Sendable {
+        let name: String
+        let icon: String
+        let color: String
+        let targetAmount: Int64
+        let deadline: String?
+        let accountId: String?
+        let interest: SavingsViewModel.GoalInterest
+    }
 
     @State private var name = ""
     @State private var targetAmountText = ""
@@ -19,6 +31,7 @@ struct SavingsGoalFormView: View {
     @State private var interestCompound = true
     @State private var showInterest = false
     @State private var isSaving = false
+    @State private var saveError: String?
 
     private let icons = ["🎯", "🏠", "🚗", "✈️", "💻", "📱", "🎓", "💍", "🏥", "🎮",
                          "🏖️", "💰", "🎁", "📚", "🏋️", "🎵", "👶", "🐕", "💎", "🏦"]
@@ -27,12 +40,22 @@ struct SavingsGoalFormView: View {
                           "#14B8A6", "#EF4444", "#8B5CF6", "#06B6D4"]
 
     private var isValid: Bool {
-        !name.isEmpty && !targetAmountText.isEmpty && (Decimal(string: targetAmountText) ?? 0) > 0
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+            && (DecimalInput.kopecks(targetAmountText) ?? 0) > 0
+            && interestRateIsValid
+    }
+
+    /// Empty = no interest; otherwise 0…100 % (the DB CHECK).
+    private var interestRateIsValid: Bool {
+        let trimmed = interestRate.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return true }
+        guard let rate = DecimalInput.parse(trimmed) else { return false }
+        return rate >= 0 && rate <= 100
     }
 
     private var isEditing: Bool { editingGoal != nil }
 
-    init(accounts: [Account], editingGoal: SavingsGoal? = nil, onSave: @escaping (String, String, String, Int64, String?, String?) async -> Void) {
+    init(accounts: [Account], editingGoal: SavingsGoal? = nil, onSave: @escaping (GoalDraft) async throws -> Void) {
         self.accounts = accounts
         self.editingGoal = editingGoal
         self.onSave = onSave
@@ -124,6 +147,7 @@ struct SavingsGoalFormView: View {
                 }
             }
             .onAppear { prefill() }
+            .errorAlert($saveError)
         }
     }
 
@@ -147,11 +171,33 @@ struct SavingsGoalFormView: View {
     }
 
     private func save() async {
+        // "1500,75" is 1500.75, not 1500 (`Decimal(string:)` stopped at the
+        // comma) — V7.
+        guard !isSaving, let amountCents = DecimalInput.kopecks(targetAmountText), amountCents > 0 else { return }
         isSaving = true
-        guard let decimal = Decimal(string: targetAmountText) else { return }
-        let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        defer { isSaving = false }
         let deadlineStr = hasDeadline ? AppDateFormatters.isoDate.string(from: deadline) : nil
-        await onSave(name, selectedIcon, selectedColor, amountCents, deadlineStr, selectedAccountId)
+        let rate = DecimalInput.parse(interestRate) ?? 0
+        let draft = GoalDraft(
+            name: name.trimmingCharacters(in: .whitespaces),
+            icon: selectedIcon,
+            color: selectedColor,
+            targetAmount: amountCents,
+            deadline: deadlineStr,
+            accountId: selectedAccountId,
+            interest: SavingsViewModel.GoalInterest(
+                rate: rate,
+                type: interestType,
+                compound: interestCompound
+            )
+        )
+        do {
+            try await onSave(draft)
+        } catch {
+            HapticManager.error()
+            saveError = error.localizedDescription
+            return
+        }
         dismiss()
     }
 }
