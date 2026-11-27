@@ -5233,6 +5233,50 @@
         }
       }
     },
+    "auth.sessionEnded.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your session has ended — please sign in again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión ha terminado: vuelve a iniciar sesión"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сессия завершилась — войдите снова"
+          }
+        }
+      }
+    },
+    "auth.sessionEnded.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld unsynced entries will be sent once you sign back in to this account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld registros sin sincronizar se enviarán cuando vuelvas a iniciar sesión en esta cuenta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Несохранённых записей: %lld. Они отправятся, когда вы снова войдёте в этот аккаунт."
+          }
+        }
+      }
+    },
     "auth.subtitle" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -33297,6 +33341,50 @@
         }
       }
     },
+    "sync.error.noRowsAffected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The change wasn't applied: the entry wasn't found or you can't edit it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cambio no se aplicó: no se encontró el registro o no tienes permiso para editarlo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменение не применилось: запись не найдена или нет прав на её изменение"
+          }
+        }
+      }
+    },
+    "sync.error.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server didn't accept %lld entries — they're marked “not saved”. Retry, or discard them in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no aceptó %lld registros: están marcados como «no guardado». Reinténtalo o descártalos en Ajustes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не принял записи (%lld) — они помечены «не сохранено». Повторите или удалите их в Настройках."
+          }
+        }
+      }
+    },
     "sync.error.partialLoad" : {
       "localizations" : {
         "en" : {
@@ -35793,6 +35881,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Этот счёт (обычный расход)"
+          }
+        }
+      }
+    },
+    "tx.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не сохранено"
           }
         }
       }

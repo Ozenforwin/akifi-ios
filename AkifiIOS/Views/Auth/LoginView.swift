@@ -44,6 +44,19 @@ struct LoginView: View {
 
                 Spacer()
 
+                // MARK: - Session ended (Y1)
+                // The SDK ended the session on its own, or entries that
+                // never reached the server wait for this account.
+                let unsynced = appViewModel.dataStore.offlineQueue.unsyncedCount
+                if appViewModel.authManager.sessionEndedUnexpectedly || unsynced > 0 {
+                    SessionEndedNotice(
+                        showTitle: appViewModel.authManager.sessionEndedUnexpectedly,
+                        unsyncedCount: unsynced
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+                }
+
                 // MARK: - Auth Buttons
                 VStack(spacing: 12) {
                     // Sign in with Apple
@@ -198,6 +211,42 @@ struct LoginView: View {
 }
 
 // MARK: - Supporting Views
+
+/// «Сессия истекла — войдите снова» and the count of entries that wait for
+/// the same account (the owner-tagged offline queue survives a forced
+/// sign-out, Y1).
+private struct SessionEndedNotice: View {
+    let showTitle: Bool
+    let unsyncedCount: Int
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.title3)
+                .foregroundStyle(Color.warning)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                if showTitle {
+                    Text(String(localized: "auth.sessionEnded.title"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+                if unsyncedCount > 0 {
+                    Text(String(format: String(localized: "auth.sessionEnded.unsynced"), unsyncedCount))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.warning.opacity(0.12))
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
 
 private struct AuthFeatureRow: View {
     let icon: String

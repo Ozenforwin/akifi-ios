@@ -30,6 +30,30 @@ extension CreateTransactionInput {
     }
 }
 
+// MARK: - Sync state and transfer groups
+
+extension Transaction {
+    /// Status of a row whose queued write the server refused for good (a
+    /// dead letter, Y6): shown as «не сохранено» until the user retries or
+    /// discards it in Settings.
+    static let unsyncedStatus = "unsynced"
+
+    var isUnsynced: Bool { status == Self.unsyncedStatus }
+
+    /// The group of a manual transfer leg — two rows sharing
+    /// `transfer_group_id` outside an auto-transfer triplet. Nil otherwise.
+    var manualTransferGroupId: String? {
+        autoTransferGroupId == nil ? transferGroupId : nil
+    }
+
+    /// Case-insensitive: a placeholder keeps the client's uppercase UUID,
+    /// the server returns the uuid column lowercase.
+    func isManualTransferLeg(ofGroup groupId: String) -> Bool {
+        guard let own = manualTransferGroupId else { return false }
+        return own.caseInsensitiveCompare(groupId) == .orderedSame
+    }
+}
+
 // MARK: - Local placeholder construction
 //
 // Placeholders are full-fidelity local rows built from the queued input so

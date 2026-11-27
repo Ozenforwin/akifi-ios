@@ -133,6 +133,14 @@ struct AISettingsView: View {
         isSaving = true
         do {
             try await repo.upsertSettings(settings)
+            // The server now sends the Monday digest to this device — the
+            // local Sunday one must not arrive on top of it (N2).
+            if let userId = try? await SupabaseManager.shared.currentUserId() {
+                NotificationPreferencesCache.storeDigestOptIn(settings.digestOptIn, userId: userId)
+                if settings.digestOptIn, NotificationManager.serverDeliversSubscriptionReminders(userId: userId) {
+                    NotificationManager.cancelWeeklyDigest()
+                }
+            }
             withAnimation {
                 showSavedToast = true
             }
