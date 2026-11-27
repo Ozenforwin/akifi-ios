@@ -42,3 +42,30 @@
 "control.quickEntry.label" = "Расход";
 "control.quickEntry.displayName" = "Быстрый расход";
 "control.quickEntry.description" = "Открывает Akifi сразу на вводе расхода";
+
+/* «Счёт» and «Быстрая запись» widgets (1.6.0) */
+"widget.sample.account" = "Карта";
+"widget.sample.coffee" = "Кофе";
+"widget.sample.groceries" = "Продукты";
+"widget.sample.taxi" = "Такси";
+"widget.account.entity" = "Счёт";
+"widget.account.intent.title" = "Счёт";
+"widget.account.intent.description" = "Какой счёт показывать в виджете";
+"widget.account.intent.account" = "Счёт";
+"widget.account.noAccounts.title" = "Нет счетов";
+"widget.account.noAccounts.subtitle" = "Добавьте счёт в Akifi";
+"widget.account.shared" = "Совместный";
+"widget.account.primary" = "Основной";
+"widget.account.monthIncome" = "Доход за месяц";
+"widget.account.monthExpense" = "Расход за месяц";
+"widget.account.balance" = "Баланс";
+"widget.account.balanceHidden" = "Баланс скрыт";
+"widget.account.button.hint" = "Быстрый ввод на счёт %@";
+"widget.quickAdd.repeat" = "Повторить";
+"widget.quickAdd.repeat.empty" = "Здесь появятся ваши частые записи";
+"widget.quickAdd.repeat.a11y" = "Повторить: %@";
+"widget.quickAdd.new" = "Новая запись";
+"widget.account.displayName" = "Счёт";
+"widget.account.description" = "Баланс счёта и быстрый ввод операций";
+"widget.quickAdd.displayName" = "Быстрая запись";
+"widget.quickAdd.description" = "Расход, доход или голосом — в одно касание";

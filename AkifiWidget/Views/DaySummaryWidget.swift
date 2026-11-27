@@ -93,7 +93,7 @@ struct DaySummaryWidgetView: View {
 // MARK: - Widget declaration
 
 struct DaySummaryWidget: Widget {
-    let kind = "ru.akifi.widget.daySummary"
+    let kind = AkifiWidgetKind.daySummary
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DaySummaryProvider()) { entry in

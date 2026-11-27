@@ -483,7 +483,9 @@ final class QuickEntrySheetModel {
         let base = phrase.isEmpty ? (request.note ?? "") : phrase
         let text: String
         if let amount = request.amount, QuickEntryParser.parse(base).amount == nil {
-            text = Self.phrase(description: base, amount: amount, currency: nil)
+            // A foreign currency (a widget's «Повторить» item) is said in
+            // the phrase, like the in-sheet repeat does.
+            text = Self.phrase(description: base, amount: amount, currency: request.currencyCode)
         } else {
             text = base
         }

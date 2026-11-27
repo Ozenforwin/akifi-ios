@@ -62,7 +62,7 @@ final class QuickEntryRoutingTests: XCTestCase {
         XCTAssertEqual(parsed.categoryId, cafeId)
         XCTAssertEqual(parsed.accountId, cardId)
         XCTAssertTrue(parsed.startsWithVoice)
-        XCTAssertEqual(QuickEntryLaunchURL.make(mode: .expense, source: "control").absoluteString,
+        XCTAssertEqual(QuickEntryLaunchLink(mode: .expense, source: .control).url.absoluteString,
                        "akifi://quick-add?mode=expense&source=control")
     }
 

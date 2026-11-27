@@ -378,11 +378,16 @@ AkifiIOS/
 
 ```
 AkifiWidget/
-├── AkifiWidget.swift                 # WidgetBundle: Balance, DailyLimit, Streak, DaySummary
+├── AkifiWidget.swift                 # WidgetBundle: Account, QuickAdd, Balance, DailyLimit, Streak, DaySummary + Control Center control
 ├── Providers/                        # Timeline providers over SharedSnapshot
-├── Views/                            # Widget views
+├── Views/                            # Widget declarations (AccountWidget = AppIntentConfiguration) and the older views
 └── Shared/WidgetFormatters.swift     # Formatting without linking app services
 ```
+
+`AkifiIOS/Shared/Widget/` компилируется в оба таргета: snapshot-модель и store,
+`QuickEntryLaunchLink` (единый builder/parser `akifi://quick-add`), `AkifiWidgetKind`,
+конфигурация «Счёт» (`AccountWidgetIntent` / entity / query) и views новых виджетов —
+тесты рендерят их в PNG (`WidgetScreenshotTests`).
 
 ## Основные функции
 
@@ -487,11 +492,13 @@ DB layer:
 - **Summary карточки** — доходы/расходы за текущий месяц
 
 ### iOS Виджеты
+- **«Счёт» (AccountWidget, 1.6.0)** — один счёт на выбор (по умолчанию основной): иконка, название, баланс в валюте счёта, доход/расход за месяц; medium — кнопки «Расход», «Доход», «Голосом» открывают быстрый ввод на этом счёте; Lock Screen — rectangular и inline. Скрытый на Главной баланс — «••••»
+- **«Быстрая запись» (QuickAddWidget, 1.6.0)** — «Расход», «Доход», микрофон; medium — до 3 «Повторить»; Lock Screen «+». Только открывает лист быстрого ввода, ничего не сохраняет сам
 - **BalanceWidget** — общий баланс и количество счетов
 - **DailyLimitWidget** — safe-to-spend today, потрачено сегодня и цветовой utilization ring
 - **StreakWidget** — home-screen и accessory варианты с текущим streak и next milestone
 - **DaySummaryWidget** — доход/расход/net за день
-- **SharedSnapshot** — виджеты читают JSON из App Group `group.ru.akifi.app`; сеть и Supabase SDK в extension не линкуются
+- **SharedSnapshot** — виджеты читают JSON из App Group `group.ru.akifi.app`; сеть и Supabase SDK в extension не линкуются. Schema v2 (1.6.0) добавила `accounts` / `monthKey` / `repeatItems` (опционально — файл v1 читается, новые виджеты показывают «Откройте Akifi»); приложение перезагружает только те kinds, чьи данные изменились (`SharedSnapshotWriter.kindsToReload`)
 
 ### Отчёты
 - **Donut chart** по категориям с иконками на линиях

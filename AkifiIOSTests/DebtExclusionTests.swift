@@ -160,6 +160,7 @@ final class DebtExclusionGuardTests: XCTestCase {
         "Views/Settings/CurrencyReconciliationView.swift": "id lookups for legacy rows",
         "Views/Settings/ExportView.swift": "CSV names every row's account",
         "Debug/UIHarness.swift": "DEBUG-only screenshot fixtures write the store (compiled out of Release)",
+        "Debug/UIHarnessWidgets.swift": "DEBUG-only widget fixtures write the store (compiled out of Release)",
     ]
 
     /// Any use of the identifiers (with or without `dataStore.` — the

@@ -227,3 +227,27 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   light, white in dark), clipped to a capsule like the others.
 - **Signed-out screens** have no tab view setting the tint (and the app has
   no AccentColor asset), so their roots set `.tint(Color.accent)`.
+
+## 11. Widgets — «Счёт» and «Быстрая запись» (1.6.0)
+- **Widgets are content, not glass.** No `glassEffect` inside a widget: on
+  iOS 26 the system draws its own glass around a tinted / clear widget.
+  Background via `containerBackground(for: .widget)` only.
+- **Full colour:** the «Счёт» widget is washed in the account's colour like
+  its Home card (`secondarySystemGroupedBackground` + 10 % → 22 % diagonal
+  wash); «Быстрая запись» stays neutral with meaning-coloured buttons
+  (expense red, income green, mic accent, 14 % fills). Buttons and
+  «Повторить» rows are chips (`tertiarySystemFill`, ≥ 44 pt tall where the
+  family allows).
+- **Tinted / clear (`widgetRenderingMode != .fullColor`):** no wash, no
+  colour; semantics carried by symbols and signs (↗ +, ↙ −, «+», «−»).
+  `.widgetAccentable()` on the balance, the button symbols and amounts.
+- **Lock Screen:** `.accessoryRectangular` / `.accessoryInline` («Счёт»),
+  `.accessoryCircular` «+» («Быстрая запись»); money texts are
+  `.privacySensitive()` (redacted while the iPhone is locked).
+- **Taps are deep links** (`Link` / `widgetURL` → `akifi://quick-add?…`
+  built by `QuickEntryLaunchLink`): a widget only opens the quick-entry
+  sheet, never saves. A small widget also carries a `widgetURL` fallback
+  («Расход») for systems that don't route a `Link` there.
+- **Dynamic Type:** text styles, capped at `.xxLarge` (small) / `.xLarge`
+  (medium, buttons) so layouts never clip; numbers scale down
+  (`minimumScaleFactor`) instead of wrapping.
