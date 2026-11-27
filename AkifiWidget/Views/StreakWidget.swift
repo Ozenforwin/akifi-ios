@@ -77,10 +77,8 @@ struct StreakWidgetView: View {
                     String(localized: "widget.streak.title", defaultValue: "Стрик")
                 )
                 .accessibilityValue(
-                    String(format: String(
-                        localized: "widget.streak.valueA11y",
-                        defaultValue: "%d дней, следующая веха %d"
-                    ), snapshot.currentStreak, snapshot.nextMilestone)
+                    // Plural forms live in Localizable.stringsdict.
+                    String(localized: "widget.streak.valueA11y \(snapshot.currentStreak) \(snapshot.nextMilestone)")
                 )
 
                 Text(String(

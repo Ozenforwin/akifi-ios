@@ -328,8 +328,8 @@ struct SettingsView: View {
             } message: {
                 Text(String(localized: "settings.deleteAccount.finalWarning"))
             }
-            .alert("Error", isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
-                Button("OK") { deleteError = nil }
+            .alert(String(localized: "common.error"), isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
+                Button(String(localized: "common.ok")) { deleteError = nil }
             } message: {
                 Text(deleteError ?? "")
             }

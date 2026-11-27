@@ -549,7 +549,7 @@ final class BudgetMetricsStore {
                 )
                 AnalyticsService.logEvent("budget_integrity_mismatch", params: [
                     "field": mismatch.field,
-                    "diff": mismatch.diff,
+                    "diff_bucket": AnalyticsService.magnitudeBucket(mismatch.diff),
                     "shared": shared,
                     "period_type": budget.billingPeriod.rawValue,
                 ])

@@ -142,7 +142,7 @@ struct JournalNoteFormView: View {
                 String(localized: "error.prefix"),
                 isPresented: Binding(get: { errorText != nil }, set: { if !$0 { errorText = nil } })
             ) {
-                Button("OK") {}
+                Button(String(localized: "common.ok")) {}
             } message: {
                 Text(errorText ?? "")
             }

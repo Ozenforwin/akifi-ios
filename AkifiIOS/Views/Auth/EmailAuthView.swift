@@ -11,6 +11,13 @@ struct EmailAuthView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showForgotPassword = false
+    /// Sign-up went through but needs the emailed link (A1): the sheet
+    /// shows "check your inbox" instead of closing silently.
+    @State private var confirmationEmail: String?
+    /// Sign-in refused with email_not_confirmed for this address — offer
+    /// to resend the confirmation.
+    @State private var unconfirmedEmail: String?
+    @State private var isResendingConfirmation = false
 
     // Validation states
     @State private var emailError: String?
@@ -44,8 +51,63 @@ struct EmailAuthView: View {
     }
 
     var body: some View {
+        @Bindable var auth = appViewModel.authManager
         NavigationStack {
             ScrollView {
+                if let confirmationEmail {
+                    EmailConfirmationPendingView(
+                        email: confirmationEmail,
+                        onResend: {
+                            try await appViewModel.authManager.resendSignupConfirmation(email: confirmationEmail)
+                        },
+                        onChangeEmail: {
+                            withAnimation { self.confirmationEmail = nil }
+                        },
+                        onSignIn: {
+                            withAnimation {
+                                self.confirmationEmail = nil
+                                mode = .signIn
+                                password = ""
+                                confirmPassword = ""
+                            }
+                        }
+                    )
+                    .padding(24)
+                } else {
+                    form
+                }
+            }
+            .navigationTitle(confirmationEmail == nil ? mode.title : String(localized: "auth.signUp"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "common.close")) { dismiss() }
+                }
+            }
+            .onChange(of: mode) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    // Reset errors on mode switch
+                    emailError = nil
+                    passwordError = nil
+                    confirmError = nil
+                    hasInteractedEmail = false
+                    hasInteractedPassword = false
+                    hasInteractedConfirm = false
+                    errorMessage = nil
+                    unconfirmedEmail = nil
+                }
+            }
+            .sheet(isPresented: $showForgotPassword) {
+                ForgotPasswordView()
+            }
+            .animation(.easeInOut(duration: 0.25), value: mode)
+        }
+        .errorToast($errorMessage)
+        // A confirmation link that failed while this sheet is up (A1).
+        .errorToast($auth.authLinkError)
+    }
+
+    private var form: some View {
                 VStack(spacing: 24) {
                     // Mode picker
                     Picker("", selection: $mode) {
@@ -125,6 +187,29 @@ struct EmailAuthView: View {
                         Task { await authenticate() }
                     }
 
+                    // Sign-in refused: the address was never confirmed (A1).
+                    if mode == .signIn, let unconfirmedEmail, unconfirmedEmail == email {
+                        VStack(spacing: 6) {
+                            Text(String(localized: "auth.signIn.notConfirmed"))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                Task { await resendConfirmation(to: unconfirmedEmail) }
+                            } label: {
+                                if isResendingConfirmation {
+                                    ProgressView()
+                                } else {
+                                    Text(String(localized: "auth.signIn.resendConfirmation"))
+                                }
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .frame(minHeight: 44)
+                            .disabled(isResendingConfirmation)
+                        }
+                        .transition(.opacity)
+                    }
+
                     // Terms (sign up only)
                     if mode == .signUp {
                         Text(String(localized: "auth.agreeTerms"))
@@ -134,32 +219,20 @@ struct EmailAuthView: View {
                     }
                 }
                 .padding(24)
+    }
+
+    private func resendConfirmation(to address: String) async {
+        isResendingConfirmation = true
+        do {
+            try await appViewModel.authManager.resendSignupConfirmation(email: address)
+            withAnimation {
+                unconfirmedEmail = nil
+                confirmationEmail = address
             }
-            .navigationTitle(mode.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
-                }
-            }
-            .onChange(of: mode) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    // Reset errors on mode switch
-                    emailError = nil
-                    passwordError = nil
-                    confirmError = nil
-                    hasInteractedEmail = false
-                    hasInteractedPassword = false
-                    hasInteractedConfirm = false
-                    errorMessage = nil
-                }
-            }
-            .sheet(isPresented: $showForgotPassword) {
-                ForgotPasswordView()
-            }
-            .animation(.easeInOut(duration: 0.25), value: mode)
+        } catch {
+            errorMessage = AuthErrorMapper.message(for: error)
         }
-        .errorToast($errorMessage)
+        isResendingConfirmation = false
     }
 
     // MARK: - Validation
@@ -216,12 +289,21 @@ struct EmailAuthView: View {
 
         do {
             if mode == .signUp {
-                try await appViewModel.authManager.signUpWithEmail(email: email, password: password)
+                let outcome = try await appViewModel.authManager.signUpWithEmail(email: email, password: password)
+                switch outcome {
+                case .signedIn:
+                    dismiss()
+                case .confirmationRequired(let address):
+                    withAnimation { confirmationEmail = address }
+                }
             } else {
                 try await appViewModel.authManager.signInWithEmail(email: email, password: password)
+                dismiss()
             }
-            dismiss()
         } catch {
+            if mode == .signIn, AuthErrorMapper.isEmailNotConfirmed(error) {
+                withAnimation { unconfirmedEmail = email }
+            }
             errorMessage = AuthErrorMapper.message(for: error)
         }
 

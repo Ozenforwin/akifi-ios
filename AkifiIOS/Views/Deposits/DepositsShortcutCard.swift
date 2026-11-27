@@ -75,7 +75,7 @@ struct DepositsShortcutCard: View {
             parts.append(formatKopecks(total, currency: code))
         } else if totalPerCurrency.count > 1 {
             // Multi-currency: show count only to avoid lying about a fake FX sum.
-            parts.append(String(format: NSLocalizedString("deposit.countActive", comment: ""), active.count))
+            parts.append(String(localized: "deposit.countActive \(active.count)"))
         }
 
         if let days = nearestDaysToMaturity(active) {

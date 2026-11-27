@@ -218,14 +218,10 @@ struct MarkdownBlockView: View {
         }
     }
 
-    /// Render inline markdown (bold, italic, code, links) using AttributedString
+    /// Render inline markdown (bold, italic, code, links) using
+    /// AttributedString. Links outside the app's own domains lose their tap
+    /// target — the answer can echo text a partner wrote (S15).
     private func renderInlineMarkdown(_ text: String) -> Text {
-        if let attributed = try? AttributedString(
-            markdown: text,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            return Text(attributed)
-        }
-        return Text(text)
+        Text(AssistantLinkPolicy.inlineMarkdown(text))
     }
 }

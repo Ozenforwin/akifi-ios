@@ -2,7 +2,6 @@
 "widget.balance.title" = "Баланс";
 "widget.balance.displayName" = "Баланс";
 "widget.balance.description" = "Сумма по всем счетам в базовой валюте";
-"widget.balance.accounts" = "На %d счетах";
 
 /* Daily limit widget */
 "widget.dailyLimit.title" = "На сегодня";
@@ -18,7 +17,6 @@
 "widget.streak.description" = "Сколько дней подряд ты записываешь транзакции";
 "widget.streak.daysShort" = "дн.";
 "widget.streak.nextMilestone" = "До %d";
-"widget.streak.valueA11y" = "%d дней, следующая веха %d";
 "widget.streak.lockLabel" = "Стрик: %d дн.";
 
 /* Day summary widget */

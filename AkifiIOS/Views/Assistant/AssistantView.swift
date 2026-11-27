@@ -178,6 +178,16 @@ struct AssistantView: View {
             .sheet(isPresented: $viewModel.showConversations) {
                 ConversationListView(viewModel: viewModel)
             }
+            // R8: consent before anything is sent to the AI providers.
+            // Swiping the sheet away is a decline.
+            .sheet(isPresented: $viewModel.showAIConsent, onDismiss: {
+                viewModel.declineAIConsent()
+            }) {
+                AIConsentSheet(
+                    onAccept: { Task { await viewModel.acceptAIConsent() } },
+                    onDecline: { viewModel.declineAIConsent() }
+                )
+            }
             .sheet(isPresented: $viewModel.showActionPreview) {
                 if let action = viewModel.pendingAction,
                    let preview = viewModel.pendingActionPreview {

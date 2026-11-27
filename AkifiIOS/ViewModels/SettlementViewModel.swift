@@ -273,7 +273,7 @@ final class SettlementViewModel {
                     "settlement mismatch: server vs local differ by \(diff) kopecks (members: \(self.balances.count, privacy: .public))"
                 )
                 AnalyticsService.logEvent("settlement_integrity_mismatch", params: [
-                    "max_diff_kopecks": diff,
+                    "diff_bucket": AnalyticsService.magnitudeBucket(diff),
                     "members": balances.count,
                 ])
             }

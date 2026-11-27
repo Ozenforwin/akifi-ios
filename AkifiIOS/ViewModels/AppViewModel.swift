@@ -80,6 +80,25 @@ final class AppViewModel {
         }
     }
 
+    // MARK: - Incoming URLs
+
+    /// Navigation / invite link waiting for the signed-in UI
+    /// (`MainTabView` consumes and clears it). Survives the login screen,
+    /// so an invite tapped while signed out opens after sign-in — still
+    /// behind the confirmation screen (S2).
+    var pendingDeepLink: DeepLink?
+
+    /// Single entry point for every URL the app is opened with.
+    func open(_ url: URL) {
+        guard let link = DeepLink.parse(url) else { return }
+        switch link {
+        case .authCallback(let callback):
+            Task { await authManager.handleAuthCallback(callback) }
+        case .tab, .accountInvite, .budgetInvite:
+            pendingDeepLink = link
+        }
+    }
+
     func initialize() async {
         // Before anything can refresh a token: the SDK may end the session
         // on its own and only tells through this stream (Y1).
@@ -223,6 +242,7 @@ final class AppViewModel {
     /// from scratch.
     func resetForSignOut(preserveQueue: Bool = false) {
         hasLoadedData = false
+        pendingDeepLink = nil
         // In-flight work of the previous user finishes on its own; the data
         // store discards its results (session epoch). The next sign-in
         // starts fresh instead of joining it.

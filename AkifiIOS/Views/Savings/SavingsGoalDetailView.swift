@@ -37,12 +37,12 @@ struct SavingsGoalDetailView: View {
 
                     Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
                         .font(.title.weight(.bold))
-                    Text("из \(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))")
+                    Text(String(localized: "savings.detail.ofTarget \(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
                     if let days = daysRemaining, days > 0 {
-                        Text("\(days) дн. до дедлайна")
+                        Text(String(localized: "savings.detail.daysToDeadline \(days)"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 12)
@@ -57,7 +57,7 @@ struct SavingsGoalDetailView: View {
                 Button {
                     showContribution = true
                 } label: {
-                    Label("Пополнить", systemImage: "plus.circle.fill")
+                    Label(String(localized: "savings.contribute"), systemImage: "plus.circle.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -69,12 +69,12 @@ struct SavingsGoalDetailView: View {
 
                 // Contributions history
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("История операций")
+                    Text(String(localized: "savings.history"))
                         .font(.headline)
                         .padding(.horizontal)
 
                     if contributions.isEmpty {
-                        Text("Пока нет операций")
+                        Text(String(localized: "savings.noHistory"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -113,7 +113,7 @@ struct ContributionRowView: View {
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(contribution.type == .withdrawal ? "Снятие" : contribution.type == .interest ? "Проценты" : "Пополнение")
+                Text(contribution.type.historyTitle)
                     .font(.subheadline.weight(.medium))
                 if let note = contribution.note {
                     Text(note)
@@ -130,5 +130,16 @@ struct ContributionRowView: View {
                 .foregroundStyle(contribution.type == .withdrawal ? .red : .green)
         }
         .padding(.vertical, 4)
+    }
+}
+
+private extension ContributionType {
+    /// Row title in the goal's history.
+    var historyTitle: String {
+        switch self {
+        case .withdrawal: String(localized: "contribution.withdraw")
+        case .interest: String(localized: "contribution.interest")
+        case .contribution: String(localized: "contribution.deposit")
+        }
     }
 }
