@@ -396,8 +396,10 @@ struct SettingsRow: View {
         HStack(spacing: 12) {
             SettingsIconTile(systemName: icon, color: color)
 
+            // `Color.primary`, not the hierarchical `.primary`: inside a
+            // Button / Link / ShareLink the latter resolves to the tint.
             Text(title)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color.primary)
 
             if let badge {
                 Text(badge)
