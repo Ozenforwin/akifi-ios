@@ -16,6 +16,7 @@ import UIKit
 /// | `-AkifiUIHarnessScroll <points>` | scroll the visible list down after launch (collapses the large title; the iOS 26 tab bar minimises only on a real drag — `idb ui swipe`) |
 /// | `-AkifiUIHarnessBanners` | show the data-issue and auto-match banners |
 /// | `-AkifiUIHarnessGallery` | design-system gallery instead of the tabs |
+/// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -66,6 +67,13 @@ enum UIHarness {
         store.rebuildCaches()
         store.currencyContextDidChange()
 
+        if UIHarnessQuickEntry.isEnabled {
+            store.allAccounts = UIHarnessQuickEntry.accounts
+            UIHarnessQuickEntry.install(in: store)
+            if let request = UIHarnessQuickEntry.request() {
+                QuickEntryInbox.shared.submit(request)
+            }
+        }
         if showsBanners {
             store.reportIssue(.load, message: String(localized: "sync.error.partialLoad"))
             store.pendingAutoMatch = DataStore.PendingAutoMatch(

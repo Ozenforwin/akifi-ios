@@ -47,7 +47,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Akifi uses the camera to scan receipts and automatically create transactions</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Akifi uses your microphone for voice messages with the AI financial assistant</string>
+	<string>Akifi uses the microphone to add transactions by voice and for voice messages to the AI financial assistant</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Akifi needs access to your photos to set a profile picture or scan receipts</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

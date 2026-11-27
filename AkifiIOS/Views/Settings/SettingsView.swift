@@ -134,12 +134,6 @@ struct SettingsView: View {
                         SettingsRow(icon: "paintbrush.fill", color: .indigo, title: String(localized: "settings.theme"), value: appViewModel.themeManager.themeName)
                     }
 
-                    NavigationLink {
-                        CategoryLayoutPickerView()
-                    } label: {
-                        SettingsRow(icon: "square.grid.2x2", color: .teal, title: String(localized: "settings.categoryLayout"))
-                    }
-
                     HapticToggleRow()
 
                     Button {
@@ -451,65 +445,6 @@ struct ThemePickerView: View {
             }
         }
         .navigationTitle(String(localized: "settings.theme"))
-    }
-}
-
-struct CategoryLayoutPickerView: View {
-    @AppStorage("categoryLayout") private var layout = "wheel"
-
-    var body: some View {
-        List {
-            ForEach(["wheel", "grid", "list"], id: \.self) { option in
-                Button {
-                    layout = option
-                } label: {
-                    HStack {
-                        Image(systemName: iconName(option))
-                            .frame(width: 28)
-                            .foregroundStyle(Color.accent)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(displayName(option))
-                                .foregroundStyle(.primary)
-                            Text(descriptionText(option))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if layout == option {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accent)
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle(String(localized: "settings.categoryLayout"))
-    }
-
-    private func displayName(_ option: String) -> String {
-        switch option {
-        case "wheel": return String(localized: "categoryLayout.wheel")
-        case "grid": return String(localized: "categoryLayout.grid")
-        case "list": return String(localized: "categoryLayout.list")
-        default: return option
-        }
-    }
-
-    private func descriptionText(_ option: String) -> String {
-        switch option {
-        case "wheel": return String(localized: "categoryLayout.wheel.description")
-        case "grid": return String(localized: "categoryLayout.grid.description")
-        case "list": return String(localized: "categoryLayout.list.description")
-        default: return ""
-        }
-    }
-
-    private func iconName(_ option: String) -> String {
-        switch option {
-        case "wheel": return "circle.circle"
-        case "grid": return "square.grid.2x2"
-        case "list": return "list.bullet"
-        default: return "questionmark"
-        }
     }
 }
 
