@@ -53,7 +53,7 @@ final class QuickEntrySheetTests: XCTestCase {
     private func offlineStore(transactions: [Transaction] = []) -> DataStore {
         let store = DataStore(cache: PersistenceManager(directory: tempDir()))
         store.isConnectedProvider = { false }
-        store.accounts = [QE.card, QE.cash]
+        store.allAccounts = [QE.card, QE.cash]
         store.categories = [QE.cafe, QE.groceries, QE.taxi, QE.salary]
         store.transactions = transactions
         store.rebuildCaches()
@@ -437,9 +437,8 @@ final class QuickEntrySheetTests: XCTestCase {
     }
 
     func testLongPressMenu() {
-        XCTAssertEqual(FABMenu.items().map(\.id), ["income", "expense", "transfer", "receipt"])
-        XCTAssertFalse(FABMenu.showsDebtActions, "debts UI isn't on this branch")
-        XCTAssertEqual(FABMenu.items(includeDebtActions: true).map(\.id).suffix(2), ["debt.lent", "debt.borrowed"])
+        XCTAssertEqual(FABMenu.items().map(\.id), ["income", "expense", "transfer", "receipt", "debt.lend", "debt.borrow"])
+        XCTAssertEqual(FABMenu.items().last?.label, DebtAction.borrow.title)
 
         let accounts = [QE.card, QE.cash]
         func route(_ action: FABAction) -> FABRoute {
@@ -450,8 +449,8 @@ final class QuickEntrySheetTests: XCTestCase {
         XCTAssertEqual(route(.expense(categoryId: "cat-cafe")), .quickEntry(mode: .expense, categoryId: "cat-cafe", accountId: nil))
         XCTAssertEqual(route(.transfer), .transfer)
         XCTAssertEqual(route(.receipt), .receipt)
-        XCTAssertEqual(route(.debt(.lent)), .debt(.lent))
-        XCTAssertEqual(route(.debt(.borrowed)), .debt(.borrowed))
+        XCTAssertEqual(route(.debt(.lend)), .debt(.lend))
+        XCTAssertEqual(route(.debt(.borrow)), .debt(.borrow))
     }
 
     func testContextualAccountCountsOnlyWhenItIsAChoice() {

@@ -13,7 +13,7 @@ final class AnalyticsViewModelTests: XCTestCase {
         cm.selectedCurrency = .rub
         cm.rates = ["USD": 1.0, "RUB": 100.0]
         store.currencyManager = cm
-        store.accounts = [Account(
+        store.allAccounts = [Account(
             id: "acc-1", userId: "u1", name: "Карта", icon: "💳", color: "#3B82F6",
             initialBalance: 0, currency: "RUB"
         )]

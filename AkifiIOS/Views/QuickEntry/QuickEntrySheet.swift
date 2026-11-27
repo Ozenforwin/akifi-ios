@@ -291,7 +291,7 @@ struct QuickEntrySheet: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(chip.isSelected ? .isSelected : [])
-                        .accessibilityHint(model.draft.amount != nil ? String(localized: "quickEntry.sheet.category.saveHint") : "")
+                        .accessibilityHint(model.canSave ? String(localized: "quickEntry.sheet.category.saveHint") : "")
                     }
                     Button {
                         showCategoryPicker = true

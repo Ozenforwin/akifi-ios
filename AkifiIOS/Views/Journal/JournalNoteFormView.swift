@@ -306,7 +306,7 @@ struct JournalNoteFormView: View {
             transactions: appViewModel.dataStore.transactions,
             categories: appViewModel.dataStore.categories,
             currencyManager: appViewModel.currencyManager,
-            accountsById: Dictionary(appViewModel.dataStore.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            accountsById: appViewModel.dataStore.currencyContext.accountsById
         )
 
         return VStack(alignment: .leading, spacing: 10) {

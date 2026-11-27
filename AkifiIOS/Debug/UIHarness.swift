@@ -58,7 +58,7 @@ enum UIHarness {
             telegramUserId: nil, telegramChatId: nil, telegramLinkedAt: nil,
             updatedAt: nil
         )
-        store.accounts = DemoData.accounts
+        store.allAccounts = DemoData.accounts
         store.categories = DemoData.categories
         store.transactions = (DemoData.transactions + extraTransactions())
             .sorted { $0.date > $1.date }
@@ -68,6 +68,7 @@ enum UIHarness {
         store.currencyContextDidChange()
 
         if UIHarnessQuickEntry.isEnabled {
+            store.allAccounts = UIHarnessQuickEntry.accounts
             UIHarnessQuickEntry.install(in: store)
             if let request = UIHarnessQuickEntry.request() {
                 QuickEntryInbox.shared.submit(request)

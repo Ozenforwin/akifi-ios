@@ -20,7 +20,9 @@ enum QuickEntryDefaults {
         switch account.accountType {
         case .checking, .savings, .cash, .investment:
             return true
-        case .deposit:
+        case .deposit, .debt, .unsupported:
+            // Deposits lock money; a debt account is what a person owes
+            // (1.6 «Долги»); an unknown type is hidden everywhere.
             return false
         }
     }

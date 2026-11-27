@@ -88,12 +88,12 @@ enum UIHarnessQuickEntry {
         return rows
     }
 
-    /// The fixture into `store`; the store answers offline so a save
-    /// queues locally and nothing reaches the network.
+    /// The fixture into `store` (the accounts are set by `UIHarness`, the
+    /// one Debug file allowed to write every account); the store answers
+    /// offline so a save queues locally and nothing reaches the network.
     @MainActor
     static func install(in store: DataStore) {
         store.isConnectedProvider = { false }
-        store.accounts = accounts
         store.categories = categories
         store.transactions = transactions()
         store.budgets = []

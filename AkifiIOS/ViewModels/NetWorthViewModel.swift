@@ -15,6 +15,9 @@ final class NetWorthViewModel {
     var liabilities: [Liability] = []
     var snapshots: [NetWorthSnapshot] = []
     var breakdown: NetWorthCalculator.Breakdown?
+    /// Open «Долги» (set by the dashboard from `DebtsStore`): owed-to-me
+    /// counts as an asset, I-owe as a liability (contract §A7.6).
+    var debtEntries: [DebtEntry] = []
 
     /// Lightweight FIRE summary for the dashboard tease card. Populated
     /// alongside `breakdown` whenever `recomputeBreakdown` runs and the
@@ -221,7 +224,7 @@ final class NetWorthViewModel {
     /// Rebuilds `breakdown` from the current `assets`, `liabilities`, and
     /// account balances in `dataStore`. Called after every mutation so
     /// the dashboard re-renders without a network round-trip.
-    private func recomputeBreakdown(dataStore: DataStore, currencyManager: CurrencyManager) {
+    func recomputeBreakdown(dataStore: DataStore, currencyManager: CurrencyManager) {
         // `dataStore.balance(for:)` already returns the balance normalized
         // into base currency (see DataStore.rebuildCaches). Pass the base
         // currency as the "from" side so the calculator's per-account FX
@@ -242,16 +245,14 @@ final class NetWorthViewModel {
             assets: assets,
             liabilities: liabilities,
             fxRates: rates,
-            baseCurrency: currencyManager.dataCurrency
+            baseCurrency: currencyManager.dataCurrency,
+            debtBalances: DebtMath.netWorthBalances(debtEntries)
         )
 
         // FIRE snippet for the dashboard tease — quick savings-rate
         // sweep + projection at "invest 100% of net" baseline. The
         // dedicated FIRE screen owns the slider; this is purely a teaser.
-        let accountsById = Dictionary(
-            dataStore.accounts.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let accountsById = dataStore.currencyContext.accountsById
         let rate = SavingsRateCalculator.compute(
             transactions: dataStore.transactions,
             subscriptions: dataStore.subscriptions,

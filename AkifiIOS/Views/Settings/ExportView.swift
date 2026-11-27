@@ -91,7 +91,7 @@ struct ExportView: View {
         let csv = CSVExporter.export(
             transactions: filteredTransactions,
             categories: dataStore.categories,
-            accounts: dataStore.accounts
+            accounts: dataStore.allAccounts  // names every row's account, debts included
         )
 
         let fileName = "akifi_export_\(AppDateFormatters.isoDate.string(from: Date())).csv"

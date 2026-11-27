@@ -8,7 +8,7 @@ enum FABRoute: Equatable {
     case quickEntry(mode: QuickEntryLaunchMode, categoryId: String?, accountId: String?)
     case transfer
     case receipt
-    case debt(FABDebtAction)
+    case debt(DebtAction)
 }
 
 /// One open quick-entry sheet (the `.sheet(item:)` item).

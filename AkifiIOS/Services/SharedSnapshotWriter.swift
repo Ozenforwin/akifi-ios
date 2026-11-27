@@ -40,7 +40,8 @@ enum SharedSnapshotWriter {
 
     // MARK: - Build
 
-    private static func buildSnapshot(
+    /// Internal (not private) so tests can check what the widget gets.
+    static func buildSnapshot(
         dataStore: DataStore,
         currencyManager: CurrencyManager
     ) -> SharedSnapshot {
@@ -68,8 +69,10 @@ enum SharedSnapshotWriter {
         // on USD-accounts. Source-of-truth is the account.currency now.
         // `uniquingKeysWith`: a shared account can arrive twice (own +
         // member join); `uniqueKeysWithValues` crashed the app on that.
+        // Currency lookup over every account (a write-off on a debt account is
+        // real spending); the balance total above reads money accounts only.
         let accountCurrencyById: [String: String] = Dictionary(
-            dataStore.accounts.map { ($0.id, $0.currency) },
+            dataStore.allAccounts.map { ($0.id, $0.currency) },
             uniquingKeysWith: { first, _ in first }
         )
         let now = Date()

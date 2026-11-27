@@ -164,7 +164,7 @@ final class QuickEntryRoutingTests: XCTestCase {
         host.sessionUserId = { QE.me }
         if case .failure(let reason) = await host.prepare() { XCTAssertEqual(reason, .noData) } else { XCTFail() }
 
-        store.accounts = [QE.card]
+        store.allAccounts = [QE.card]
         store.categories = [QE.cafe]
         if case .success(let ready) = await host.prepare() { XCTAssertTrue(ready === app) } else { XCTFail() }
         let context = await host.context()

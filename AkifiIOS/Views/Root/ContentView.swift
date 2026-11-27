@@ -5,12 +5,15 @@ enum SheetDestination: Identifiable {
     case transactionForm(TransactionFormPrefill)
     case transfer
     case receipt
+    /// «Дал в долг» / «Взял в долг» from the «+» menu.
+    case debt(DebtAction)
 
     var id: String {
         switch self {
         case .transactionForm: "transactionForm"
         case .transfer: "transfer"
         case .receipt: "receipt"
+        case .debt(let action): "debt.\(action.rawValue)"
         }
     }
 }
@@ -354,6 +357,8 @@ struct MainTabView: View {
                     ReceiptScannerView {
                         await appViewModel.dataStore.loadAll()
                     }
+                case .debt(let action):
+                    DebtQuickActionSheet(action: action)
                 }
             }
         }
@@ -553,15 +558,8 @@ struct MainTabView: View {
         case .receipt:
             activeSheet = .receipt
         case .debt(let debtAction):
-            openDebtAction(debtAction)
+            activeSheet = .debt(debtAction)
         }
-    }
-
-    // INTEGRATION POINT — debts stream (1.6.0): open «Дал в долг» /
-    // «Взял в долг» here, then set `FABMenu.showsDebtActions = true`.
-    // Unreachable until then (the menu doesn't show the items).
-    private func openDebtAction(_ action: FABDebtAction) {
-        AppLogger.data.info("Debt action requested before the debts UI exists: \(String(describing: action), privacy: .public)")
     }
 
     private func presentQuickEntry(_ request: QuickEntryRequest) {

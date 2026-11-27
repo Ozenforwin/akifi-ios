@@ -51,6 +51,12 @@ struct Transaction: Codable, Identifiable, Sendable {
     /// UUID binding the expense and its auto-generated transfer pair.
     /// All three rows share the same value. `nil` for plain expenses.
     var autoTransferGroupId: String?
+    /// Personal spending on a SHARED account (1.6.0, contract §B1). On an
+    /// expense outside a transfer: this member owes for it personally. On
+    /// the income leg of a manual transfer into the shared account: this
+    /// transfer repays that member's personal debt to the account
+    /// («Погасить»). nil everywhere else and on servers before 1.6.
+    var personalDebtUserId: String?
     var status: String?
     let createdAt: String?
     let updatedAt: String?
@@ -74,6 +80,7 @@ struct Transaction: Codable, Identifiable, Sendable {
         case transferGroupId = "transfer_group_id"
         case paymentSourceAccountId = "payment_source_account_id"
         case autoTransferGroupId = "auto_transfer_group_id"
+        case personalDebtUserId = "personal_debt_user_id"
         case status
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -99,6 +106,7 @@ struct Transaction: Codable, Identifiable, Sendable {
         transferGroupId: String?,
         paymentSourceAccountId: String? = nil,
         autoTransferGroupId: String? = nil,
+        personalDebtUserId: String? = nil,
         status: String?,
         createdAt: String?,
         updatedAt: String?
@@ -115,6 +123,7 @@ struct Transaction: Codable, Identifiable, Sendable {
         self.transferGroupId = transferGroupId
         self.paymentSourceAccountId = paymentSourceAccountId
         self.autoTransferGroupId = autoTransferGroupId
+        self.personalDebtUserId = personalDebtUserId
         self.status = status; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 
@@ -143,6 +152,8 @@ struct Transaction: Codable, Identifiable, Sendable {
         transferGroupId = try container.decodeIfPresent(String.self, forKey: .transferGroupId)
         paymentSourceAccountId = try container.decodeIfPresent(String.self, forKey: .paymentSourceAccountId)
         autoTransferGroupId = try container.decodeIfPresent(String.self, forKey: .autoTransferGroupId)
+        // Absent on servers before 1.6 and in older caches → nil.
+        personalDebtUserId = (try? container.decodeIfPresent(String.self, forKey: .personalDebtUserId))?.map { $0.lowercased() }
         status = try container.decodeIfPresent(String.self, forKey: .status)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
@@ -170,6 +181,7 @@ struct Transaction: Codable, Identifiable, Sendable {
         try container.encodeIfPresent(transferGroupId, forKey: .transferGroupId)
         try container.encodeIfPresent(paymentSourceAccountId, forKey: .paymentSourceAccountId)
         try container.encodeIfPresent(autoTransferGroupId, forKey: .autoTransferGroupId)
+        try container.encodeIfPresent(personalDebtUserId, forKey: .personalDebtUserId)
         try container.encodeIfPresent(status, forKey: .status)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(updatedAt, forKey: .updatedAt)

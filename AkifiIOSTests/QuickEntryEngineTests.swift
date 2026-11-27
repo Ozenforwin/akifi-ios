@@ -217,7 +217,7 @@ final class QuickEntryEngineTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = DataStore(cache: PersistenceManager(directory: dir))
         store.isConnectedProvider = { false }
-        store.accounts = [QE.card, QE.cash]
+        store.allAccounts = [QE.card, QE.cash]
         store.categories = [QE.cafe, QE.groceries]
         store.rebuildCaches()
 
@@ -241,7 +241,7 @@ final class QuickEntryEngineTests: XCTestCase {
     func testSubmitRefusesAGoneAccount() async {
         let store = DataStore(cache: PersistenceManager(directory: FileManager.default.temporaryDirectory.appendingPathComponent("QE-\(UUID().uuidString)")))
         store.isConnectedProvider = { false }
-        store.accounts = [QE.card]
+        store.allAccounts = [QE.card]
         var submitter = QuickEntrySubmitter(dataStore: store, currencyManager: nil)
         submitter.userId = { "u" }
         var entry = QuickEntryEngine.draft(text: "кофе 300", context: QuickEntryContext(dataStore: store), now: QE.now)
@@ -257,7 +257,7 @@ final class QuickEntryEngineTests: XCTestCase {
 
     func testLargeExpenseDecisionUsesTheFormGuard() {
         let store = DataStore(cache: PersistenceManager(directory: FileManager.default.temporaryDirectory.appendingPathComponent("QE-\(UUID().uuidString)")))
-        store.accounts = [QE.card]
+        store.allAccounts = [QE.card]
         let submitter = QuickEntrySubmitter(dataStore: store, currencyManager: nil)
         XCTAssertNil(submitter.largeExpenseDecision(for: QuickEntryEngine.draft(text: "кофе", context: QuickEntryContext(dataStore: store), now: QE.now)))
         XCTAssertNotNil(submitter.largeExpenseDecision(for: QuickEntryEngine.draft(text: "кофе 300", context: QuickEntryContext(dataStore: store), now: QE.now)))

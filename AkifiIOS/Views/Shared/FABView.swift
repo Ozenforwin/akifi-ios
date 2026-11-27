@@ -5,15 +5,8 @@ enum FABAction: Equatable {
     case expense(categoryId: String? = nil)
     case transfer
     case receipt
-    case debt(FABDebtAction)
-}
-
-/// Debt actions of the «+» menu (1.6.0 debts).
-enum FABDebtAction: Equatable, Sendable {
-    /// «Дал в долг».
-    case lent
-    /// «Взял в долг».
-    case borrowed
+    /// «Дал в долг» / «Взял в долг» (`DebtQuickActionSheet`).
+    case debt(DebtAction)
 }
 
 /// The long-press menu of the «+», top to bottom.
@@ -26,16 +19,12 @@ enum FABMenu {
         let color: Color
     }
 
-    // INTEGRATION POINT — debts stream (1.6.0).
-    // The debts UI isn't on this branch yet. When it lands: set this to
-    // true and open its «Дал в долг» / «Взял в долг» flow from
-    // `MainTabView.openDebtAction(_:)` (the `.debt` route). The menu items,
-    // their strings (`fab.debt.lent` / `fab.debt.borrowed`) and the routing
-    // are already in place.
-    static let showsDebtActions = false
+    /// Debt movements the menu offers (the other two — repayments — start
+    /// from a person in «Долги»).
+    static let debtActions: [DebtAction] = [.lend, .borrow]
 
-    static func items(includeDebtActions: Bool = showsDebtActions) -> [Item] {
-        var items: [Item] = [
+    static func items() -> [Item] {
+        [
             Item(id: "income", action: .income(), label: String(localized: "common.income"),
                  icon: "arrow.up.right", color: .income),
             Item(id: "expense", action: .expense(), label: String(localized: "common.expense"),
@@ -44,16 +33,10 @@ enum FABMenu {
                  icon: "arrow.left.arrow.right", color: .transfer),
             Item(id: "receipt", action: .receipt, label: String(localized: "fab.receipt"),
                  icon: "doc.text.viewfinder", color: .budget),
-        ]
-        if includeDebtActions {
-            items += [
-                Item(id: "debt.lent", action: .debt(.lent), label: String(localized: "fab.debt.lent"),
-                     icon: "arrow.up.forward.circle", color: .accent),
-                Item(id: "debt.borrowed", action: .debt(.borrowed), label: String(localized: "fab.debt.borrowed"),
-                     icon: "arrow.down.backward.circle", color: .accent),
-            ]
+        ] + debtActions.map { action in
+            Item(id: "debt.\(action.rawValue)", action: .debt(action), label: action.title,
+                 icon: action == .lend ? "arrow.up.forward.circle" : "arrow.down.backward.circle", color: .transfer)
         }
-        return items
     }
 
     /// What a plain tap on the «+» does: quick entry, expense.
@@ -64,7 +47,8 @@ enum FABMenu {
 /// tab bar, trailing.
 ///
 /// - Tap: quick entry (`FABMenu.tapAction` → the quick-entry sheet, expense).
-/// - Long press: the menu (income, expense, transfer, receipt; debts later)
+/// - Long press: the menu (income, expense, transfer, receipt, «Дал в
+///   долг», «Взял в долг»)
 ///   grows out of the button — glass capsules that morph from it on iOS 26
 ///   (`AkifiGlassContainer` + `akifiGlassID`), material capsules before.
 ///   VoiceOver: the «Другие операции» action.

@@ -42,7 +42,7 @@ final class DataStoreOfflineTests: XCTestCase {
         cm.selectedCurrency = .rub
         cm.rates = rates
         store.currencyManager = cm
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.rebuildCaches()
         return store
     }
