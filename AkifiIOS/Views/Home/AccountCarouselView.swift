@@ -103,9 +103,17 @@ struct AccountCarouselView: View {
                                 dragOffset = target
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
-                                // Update both atomically to prevent flicker
-                                selectedIndex = newIndex
-                                dragOffset = 0
+                                // Update both atomically, with no animation:
+                                // the slots swap accounts here, and a card's
+                                // cover ⇄ tint animation would otherwise play
+                                // across the swap — the flicker when leaving
+                                // an account with a photo (device, 2026-11-28).
+                                var swap = SwiftUI.Transaction()
+                                swap.disablesAnimations = true
+                                withTransaction(swap) {
+                                    selectedIndex = newIndex
+                                    dragOffset = 0
+                                }
                                 isAnimating = false
                             }
                         } else {
@@ -202,6 +210,10 @@ struct AccountCarouselView: View {
                 onEditAccount?(account)
             }
         )
+        // One view per ACCOUNT, not per slot: after a swipe the slot shows
+        // another account as a fresh card (its cover already in memory),
+        // instead of the old card animating into the new one.
+        .id(account.id)
     }
 }
 
@@ -263,6 +275,8 @@ struct AccountCardView: View {
                 content.akifiCard(tint: accountColor)
             }
         }
+        // Fades the photo in when it finishes loading (one card per account
+        // — the carousel never reuses a card for another account).
         .animation(.easeInOut(duration: 0.25), value: cover != nil)
         .task(id: account.coverPath) {
             await appViewModel.accountCovers.load(account.coverPath)
