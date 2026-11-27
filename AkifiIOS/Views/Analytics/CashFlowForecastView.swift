@@ -63,22 +63,40 @@ struct CashFlowForecastView: View {
                 howItWorksSection
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
         .sheet(isPresented: $showHowItWorks) {
             HowItWorksSheet()
+                .presentationDetents([.medium, .large])
         }
     }
 
     // MARK: - Subviews
 
+    /// Title, info button and confidence chip in one row; the chip moves
+    /// under the title when the row doesn't fit (long locales, large text)
+    /// instead of wrapping the title.
     private func header(_ forecast: CashFlowEngine.Forecast) -> some View {
-        HStack(spacing: 8) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                headerTitle
+                Spacer(minLength: 8)
+                confidenceChip(forecast)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                headerTitle
+                confidenceChip(forecast)
+            }
+        }
+    }
+
+    private var headerTitle: some View {
+        HStack(spacing: 4) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .foregroundStyle(Color.accent)
+                .accessibilityHidden(true)
             Text(String(localized: "forecast.title"))
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Button {
                 showHowItWorks = true
@@ -86,12 +104,11 @@ struct CashFlowForecastView: View {
                 Image(systemName: "info.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(String(localized: "forecast.howItWorks.title")))
-
-            Spacer()
-            confidenceChip(forecast)
         }
     }
 
@@ -275,9 +292,9 @@ struct CashFlowForecastView: View {
             )
         }
         .padding(10)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        // Callout inside the card: one step up the grouped palette, no
+        // material, no shadow.
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func tooltipRow(label: String, value: String, color: Color) -> some View {
@@ -292,28 +309,46 @@ struct CashFlowForecastView: View {
         }
     }
 
+    /// Four figures in a row; a 2 × 2 grid when they don't fit (large
+    /// Dynamic Type).
     private func summaryGrid(_ forecast: CashFlowEngine.Forecast) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            summaryCell(
-                label: String(localized: "forecast.avgIncome"),
-                value: fmt.formatAmount(forecast.avgMonthlyIncome.displayAmount),
-                color: Color.income
-            )
-            summaryCell(
-                label: String(localized: "forecast.avgExpense"),
-                value: fmt.formatAmount(forecast.avgMonthlyExpense.displayAmount),
-                color: Color.expense
-            )
-            summaryCell(
-                label: String(localized: "forecast.subsMonthly"),
-                value: fmt.formatAmount(forecast.monthlySubscriptionCost.displayAmount),
-                color: Color.budget
-            )
-            summaryCell(
-                label: String(localized: "forecast.netMonthly"),
-                value: (forecast.netMonthly >= 0 ? "+" : "−") + fmt.formatAmount(abs(forecast.netMonthly).displayAmount),
-                color: forecast.netMonthly >= 0 ? Color.income : Color.expense
-            )
+        let income = summaryCell(
+            label: String(localized: "forecast.avgIncome"),
+            value: fmt.formatAmount(forecast.avgMonthlyIncome.displayAmount),
+            color: Color.income
+        )
+        let expense = summaryCell(
+            label: String(localized: "forecast.avgExpense"),
+            value: fmt.formatAmount(forecast.avgMonthlyExpense.displayAmount),
+            color: Color.expense
+        )
+        let subscriptions = summaryCell(
+            label: String(localized: "forecast.subsMonthly"),
+            value: fmt.formatAmount(forecast.monthlySubscriptionCost.displayAmount),
+            color: Color.budget
+        )
+        let net = summaryCell(
+            label: String(localized: "forecast.netMonthly"),
+            value: (forecast.netMonthly >= 0 ? "+" : "−") + fmt.formatAmount(abs(forecast.netMonthly).displayAmount),
+            color: forecast.netMonthly >= 0 ? Color.income : Color.expense
+        )
+        return ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                income
+                expense
+                subscriptions
+                net
+            }
+            Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    income
+                    expense
+                }
+                GridRow {
+                    subscriptions
+                    net
+                }
+            }
         }
     }
 
@@ -326,9 +361,9 @@ struct CashFlowForecastView: View {
                 .font(.caption.weight(.semibold).monospacedDigit())
                 .foregroundStyle(color)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private func runOutAlert(months: Int) -> some View {
@@ -350,8 +385,8 @@ struct CashFlowForecastView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.expense.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // Semantic: the balance is projected to run out.
+        .background(Color.expense.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var lowConfidenceNote: some View {
@@ -379,6 +414,7 @@ struct CashFlowForecastView: View {
                     .font(.caption2)
             }
             .foregroundStyle(.secondary)
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

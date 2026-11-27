@@ -351,6 +351,7 @@
 		CAA9B0E2E6D674DBF6C9F6E6 /* ContributionSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3210E3480C3FF0F60787AD6 /* ContributionSheetView.swift */; };
 		CB1C1B40C1567F2BA436364E /* AnalyticsTabState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E49B8F481A0659668ADE066B /* AnalyticsTabState.swift */; };
 		CBAE8518110E8F6A1E3FD2DA /* UserAccountDefault.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C833DB5AC495E616A3DD32 /* UserAccountDefault.swift */; };
+		CC1690A1FBEF60D120A866A5 /* GlassSweepHomeAnalyticsBudgetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D9B2D3489763BDB683717F /* GlassSweepHomeAnalyticsBudgetsTests.swift */; };
 		CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */; };
 		CD49FAA6B8B8B00D78F8CDBE /* FIREImpactCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */; };
 		CE13051C181A1D26E2789254 /* AccountFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 676F23AAA29C1D39C746C9AE /* AccountFormView.swift */; };
@@ -573,6 +574,7 @@
 		420591D5829277B36FDD479C /* DebtsDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebtsDecodingTests.swift; sourceTree = "<group>"; };
 		420A1FB8A06E22ACCED86479 /* A1EmailAuthLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = A1EmailAuthLinkTests.swift; sourceTree = "<group>"; };
 		42C419E3BC2604056421A533 /* SpeechQuickEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechQuickEntryTests.swift; sourceTree = "<group>"; };
+		43D9B2D3489763BDB683717F /* GlassSweepHomeAnalyticsBudgetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSweepHomeAnalyticsBudgetsTests.swift; sourceTree = "<group>"; };
 		451DADF41B3095B918F01FDB /* SettlementRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettlementRepository.swift; sourceTree = "<group>"; };
 		456C6961EB5397AF543DECC9 /* TransactionsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionsTabView.swift; sourceTree = "<group>"; };
 		46150F6E1E8857A9291AA5C9 /* AchievementRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementRepository.swift; sourceTree = "<group>"; };
@@ -1347,6 +1349,7 @@
 				E29A8A7A6D9E4A46400FD64D /* FeatureStreamFixesTests.swift */,
 				72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */,
 				0B100671DEFA1BB219EE226E /* FIREProjectorTests.swift */,
+				43D9B2D3489763BDB683717F /* GlassSweepHomeAnalyticsBudgetsTests.swift */,
 				2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */,
 				71826AE4565E1435632DCB02 /* KeyboardTapDismissTests.swift */,
 				6FC888D1AF5A413541D3E232 /* LiquidGlassFoundationTests.swift */,
@@ -1897,6 +1900,7 @@
 				CD49FAA6B8B8B00D78F8CDBE /* FIREImpactCalculatorTests.swift in Sources */,
 				71CA2F5DD3B83EAF8D03DE55 /* FIREProjectorTests.swift in Sources */,
 				D8A5DB36EC95A58D446B22A5 /* FeatureStreamFixesTests.swift in Sources */,
+				CC1690A1FBEF60D120A866A5 /* GlassSweepHomeAnalyticsBudgetsTests.swift in Sources */,
 				CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */,
 				E894114CB9DD63D39F7A66C3 /* KeyboardTapDismissTests.swift in Sources */,
 				4B2D1DACFD28DEEF2123CE8D /* LiquidGlassFoundationTests.swift in Sources */,

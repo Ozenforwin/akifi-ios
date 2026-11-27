@@ -69,8 +69,7 @@ struct ShareAccountView: View {
                                         .foregroundStyle(.secondary)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 3)
-                                        .background(Color(.systemBackground))
-                                        .clipShape(Capsule())
+                                        .background(Color(.tertiarySystemFill), in: Capsule())
                                 }
 
                                 if canEditSplits {
@@ -116,42 +115,26 @@ struct ShareAccountView: View {
                     Section(String(localized: "share.inviteCode")) {
                         VStack(spacing: 16) {
                             Text(formatCode(token))
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                .font(.system(.title3, design: .monospaced, weight: .bold))
                                 .tracking(2)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
+                                .textSelection(.enabled)
 
                             Text(String(localized: "share.codeHint"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
 
-                            HStack(spacing: 12) {
-                                Button {
+                            ShareInviteButtons(
+                                copied: copied,
+                                onCopy: {
                                     UIPasteboard.general.string = deepLink(for: token)
                                     copied = true
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
-                                } label: {
-                                    Label(copied ? String(localized: "share.copied") : String(localized: "share.copy"), systemImage: copied ? "checkmark" : "doc.on.doc")
-                                        .font(.subheadline.weight(.medium))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(Color(.systemGray6))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                .buttonStyle(.plain)
-
-                                ShareLink(item: shareMessage(for: token)) {
-                                    Label(String(localized: "share.send"), systemImage: "square.and.arrow.up")
-                                        .font(.subheadline.weight(.medium))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(Color.accent.opacity(0.15))
-                                        .foregroundStyle(Color.accent)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                .buttonStyle(.plain)
-                            }
+                                },
+                                shareMessage: shareMessage(for: token)
+                            )
                         }
                     }
                 }
@@ -173,6 +156,8 @@ struct ShareAccountView: View {
             }
             .task { await loadMembers() }
         }
+        // Short until a code is generated; the user can pull it up.
+        .presentationDetents([.medium, .large])
     }
 
     private func formatCode(_ token: String) -> String {
@@ -263,11 +248,14 @@ struct ShareAccountView: View {
                 splitPercents[userId] = max(0, current - 5)
             } label: {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.title2)
                     .foregroundStyle(current > 0 ? Color.accent : .secondary.opacity(0.4))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(current <= 0)
+            .accessibilityLabel(Text(verbatim: "−5%"))
 
             Text("\(Int(current.rounded()))%")
                 .font(.subheadline.monospacedDigit().weight(.semibold))
@@ -278,11 +266,14 @@ struct ShareAccountView: View {
                 splitPercents[userId] = min(100, current + 5)
             } label: {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 22))
+                    .font(.title2)
                     .foregroundStyle(current < 100 ? Color.accent : .secondary.opacity(0.4))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(current >= 100)
+            .accessibilityLabel(Text(verbatim: "+5%"))
         }
     }
 
@@ -320,21 +311,16 @@ struct ShareAccountView: View {
             Button {
                 Task { await saveSplits() }
             } label: {
-                HStack {
-                    if isSavingSplits { ProgressView().tint(.white) }
+                HStack(spacing: 8) {
+                    if isSavingSplits { ProgressView() }
                     Text(splitSaveOK
                          ? String(localized: "share.split.saved")
                          : String(localized: "share.split.save"))
                         .font(.subheadline.weight(.semibold))
-                    Spacer()
                 }
-                .foregroundStyle(.white)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 14)
-                .background(isValid ? Color.accent : Color.gray)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.akifiPrimary)
             .disabled(!isValid || isSavingSplits)
         }
         .padding(.top, 8)
@@ -428,5 +414,51 @@ struct ShareAccountView: View {
         }
 
         isGenerating = false
+    }
+}
+
+// MARK: - Invite code buttons
+
+/// Copy / Send for a freshly generated invite code — shared by the account
+/// and the budget sharing sheets. Send is the primary action, Copy the
+/// secondary one; side by side, stacked when they don't fit (large text).
+struct ShareInviteButtons: View {
+    let copied: Bool
+    let onCopy: () -> Void
+    let shareMessage: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                copyButton
+                sendButton
+            }
+            VStack(spacing: 12) {
+                copyButton
+                sendButton
+            }
+        }
+        .controlSize(.large)
+    }
+
+    private var copyButton: some View {
+        Button(action: onCopy) {
+            Label(
+                copied ? String(localized: "share.copied") : String(localized: "share.copy"),
+                systemImage: copied ? "checkmark" : "doc.on.doc"
+            )
+            .font(.subheadline.weight(.medium))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.akifiSecondary)
+    }
+
+    private var sendButton: some View {
+        ShareLink(item: shareMessage) {
+            Label(String(localized: "share.send"), systemImage: "square.and.arrow.up")
+                .font(.subheadline.weight(.medium))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.akifiPrimary)
     }
 }

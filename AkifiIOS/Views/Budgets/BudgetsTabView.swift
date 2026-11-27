@@ -8,6 +8,7 @@ struct BudgetsTabView: View {
     @State private var subscriptionsVM = SubscriptionsViewModel()
     @State private var sharingBudget: Budget?
     @State private var historyBudget: BudgetHistoryTarget?
+    @ScaledMetric(relativeTo: .body) private var subscriptionIconSize: CGFloat = 40
 
     /// Metrics travel with the budget so the sheet's header matches the
     /// card that was tapped without recomputing them.
@@ -86,6 +87,8 @@ struct BudgetsTabView: View {
                                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                 .listRowBackground(Color.clear)
                                 .contentShape(Rectangle())
+                                // The long-press preview lifts the card itself.
+                                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
                                 .onTapGesture {
                                     historyBudget = BudgetHistoryTarget(budget: budget, resolved: resolved)
                                 }
@@ -139,10 +142,11 @@ struct BudgetsTabView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(String(localized: "subscriptions.title"))
-                                .font(.headline)
+                                .font(.title3.weight(.semibold))
+                                .accessibilityAddTraits(.isHeader)
                             if activeSubscriptionsMonthlyTotal > 0 {
                                 Text(String(localized: "subscriptions.monthlyTotal.\(appViewModel.currencyManager.formatAmount(activeSubscriptionsMonthlyTotal.displayAmount, wholeUnits: true))"))
-                                    .font(.caption)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .monospacedDigit()
                             }
@@ -151,11 +155,15 @@ struct BudgetsTabView: View {
                         Button {
                             showSubscriptionForm = true
                         } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(Color.accent)
+                            Image(systemName: "plus")
+                                .font(.body.weight(.semibold))
                         }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.circle)
+                        .accessibilityLabel(String(localized: "subscriptions.add"))
                     }
                     .spotlight(.subscriptions)
+                    .padding(.top, 12)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
@@ -180,6 +188,7 @@ struct BudgetsTabView: View {
                                 Image(systemName: "repeat.circle")
                                     .font(.largeTitle)
                                     .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
                                 Text(String(localized: "subscriptions.noActive"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
@@ -193,10 +202,11 @@ struct BudgetsTabView: View {
                         ForEach(subscriptionsByStatus, id: \.status) { group in
                             if !group.items.isEmpty {
                                 Text(group.title)
-                                    .font(.caption.weight(.semibold))
+                                    .font(.footnote.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.top, 4)
+                                    .accessibilityAddTraits(.isHeader)
                                     .listRowSeparator(.hidden)
                                     .listRowBackground(Color.clear)
                                     .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 0, trailing: 16))
@@ -232,12 +242,17 @@ struct BudgetsTabView: View {
                     }
                 }
 
-                // Bottom spacer
-                Color.clear.frame(height: 120)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
             }
             .listStyle(.plain)
+            // Rows are cards and caption-sized group titles — let each be
+            // as tall as its content (the 44 pt default padded the titles).
+            .environment(\.defaultMinListRowHeight, 0)
+            // Cards on the grouped background, like Home and Analytics.
+            .scrollContentBackground(.hidden)
+            .background(Color(.systemGroupedBackground))
+            // The system insets content for the tab bar; this is only the
+            // room the floating «+» needs so the last row can scroll clear.
+            .contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
             .refreshable {
                 await dataStore.loadAll()
                 // An explicit pull always asks the server (Y2): a partner's
@@ -248,11 +263,13 @@ struct BudgetsTabView: View {
             // also refresh via SharedSnapshotWriter after every DataStore load.
             .task { await viewModel.loadMetrics(dataStore: dataStore) }
             .navigationTitle(String(localized: "budget.title"))
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { viewModel.showForm = true } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel(String(localized: "budget.newBudget"))
                 }
             }
             .sheet(isPresented: $viewModel.showForm) {
@@ -324,16 +341,17 @@ struct BudgetsTabView: View {
     // MARK: - Subscription row
 
     private func subscriptionRow(_ sub: SubscriptionTracker) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             HStack(spacing: 12) {
                 Circle()
                     .fill(Color(hex: sub.iconColor ?? "#60A5FA"))
-                    .frame(width: 40, height: 40)
+                    .frame(width: subscriptionIconSize, height: subscriptionIconSize)
                     .overlay {
                         Text(String(sub.serviceName.prefix(1)).uppercased())
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white)
                     }
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -355,31 +373,22 @@ struct BudgetsTabView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(formatSubscriptionAmount(sub))
                         .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
                     let days = sub.daysRemaining
                     Text(subscriptionDueLabel(sub))
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(days <= 3 ? Color.expense : .secondary)
                 }
             }
 
-            // Progress bar
-            GeometryReader { geo in
-                let progress = sub.cycleProgress
-                let color = progressColor(daysRemaining: sub.daysRemaining)
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color(.systemGray5))
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(color.gradient)
-                        .frame(width: geo.size.width * min(progress, 1.0))
-                }
-            }
-            .frame(height: 4)
+            // Billing-cycle progress: the system bar, solid colour (was a
+            // hand-made gradient bar).
+            ProgressView(value: min(max(sub.cycleProgress, 0), 1))
+                .tint(progressColor(daysRemaining: sub.daysRemaining))
+                .accessibilityHidden(true)
         }
-        .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
+        .akifiCard(.compact)
+        .accessibilityElement(children: .combine)
     }
 
     private func progressColor(daysRemaining: Int) -> Color {

@@ -1,6 +1,29 @@
 {
   "sourceLanguage" : "ru",
   "strings" : {
+    "account.actions" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account actions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones de la cuenta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Действия со счётом"
+          }
+        }
+      }
+    },
     "account.type.debt" : {
       "localizations" : {
         "en" : {

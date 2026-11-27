@@ -66,6 +66,8 @@ struct ReportFilterSheet: View {
                             HStack(spacing: 12) {
                                 Image(systemName: isOn(row) ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(isOn(row) ? Color.accent : Color(.systemGray3))
+                                    .font(.title3)
+                                    .accessibilityHidden(true)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(row.title)
@@ -81,6 +83,7 @@ struct ReportFilterSheet: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(isOn(row) ? .isSelected : [])
                     }
                 }
             }
@@ -93,6 +96,5 @@ struct ReportFilterSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 }
