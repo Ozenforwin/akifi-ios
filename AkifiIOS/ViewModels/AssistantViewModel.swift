@@ -48,9 +48,52 @@ final class AssistantViewModel {
     private var lastSendTime: Date = .distantPast
     private static let minSendInterval: TimeInterval = 2.0
 
+    // MARK: - AI data consent (R8)
+
+    /// Presents `AIConsentSheet`. Set when a request would send data to
+    /// the AI providers before the user agreed.
+    var showAIConsent = false
+    /// The text request to resume once the user agrees.
+    private var resumeSendAfterConsent = false
+    @ObservationIgnored var consentStore = AIConsentStore()
+    @ObservationIgnored var currentUserId: @MainActor () -> String? = {
+        SupabaseManager.shared.client.auth.currentUser?.id.uuidString.lowercased()
+    }
+
+    var hasAIConsent: Bool {
+        consentStore.hasConsented(userId: currentUserId())
+    }
+
+    /// True when the request may go out now; otherwise asks for consent.
+    private func ensureAIConsent(resumeSend: Bool) -> Bool {
+        if hasAIConsent { return true }
+        resumeSendAfterConsent = resumeSend
+        showAIConsent = true
+        return false
+    }
+
+    func acceptAIConsent() async {
+        if let userId = currentUserId() {
+            consentStore.recordConsent(userId: userId)
+        }
+        showAIConsent = false
+        let resume = resumeSendAfterConsent
+        resumeSendAfterConsent = false
+        // A text request continues; a voice request waits for the next
+        // tap on the mic — recording must never start on its own.
+        if resume { await send() }
+    }
+
+    func declineAIConsent() {
+        showAIConsent = false
+        resumeSendAfterConsent = false
+    }
+
     // MARK: - Voice Recording
 
     func startRecording() {
+        // The recording is sent for transcription and then to the model.
+        guard ensureAIConsent(resumeSend: false) else { return }
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default)
@@ -217,6 +260,10 @@ final class AssistantViewModel {
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+
+        // Nothing leaves the device before the user agreed to the AI
+        // providers processing it (R8). The text stays in the input.
+        guard ensureAIConsent(resumeSend: true) else { return }
 
         // Client-side rate limiting
         let now = Date()
