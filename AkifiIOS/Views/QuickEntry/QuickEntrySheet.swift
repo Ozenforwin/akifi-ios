@@ -13,6 +13,12 @@ import UIKit
 /// Liquid Glass (`.claude/design/liquid-glass.md`): a system sheet with
 /// system toolbar items (glass on iOS 26); chips are content fills, not
 /// glass (no glass on glass); the save button is `.akifiPrimary`.
+///
+/// The type control (Расход · Доход · Перевод) is content at the top, not a
+/// toolbar item: in the sheet's header it was cramped (labels touching the
+/// segment edges) and a tap there with the keyboard up was lost. «Перевод»
+/// hands over to the transfer form. The keyboard stays up while chips, the
+/// type, the account and the currency are picked (`KeyboardTapDismiss`).
 struct QuickEntrySheet: View {
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.openURL) private var openURL
@@ -23,16 +29,20 @@ struct QuickEntrySheet: View {
     var onClose: () -> Void
     var onSaved: (QuickEntrySaved) -> Void
     var onDetails: () -> Void
+    /// «Перевод» in the type control: close and open the transfer form.
+    var onTransfer: () -> Void = {}
 
     @FocusState private var isFieldFocused: Bool
     @State private var showCategoryPicker = false
     @State private var showDatePicker = false
+    @State private var showAllCurrencies = false
     @State private var largeExpense: TransactionGuards.LargeExpenseDecision?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    typePicker
                     entrySection
                     if let status = model.voiceStatus {
                         voiceStatusRow(status)
@@ -62,7 +72,11 @@ struct QuickEntrySheet: View {
                 isFieldFocused = true
             }
         }
-        .onDisappear { model.cancelVoice() }
+        .onAppear { KeyboardTapDismiss.shared.suspend() }
+        .onDisappear {
+            KeyboardTapDismiss.shared.resume()
+            model.cancelVoice()
+        }
         .background { QuickEntryStoreObserver(model: model) }
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerView(
@@ -78,6 +92,12 @@ struct QuickEntrySheet: View {
             .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showDatePicker) { datePickerSheet }
+        .sheet(isPresented: $showAllCurrencies) {
+            CurrencyPickerView(selection: Binding(
+                get: { model.entryCurrency ?? .rub },
+                set: { chooseCurrency($0) }
+            ))
+        }
         .alert(
             String(localized: "transaction.confirmLargeExpense.title"),
             isPresented: Binding(get: { largeExpense != nil }, set: { if !$0 { largeExpense = nil } }),
@@ -105,14 +125,6 @@ struct QuickEntrySheet: View {
                     .labelStyle(.iconOnly)
             }
         }
-        ToolbarItem(placement: .principal) {
-            Picker(String(localized: "common.type"), selection: typeSelection) {
-                Text(String(localized: "common.expense")).tag(TransactionType.expense)
-                Text(String(localized: "common.income")).tag(TransactionType.income)
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-        }
         ToolbarItem(placement: .topBarTrailing) {
             Button(String(localized: "quickEntry.sheet.more")) {
                 onDetails()
@@ -121,12 +133,30 @@ struct QuickEntrySheet: View {
         }
     }
 
+    /// Расход · Доход · Перевод — full width, system segmented control.
+    private var typePicker: some View {
+        Picker(String(localized: "common.type"), selection: typeSelection) {
+            Text(String(localized: "common.expense")).tag(TransactionType.expense)
+            Text(String(localized: "common.income")).tag(TransactionType.income)
+            Text(String(localized: "common.transfer")).tag(TransactionType.transfer)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.large)
+    }
+
     private var typeSelection: Binding<TransactionType> {
         Binding(
             get: { model.draft.type == .income ? .income : .expense },
             set: { type in
                 if hapticEnabled { HapticManager.selection() }
-                model.setType(type)
+                if type == .transfer {
+                    // Transfers have their own form (two accounts, FX).
+                    model.cancelVoice()
+                    onTransfer()
+                } else {
+                    model.setType(type)
+                }
             }
         )
     }
@@ -323,14 +353,74 @@ struct QuickEntrySheet: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
                 accountMenu
+                currencyMenu
                 dateMenu
                 Spacer(minLength: 0)
             }
             VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    accountMenu
+                    currencyMenu
+                }
+                dateMenu
+            }
+            VStack(alignment: .leading, spacing: 8) {
                 accountMenu
+                currencyMenu
                 dateMenu
             }
         }
+    }
+
+    // MARK: - Currency
+
+    /// The account's currency first, then the user's active ones; the full
+    /// catalog is behind «Все валюты…».
+    private var currencyChoices: [Currency] {
+        var out: [Currency] = []
+        let pinned = [model.account?.currencyCode, model.entryCurrency].compactMap { $0 }
+        for currency in pinned + UserCurrencyPreferences.shared.activeCurrencies where !out.contains(currency) {
+            out.append(currency)
+        }
+        return out
+    }
+
+    private var currencyMenu: some View {
+        let current = model.entryCurrency
+        let title = current.map { "\($0.symbol) \($0.code)" } ?? model.draft.currencyCode
+        return Menu {
+            ForEach(currencyChoices) { currency in
+                Button {
+                    chooseCurrency(currency)
+                } label: {
+                    // One Text per row (menus drop the rest on some builds).
+                    if currency == current {
+                        Label {
+                            Text(verbatim: "\(currency.symbol)  \(currency.code)")
+                        } icon: {
+                            Image(systemName: "checkmark")
+                        }
+                    } else {
+                        Text(verbatim: "\(currency.symbol)  \(currency.code)")
+                    }
+                }
+            }
+            Divider()
+            Button {
+                showAllCurrencies = true
+            } label: {
+                Label(String(localized: "currencyPicker.allCurrencies"), systemImage: "ellipsis.circle")
+            }
+        } label: {
+            QuickEntryChipLabel(title: title, isSelected: false, showsChevron: true)
+        }
+        .accessibilityLabel(String(localized: "common.currency"))
+        .accessibilityValue(current?.localizedName ?? model.draft.currencyCode)
+    }
+
+    private func chooseCurrency(_ currency: Currency) {
+        if hapticEnabled { HapticManager.selection() }
+        model.chooseCurrency(currency.code)
     }
 
     private var accountMenu: some View {

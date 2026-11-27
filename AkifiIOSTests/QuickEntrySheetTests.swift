@@ -571,4 +571,57 @@ final class QuickEntrySheetTests: XCTestCase {
             AppDateFormatters.dayMonthYear.string(from: QE.date(2025, 3, 2))
         )
     }
+    // MARK: - Device feedback 2026-11-28 (currency chip, «Перевод»)
+
+    func testCurrencyChipSetsTheAmountCurrencyAndSurvivesEditing() {
+        let model = makeModel()
+        model.text = "кофе 300"
+        XCTAssertEqual(model.draft.currencyCode, "RUB")
+        XCTAssertEqual(model.entryCurrency?.code, "RUB")
+
+        model.chooseCurrency("usd")
+        XCTAssertEqual(model.draft.currencyCode, "USD")
+        XCTAssertEqual(model.draft.amount, 300)
+
+        model.text = "кофе 350"
+        XCTAssertEqual(model.draft.currencyCode, "USD", "the chosen currency stays while the phrase changes")
+        XCTAssertEqual(model.draft.amount, 350)
+    }
+
+    func testCurrencyChipWinsOverTheCurrencyInThePhrase() {
+        let model = makeModel()
+        model.text = "обед 12$"
+        XCTAssertEqual(model.draft.currencyCode, "USD")
+        model.chooseCurrency("RUB")
+        XCTAssertEqual(model.draft.currencyCode, "RUB")
+    }
+
+    func testCurrencyChipSurvivesEditingARepeatedEntry() throws {
+        let model = makeModel()
+        let item = try XCTUnwrap(model.repeatCandidates.first)
+        model.applyRepeat(item)
+        model.chooseCurrency("EUR")
+        model.text = model.text + "0"
+        XCTAssertEqual(model.draft.currencyCode, "EUR")
+    }
+
+    func testTransferHandOverOpensTheTransferFormAfterTheSheet() {
+        let store = offlineStore(transactions: history)
+        let coordinator = QuickEntryCoordinator()
+        coordinator.makeSpeech = { SpeechQuickEntry(recognizer: FakeRecognizer(), permissions: FakePermissions()) }
+        XCTAssertFalse(coordinator.takePendingTransfer())
+        coordinator.present(QuickEntryRequest(mode: .expense, source: .addButton), dataStore: store, currencyManager: nil)
+
+        coordinator.openTransfer()
+        XCTAssertNil(coordinator.presented)
+        XCTAssertNil(coordinator.takePendingDetails(), "a transfer is not the full form")
+        XCTAssertTrue(coordinator.takePendingTransfer())
+        XCTAssertFalse(coordinator.takePendingTransfer(), "once")
+    }
+
+    func testTransferWithoutAnOpenSheetDoesNothing() {
+        let coordinator = QuickEntryCoordinator()
+        coordinator.openTransfer()
+        XCTAssertFalse(coordinator.takePendingTransfer())
+    }
 }

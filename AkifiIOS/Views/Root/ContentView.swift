@@ -368,6 +368,8 @@ struct MainTabView: View {
         .sheet(item: $quickEntry.presented, onDismiss: {
             if let prefill = quickEntry.takePendingDetails() {
                 activeSheet = .transactionForm(prefill)
+            } else if quickEntry.takePendingTransfer() {
+                activeSheet = .transfer
             } else {
                 presentInboxRequestIfAny()
             }
@@ -376,7 +378,8 @@ struct MainTabView: View {
                 model: presentation.model,
                 onClose: { quickEntry.presented = nil },
                 onSaved: { quickEntry.didSave($0) },
-                onDetails: { quickEntry.openDetails() }
+                onDetails: { quickEntry.openDetails() },
+                onTransfer: { quickEntry.openTransfer() }
             )
         }
         .onChange(of: QuickEntryInbox.shared.pending?.id, initial: true) { _, _ in

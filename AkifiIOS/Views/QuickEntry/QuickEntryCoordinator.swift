@@ -36,6 +36,7 @@ final class QuickEntryCoordinator {
     private(set) var toast: QuickEntrySaved?
 
     @ObservationIgnored private var pendingDetails: TransactionFormPrefill?
+    @ObservationIgnored private var pendingTransfer = false
 
     /// Speech seam: a fresh recognizer per sheet.
     @ObservationIgnored var makeSpeech: @MainActor () -> SpeechQuickEntry = { SpeechQuickEntry() }
@@ -123,6 +124,23 @@ final class QuickEntryCoordinator {
         model.cancelVoice()
         pendingDetails = model.formPrefill
         presented = nil
+    }
+
+    /// «Перевод» in the type control: close the sheet, then open the
+    /// transfer form.
+    func openTransfer() {
+        guard let model = presented?.model else { return }
+        model.cancelVoice()
+        pendingDetails = nil
+        pendingTransfer = true
+        presented = nil
+    }
+
+    /// The sheet finished its dismissal: whether «Перевод» asked for the
+    /// transfer form.
+    func takePendingTransfer() -> Bool {
+        defer { pendingTransfer = false }
+        return pendingTransfer
     }
 
     /// The sheet finished its dismissal: the form to open, if «Подробнее»

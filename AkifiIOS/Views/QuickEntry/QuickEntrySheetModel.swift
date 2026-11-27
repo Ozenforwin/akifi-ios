@@ -157,6 +157,9 @@ final class QuickEntrySheetModel {
     /// Field text when the current dictation started; nil when not dictating.
     @ObservationIgnored private var textBeforeVoice: String?
     @ObservationIgnored private var usedVoice = false
+    /// The currency chip was used: the amount stays in that currency while
+    /// the phrase is edited.
+    @ObservationIgnored private var currencyChosenByUser = false
 
     /// Write seam — production: `QuickEntrySubmitter.submit`.
     @ObservationIgnored var submit: @MainActor (QuickEntryDraft) async throws -> Transaction
@@ -191,6 +194,9 @@ final class QuickEntrySheetModel {
     var canSave: Bool { draft.isReadyToSave && !isSaving }
 
     var account: Account? { context.account(draft.accountId) }
+
+    /// The amount's currency (the chip), nil for a code outside the catalog.
+    var entryCurrency: Currency? { Currency(code: draft.currencyCode.uppercased()) }
 
     var accounts: [Account] { context.accounts }
 
@@ -323,6 +329,15 @@ final class QuickEntrySheetModel {
         recompute()
     }
 
+    /// The currency chip: the amount is in `code` — over a «$» / «€» in the
+    /// phrase, and kept while the phrase is edited. Equal to the account's
+    /// currency = no conversion; another one is converted on save (ADR-001).
+    func chooseCurrency(_ code: String) {
+        overrides.currencyCode = code.uppercased()
+        currencyChosenByUser = true
+        recompute()
+    }
+
     /// One tap on a «Повторить» item: its description, amount, category and
     /// account, today.
     func applyRepeat(_ item: QuickEntryRepeatItem) {
@@ -335,6 +350,7 @@ final class QuickEntrySheetModel {
         }
         overrides = o
         hasPrefilledOverrides = true
+        currencyChosenByUser = false
         appliedRepeatId = item.id
         setTextProgrammatically(Self.phrase(description: item.description, amount: item.amount, currency: item.currencyCode == item.accountCurrency ? nil : item.currencyCode))
         recompute()
@@ -429,7 +445,7 @@ final class QuickEntrySheetModel {
             hasPrefilledOverrides = false
             appliedRepeatId = nil
             overrides.amount = nil
-            overrides.currencyCode = nil
+            if !currencyChosenByUser { overrides.currencyCode = nil }
             overrides.description = nil
         }
         recompute()
