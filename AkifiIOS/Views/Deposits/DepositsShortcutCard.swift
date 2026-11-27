@@ -13,26 +13,19 @@ struct DepositsShortcutCard: View {
     @State private var deposits: [Deposit] = []
     @State private var contributionsByDeposit: [String: [DepositContribution]] = [:]
     @State private var hasLoaded = false
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
 
     private let depositRepo = DepositRepository()
     private let contributionRepo = DepositContributionRepository()
 
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#A78BFA"), Color(hex: "#7C3AED")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "percent")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+        HStack(spacing: 12) {
+            Image(systemName: "percent")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.budget)
+                .frame(width: iconTileSize, height: iconTileSize)
+                .background(Color.budget.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "deposit.title"))
                     .font(.subheadline.weight(.semibold))
@@ -42,15 +35,14 @@ struct DepositsShortcutCard: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Spacer()
+            Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
+        .contentShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
         .task {
             guard !hasLoaded else { return }
             hasLoaded = true

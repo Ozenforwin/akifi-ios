@@ -139,6 +139,10 @@ struct DebtTotalsRow: View {
 /// content background, 20 pt continuous corners, no shadow (liquid-glass.md).
 struct DebtsSummaryCard: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
+
+    /// «Долги» tint on Home (teal — not a money-direction colour).
+    static let tint = Color(hex: "#0D9488")
 
     var body: some View {
         let dataStore = appViewModel.dataStore
@@ -148,25 +152,16 @@ struct DebtsSummaryCard: View {
         let converted = DebtMath.convertedTotals(DebtMath.totals(entries), to: cm.selectedCurrency.code, rates: cm.rates)
         let overdue = open.filter(\.isOverdue).count
 
-        // Same anatomy as the other Home shortcut cards (shared account,
-        // deposits, challenges): filled 44 pt icon circle, subheadline
-        // title, caption subtitle, chevron.
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#2DD4BF"), Color(hex: "#0D9488")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "person.line.dotted.person.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .accessibilityHidden(true)
+        // Same anatomy as the other Home cards (shared account, deposits):
+        // tinted icon tile, subheadline title, caption subtitle, chevron,
+        // `.akifiCard()`.
+        HStack(spacing: 12) {
+            Image(systemName: "person.line.dotted.person.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Self.tint)
+                .frame(width: iconTileSize, height: iconTileSize)
+                .background(Self.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -197,11 +192,8 @@ struct DebtsSummaryCard: View {
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
+        .contentShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
