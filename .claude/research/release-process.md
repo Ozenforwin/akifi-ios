@@ -20,15 +20,21 @@ tags: [release, ci, codemagic, testflight, app-store]
 
 ```
 1. Decode App Store Connect API key   ← ОБЯЗАТЕЛЬНО ПЕРВЫМ
-2. Lint multi-currency (ADR-001)
-3. Generate xcconfig from env vars
-4. Auto-version, build number, project ← использует .p8 из шага 1
-   ├─ ASC query: max(approved, in-review, TF) → bump patch
+2. Install pinned XcodeGen + Deno (версии и sha256 в vars codemagic.yaml)
+3. Lints: ADR-001, ADR-003 (Swift + edge TS), date formatters, self-test линтеров
+4. Deno tests (supabase/functions/**, из каждой папки с *.test.ts) — блокирующий
+5. Generate xcconfig from env vars
+6. Auto-version, build number, project
+   ├─ ASC query: max(approved/in-review App Store versions) → bump patch
+   │   (TestFlight-only train считается ОТКРЫТЫМ — несколько билдов одной версии норма)
+   ├─ Build number = "<минута коммита>.<BUILD_NUMBER Codemagic>" — по нему submit находит билд коммита
    └─ Pre-flight guard: версия не должна быть в закрытом state
-5. Set up code signing
-6. Resolve SPM dependencies
-7. Apply profiles + build IPA
-8. Upload to TestFlight + distribute Beta Testers, External Testers
+7. Set up code signing
+8. Resolve SPM (-onlyUsePackageVersionsFromResolvedFile, Package.resolved закоммичен; упадёт при расхождении)
+9. xcodebuild test (симулятор, без подписи) — блокирующий
+10. Apply profiles + build IPA
+11. Upload to TestFlight + distribute Beta Testers, External Testers
+12. Upload dSYMs в Crashlytics (весь каталог dSYMs; нет upload-symbols — красный билд)
 ```
 
 ## Главные защиты (зачем они)
@@ -84,6 +90,8 @@ git push origin main
 git tag release/v1.3.X
 git push origin release/v1.3.X
 ```
+
+> **ВАЖНО (с 1.5.8):** тег ставится на КОММИТ, из которого ios-release собрал билд (не на `[skip ci]`-коммит бампа версии). `ios-submit-review` выбирает билд по номеру «<минута коммита тега>.*» и падает, если такого нет. Любой не-OK ответ App Store Connect (выбор билда, review item, confirm) и итоговое состояние кроме WAITING_FOR_REVIEW — красный билд.
 
 > **ВАЖНО:** `1.3.X` в теге должна совпадать с версией в TestFlight. Auto-bump может поднять версию выше, чем в `project.yml` (если в ASC уже есть закрытые train'ы). Перед тегом проверь, что реально загружено в TestFlight, и тегни именно эту версию. Иначе `ios-submit-review` упадёт: «No processed builds found for version 1.3.X».
 
