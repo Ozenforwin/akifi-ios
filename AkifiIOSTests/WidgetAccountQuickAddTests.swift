@@ -534,9 +534,9 @@ final class WidgetAccountQuickAddTests: XCTestCase {
         XCTAssertNotEqual(rewritten.lastUpdated, base.lastUpdated)
         XCTAssertEqual(SharedSnapshotWriter.kindsToReload(from: base, to: rewritten), [])
 
-        // The eye toggle: only «Счёт».
+        // The eye toggle: the two account widgets («Счёт», «Все счета»).
         let hidden = build(store, hidden: [Self.cardId])
-        XCTAssertEqual(SharedSnapshotWriter.kindsToReload(from: base, to: hidden), [AkifiWidgetKind.account])
+        XCTAssertEqual(SharedSnapshotWriter.kindsToReload(from: base, to: hidden), [AkifiWidgetKind.account, AkifiWidgetKind.accounts])
 
         // «Повторить» moved: only «Быстрая запись».
         var repeats = base
@@ -554,7 +554,8 @@ final class WidgetAccountQuickAddTests: XCTestCase {
         store.rebuildCaches()
         let afterSave = build(store)
         let kinds = SharedSnapshotWriter.kindsToReload(from: base, to: afterSave)
-        XCTAssertTrue(kinds.isSuperset(of: [AkifiWidgetKind.balance, AkifiWidgetKind.daySummary, AkifiWidgetKind.account, AkifiWidgetKind.quickAdd]), "\(kinds)")
+        XCTAssertTrue(kinds.isSuperset(of: [AkifiWidgetKind.balance, AkifiWidgetKind.daySummary, AkifiWidgetKind.account,
+                                            AkifiWidgetKind.quickAdd, AkifiWidgetKind.accounts]), "\(kinds)")
     }
 
     func test_widgetKinds_neverRenamed() {
@@ -565,7 +566,8 @@ final class WidgetAccountQuickAddTests: XCTestCase {
         XCTAssertEqual(AkifiWidgetKind.daySummary, "ru.akifi.widget.daySummary")
         XCTAssertEqual(AkifiWidgetKind.account, "ru.akifi.widget.account")
         XCTAssertEqual(AkifiWidgetKind.quickAdd, "ru.akifi.widget.quickAdd")
-        XCTAssertEqual(AkifiWidgetKind.all.count, 6)
+        XCTAssertEqual(AkifiWidgetKind.accounts, "ru.akifi.widget.accounts")
+        XCTAssertEqual(AkifiWidgetKind.all.count, 7)
     }
 
     // MARK: - Formatting

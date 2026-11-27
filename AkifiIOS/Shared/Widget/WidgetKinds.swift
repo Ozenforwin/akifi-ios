@@ -12,6 +12,8 @@ enum AkifiWidgetKind {
     static let account = "ru.akifi.widget.account"
     /// «Быстрая запись» — quick-entry buttons and «Повторить» (1.6.0).
     static let quickAdd = "ru.akifi.widget.quickAdd"
+    /// «Все счета» — every account with its balance (1.6.0).
+    static let accounts = "ru.akifi.widget.accounts"
 
-    static let all: Set<String> = [balance, dailyLimit, streak, daySummary, account, quickAdd]
+    static let all: Set<String> = [balance, dailyLimit, streak, daySummary, account, quickAdd, accounts]
 }

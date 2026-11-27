@@ -20,7 +20,7 @@ import UIKit
 /// | `-AkifiUIHarnessSweep <name>` | Transactions / Assistant / Auth / onboarding screens and sheets (`UIHarnessSweepScreen` in `UIHarnessSweepScreens.swift`) |
 /// | `-AkifiUIHarnessCapture <dir> -AkifiUIHarnessPlan name@look,…` | the app snapshots each planned `UIHarnessSweepScreen` into `<dir>` itself |
 /// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
-/// | `-AkifiUIHarnessWidgets` | UUID-id accounts + «Повторить» history written into the App Group snapshot, for the real widgets (`UIHarnessWidgets`) |
+/// | `-AkifiUIHarnessWidgets` | UUID-id accounts + «Повторить» history written into the App Group snapshot, for the real widgets (`UIHarnessWidgets`); `-AkifiUIHarnessWidgetsMany` adds five more accounts |
 /// | `-AkifiUIHarnessCover <screen>` | account covers: homeBright, homeDark, crop, ownerSection, memberSection, shared (`UIHarnessCovers.swift`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {

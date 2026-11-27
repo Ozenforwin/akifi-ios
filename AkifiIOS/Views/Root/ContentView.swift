@@ -400,6 +400,11 @@ struct MainTabView: View {
             case .tab(let tab):
                 withAnimation { selectedTab = tab }
                 AnalyticsService.logEvent("widget_tap", params: ["target": tab.screenName.lowercased()])
+            case .account(let id):
+                // Home selects it in the carousel once its accounts are in.
+                appViewModel.pendingHomeAccountId = id
+                withAnimation { selectedTab = .home }
+                AnalyticsService.logEvent("widget_tap", params: ["target": "account"])
             case .accountInvite(let code):
                 pendingInvite = PendingInvite(code: code, kind: .account)
             case .budgetInvite(let code):

@@ -69,3 +69,20 @@
 "widget.account.description" = "An account's balance and quick entry";
 "widget.quickAdd.displayName" = "Quick entry";
 "widget.quickAdd.description" = "Expense, income or voice in one tap";
+
+/* «Счёт» arrows and «Все счета» widget (1.6.0) */
+"widget.account.next" = "Next account";
+"widget.account.previous" = "Previous account";
+"widget.account.page.label" = "Account";
+"widget.account.page.value" = "%1$@, %2$lld of %3$lld";
+"widget.account.step.title" = "Switch account";
+"widget.account.step.description" = "Shows the next or previous account in the widget";
+"widget.account.step.widgetKey" = "Widget";
+"widget.account.step.configuredAccount" = "Widget account";
+"widget.account.step.forward" = "Forward";
+"widget.accounts.total" = "Total balance";
+"widget.accounts.more" = "+%lld more";
+"widget.accounts.more.hint" = "All accounts in Akifi";
+"widget.accounts.open.hint" = "Opens the account in Akifi";
+"widget.accounts.displayName" = "All accounts";
+"widget.accounts.description" = "Balances of all your accounts";

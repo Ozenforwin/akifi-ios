@@ -12,6 +12,7 @@ import SwiftUI
 struct AkifiWidgetBundle: WidgetBundle {
     var body: some Widget {
         AccountWidget()
+        AllAccountsWidget()
         QuickAddWidget()
         BalanceWidget()
         DailyLimitWidget()

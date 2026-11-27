@@ -8,10 +8,27 @@ import WidgetKit
 /// into the App Group snapshot, so the real «Счёт» / «Быстрая запись»
 /// widgets on a simulator show it and their taps can be tried
 /// (`xcrun simctl openurl <id> "akifi://quick-add?mode=expense&source=widget&account=<cardId>"`).
+/// `-AkifiUIHarnessWidgetsMany` adds five more accounts (nine in all) for
+/// «Все счета»'s «+N ещё» and the «Счёт» arrows' «3/9».
 /// No network: the snapshot is saved directly, without the budget refresh.
 enum UIHarnessWidgets {
     static var isEnabled: Bool {
         UIHarness.isEnabled && ProcessInfo.processInfo.arguments.contains("-AkifiUIHarnessWidgets")
+    }
+
+    static var addsManyAccounts: Bool {
+        ProcessInfo.processInfo.arguments.contains("-AkifiUIHarnessWidgetsMany")
+    }
+
+    private static func extraAccounts() -> [Account] {
+        [("Сбер", "🏦", "#22C55E", Int64(254_000_00)), ("Отпуск", "🏖️", "#06B6D4", 98_500_00),
+         ("Вклад", "📈", "#EAB308", 500_000_00), ("Кошелёк", "👛", "#EC4899", 3_150_00),
+         ("Кредитка", "💳", "#F43F5E", -12_340_00)]
+            .enumerated()
+            .map { index, a in
+                Account(id: "5a1d0000-0000-4000-8000-00000000001\(index)", userId: "demo", name: a.0, icon: a.1,
+                        color: a.2, initialBalance: a.3, currency: "rub")
+            }
     }
 
     static let cardId = "5a1d0000-0000-4000-8000-000000000001"
@@ -39,7 +56,7 @@ enum UIHarnessWidgets {
                     initialBalance: 1_263_25, currency: "usd", accountType: .investment),
             Account(id: familyId, userId: "partner", name: "Семейный", icon: "👪", color: "#8B5CF6",
                     initialBalance: 40_000_00, currency: "rub"),
-        ]
+        ] + (addsManyAccounts ? extraAccounts() : [])
         store.categories = [cafe, food, taxi, salary]
 
         let calendar = AppDateFormatters.localCalendar

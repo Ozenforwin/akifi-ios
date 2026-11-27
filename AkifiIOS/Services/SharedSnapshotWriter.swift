@@ -314,7 +314,24 @@ enum SharedSnapshotWriter {
         if old.repeatItems != new.repeatItems {
             kinds.insert(AkifiWidgetKind.quickAdd)
         }
+        // «Все счета» lists balances and the base-currency total; the month
+        // in / out it doesn't show never reloads it.
+        if currencyChanged || old.totalBalance != new.totalBalance
+            || listedAccounts(old.accounts) != listedAccounts(new.accounts) {
+            kinds.insert(AkifiWidgetKind.accounts)
+        }
         return kinds
+    }
+
+    /// The accounts as «Все счета» shows them: everything but the month
+    /// flow (a field added to `AccountItem` later counts by default).
+    nonisolated private static func listedAccounts(_ accounts: [SharedSnapshot.AccountItem]?) -> [SharedSnapshot.AccountItem]? {
+        accounts?.map { item in
+            var item = item
+            item.monthIncome = 0
+            item.monthExpense = 0
+            return item
+        }
     }
 
     // MARK: - Helpers

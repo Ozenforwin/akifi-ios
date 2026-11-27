@@ -28,13 +28,29 @@ enum AccountWidgetState: Equatable, Sendable {
     }
 }
 
-/// Deep links of the «Счёт» widget — every quick button opens the sheet
-/// with THIS account preselected.
+/// Deep links of the «Счёт» and «Все счета» widgets — every quick button
+/// opens the sheet with THIS account preselected; a tap on an account opens
+/// Home on it.
 enum AccountWidgetLinks {
     static let home = URL(string: "akifi://home")!
 
+    /// `akifi://account?id=<uuid>` — parsed by `DeepLink.parse` (app).
+    static let accountHost = "account"
+    static let accountIdQueryItem = "id"
+
     static func quickEntry(_ mode: QuickEntryLaunchMode, accountId: String) -> URL {
         QuickEntryLaunchLink(mode: mode, source: .widget, accountId: accountId).url
+    }
+
+    /// Opens the app on Home with this account selected in the carousel.
+    /// Account ids are UUIDs; anything else (never a DB id) opens Home.
+    static func account(_ id: String) -> URL {
+        guard let uuid = UUID(uuidString: id) else { return home }
+        var components = URLComponents()
+        components.scheme = "akifi"
+        components.host = accountHost
+        components.queryItems = [URLQueryItem(name: accountIdQueryItem, value: uuid.uuidString.lowercased())]
+        return components.url ?? home
     }
 }
 
@@ -68,6 +84,8 @@ struct AccountWidgetView: View {
     let state: AccountWidgetState
     let family: WidgetFamily
     let renderingMode: WidgetRenderingMode
+    /// ‹ › and the page dots (small / medium with more than one account).
+    var pager: AccountWidgetPager? = nil
 
     var body: some View {
         switch state {
@@ -78,9 +96,9 @@ struct AccountWidgetView: View {
             case .accessoryRectangular:
                 AccountRectangularView(account: account)
             case .systemMedium:
-                AccountMediumView(account: account, renderingMode: renderingMode)
+                AccountMediumView(account: account, renderingMode: renderingMode, pager: pager)
             default:
-                AccountSmallView(account: account, renderingMode: renderingMode)
+                AccountSmallView(account: account, renderingMode: renderingMode, pager: pager)
             }
         case .noAccounts:
             WidgetMessageView(
@@ -103,10 +121,16 @@ struct AccountWidgetView: View {
 // MARK: - Pieces
 
 /// The account's emoji on a tile of its colour.
-private struct AccountIconTile: View {
+struct AccountIconTile: View {
     let account: SharedSnapshot.AccountItem
     let renderingMode: WidgetRenderingMode
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 30
+    @ScaledMetric private var size: CGFloat
+
+    init(account: SharedSnapshot.AccountItem, renderingMode: WidgetRenderingMode, size: CGFloat = 30) {
+        self.account = account
+        self.renderingMode = renderingMode
+        self._size = ScaledMetric(wrappedValue: size, relativeTo: .body)
+    }
 
     var body: some View {
         let tint = WidgetPalette.color(hex: account.colorHex) ?? WidgetPalette.accent
@@ -122,7 +146,7 @@ private struct AccountIconTile: View {
 }
 
 /// ★ primary, two people for a shared account.
-private struct AccountBadges: View {
+struct AccountBadges: View {
     let account: SharedSnapshot.AccountItem
 
     var body: some View {
@@ -194,6 +218,7 @@ private struct AccountBalanceText: View {
             .minimumScaleFactor(0.45)
             .foregroundStyle(renderingMode == .fullColor && account.balance < 0 && !account.isBalanceHidden
                              ? WidgetPalette.expense : Color.primary)
+            .contentTransition(.numericText())
             .privacySensitive()
             .widgetAccentable()
             .accessibilityLabel(Text(LocalizedStringResource("widget.account.balance", defaultValue: "Баланс")))
@@ -205,49 +230,68 @@ private struct AccountBalanceText: View {
 
 // MARK: - Families
 
-/// `.systemSmall`: icon, name, balance, this month in / out. Tap → Home.
+/// `.systemSmall`: icon, name, balance, this month in / out; ‹ › in the
+/// top-right corner when there are other accounts. Tap → Home on this
+/// account.
 struct AccountSmallView: View {
     let account: SharedSnapshot.AccountItem
     let renderingMode: WidgetRenderingMode
+    var pager: AccountWidgetPager? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
+            HStack(alignment: .center, spacing: 4) {
                 AccountIconTile(account: account, renderingMode: renderingMode)
+                    .accountSwitchTransition(account: account, pager: pager)
                 Spacer(minLength: 4)
-                AccountBadges(account: account)
+                if let pager {
+                    AccountWidgetPagerControl(pager: pager, renderingMode: renderingMode, hitWidth: 32)
+                } else {
+                    AccountBadges(account: account)
+                }
             }
             Spacer(minLength: 6)
-            Text(verbatim: account.name)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            AccountBalanceText(account: account, font: .title2, renderingMode: renderingMode)
-            Spacer(minLength: 6)
-            VStack(alignment: .leading, spacing: 2) {
-                AccountFlowLabel(account: account, isIncome: true, renderingMode: renderingMode)
-                AccountFlowLabel(account: account, isIncome: false, renderingMode: renderingMode)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 4) {
+                    Text(verbatim: account.name)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if pager != nil {
+                        // The arrows took the top-right corner.
+                        AccountBadges(account: account)
+                    }
+                }
+                AccountBalanceText(account: account, font: .title2, renderingMode: renderingMode)
+                Spacer(minLength: 6)
+                VStack(alignment: .leading, spacing: 2) {
+                    AccountFlowLabel(account: account, isIncome: true, renderingMode: renderingMode)
+                    AccountFlowLabel(account: account, isIncome: false, renderingMode: renderingMode)
+                }
+                .font(.caption2.weight(.semibold))
+                .monospacedDigit()
             }
-            .font(.caption2.weight(.semibold))
-            .monospacedDigit()
+            .accountSwitchTransition(account: account, pager: pager)
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-        .widgetURL(AccountWidgetLinks.home)
+        .widgetURL(AccountWidgetLinks.account(account.id))
     }
 }
 
 /// `.systemMedium`: the same + «Расход», «Доход», «Голосом» that open
-/// quick entry on this account.
+/// quick entry on this account; ‹ › around the page dots on the header
+/// row when there are other accounts.
 struct AccountMediumView: View {
     let account: SharedSnapshot.AccountItem
     let renderingMode: WidgetRenderingMode
+    var pager: AccountWidgetPager? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
                     HStack(spacing: 8) {
                         AccountIconTile(account: account, renderingMode: renderingMode)
                         Text(verbatim: account.name)
@@ -255,16 +299,23 @@ struct AccountMediumView: View {
                             .lineLimit(1)
                         AccountBadges(account: account)
                     }
+                    .accountSwitchTransition(account: account, pager: pager)
+                    Spacer(minLength: 4)
+                    if let pager {
+                        AccountWidgetPagerControl(pager: pager, renderingMode: renderingMode, hitWidth: 40)
+                    }
+                }
+                HStack(alignment: .center, spacing: 10) {
                     AccountBalanceText(account: account, font: .title, renderingMode: renderingMode)
+                    Spacer(minLength: 4)
+                    VStack(alignment: .trailing, spacing: 3) {
+                        AccountFlowLabel(account: account, isIncome: true, renderingMode: renderingMode)
+                        AccountFlowLabel(account: account, isIncome: false, renderingMode: renderingMode)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
                 }
-                Spacer(minLength: 4)
-                VStack(alignment: .trailing, spacing: 3) {
-                    AccountFlowLabel(account: account, isIncome: true, renderingMode: renderingMode)
-                    AccountFlowLabel(account: account, isIncome: false, renderingMode: renderingMode)
-                }
-                .font(.caption.weight(.semibold))
-                .monospacedDigit()
-                .padding(.top, 4)
+                .accountSwitchTransition(account: account, pager: pager)
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
@@ -279,7 +330,7 @@ struct AccountMediumView: View {
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .widgetURL(AccountWidgetLinks.home)
+        .widgetURL(AccountWidgetLinks.account(account.id))
     }
 
     private func quickButton(_ mode: QuickEntryLaunchMode, systemImage: String, color: Color, title: LocalizedStringResource) -> some View {
@@ -327,7 +378,7 @@ struct AccountRectangularView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .widgetURL(AccountWidgetLinks.home)
+        .widgetURL(AccountWidgetLinks.account(account.id))
     }
 }
 
@@ -342,7 +393,124 @@ struct AccountInlineView: View {
             Text(verbatim: "\(account.icon) \(WidgetMoney.balance(account))")
         }
         .privacySensitive()
-        .widgetURL(AccountWidgetLinks.home)
+        .widgetURL(AccountWidgetLinks.account(account.id))
+    }
+}
+
+// MARK: - Arrows
+
+/// «‹ ••●• ›» — interactive buttons (`AccountWidgetStepIntent`, run by the
+/// system without opening the app) around the page indicator: dots up to
+/// `AccountWidgetPager.maxDots` accounts when they fit, «3/9» otherwise.
+struct AccountWidgetPagerControl: View {
+    let pager: AccountWidgetPager
+    let renderingMode: WidgetRenderingMode
+    /// Tap width of one arrow; the height is the header row's 32 pt.
+    let hitWidth: CGFloat
+
+    static let hitHeight: CGFloat = 32
+
+    var body: some View {
+        HStack(spacing: 0) {
+            arrow(forward: false)
+            indicator
+            arrow(forward: true)
+        }
+        // Offered the row's free width before the spacer, so the dots get
+        // every point they can use before falling back to «3/9».
+        .layoutPriority(1)
+    }
+
+    private func arrow(forward: Bool) -> some View {
+        Button(intent: AccountWidgetStepIntent(pager: pager, forward: forward)) {
+            Image(systemName: forward ? "chevron.forward" : "chevron.backward")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+                .background(WidgetChipFill.color(renderingMode), in: Circle())
+                .frame(width: hitWidth, height: Self.hitHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(forward
+            ? LocalizedStringResource("widget.account.next", defaultValue: "Следующий счёт")
+            : LocalizedStringResource("widget.account.previous", defaultValue: "Предыдущий счёт")))
+        .accessibilityHint(Text(verbatim: forward ? pager.nextName : pager.previousName))
+    }
+
+    private var indicator: some View {
+        Group {
+            if pager.showsDots {
+                ViewThatFits(in: .horizontal) {
+                    dots
+                    counter
+                }
+            } else {
+                counter
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(LocalizedStringResource("widget.account.page.label", defaultValue: "Счёт")))
+        .accessibilityValue(Text(verbatim: String(
+            format: String(localized: "widget.account.page.value", defaultValue: "%1$@, %2$lld из %3$lld"),
+            pager.currentName,
+            pager.position + 1,
+            pager.count
+        )))
+    }
+
+    private var dots: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(pager.pages.enumerated()), id: \.offset) { index, page in
+                let isCurrent = index == pager.position
+                Capsule()
+                    .fill(dotColor(page, isCurrent: isCurrent))
+                    .frame(width: isCurrent ? 10 : 5, height: 5)
+            }
+        }
+        .padding(.horizontal, 2)
+        .fixedSize()
+    }
+
+    /// The shown account's dot in its colour (full colour), the others grey;
+    /// tinted / clear: the shown one primary (accentable), the rest faint.
+    private func dotColor(_ page: AccountWidgetPager.Page, isCurrent: Bool) -> Color {
+        guard isCurrent else {
+            return renderingMode == .fullColor ? Color(.tertiaryLabel) : Color.primary.opacity(0.3)
+        }
+        guard renderingMode == .fullColor else { return Color.primary }
+        return WidgetPalette.color(hex: page.colorHex) ?? WidgetPalette.accent
+    }
+
+    private var counter: some View {
+        Text(verbatim: pager.counterText)
+            .font(.caption2.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 2)
+    }
+}
+
+private extension View {
+    /// The account's own content is replaced, not morphed, when the arrows
+    /// switch accounts: the new one slides in from the side the user went
+    /// to (trailing after «›», leading after «‹») while the old one fades
+    /// in place. Checked on the iOS 26.5 Home Screen (2026-11-28):
+    /// - the outgoing view animates with the transition of the render it
+    ///   came from, so a symmetric `.push` sends it the wrong way on the
+    ///   first tap after a change of direction — hence the fade-only
+    ///   removal;
+    /// - `.push(from:)` as the insertion of an `.asymmetric` transition is
+    ///   played mirrored by WidgetKit (it came in from the opposite edge);
+    ///   `.move(edge:)` + `.opacity` is played as written.
+    /// Without animation it is a plain swap.
+    func accountSwitchTransition(account: SharedSnapshot.AccountItem, pager: AccountWidgetPager?) -> some View {
+        let edge: Edge = (pager?.forward ?? true) ? .trailing : .leading
+        return self
+            .id(account.id)
+            .transition(.asymmetric(insertion: .move(edge: edge).combined(with: .opacity), removal: .opacity))
     }
 }
 

@@ -69,3 +69,20 @@
 "widget.account.description" = "Баланс счёта и быстрый ввод операций";
 "widget.quickAdd.displayName" = "Быстрая запись";
 "widget.quickAdd.description" = "Расход, доход или голосом — в одно касание";
+
+/* «Счёт» arrows and «Все счета» widget (1.6.0) */
+"widget.account.next" = "Следующий счёт";
+"widget.account.previous" = "Предыдущий счёт";
+"widget.account.page.label" = "Счёт";
+"widget.account.page.value" = "%1$@, %2$lld из %3$lld";
+"widget.account.step.title" = "Другой счёт";
+"widget.account.step.description" = "Показывает в виджете соседний счёт";
+"widget.account.step.widgetKey" = "Виджет";
+"widget.account.step.configuredAccount" = "Счёт виджета";
+"widget.account.step.forward" = "Вперёд";
+"widget.accounts.total" = "Всего на счетах";
+"widget.accounts.more" = "+%lld ещё";
+"widget.accounts.more.hint" = "Все счета в Akifi";
+"widget.accounts.open.hint" = "Открыть счёт в Akifi";
+"widget.accounts.displayName" = "Все счета";
+"widget.accounts.description" = "Балансы всех счетов";

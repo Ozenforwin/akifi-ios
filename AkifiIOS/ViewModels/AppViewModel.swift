@@ -55,6 +55,8 @@ final class AppViewModel {
                 },
                 clearDeviceState: {
                     SharedSnapshotStore.clear()
+                    // «Счёт» arrow steps point at the previous user's accounts.
+                    AccountWidgetOverrideStore.clear()
                     WidgetCenter.shared.reloadAllTimelines()
                     let center = UNUserNotificationCenter.current()
                     center.removeAllPendingNotificationRequests()
@@ -96,6 +98,13 @@ final class AppViewModel {
     /// behind the confirmation screen (S2).
     var pendingDeepLink: DeepLink?
 
+    /// The account a widget asked Home to show (`akifi://account?id=`).
+    /// `MainTabView` sets it when it takes the link and switches to Home;
+    /// `HomeTabView` selects the account in the carousel once its accounts
+    /// contain it and clears it — or clears it without selecting anything
+    /// when no money account has that id (deleted, a debt, someone else's).
+    var pendingHomeAccountId: String?
+
     /// Single entry point for every URL the app is opened with.
     func open(_ url: URL) {
         // akifi://quick-add?… waits in QuickEntryInbox for the signed-in UI.
@@ -104,7 +113,7 @@ final class AppViewModel {
         switch link {
         case .authCallback(let callback):
             Task { await authManager.handleAuthCallback(callback) }
-        case .tab, .accountInvite, .budgetInvite:
+        case .tab, .account, .accountInvite, .budgetInvite:
             pendingDeepLink = link
         }
     }
@@ -253,6 +262,7 @@ final class AppViewModel {
     func resetForSignOut(preserveQueue: Bool = false) {
         hasLoadedData = false
         pendingDeepLink = nil
+        pendingHomeAccountId = nil
         QuickEntryInbox.shared.reset()
         // In-flight work of the previous user finishes on its own; the data
         // store discards its results (session epoch). The next sign-in

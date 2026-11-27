@@ -72,6 +72,7 @@ final class WidgetScreenshotTests: XCTestCase {
         switch family {
         case .systemSmall: CGSize(width: 158, height: 158)
         case .systemMedium: CGSize(width: 338, height: 158)
+        case .systemLarge: CGSize(width: 338, height: 354)
         case .accessoryRectangular: CGSize(width: 160, height: 72)
         case .accessoryInline: CGSize(width: 234, height: 26)
         case .accessoryCircular: CGSize(width: 72, height: 72)
@@ -159,6 +160,52 @@ final class WidgetScreenshotTests: XCTestCase {
         }
     }
 
+    /// «Счёт» as the provider builds it: the account a step (if any) moved
+    /// to, with the arrows.
+    private func renderPagedAccount(_ name: String, accounts: [SharedSnapshot.AccountItem], showing index: Int,
+                                    family: WidgetFamily, look: Look, dynamicType: DynamicTypeSize = .large) throws {
+        var snapshot = SharedSnapshot.placeholder
+        snapshot.accounts = accounts
+        let key = AccountWidgetCarousel.widgetKey(configuredAccountId: accounts[0].id, family: family)
+        let content = AccountWidgetCarousel.content(
+            snapshot: snapshot, configuredAccountId: accounts[0].id, family: family,
+            overrides: index == 0 ? [:] : [key: AccountWidgetOverride(accountId: accounts[index].id, forward: true)]
+        )
+        XCTAssertEqual(content.state.account?.id, accounts[index].id)
+        try render(name, family: family, look: look, dynamicType: dynamicType) { mode in
+            AccountWidgetView(state: content.state, family: family, renderingMode: mode, pager: content.pager)
+        } background: { mode in
+            AccountWidgetBackground(state: content.state, renderingMode: mode)
+        }
+    }
+
+    private func renderAllAccounts(_ name: String, accounts: [SharedSnapshot.AccountItem]?, family: WidgetFamily, look: Look,
+                                   total: Int64 = 1_342_617_00, dynamicType: DynamicTypeSize = .large) throws {
+        let snapshot: SharedSnapshot? = accounts.map { accounts in
+            var s = SharedSnapshot(
+                schemaVersion: SharedSnapshot.currentSchemaVersion, lastUpdated: Date(), baseCurrency: "RUB",
+                baseCurrencySymbol: "₽", baseCurrencyDecimals: 0, totalBalance: total, accountCount: accounts.count,
+                dailyLimit: nil, dailyLimitBudgetName: nil, dailySpentToday: 0, dailyLimitUtilization: 0,
+                currentStreak: 0, nextMilestone: 3, todayIncome: 0, todayExpense: 0, todayNet: 0, netWorth: nil
+            )
+            s.accounts = accounts
+            return s
+        }
+        let state = AllAccountsWidgetSelection.state(snapshot: snapshot, family: family)
+        try render(name, family: family, look: look, dynamicType: dynamicType) { mode in
+            AllAccountsWidgetView(state: state, family: family, renderingMode: mode)
+        } background: { _ in
+            Color(.secondarySystemGroupedBackground)
+        }
+    }
+
+    private static let fourAccounts = [card, hidden, usd, family]
+    private static let nineAccounts: [SharedSnapshot.AccountItem] = [card, hidden, usd, family, overdrawn]
+        + [("Сбер", "🏦", "#22C55E", 254_000_00), ("Отпуск", "🏖️", "#06B6D4", 98_500_00),
+           ("Вклад", "📈", "#EAB308", 500_000_00), ("Кошелёк", "👛", "#EC4899", 3_150_00)].map {
+            account($0.0, icon: $0.1, color: $0.2, balance: $0.3, income: 0, expense: 0)
+        }
+
     private func renderQuickAdd(_ name: String, _ items: [SharedSnapshot.RepeatItem]?, family: WidgetFamily, look: Look,
                                 dynamicType: DynamicTypeSize = .large) throws {
         try render(name, family: family, look: look, dynamicType: dynamicType) { mode in
@@ -189,6 +236,57 @@ final class WidgetScreenshotTests: XCTestCase {
         try renderAccount("account-small-noaccounts-dark", .noAccounts, family: .systemSmall, look: .dark)
         try renderAccount("account-small-xxxl-light", .account(Self.card), family: .systemSmall, look: .light, dynamicType: .accessibility3)
         try renderAccount("account-medium-xxxl-dark", .account(Self.family), family: .systemMedium, look: .dark, dynamicType: .accessibility3)
+    }
+
+    // MARK: - «Счёт» arrows
+
+    func test_accountWidget_arrows() throws {
+        for family in [WidgetFamily.systemSmall, .systemMedium] {
+            let label = family == .systemSmall ? "small" : "medium"
+            for look in Look.allCases {
+                try renderPagedAccount("account-arrows-\(label)-\(look.rawValue)", accounts: Self.fourAccounts, showing: 0,
+                                       family: family, look: look)
+            }
+            // After «›»: the USD account, third of four.
+            try renderPagedAccount("account-arrows-\(label)-stepped-light", accounts: Self.fourAccounts, showing: 2,
+                                   family: family, look: .light)
+            try renderPagedAccount("account-arrows-\(label)-hidden-dark", accounts: Self.fourAccounts, showing: 1,
+                                   family: family, look: .dark)
+            // Nine accounts: «3/9» instead of dots.
+            try renderPagedAccount("account-arrows-\(label)-many-light", accounts: Self.nineAccounts, showing: 2,
+                                   family: family, look: .light)
+            try renderPagedAccount("account-arrows-\(label)-two-dark", accounts: [Self.card, Self.usd], showing: 1,
+                                   family: family, look: .dark)
+            // One account: no arrows (the original layout).
+            try renderPagedAccount("account-arrows-\(label)-single-light", accounts: [Self.card], showing: 0,
+                                   family: family, look: .light)
+        }
+        try renderPagedAccount("account-arrows-small-xxxl-light", accounts: Self.fourAccounts, showing: 3,
+                               family: .systemSmall, look: .light, dynamicType: .accessibility3)
+        try renderPagedAccount("account-arrows-medium-xxxl-dark", accounts: Self.fourAccounts, showing: 3,
+                               family: .systemMedium, look: .dark, dynamicType: .accessibility3)
+    }
+
+    // MARK: - «Все счета»
+
+    func test_allAccountsWidget() throws {
+        for family in [WidgetFamily.systemMedium, .systemLarge] {
+            let label = family == .systemMedium ? "medium" : "large"
+            for look in Look.allCases {
+                try renderAllAccounts("accounts-\(label)-\(look.rawValue)", accounts: Self.fourAccounts.filter { !$0.isBalanceHidden }
+                                      + [Self.overdrawn], family: family, look: look)
+            }
+            // «Наличные» hidden on Home: «••••», and the total too.
+            try renderAllAccounts("accounts-\(label)-hidden-light", accounts: Self.fourAccounts, family: family, look: .light)
+            try renderAllAccounts("accounts-\(label)-one-dark", accounts: [Self.card], family: family, look: .dark, total: 85_400_00)
+            try renderAllAccounts("accounts-\(label)-many-light", accounts: Self.nineAccounts.filter { !$0.isBalanceHidden }
+                                  + [Self.account("Ещё один", icon: "💼", color: "#64748B", balance: 1_000_00, income: 0, expense: 0)],
+                                  family: family, look: .light)
+            try renderAllAccounts("accounts-\(label)-signedout-dark", accounts: nil, family: family, look: .dark)
+            try renderAllAccounts("accounts-\(label)-noaccounts-light", accounts: [], family: family, look: .light)
+            try renderAllAccounts("accounts-\(label)-xxxl-dark", accounts: Self.nineAccounts, family: family, look: .dark,
+                                  dynamicType: .accessibility3)
+        }
     }
 
     // MARK: - «Быстрая запись»
