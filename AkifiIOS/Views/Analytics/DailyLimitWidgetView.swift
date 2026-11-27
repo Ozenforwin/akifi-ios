@@ -22,23 +22,24 @@ struct DailyLimitWidgetView: View {
 
     var body: some View {
         let value = safeToSpend
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(String(localized: "analytics.availableToday"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text(appViewModel.currencyManager.formatAmount(value))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(value > 0 ? .primary : .red)
+                .font(.title.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(value > 0 ? Color.primary : Color.expense)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             Text(String(localized: "analytics.recommendedDailyLimit"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
+        .accessibilityElement(children: .combine)
         .task { metricsStore.refreshIfNeeded(dataStore: dataStore) }
     }
 }

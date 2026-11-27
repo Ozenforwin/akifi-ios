@@ -18,6 +18,7 @@ import UIKit
 /// | `-AkifiUIHarnessGallery` | design-system gallery instead of the tabs |
 /// | `-AkifiUIHarnessScreen <name>` | one screen / sheet with fixtures (`UIHarnessScreen` in UIHarnessScreens.swift) |
 /// | `-AkifiUIHarnessCapture <dir> -AkifiUIHarnessPlan name@look,…` | the app snapshots each planned screen into `<dir>` itself |
+/// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -68,6 +69,13 @@ enum UIHarness {
         store.rebuildCaches()
         store.currencyContextDidChange()
 
+        if UIHarnessQuickEntry.isEnabled {
+            store.allAccounts = UIHarnessQuickEntry.accounts
+            UIHarnessQuickEntry.install(in: store)
+            if let request = UIHarnessQuickEntry.request() {
+                QuickEntryInbox.shared.submit(request)
+            }
+        }
         if showsBanners {
             store.reportIssue(.load, message: String(localized: "sync.error.partialLoad"))
             store.pendingAutoMatch = DataStore.PendingAutoMatch(

@@ -38,8 +38,7 @@ struct ShareBudgetView: View {
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
-                                    .background(Color(.systemBackground))
-                                    .clipShape(Capsule())
+                                    .background(Color(.tertiarySystemFill), in: Capsule())
                             }
                             .padding(.vertical, 2)
                         }
@@ -77,42 +76,26 @@ struct ShareBudgetView: View {
                     Section(String(localized: "share.inviteCode")) {
                         VStack(spacing: 16) {
                             Text(formatCode(token))
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                .font(.system(.title3, design: .monospaced, weight: .bold))
                                 .tracking(2)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
+                                .textSelection(.enabled)
 
                             Text(String(localized: "share.codeHint"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
 
-                            HStack(spacing: 12) {
-                                Button {
+                            ShareInviteButtons(
+                                copied: copied,
+                                onCopy: {
                                     UIPasteboard.general.string = deepLink(for: token)
                                     copied = true
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
-                                } label: {
-                                    Label(copied ? String(localized: "share.copied") : String(localized: "share.copy"), systemImage: copied ? "checkmark" : "doc.on.doc")
-                                        .font(.subheadline.weight(.medium))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(Color(.systemGray6))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                .buttonStyle(.plain)
-
-                                ShareLink(item: shareMessage(for: token)) {
-                                    Label(String(localized: "share.send"), systemImage: "square.and.arrow.up")
-                                        .font(.subheadline.weight(.medium))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                        .background(Color.accent.opacity(0.15))
-                                        .foregroundStyle(Color.accent)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                .buttonStyle(.plain)
-                            }
+                                },
+                                shareMessage: shareMessage(for: token)
+                            )
                         }
                     }
                 }
@@ -134,6 +117,8 @@ struct ShareBudgetView: View {
             }
             .task { await loadMembers() }
         }
+        // Short until a code is generated; the user can pull it up.
+        .presentationDetents([.medium, .large])
     }
 
     private func formatCode(_ token: String) -> String {

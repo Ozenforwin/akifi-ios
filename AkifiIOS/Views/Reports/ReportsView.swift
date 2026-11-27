@@ -3,8 +3,11 @@ import Charts
 
 struct ReportsView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
     @State private var vm = ReportsViewModel()
+    /// Icon circle of the category / transfer rows; grows with Dynamic Type.
+    @ScaledMetric(relativeTo: .body) private var rowIconSize: CGFloat = 40
+    /// Row separators start under the text, past the icon.
+    private var dividerInset: CGFloat { 16 + rowIconSize + 12 }
     @State private var sheetData: CategorySheetData?
     @State private var showCustomPeriodSheet = false
     @State private var showAccountFilter = false
@@ -30,40 +33,41 @@ struct ReportsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Swipeable header (not inside ScrollView — safe for gestures)
-            VStack(spacing: 0) {
-                filtersBar
-                periodPager
-
-                Picker("", selection: $vm.selectedSegment) {
-                    Text(String(localized: "common.expenses")).tag(ReportsViewModel.ReportSegment.expense)
-                    Text(String(localized: "common.incomes")).tag(ReportsViewModel.ReportSegment.income)
-                    Text(String(localized: "common.transfers")).tag(ReportsViewModel.ReportSegment.transfers)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            }
-            .contentShape(Rectangle())
-            .gesture(periodSwipeGesture)
-
+        Group {
             if vm.selectedSegment == .transfers {
                 transfersContent
             } else {
                 categoriesContent
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
+        // Filters, period pager and segment picker stay pinned under the
+        // navigation bar; the lists scroll beneath them (iOS 26 scroll edge
+        // effect, the classic bar material before). The header keeps its
+        // own swipe-to-change-period gesture — outside the scroll view, so
+        // it never fights vertical scrolling.
+        .akifiSafeAreaBar(edge: .top, hardEdge: true) {
+            VStack(spacing: 0) {
+                filtersBar
+                periodPager
+
+                Picker(String(localized: "common.type"), selection: $vm.selectedSegment) {
+                    Text(String(localized: "common.expenses")).tag(ReportsViewModel.ReportSegment.expense)
+                    Text(String(localized: "common.incomes")).tag(ReportsViewModel.ReportSegment.income)
+                    Text(String(localized: "common.transfers")).tag(ReportsViewModel.ReportSegment.transfers)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+            .contentShape(Rectangle())
+            .gesture(periodSwipeGesture)
+        }
         .navigationTitle(String(localized: "report.title"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .fontWeight(.medium)
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     generatePDF()
@@ -172,14 +176,15 @@ struct ReportsView: View {
             .frame(maxHeight: .infinity)
         } else {
             ScrollView {
-                VStack(spacing: 0) {
+                VStack(spacing: 16) {
                     donutSection(items: items)
-                        .padding(.bottom, 24)
 
                     categoryList(items: items)
+                        .akifiCard(padding: 0)
                 }
-                .padding(.bottom, 100)
+                .padding(.horizontal)
             }
+            .contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
         }
     }
 
@@ -195,14 +200,15 @@ struct ReportsView: View {
             .frame(maxHeight: .infinity)
         } else {
             ScrollView {
-                VStack(spacing: 0) {
+                VStack(spacing: 16) {
                     transfersDonutSection(items: items)
-                        .padding(.bottom, 24)
 
                     transferList(items: items)
+                        .akifiCard(padding: 0)
                 }
-                .padding(.bottom, 100)
+                .padding(.horizontal)
             }
+            .contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
         }
     }
 
@@ -298,19 +304,36 @@ struct ReportsView: View {
 
     // MARK: - Filters Bar
 
+    /// Account / category filters (multi-select sheets) and the period
+    /// mode menu as system buttons: an active filter is the prominent
+    /// style, the rest secondary (glass on iOS 26, bordered before).
     private var filtersBar: some View {
+        // One row; scrolls sideways only when it can't fit (large text).
+        ViewThatFits(in: .horizontal) {
+            filtersRow
+                .padding(.horizontal)
+            ScrollView(.horizontal, showsIndicators: false) {
+                filtersRow
+                    .padding(.horizontal)
+            }
+        }
+        .controlSize(.small)
+        .padding(.vertical, 8)
+    }
+
+    private var filtersRow: some View {
         HStack(spacing: 8) {
-            filterChip(label: accountLabel, isActive: !vm.excludedAccountIds.isEmpty) {
+            filterButton(label: accountLabel, isActive: !vm.excludedAccountIds.isEmpty) {
                 showAccountFilter = true
             }
 
-            filterChip(label: categoryLabel, isActive: !vm.excludedCategoryIds.isEmpty) {
+            filterButton(label: categoryLabel, isActive: !vm.excludedCategoryIds.isEmpty) {
                 showCategoryFilter = true
             }
 
             Menu {
                 ForEach(ReportsViewModel.PeriodMode.allCases, id: \.self) { mode in
-                    Button(mode.label) {
+                    Button {
                         if mode == .custom {
                             // Mode flips only when the range is applied in
                             // the sheet — cancel keeps the current mode.
@@ -320,40 +343,37 @@ struct ReportsView: View {
                         } else {
                             vm.periodMode = mode
                         }
+                    } label: {
+                        if mode == vm.periodMode {
+                            Label(mode.label, systemImage: "checkmark")
+                        } else {
+                            Text(mode.label)
+                        }
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Text(vm.periodMode.label)
-                        .font(.caption.weight(.medium))
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(.systemGray6))
-                .clipShape(Capsule())
+                filterLabel(vm.periodMode.label)
             }
-            .foregroundStyle(.primary)
+            .akifiSecondaryMenuButton()
         }
-        .padding(.vertical, 8)
     }
 
-    private func filterChip(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+    private func filterButton(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Text(label)
-                    .font(.caption.weight(.medium))
-                    .lineLimit(1)
-                Image(systemName: "chevron.down")
-                    .font(.caption2)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isActive ? Color.accent.opacity(0.15) : Color(.systemGray6))
-            .clipShape(Capsule())
+            filterLabel(label)
         }
-        .foregroundStyle(isActive ? Color.accent : .primary)
+        .buttonStyle(AkifiButtonStyle(kind: isActive ? .primary : .secondary))
+    }
+
+    private func filterLabel(_ text: String) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .font(.footnote.weight(.medium))
+                .lineLimit(1)
+            Image(systemName: "chevron.down")
+                .font(.caption2.weight(.semibold))
+                .accessibilityHidden(true)
+        }
     }
 
     private var accountLabel: String {
@@ -546,11 +566,11 @@ struct ReportsView: View {
             ForEach(items) { item in
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(hex: item.colorHex))
-                        .frame(width: 40, height: 40)
-                        .background(Color(hex: item.colorHex).opacity(0.15))
-                        .clipShape(Circle())
+                        .frame(width: rowIconSize, height: rowIconSize)
+                        .background(Color(hex: item.colorHex).opacity(0.15), in: Circle())
+                        .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(item.fromLabel) → \(item.toLabel)")
@@ -572,9 +592,10 @@ struct ReportsView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
+                .accessibilityElement(children: .combine)
 
                 if item.id != items.last?.id {
-                    Divider().padding(.leading, 68)
+                    Divider().padding(.leading, dividerInset)
                 }
             }
         }
@@ -599,10 +620,10 @@ struct ReportsView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Text(item.category.icon)
-                            .font(.system(size: 16))
-                            .frame(width: 40, height: 40)
-                            .background(Color(hex: item.category.color).opacity(0.15))
-                            .clipShape(Circle())
+                            .font(.callout)
+                            .frame(width: rowIconSize, height: rowIconSize)
+                            .background(Color(hex: item.category.color).opacity(0.15), in: Circle())
+                            .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.category.name)
@@ -628,7 +649,7 @@ struct ReportsView: View {
                 .buttonStyle(.plain)
 
                 if item.category.name != lastName {
-                    Divider().padding(.leading, 68)
+                    Divider().padding(.leading, dividerInset)
                 }
             }
         }
@@ -681,6 +702,9 @@ private struct ReportDonutChart: View {
             iconLabels
         }
         .frame(width: totalSize, height: totalSize)
+        // Fixed radial geometry: labels follow Dynamic Type up to xLarge,
+        // beyond that they would collide (the list below scales fully).
+        .dynamicTypeSize(...DynamicTypeSize.xLarge)
         .padding(.vertical, 8)
     }
 
@@ -697,7 +721,10 @@ private struct ReportDonutChart: View {
         .chartBackground { _ in
             VStack(spacing: 2) {
                 Text(totalLabel)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(typeLabel)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -757,12 +784,12 @@ private struct ReportDonutChart: View {
             let angle = angles[index]
             VStack(spacing: 2) {
                 Text(item.icon)
-                    .font(.system(size: 16))
+                    .font(.callout)
                     .frame(width: 28, height: 28)
-                    .background(Color(hex: item.colorHex).opacity(0.15))
-                    .clipShape(Circle())
+                    .background(Color(hex: item.colorHex).opacity(0.15), in: Circle())
                 Text(String(format: "%.0f%%", item.percentage))
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
                     .foregroundStyle(Color(hex: item.colorHex))
             }
             .position(x: c.x + iconRadius * cos(angle), y: c.y + iconRadius * sin(angle))
@@ -785,38 +812,39 @@ private struct ReportCategoryDetailSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Group {
                 if transactions.isEmpty {
                     ContentUnavailableView(String(localized: "home.noTransactions"), systemImage: "tray")
-                        .padding(.top, 60)
                 } else {
-                    VStack(spacing: 16) {
-                        summaryCard
-                        transactionsList
+                    // A system inset-grouped list: summary on top, the rows
+                    // below (was material cards on a cleared sheet).
+                    List {
+                        Section { summaryRow }
+                        Section {
+                            ForEach(transactions) { tx in
+                                transactionRow(tx)
+                            }
+                        }
                     }
-                    .padding()
+                    .listStyle(.insetGrouped)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(.clear)
             .navigationTitle(item.category.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
-        .background(.clear)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
-    private var summaryCard: some View {
-        HStack {
+    private var summaryRow: some View {
+        HStack(spacing: 12) {
             Text(item.category.icon)
                 .font(.title2)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.category.name)
                     .font(.headline)
@@ -824,51 +852,31 @@ private struct ReportCategoryDetailSheet: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
+            Spacer(minLength: 8)
             Text(cm.formatAmount(item.amount.displayAmount))
-                .font(.title3.weight(.bold))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
                 .foregroundStyle(isExpense ? Color.expense : Color.income)
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
-        )
+        .accessibilityElement(children: .combine)
     }
 
-    private var transactionsList: some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(tx.description ?? item.category.name)
-                            .font(.subheadline)
-                        Text(tx.formattedDateTime)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    let sign = isExpense ? "-" : "+"
-                    Text("\(sign)\(cm.formatAmount(dataStore.amountInBaseDisplay(tx)))")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(isExpense ? Color.expense : Color.income)
-                        .monospacedDigit()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-
-                if index < transactions.count - 1 {
-                    Divider().padding(.leading, 16)
-                }
+    private func transactionRow(_ tx: Transaction) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(tx.description ?? item.category.name)
+                    .font(.subheadline)
+                Text(tx.formattedDateTime)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            Spacer(minLength: 8)
+            let sign = isExpense ? "-" : "+"
+            Text("\(sign)\(cm.formatAmount(dataStore.amountInBaseDisplay(tx)))")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isExpense ? Color.expense : Color.income)
+                .monospacedDigit()
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
-        )
+        .accessibilityElement(children: .combine)
     }
 }

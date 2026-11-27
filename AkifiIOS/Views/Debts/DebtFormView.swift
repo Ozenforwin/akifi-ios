@@ -72,7 +72,9 @@ struct DebtForm: View {
                     .textContentType(.telephoneNumber)
             }
 
-            if isCreate {
+            // With a first movement the currency is picked next to its
+            // amount (like every other money form); without one, here.
+            if isCreate && firstAction == nil {
                 Section {
                     HStack {
                         Text(String(localized: "common.currency"))
@@ -145,8 +147,8 @@ struct DebtForm: View {
                     TextField(String(localized: "debts.amount.placeholder"), text: $amountText)
                         .keyboardType(.decimalPad)
                         .font(.title3.monospacedDigit())
-                    Text(currency.symbol)
-                        .foregroundStyle(.secondary)
+                    ActiveCurrencyPicker(selection: $currency)
+                        .disabled(createdAccount != nil)
                 }
                 Picker(firstAction == .lend ? String(localized: "debts.account.from") : String(localized: "debts.account.to"),
                        selection: $realAccountId) {
@@ -161,6 +163,8 @@ struct DebtForm: View {
         } footer: {
             if createdAccount != nil {
                 Text(String(localized: "debts.form.retryMovement"))
+            } else if firstAction != nil {
+                Text(String(localized: "debts.form.currency.footer"))
             }
         }
     }

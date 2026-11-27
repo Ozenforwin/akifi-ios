@@ -64,7 +64,7 @@ struct AIConsentSheet: View {
                 .padding(24)
             }
             .background(Color(.systemGroupedBackground))
-            .akifiBottomBar {
+            .akifiSafeAreaBar(edge: .bottom, hardEdge: true) {
                 VStack(spacing: 8) {
                     Button(action: onAccept) {
                         Text(String(localized: "assistant.consent.accept"))

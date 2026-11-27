@@ -50,19 +50,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi uses your microphone for voice messages with the AI financial assistant"
+            "value" : "Akifi uses the microphone to add transactions by voice and for voice messages to the AI financial assistant"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi usa el micrófono para los mensajes de voz al asistente financiero con IA"
+            "value" : "Akifi usa el micrófono para añadir operaciones por voz y para los mensajes de voz al asistente financiero con IA"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi использует микрофон для голосовых сообщений финансовому ИИ-ассистенту"
+            "value" : "Akifi использует микрофон, чтобы добавлять операции голосом и отправлять голосовые сообщения финансовому ИИ-ассистенту"
           }
         }
       }

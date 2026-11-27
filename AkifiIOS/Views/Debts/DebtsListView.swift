@@ -139,6 +139,10 @@ struct DebtTotalsRow: View {
 /// content background, 20 pt continuous corners, no shadow (liquid-glass.md).
 struct DebtsSummaryCard: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
+
+    /// «Долги» tint on Home (teal — not a money-direction colour).
+    static let tint = Color(hex: "#0D9488")
 
     var body: some View {
         let dataStore = appViewModel.dataStore
@@ -148,59 +152,61 @@ struct DebtsSummaryCard: View {
         let converted = DebtMath.convertedTotals(DebtMath.totals(entries), to: cm.selectedCurrency.code, rates: cm.rates)
         let overdue = open.filter(\.isOverdue).count
 
-        HStack(spacing: 14) {
-            Image(systemName: "person.2.fill")
-                .font(.title3)
-                .foregroundStyle(Color.warning)
-                .frame(width: 44, height: 44)
-                .background(Color.warning.opacity(0.14), in: Circle())
+        // Same anatomy as the other Home cards (shared account, deposits):
+        // tinted icon tile, subheadline title, caption subtitle, chevron,
+        // `.akifiCard()`.
+        HStack(spacing: 12) {
+            Image(systemName: "person.line.dotted.person.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Self.tint)
+                .frame(width: iconTileSize, height: iconTileSize)
+                .background(Self.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(String(localized: "debts.title"))
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     if overdue > 0 {
                         Text(String(localized: "debts.overdue.count \(overdue)"))
-                            .font(.caption.weight(.semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color.warning)
                     }
                 }
                 if open.isEmpty {
                     Text(String(localized: "debts.card.empty"))
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 } else {
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) { owedText(converted.owedToMe, cm); oweText(converted.iOwe, cm) }
+                        HStack(spacing: 10) { owedText(converted.owedToMe, cm); oweText(converted.iOwe, cm) }
                         VStack(alignment: .leading, spacing: 2) { owedText(converted.owedToMe, cm); oweText(converted.iOwe, cm) }
                     }
                 }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .akifiCard()
+        .contentShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
     }
 
     private func owedText(_ value: Int64, _ cm: CurrencyManager) -> some View {
         Text(String(localized: "debts.card.owedToMe \(cm.formatInCurrency(Decimal(value) / 100, currency: cm.selectedCurrency))"))
-            .font(.subheadline.monospacedDigit())
+            .font(.caption.monospacedDigit())
             .foregroundStyle(value > 0 ? Color.income : .secondary)
     }
 
     private func oweText(_ value: Int64, _ cm: CurrencyManager) -> some View {
         Text(String(localized: "debts.card.iOwe \(cm.formatInCurrency(Decimal(value) / 100, currency: cm.selectedCurrency))"))
-            .font(.subheadline.monospacedDigit())
+            .font(.caption.monospacedDigit())
             .foregroundStyle(value > 0 ? Color.expense : .secondary)
     }
 }

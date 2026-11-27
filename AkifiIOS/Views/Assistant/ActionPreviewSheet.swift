@@ -58,7 +58,7 @@ struct ActionPreviewSheet: View {
                     }
                 }
             }
-            .akifiBottomBar {
+            .akifiSafeAreaBar(edge: .bottom) {
                 Button {
                     onConfirm()
                 } label: {

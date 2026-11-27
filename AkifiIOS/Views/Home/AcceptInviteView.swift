@@ -162,8 +162,6 @@ struct AcceptInviteView: View {
     @State private var phase: Phase
     @State private var preview: InvitePreview?
     @State private var isLoadingPreview = false
-    @ScaledMetric(relativeTo: .largeTitle) private var statusIconSize: CGFloat = 56
-    @ScaledMetric(relativeTo: .largeTitle) private var kindIconSize: CGFloat = 40
     /// Opened from a link (vs typed in Settings).
     private let fromLink: Bool
     private let kind: InviteKind
@@ -211,7 +209,8 @@ struct AcceptInviteView: View {
                 case .success:
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: statusIconSize))
+                        .font(.largeTitle)
+                        .imageScale(.large)
                         .foregroundStyle(.green)
                         .accessibilityHidden(true)
                     Text((preview?.kind ?? kind) == .budget
@@ -227,8 +226,9 @@ struct AcceptInviteView: View {
                 case .failure(let message):
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: statusIconSize))
-                        .foregroundStyle(Color.warning)
+                        .font(.largeTitle)
+                        .imageScale(.large)
+                        .foregroundStyle(.orange)
                         .accessibilityHidden(true)
                     Text(message)
                         .font(.subheadline)
@@ -240,7 +240,6 @@ struct AcceptInviteView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Cards and the code field are content on the grouped background (1.6).
             .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "invite.title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -254,9 +253,6 @@ struct AcceptInviteView: View {
                 await loadPreview()
             }
         }
-        // Presented from the app root (invite links), above the tab
-        // view's tint.
-        .tint(Color.accent)
     }
 
     // MARK: - Confirmation (S2)
@@ -268,7 +264,7 @@ struct AcceptInviteView: View {
                 HStack {
                     Spacer()
                     Image(systemName: (preview?.kind ?? kind) == .budget ? "chart.pie.fill" : "person.2.fill")
-                        .font(.system(size: kindIconSize))
+                        .font(.largeTitle)
                         .foregroundStyle(Color.accent)
                         .accessibilityHidden(true)
                     Spacer()
@@ -278,7 +274,6 @@ struct AcceptInviteView: View {
                     .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
 
                 if isLoadingPreview {
                     HStack {
@@ -302,7 +297,7 @@ struct AcceptInviteView: View {
                     if let warning = disclosure.warning {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "exclamationmark.shield.fill")
-                                .foregroundStyle(Color.warning)
+                                .foregroundStyle(.orange)
                                 .accessibilityHidden(true)
                             Text(warning)
                                 .font(.subheadline)
@@ -310,7 +305,8 @@ struct AcceptInviteView: View {
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        // Semantic warning callout, not decoration.
+                        .background(Color.warning.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -333,7 +329,10 @@ struct AcceptInviteView: View {
             }
             .padding(20)
         }
-        .akifiBottomBar {
+        // The decision stays on screen however long the disclosure gets:
+        // a bar on the bottom edge (glass scroll edge on iOS 26, the
+        // classic bar material before).
+        .akifiSafeAreaBar(edge: .bottom) {
             VStack(spacing: 8) {
                 Button {
                     Task { await acceptInvite() }
@@ -350,11 +349,13 @@ struct AcceptInviteView: View {
                     if fromLink { dismiss() } else { phase = .enterCode }
                 } label: {
                     Text(String(localized: "common.cancel"))
-                        .font(.headline)
+                        .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.akifiSecondary)
-                .controlSize(.large)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -420,7 +421,7 @@ struct AcceptInviteView: View {
                 phase = .confirm
             } label: {
                 Text(String(localized: "invite.continue"))
-                    .font(.headline)
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.akifiPrimary)

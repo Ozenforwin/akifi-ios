@@ -40,15 +40,17 @@ struct BudgetCardView: View {
         .accessibilityLabel(String(localized: "share.members"))
     }
 
+    @ScaledMetric(relativeTo: .caption2) private var memberAvatarSize: CGFloat = 20
+
     private func memberInitialsCircle(_ userId: String) -> some View {
         let profile = appViewModel.dataStore.profilesMap[userId]
         let initial = String((profile?.fullName ?? profile?.email ?? "?").prefix(1)).uppercased()
         return Circle()
             .fill(Color(.systemGray4))
-            .frame(width: 20, height: 20)
+            .frame(width: memberAvatarSize, height: memberAvatarSize)
             .overlay {
-                Text(initial)
-                    .font(.system(size: 9, weight: .bold))
+                Text(verbatim: initial)
+                    .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
             }
             .overlay(Circle().stroke(Color(.secondarySystemGroupedBackground), lineWidth: 1.5))
@@ -57,14 +59,6 @@ struct BudgetCardView: View {
     // MARK: - Computed Properties
 
     private var progressColor: Color { Color(hex: metrics.progressColor) }
-
-    private var progressGradient: LinearGradient {
-        LinearGradient(
-            colors: [progressColor.opacity(0.7), progressColor],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
 
     /// (name, icon) of every budget category: local rows first, the
     /// server's for ids this phone can't see.
@@ -96,15 +90,6 @@ struct BudgetCardView: View {
         case .warning: return (String(localized: "budget.status.warning"), Color.warning)
         case .nearLimit: return (String(localized: "budget.status.nearLimit"), .orange)
         case .overLimit: return (String(localized: "budget.status.overLimit"), .red)
-        }
-    }
-
-    private var cardTintColor: Color {
-        switch metrics.status {
-        case .onTrack: return .clear
-        case .warning: return Color.warning.opacity(0.05)
-        case .nearLimit: return Color.orange.opacity(0.07)
-        case .overLimit: return Color.red.opacity(0.08)
         }
     }
 
@@ -218,7 +203,7 @@ struct BudgetCardView: View {
 
                     HStack(spacing: 0) {
                         Capsule()
-                            .fill(progressGradient)
+                            .fill(progressColor)
                             .frame(width: spentWidth)
                             .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: metrics.utilization)
 
@@ -241,13 +226,15 @@ struct BudgetCardView: View {
             .accessibilityHidden(true)
 
             // Stats row: spent / remaining + pace + utilization %
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(budgetFmt(metrics.spent))")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.headline)
+                        .monospacedDigit()
                         .foregroundStyle(progressColor)
                     + Text(" \(String(localized: "common.of")) \(budgetFmt(metrics.effectiveLimit))")
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
 
@@ -336,17 +323,9 @@ struct BudgetCardView: View {
                 }
             }
         }
-        .padding(16)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(cardTintColor)
-                )
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
+        // Plain content card. Status is carried by the pill, the bar and
+        // the warning rows — no status-tinted fill, material or shadow.
+        .akifiCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
         .accessibilityHint(String(localized: "budget.accessibility.swipeToEdit"))

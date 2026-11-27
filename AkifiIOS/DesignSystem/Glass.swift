@@ -16,7 +16,6 @@ import SwiftUI
 // | `.akifiSecondary` button    | `.glass`                        | `.bordered`                         |
 // | `.akifiGlassBanner()`       | glass capsule                   | material capsule                    |
 // | `.akifiTabBarMinimizeOnScroll()` | `.tabBarMinimizeBehavior(.onScrollDown)` | no-op            |
-// | `.akifiBottomBar { … }`     | `safeAreaBar(edge: .bottom)`    | `safeAreaInset` on `.bar`           |
 // | `.akifiSearchToolbarMinimize()` | `.searchToolbarBehavior(.minimize)` | no-op (field under the bar) |
 // | `.akifiCard()` (content!)   | grouped-background card         | same                                |
 //
@@ -188,6 +187,21 @@ extension PrimitiveButtonStyle where Self == AkifiButtonStyle {
     static var akifiSecondary: AkifiButtonStyle { .secondary }
 }
 
+extension View {
+    /// A `Menu` whose label looks like the secondary button (`.glass` on
+    /// iOS 26+, `.bordered` before). A `Menu` ignores custom button styles
+    /// such as `AkifiButtonStyle`, so it gets the system styles directly —
+    /// use this when a menu sits next to `.akifiSecondary` buttons.
+    @ViewBuilder
+    func akifiSecondaryMenuButton() -> some View {
+        if #available(iOS 26.0, *) {
+            self.menuStyle(.button).buttonStyle(.glass)
+        } else {
+            self.menuStyle(.button).buttonStyle(.bordered)
+        }
+    }
+}
+
 // MARK: - Content cards (NOT glass)
 
 /// Content card: `secondarySystemGroupedBackground` on a grouped screen
@@ -284,28 +298,6 @@ extension View {
     }
 }
 
-// MARK: - Bottom bar over scrolling content
-
-extension View {
-    /// Pins `content` (a composer, a confirm button) to the bottom edge
-    /// above scrolling content. iOS 26+: `safeAreaBar` — the content floats
-    /// with the system's soft scroll-edge effect under it, so glass controls
-    /// stay legible without an opaque bar. Before iOS 26: `safeAreaInset`
-    /// on the classic bar material, the standard look of that system.
-    @ViewBuilder
-    func akifiBottomBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        if #available(iOS 26.0, *) {
-            self.safeAreaBar(edge: .bottom) { content() }
-        } else {
-            self.safeAreaInset(edge: .bottom) {
-                content()
-                    .frame(maxWidth: .infinity)
-                    .background(.bar)
-            }
-        }
-    }
-}
-
 // MARK: - Chrome metrics
 
 /// Shared measurements of the floating chrome.
@@ -364,6 +356,38 @@ extension View {
             self.tabBarMinimizeBehavior(.onScrollDown)
         } else {
             self
+        }
+    }
+}
+
+// MARK: - Custom bars on a safe-area edge
+
+extension View {
+    /// Pins `content` to a safe-area edge as a bar (a bottom call to
+    /// action, a filter row under the navigation bar). iOS 26+:
+    /// `safeAreaBar` — no background of its own, content scrolls under it
+    /// with the system scroll-edge effect, like the navigation bar. Earlier
+    /// systems: `safeAreaInset` on the classic bar material, so scrolled
+    /// content can't show through the controls.
+    ///
+    /// - Parameter hardEdge: a tall bar with several rows of text and
+    ///   controls (a pinned filter header) needs the `.hard` scroll edge
+    ///   effect on iOS 26 to stay legible; one row of buttons is fine with
+    ///   the default soft edge.
+    @ViewBuilder
+    func akifiSafeAreaBar<Content: View>(
+        edge: VerticalEdge,
+        spacing: CGFloat? = nil,
+        hardEdge: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if #available(iOS 26.0, *) {
+            self.safeAreaBar(edge: edge, spacing: spacing, content: content)
+                .scrollEdgeEffectStyle(hardEdge ? .hard : .automatic, for: edge == .top ? .top : .bottom)
+        } else {
+            self.safeAreaInset(edge: edge, spacing: spacing) {
+                content().background(.bar)
+            }
         }
     }
 }

@@ -79,7 +79,7 @@ struct AssistantView: View {
                 // Bubbles and cards are content on the grouped background;
                 // the composer floats over it (Messages-style, 1.6).
                 .background(Color(.systemGroupedBackground))
-                .akifiBottomBar { composer }
+                .akifiSafeAreaBar(edge: .bottom) { composer }
                 .onChange(of: viewModel.chatMessages.count) {
                     withAnimation(.easeOut(duration: 0.3)) {
                         if let last = viewModel.chatMessages.last {
