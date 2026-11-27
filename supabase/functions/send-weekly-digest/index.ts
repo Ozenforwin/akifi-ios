@@ -104,7 +104,17 @@ async function handler(req: Request): Promise<Response> {
       { pk: "user_id" },
     );
     const settingsMap = new Map(settingsRows.map((row) => [row.user_id, row]));
-    const eligibleUsers = users.filter((u) => settingsMap.get(u.id)?.digest_opt_in === true);
+    // The global "notifications on" switch wins over the digest opt-in.
+    const notifRows = await fetchAllIn<{ user_id: string; enabled: boolean | null }>(
+      "notification_settings",
+      users.map((u) => u.id),
+      (ids) => supabase.from("notification_settings").select("user_id,enabled", { count: "exact" }).in("user_id", ids),
+      { pk: "user_id" },
+    );
+    const notificationsOff = new Set(notifRows.filter((r) => r.enabled === false).map((r) => r.user_id));
+    const eligibleUsers = users.filter((u) =>
+      settingsMap.get(u.id)?.digest_opt_in === true && !notificationsOff.has(u.id)
+    );
     if (eligibleUsers.length === 0) {
       return json({ ok: true, sent: 0, message: "Nobody opted in" });
     }
