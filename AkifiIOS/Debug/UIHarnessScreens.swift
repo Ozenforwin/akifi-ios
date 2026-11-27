@@ -316,7 +316,7 @@ enum UIHarnessFixtures {
 /// `-AkifiUIHarnessScreen <rawValue>`.
 enum UIHarnessScreen: String, CaseIterable, Hashable {
     // Settings and its pushes
-    case settings, beta, profile, categories, notifications, ai, theme, language, layout
+    case settings, beta, profile, categories, notifications, ai, theme, language
     case baseCurrency, activeCurrencies, paymentDefaults, export, bankImport, reconciliation
     case premium, tags
     // Beta features
@@ -426,7 +426,6 @@ private struct UIHarnessPushedScreen: View {
         case .ai: AISettingsView()
         case .theme: ThemePickerView()
         case .language: LanguagePickerView()
-        case .layout: CategoryLayoutPickerView()
         case .baseCurrency: BaseCurrencyPickerView()
         case .activeCurrencies: ManageActiveCurrenciesView()
         case .paymentDefaults: PaymentDefaultsView()

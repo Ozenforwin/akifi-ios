@@ -93,43 +93,38 @@ struct InsightCardsView: View {
                     ))
                 }
 
+                // Both toggles are the same plain text button (the «more»
+                // one used to sit on its own grey plate).
                 if remainder > 0 && !expanded {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) { expanded = true }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.down")
-                                .font(.caption.weight(.semibold))
-                            Text(String(localized: "insights.showMore.\(remainder)"))
-                                .font(.subheadline.weight(.medium))
-                        }
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(.tertiarySystemFill))
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    expandToggle(
+                        title: String(localized: "insights.showMore.\(remainder)"),
+                        systemImage: "chevron.down"
+                    ) { expanded = true }
                 } else if expanded && all.count > Self.collapsedCount {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) { expanded = false }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.up")
-                                .font(.caption.weight(.semibold))
-                            Text(String(localized: "insights.showLess"))
-                                .font(.subheadline.weight(.medium))
-                        }
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                    }
-                    .buttonStyle(.plain)
+                    expandToggle(
+                        title: String(localized: "insights.showLess"),
+                        systemImage: "chevron.up"
+                    ) { expanded = false }
                 }
             }
         )
+    }
+
+    private func expandToggle(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) { action() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.caption.weight(.semibold))
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func dismiss(_ insight: InsightEngine.Insight) {
@@ -183,6 +178,7 @@ struct InsightCardView: View {
     var onDismiss: (() -> Void)? = nil
 
     @State private var dragOffset: CGFloat = 0
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
 
     private let dismissThreshold: CGFloat = 100
 
@@ -194,13 +190,13 @@ struct InsightCardView: View {
         ZStack(alignment: .trailing) {
             // Red "trash" indicator revealed under the card as the user swipes left.
             // Mirrors the SwiftUI List.swipeActions look used on transaction rows.
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous)
                 .fill(Color.red.opacity(0.18 + 0.5 * swipeProgress))
                 .overlay(
                     HStack {
                         Spacer()
                         Image(systemName: "trash.fill")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)
                             .scaleEffect(0.6 + 0.6 * swipeProgress)
                             .opacity(dragOffset < -4 ? 1 : 0)
@@ -209,9 +205,15 @@ struct InsightCardView: View {
                 )
                 .opacity(dragOffset < 0 ? 1 : 0)
 
+            // A plain content card; the insight's kind colour (warning,
+            // positive, …) tints only the icon tile and the sparkle — no
+            // tinted fill, no gradient border.
             HStack(spacing: 12) {
                 Text(insight.emoji)
-                    .font(.title2)
+                    .font(.title3)
+                    .frame(width: iconTileSize, height: iconTileSize)
+                    .background(insight.kind.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
@@ -219,7 +221,8 @@ struct InsightCardView: View {
                             .font(.subheadline.weight(.semibold))
                         Image(systemName: "sparkles")
                             .font(.caption2)
-                            .foregroundStyle(insight.kind.color.opacity(0.6))
+                            .foregroundStyle(insight.kind.color)
+                            .accessibilityHidden(true)
                     }
                     Text(insight.subtitle)
                         .font(.caption)
@@ -229,22 +232,7 @@ struct InsightCardView: View {
 
                 Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(insight.kind.color.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [insight.kind.color.opacity(0.5), insight.kind.color.opacity(0.2)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
+            .akifiCard()
             .offset(x: dragOffset)
         }
         .opacity(1.0 - min(abs(dragOffset) / 400.0, 0.4))

@@ -63,7 +63,9 @@ struct AkifiApp: App {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first else { return }
         let tap = UITapGestureRecognizer(target: window, action: #selector(UIView.endEditing))
-        tap.cancelsTouchesInView = false
+        // Never on a control, never delaying its touch-up, off while quick
+        // entry is up (see `KeyboardTapDismiss`).
+        KeyboardTapDismiss.shared.configure(tap)
         window.addGestureRecognizer(tap)
     }
 }

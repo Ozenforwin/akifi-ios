@@ -13,30 +13,36 @@ struct DepositsShortcutCard: View {
     @State private var deposits: [Deposit] = []
     @State private var contributionsByDeposit: [String: [DepositContribution]] = [:]
     @State private var hasLoaded = false
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
 
     private let depositRepo = DepositRepository()
     private let contributionRepo = DepositContributionRepository()
 
     var body: some View {
-        HStack(spacing: 14) {
-            SettingsIconTile(systemName: "percent", color: Color.budget)
+        HStack(spacing: 12) {
+            Image(systemName: "percent")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.budget)
+                .frame(width: iconTileSize, height: iconTileSize)
+                .background(Color.budget.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "deposit.title"))
-                    .font(.body.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(subtitleText)
-                    .font(.footnote)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Spacer()
+            Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
         }
         .akifiCard()
-        .accessibilityElement(children: .combine)
+        .contentShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
         .task {
             guard !hasLoaded else { return }
             hasLoaded = true

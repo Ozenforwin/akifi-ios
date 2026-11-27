@@ -71,7 +71,8 @@ struct DebtMovementForm: View {
         return false
     }
 
-    /// Entry currency choices: the debt's and the real account's.
+    /// Pinned at the top of the currency menu: the debt's and the real
+    /// account's (any other currency is converted per leg on save).
     private var currencyChoices: [Currency] {
         var out: [Currency] = []
         if let debt = debtAccount?.currencyCode { out.append(debt) }
@@ -101,17 +102,7 @@ struct DebtMovementForm: View {
                         .keyboardType(.decimalPad)
                         .font(.title2.monospacedDigit())
                         .focused($amountFocused)
-                    Text(entryCurrency.symbol)
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                }
-                if currencyChoices.count > 1 {
-                    Picker(String(localized: "common.currency"), selection: $entryCurrency) {
-                        ForEach(currencyChoices) { c in
-                            Text(c.code).tag(c)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    ActiveCurrencyPicker(selection: $entryCurrency, pinned: currencyChoices)
                 }
             }
 
@@ -161,8 +152,14 @@ struct DebtMovementForm: View {
             }
         }
         .onAppear(perform: prefill)
-        .onChange(of: realAccountId) { _, _ in
-            if !currencyChoices.contains(entryCurrency), let first = currencyChoices.first { entryCurrency = first }
+        .onChange(of: realAccountId) { old, _ in
+            // Follow the account only when the amount was in the previous
+            // account's currency; a currency the user picked stays.
+            let oldCurrency = old.flatMap { id in realAccounts.first(where: { $0.id == id })?.currencyCode }
+            if entryCurrency == oldCurrency, entryCurrency != debtAccount?.currencyCode,
+               let real = realAccount?.currencyCode {
+                entryCurrency = real
+            }
         }
         .alert(
             String(localized: "debts.flip.title"),

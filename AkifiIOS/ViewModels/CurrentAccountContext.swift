@@ -9,9 +9,11 @@ import Foundation
 ///   restores the previous value on dismiss.
 ///
 /// Readers:
-/// - `MainTabView` — forwards `accountId` into `SheetDestination.expense`/
-///   `.income` only while the Home tab is active. On other tabs the FAB
-///   resolves to `nil` (no contextual account).
+/// - `MainTabView` — the «+» passes `accountId` to quick entry only while
+///   the Home tab is active and it is a real choice (carousel moved off its
+///   first card, or another account's screen pushed —
+///   `QuickEntryCoordinator.pinnedAccountId`). Otherwise quick entry uses
+///   its own default (the account last used for that type).
 @Observable @MainActor
 final class CurrentAccountContext {
     /// `nil` means "no contextual account" — the form should fall back to

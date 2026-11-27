@@ -296,10 +296,13 @@ AkifiIOS/
 │   ├── Subscriptions/
 │   │   ├── SubscriptionFormView.swift # Создание/редактирование подписки
 │   │   └── SubscriptionPaymentsHistoryView.swift # История платежей
+│   ├── QuickEntry/                    # 1.6.0 быстрый ввод — шторка поверх «+» (тесты QuickEntrySheetTests)
+│   │   ├── QuickEntrySheet.swift      # Поле «сумма + слова», чипы категорий/счёта/даты, «Повторить», голос, «Сохранить»
+│   │   ├── QuickEntrySheetModel.swift # Состояние шторки: фраза + overrides → QuickEntryEngine.draft, сохранение через QuickEntrySubmitter
+│   │   ├── QuickEntryCoordinator.swift # Роутинг «+», QuickEntryInbox, тост «Записано · Отменить», «Подробнее» → форма
+│   │   └── QuickEntrySavedToast.swift # Стеклянный тост с отменой
 │   ├── Shared/
-│   │   ├── FAB/
-│   │   │   └── CategorySheetView.swift # Grid/list выбор категорий
-│   │   ├── FABView.swift              # Плавающая кнопка + arc menu + wheel
+│   │   ├── FABView.swift              # «+»: тап — быстрый ввод, удержание — меню (доход, расход, перевод, чек, долги)
 │   │   ├── FilterHeaderView.swift     # Переиспользуемые filter chips
 │   │   ├── SwipeableRow.swift         # Swipe-to-action строки
 │   │   ├── CachedAsyncImage.swift     # Image cache (NSCache + disk, 50 MB)
@@ -697,7 +700,7 @@ open AkifiIOS.xcodeproj
 - **Стек-карточки** — peek-эффект за активной карточкой
 - **Emoji конфетти** — particle system для celebration popup
 - **Скруглённый таббар** — 24pt radius, тень, 44pt touch targets
-- **FAB** — floating action button с arc menu (long press) и wheel/grid/list (tap)
+- **FAB** — «+»: тап открывает быстрый ввод (сумма → категория = готово), удержание — стеклянное меню (доход, расход, перевод, чек, «Дал/Взял в долг»)
 - **TypePill** — inline capsule для типов записей (Note/Reflection)
 - **CachedAsyncImage** — двухуровневый кэш (NSCache + disk SHA256)
 

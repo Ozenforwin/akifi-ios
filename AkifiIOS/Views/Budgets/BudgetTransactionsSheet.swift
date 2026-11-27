@@ -102,51 +102,69 @@ struct BudgetTransactionsSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            // A lazy system list (rows render as they scroll in) of content
+            // cards on the grouped background — the same look as the
+            // Budgets tab and Home's recent transactions.
+            List {
                 // First frame renders before `.task` fills the state — an
-                // empty scroll beats a summary card with zeros and a
+                // empty list beats a summary card with zeros and a
                 // distantPast period label.
                 if loaded {
-                    VStack(spacing: 16) {
-                        summaryCard
+                    cardRow { summaryCard }
 
-                        if !memberSplit.isEmpty {
-                            memberSplitCard
-                        }
+                    if !memberSplit.isEmpty {
+                        cardRow { memberSplitCard }
+                    }
 
-                        if transactions.isEmpty {
+                    if transactions.isEmpty {
+                        cardRow {
                             ContentUnavailableView(
                                 String(localized: "budget.history.empty"),
                                 systemImage: "tray",
                                 description: Text(String(localized: "budget.history.empty.description"))
                             )
-                            .padding(.top, 40)
-                        } else {
-                            transactionsList
+                            .padding(.top, 24)
                         }
-
-                        if externalSpent > 0 {
-                            externalSpendNote
+                    } else {
+                        ForEach(transactions) { tx in
+                            TransactionRowView(
+                                transaction: tx,
+                                category: tx.categoryId.flatMap { categoryIndex[$0] },
+                                account: tx.accountId.flatMap { dataStore.currencyContext.accountsById[$0] }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
                     }
-                    .padding()
+
+                    if externalSpent > 0 {
+                        cardRow { externalSpendNote }
+                    }
                 }
             }
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(.clear)
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(budget.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
-        .background(.clear)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
         .task(id: dataStore.transactions.count) { reload() }
+    }
+
+    /// A full-width list row with no row chrome — the content draws its
+    /// own card.
+    private func cardRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
     }
 
     // MARK: - Summary
@@ -155,10 +173,10 @@ struct BudgetTransactionsSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(budgetFmt(metrics.spent))
-                    .font(.title3.weight(.bold).monospacedDigit())
+                    .font(.title2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(Color(hex: metrics.progressColor))
                 Text("\(String(localized: "common.of")) \(budgetFmt(metrics.effectiveLimit))")
-                    .font(.subheadline)
+                    .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(metrics.utilization)%")
@@ -170,6 +188,7 @@ struct BudgetTransactionsSheet: View {
                 Image(systemName: "calendar")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Text(periodLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -179,13 +198,8 @@ struct BudgetTransactionsSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
-        )
+        .akifiCard()
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Members
@@ -204,52 +218,25 @@ struct BudgetTransactionsSheet: View {
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
     }
 
     // MARK: - Rows
-
-    private var transactionsList: some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
-                TransactionRowView(
-                    transaction: tx,
-                    category: tx.categoryId.flatMap { categoryIndex[$0] },
-                    account: tx.accountId.flatMap { dataStore.currencyContext.accountsById[$0] }
-                )
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-
-                if index < transactions.count - 1 {
-                    Divider().padding(.leading, 68)
-                }
-            }
-        }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
-        )
-    }
 
     private var externalSpendNote: some View {
         HStack(spacing: 8) {
             Image(systemName: "person.2.fill")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(String(localized: "budget.history.externalSpend.\(budgetFmt(externalSpent))"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .akifiCard(.compact)
     }
 }

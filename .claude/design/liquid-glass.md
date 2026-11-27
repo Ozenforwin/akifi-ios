@@ -159,7 +159,8 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   glass capsules morphing out of the button on 26); long press opens the
   category quick-add (wheel / grid / list per Settings), the pre-1.6 tap flow.
   It floats 12 pt above the measured top of the tab bar, trailing edge aligned
-  with the bar (21 pt on 26, 16 pt before).
+  with the bar (21 pt on 26, 16 pt before). *Superseded in phase B — see
+  §8.*
 - **Banners** (offline, data issue, auto-match undo) float 50 pt below the top
   safe-area edge — over the title, never over toolbar buttons.
 - **Home toolbar:** large title «Главная»; top-trailing currency switcher
@@ -170,3 +171,24 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   don't cross `TabView` / toolbar hosting). The Assistant step is gone (no
   public API for a tab item's frame); any step whose target isn't on screen
   after 1.2 s is skipped. The tour never starts over the Assistant tab.
+
+## 8. Decisions made while building quick entry (phase B)
+- **«+»:** tap opens the quick-entry sheet (expense). Long press (and the
+  VoiceOver action «Другие операции») opens the glass capsule menu: Доход,
+  Расход (both quick entry), Перевод, Чек, Дал в долг, Взял в долг. The
+  category wheel and its Settings row («Вид категорий») are retired: the
+  sheet's category chips + «Все» cover category-first entry, and the full
+  form is one tap away («Подробнее»).
+- **Quick-entry sheet:** system `.sheet`, detents `[.medium, .large]`; with
+  the keyboard up the system lifts it to the large height, which keeps
+  «Сохранить» right above the keyboard. Toolbar: close (`xmark`, leading),
+  `Picker(.segmented)` Расход/Доход as the principal item, «Подробнее»
+  trailing — all system toolbar glass. The save button is `.akifiPrimary`
+  in a bottom `safeAreaInset`, no background (the sheet is the glass).
+- **Chips are content, not glass** (category, account, date, «Повторить»):
+  `tertiarySystemFill` capsules, selected = accent fill with white text,
+  44 pt tall. A row of glass buttons inside the glass sheet would be glass
+  on glass. Account and date chips are `Menu`s (their popups are system
+  glass). The mic is an icon button with `.akifiSecondary` + circle shape.
+- **Toast** «Записано: … · Отменить» = `.akifiGlassBanner` in the top banner
+  stack (same place as the other banners), 5 s (12 s with VoiceOver).
