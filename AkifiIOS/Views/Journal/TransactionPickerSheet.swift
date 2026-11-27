@@ -130,7 +130,7 @@ struct TransactionPickerSheet: View {
 
     private func accountName(for tx: Transaction) -> String? {
         guard let id = tx.accountId,
-              let account = dataStore.accounts.first(where: { $0.id == id }) else { return nil }
+              let account = dataStore.account(withId: id) else { return nil }
         return account.name
     }
 

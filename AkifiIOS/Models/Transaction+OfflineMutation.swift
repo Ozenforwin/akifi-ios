@@ -82,6 +82,7 @@ extension Transaction {
             merchantName: input.merchant_name,
             merchantFuzzy: nil,
             transferGroupId: input.transfer_group_id,
+            personalDebtUserId: input.personal_debt_user_id,
             status: "pending",
             createdAt: nowISO,
             updatedAt: nil
@@ -124,6 +125,8 @@ extension Transaction {
             transferGroupId: nil,
             paymentSourceAccountId: input.payment_source_account_id,
             autoTransferGroupId: groupId,
+            // The 15-arg RPC marks the main expense only (contract §B3).
+            personalDebtUserId: input.personal_debt_user_id,
             status: "pending",
             createdAt: nowISO,
             updatedAt: nil
@@ -207,6 +210,7 @@ extension Transaction {
             transferGroupId: transferGroupId,
             paymentSourceAccountId: paymentSourceAccountId,
             autoTransferGroupId: autoTransferGroupId,
+            personalDebtUserId: u.updatesPersonalDebt ? u.personal_debt_user_id : personalDebtUserId,
             status: "pending",
             createdAt: createdAt,
             updatedAt: updatedAt

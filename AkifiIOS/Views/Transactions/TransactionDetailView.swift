@@ -23,13 +23,11 @@ struct TransactionDetailView: View {
     }
 
     private var account: Account? {
-        guard let id = transaction.accountId else { return nil }
-        return dataStore.accounts.first { $0.id == id }
+        dataStore.account(withId: transaction.accountId)
     }
 
     private var paymentSource: Account? {
-        guard let id = transaction.paymentSourceAccountId else { return nil }
-        return dataStore.accounts.first { $0.id == id }
+        dataStore.account(withId: transaction.paymentSourceAccountId)
     }
 
     /// True iff this row is one of the two transfer-legs of an auto-transfer
@@ -177,10 +175,7 @@ struct TransactionDetailView: View {
         guard transaction.type == .expense, !isAutoTransferLeg else { return nil }
         let cm = appViewModel.currencyManager
         let baseCode = cm.dataCurrency.code
-        let accountsById = Dictionary(
-            dataStore.accounts.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let accountsById = dataStore.currencyContext.accountsById
         let fxRates: [String: Decimal] = cm.rates.reduce(into: [:]) { acc, pair in
             acc[pair.key] = Decimal(pair.value)
         }

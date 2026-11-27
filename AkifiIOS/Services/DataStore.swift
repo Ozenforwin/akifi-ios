@@ -24,7 +24,26 @@ struct SessionEndedError: LocalizedError, Equatable {
 
 @Observable @MainActor
 final class DataStore {
-    var accounts: [Account] = []
+    /// Every account the user can see — money accounts, «Долги» (debt)
+    /// accounts and types this build does not know. The storage behind
+    /// `accounts`; use it ONLY to resolve an id (`account(withId:)`: a
+    /// transaction row, a transfer leg) and in the debt flows. Lists,
+    /// pickers and totals read `accounts`. `DebtExclusionGuardTests` fails
+    /// when a new file starts reading this.
+    var allAccounts: [Account] = [] {
+        didSet {
+            let money = allAccounts.moneyAccounts
+            // Skip-equal: an unchanged money subset invalidates no view.
+            if money != accounts { accounts = money }
+        }
+    }
+    /// Spendable money accounts (`AccountType.isMoney`) — the ONE source of
+    /// every account list, picker and total: the carousel, "всего на
+    /// счетах", expense / income / transfer / «Оплачено с» targets,
+    /// budgets, subscriptions, deposits, savings, sharing, the widget, the
+    /// assistant context, analytics and report filters. A debt is not
+    /// money the user can spend (contract §A7), so it is never here.
+    private(set) var accounts: [Account] = []
     var transactions: [Transaction] = []
     var categories: [Category] = []
     var isLoading = false
@@ -222,7 +241,7 @@ final class DataStore {
 
     /// Something to render — cached or fresh.
     var hasDisplayableData: Bool {
-        !accounts.isEmpty || !transactions.isEmpty
+        !allAccounts.isEmpty || !transactions.isEmpty
     }
 
     /// Refreshes everything from the server. Single-flight: a call while a
@@ -273,7 +292,7 @@ final class DataStore {
         tagCacheOwnerIfNeeded()
 
         var changed = false
-        if accounts.isEmpty, let v = snapshot.accounts, !v.isEmpty { accounts = v; changed = true }
+        if allAccounts.isEmpty, let v = snapshot.accounts, !v.isEmpty { allAccounts = v; changed = true }
         if transactions.isEmpty {
             // Cache writes are asynchronous; the queue file is written
             // synchronously. Re-apply the queue so an entry whose cache write
@@ -386,7 +405,7 @@ final class DataStore {
     private func apply(_ changes: DataStoreChangeSet) {
         guard !changes.isEmpty else { return }
         if let c = changes.accounts {
-            accounts = c.value
+            allAccounts = c.value
             persist(c.encoded, PersistenceManager.Filename.accounts)
         }
         if let c = changes.transactions {
@@ -437,7 +456,7 @@ final class DataStore {
 
     private var content: DataStoreContent {
         DataStoreContent(
-            accounts: accounts,
+            accounts: allAccounts,
             transactions: transactions,
             categories: categories,
             budgets: budgets,
@@ -588,7 +607,7 @@ final class DataStore {
             cache.clearAll()
         }
 
-        accounts = []
+        allAccounts = []
         transactions = []
         categories = []
         budgets = []
@@ -1317,6 +1336,18 @@ final class DataStore {
         return balanceCache[account.id] ?? account.initialBalance
     }
 
+    /// The account with `id`, of ANY type (debt accounts included) — for
+    /// resolving the account of a row or a transfer leg. Never a list.
+    func account(withId id: String?) -> Account? {
+        guard let id else { return nil }
+        return allAccounts.first { $0.id == id }
+    }
+
+    /// «Долги» accounts (one per person), open and closed.
+    var debtAccounts: [Account] {
+        allAccounts.filter(\.isDebtAccount)
+    }
+
     var recentTransactions: [Transaction] {
         Array(transactions.prefix(10))
     }
@@ -1396,6 +1427,8 @@ final class DataStore {
         // duplicate `account_id` rows from shared-account joins (we own the
         // dedup contract upstream, but a duplicate would otherwise crash
         // `Dictionary(uniqueKeysWithValues:)`).
+        // Money accounts only (contract §A7.5): a debt account is a person,
+        // and the assistant must never treat «Маша» as an account.
         let accountNameById = Dictionary(accounts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
 
         // Every figure is labelled with `account.currency`, so it must BE in
@@ -1479,8 +1512,7 @@ final class DataStore {
         // Per-account expense totals (use account names as keys for LLM readability)
         var byAccountKopecks: [String: Int64] = [:]
         for tx in transactions where tx.type == .expense && !tx.isTransfer {
-            if let accId = tx.accountId {
-                let name = accountNameById[accId] ?? accId
+            if let accId = tx.accountId, let name = accountNameById[accId] {
                 byAccountKopecks[name, default: 0] += inBase(tx)
             }
         }
@@ -1603,8 +1635,9 @@ final class DataStore {
     private func rebuildCurrencyContext() {
         baseCurrencyCode = currencyManager?.dataCurrency.code.uppercased() ?? "RUB"
         fxRatesDecimal = (currencyManager?.rates ?? [:]).mapValues { Decimal($0) }
+        // Every account — a debt leg converts by its own account's currency.
         accountsById = Dictionary(
-            accounts.map { ($0.id, $0) },
+            allAccounts.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
     }
@@ -1645,7 +1678,7 @@ final class DataStore {
         let baseCode = baseCurrencyCode
         let fxRates = fxRatesDecimal
         let accountCurrencyById: [String: String] = Dictionary(
-            accounts.map { ($0.id, $0.currency.uppercased()) },
+            allAccounts.map { ($0.id, $0.currency.uppercased()) },
             uniquingKeysWith: { first, _ in first }
         )
 
@@ -1702,8 +1735,10 @@ final class DataStore {
             }
         }
 
+        // Debt accounts get a balance too (the «Долги» screen reads it);
+        // they are simply never summed into a total.
         var newBalances: [String: Int64] = [:]
-        for account in accounts {
+        for account in allAccounts {
             let initialInBase = NetWorthCalculator.convert(
                 amount: account.initialBalance,
                 from: account.currency.uppercased(),
