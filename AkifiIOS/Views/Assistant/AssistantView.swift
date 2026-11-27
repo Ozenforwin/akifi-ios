@@ -18,138 +18,90 @@ struct AssistantView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Messages
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            if viewModel.chatMessages.isEmpty && !viewModel.isProcessing {
-                                AssistantWelcomeView(
-                                    onPromptSelected: { prompt in
-                                        Task { await viewModel.sendFollowUp(prompt) }
-                                    },
-                                    dataStore: viewModel.dataStore,
-                                    lastConversation: viewModel.lastConversationPreview,
-                                    onResume: {
-                                        Task { await viewModel.resumeLastConversation() }
-                                    }
-                                )
-                                .padding(.top, 40)
-                                .task { await viewModel.loadLastConversationPreview() }
-                            }
-
-                            ForEach(viewModel.chatMessages) { message in
-                                MessageBubbleView(
-                                    message: message,
-                                    onAction: { action in
-                                        Task {
-                                            await viewModel.requestActionPreview(action, messageId: message.messageId)
-                                        }
-                                    },
-                                    onRecommendedAction: { rec in
-                                        handleRecommendedAction(rec)
-                                    },
-                                    onThumbsUp: {
-                                        Task { await viewModel.submitPositiveFeedback(for: message) }
-                                    },
-                                    onThumbsDown: {
-                                        feedbackMessage = message
-                                        feedbackReason = .notHelpful
-                                        feedbackCustomText = ""
-                                        showFeedbackSheet = true
-                                    }
-                                )
-                                .id(message.id)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .bottom).combined(with: .opacity),
-                                    removal: .opacity
-                                ))
-                            }
-
-                            if viewModel.isProcessing {
-                                HStack {
-                                    TypingIndicatorView()
-                                    Spacer()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        if viewModel.chatMessages.isEmpty && !viewModel.isProcessing {
+                            AssistantWelcomeView(
+                                onPromptSelected: { prompt in
+                                    Task { await viewModel.sendFollowUp(prompt) }
+                                },
+                                dataStore: viewModel.dataStore,
+                                lastConversation: viewModel.lastConversationPreview,
+                                onResume: {
+                                    Task { await viewModel.resumeLastConversation() }
                                 }
-                                .id("typing")
-                            }
+                            )
+                            .padding(.top, 16)
+                            .task { await viewModel.loadLastConversationPreview() }
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                    }
-                    .onChange(of: viewModel.chatMessages.count) {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            if let last = viewModel.chatMessages.last {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
+
+                        ForEach(viewModel.chatMessages) { message in
+                            MessageBubbleView(
+                                message: message,
+                                onAction: { action in
+                                    Task {
+                                        await viewModel.requestActionPreview(action, messageId: message.messageId)
+                                    }
+                                },
+                                onRecommendedAction: { rec in
+                                    handleRecommendedAction(rec)
+                                },
+                                onThumbsUp: {
+                                    Task { await viewModel.submitPositiveFeedback(for: message) }
+                                },
+                                onThumbsDown: {
+                                    feedbackMessage = message
+                                    feedbackReason = .notHelpful
+                                    feedbackCustomText = ""
+                                    showFeedbackSheet = true
+                                }
+                            )
+                            .id(message.id)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .bottom).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                         }
-                    }
-                    .onChange(of: viewModel.isProcessing) {
+
                         if viewModel.isProcessing {
-                            withAnimation {
-                                proxy.scrollTo("typing", anchor: .bottom)
+                            HStack {
+                                TypingIndicatorView()
+                                Spacer()
                             }
+                            .id("typing")
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                // Bubbles and cards are content on the grouped background;
+                // the composer floats over it (Messages-style, 1.6).
+                .background(Color(.systemGroupedBackground))
+                .akifiSafeAreaBar(edge: .bottom) { composer }
+                .onChange(of: viewModel.chatMessages.count) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        if let last = viewModel.chatMessages.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
                 }
-
-                // Follow-ups
-                if !viewModel.followUps.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(viewModel.followUps, id: \.self) { followUp in
-                                Button {
-                                    Task { await viewModel.sendFollowUp(followUp) }
-                                } label: {
-                                    Text(followUp)
-                                        .font(.caption)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 8)
-                                        .background(Color(.systemBackground))
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            }
+                .onChange(of: viewModel.isProcessing) {
+                    if viewModel.isProcessing {
+                        withAnimation {
+                            proxy.scrollTo("typing", anchor: .bottom)
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 6)
                     }
                 }
-
-                // Error
-                if let error = viewModel.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal)
-                        .padding(.vertical, 4)
-                        .transition(.move(edge: .bottom))
-                }
-
-                // Input
-                AssistantInputBar(
-                    text: $viewModel.inputText,
-                    isProcessing: viewModel.isProcessing,
-                    isRecording: viewModel.isRecording,
-                    isTranscribing: viewModel.isTranscribing,
-                    recordingDuration: viewModel.recordingDuration,
-                    onSend: { Task { await viewModel.send() } },
-                    onStartRecording: { viewModel.startRecording() },
-                    onStopRecording: { Task { await viewModel.stopRecordingAndSend() } },
-                    onCancelRecording: { viewModel.cancelRecording() }
-                )
             }
             .navigationTitle(String(localized: "assistant.title"))
-            .navigationBarTitleDisplayMode(.inline)
+            // A tab root gets the large title; the modal sheet stays inline.
+            .navigationBarTitleDisplayMode(showsCloseButton ? .inline : .large)
             .toolbar {
                 if showsCloseButton {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
+                        SheetCloseButton { dismiss() }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -172,8 +124,10 @@ struct AssistantView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        // The glass toolbar plate (iOS 26) already draws the circle.
+                        Image(systemName: AkifiGlassRendering.current == .liquidGlass ? "ellipsis" : "ellipsis.circle")
                     }
+                    .accessibilityLabel(String(localized: "assistant.chatMenu"))
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -234,6 +188,54 @@ struct AssistantView: View {
         }
     }
 
+    /// Follow-up suggestions, the last error and the input capsule — the
+    /// floating controls layer at the bottom of the chat.
+    private var composer: some View {
+        VStack(spacing: 8) {
+            if !viewModel.followUps.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.followUps, id: \.self) { followUp in
+                            Button {
+                                Task { await viewModel.sendFollowUp(followUp) }
+                            } label: {
+                                Text(followUp)
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                            }
+                            .buttonStyle(.akifiSecondary)
+                            .buttonBorderShape(.capsule)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 2)
+                }
+            }
+
+            if let error = viewModel.error {
+                Label(error, systemImage: "exclamationmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .akifiGlassBanner()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            AssistantInputBar(
+                text: $viewModel.inputText,
+                isProcessing: viewModel.isProcessing,
+                isRecording: viewModel.isRecording,
+                isTranscribing: viewModel.isTranscribing,
+                recordingDuration: viewModel.recordingDuration,
+                onSend: { Task { await viewModel.send() } },
+                onStartRecording: { viewModel.startRecording() },
+                onStopRecording: { Task { await viewModel.stopRecordingAndSend() } },
+                onCancelRecording: { viewModel.cancelRecording() }
+            )
+        }
+        .padding(.top, 8)
+    }
+
     private func handleRecommendedAction(_ rec: RecommendedAction) {
         let action = AssistantAction(
             type: AssistantActionType(rawValue: rec.actionType.rawValue) ?? .openTransactions,
@@ -268,65 +270,35 @@ struct FeedbackSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text(String(localized: "feedback.whatWentWrong"))
-                    .font(.headline)
-
-                ForEach(FeedbackReason.allCases, id: \.self) { r in
-                    Button {
-                        reason = r
-                    } label: {
-                        HStack {
-                            Text(r.displayName)
-                                .font(.subheadline)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if reason == r {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.accent)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+            Form {
+                Picker(selection: $reason) {
+                    ForEach(FeedbackReason.allCases, id: \.self) { r in
+                        Text(r.displayName).tag(r)
                     }
-                    .buttonStyle(.plain)
+                } label: {
+                    Text(String(localized: "feedback.whatWentWrong"))
                 }
+                .pickerStyle(.inline)
 
                 if reason == .other {
-                    TextField(String(localized: "feedback.describeProblem"), text: $customText, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .lineLimit(2...4)
-                        .padding(12)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-
-                Spacer()
-
-                Button {
-                    onSubmit()
-                } label: {
-                    Text(String(localized: "common.send"))
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accent)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Section {
+                        TextField(String(localized: "feedback.describeProblem"), text: $customText, axis: .vertical)
+                            .lineLimit(2...4)
+                    }
                 }
             }
-            .padding()
             .navigationTitle(String(localized: "feedback.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { onCancel() }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "common.send")) { onSubmit() }
+                }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -338,26 +310,32 @@ struct AssistantWelcomeView: View {
     var lastConversation: ConversationPreview?
     var onResume: (() -> Void)?
 
+    @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 48
+
     var body: some View {
         VStack(spacing: 20) {
+            // The Assistant's own avatar keeps the AI gradient (1.6 rule).
             Image(systemName: "sparkles")
-                .font(.system(size: 48))
+                .font(.system(size: avatarSize))
                 .foregroundStyle(
                     LinearGradient(colors: [.aiGradientStart, .aiGradientEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
                 )
+                .accessibilityHidden(true)
 
-            Text(String(localized: "assistant.welcome"))
-                .font(.title2.weight(.bold))
+            VStack(spacing: 8) {
+                Text(String(localized: "assistant.welcome"))
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
 
-            Text(String(localized: "assistant.welcomeSubtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+                Text(String(localized: "assistant.welcomeSubtitle"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+            }
 
             if let preview = lastConversation, let onResume {
                 ContinueLastChatCard(preview: preview, onTap: onResume)
-                    .padding(.horizontal, 16)
             }
 
             QuickPromptsView(onSelect: onPromptSelected, dataStore: dataStore)
@@ -377,13 +355,8 @@ struct ContinueLastChatCard: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "arrow.uturn.backward.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.aiGradientStart, .aiGradientEnd],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .foregroundStyle(Color.accent)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -395,7 +368,7 @@ struct ContinueLastChatCard: View {
                            let date = ISO8601DateFormatter.shared.date(from: updated) {
                             Text(date, style: .relative)
                                 .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     if let title = preview.conversation.title, !title.isEmpty {
@@ -407,7 +380,7 @@ struct ContinueLastChatCard: View {
                     if let answer = preview.lastAnswer, !answer.isEmpty {
                         Text(answer)
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
@@ -416,41 +389,19 @@ struct ContinueLastChatCard: View {
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.aiGradientEnd.opacity(0.2), lineWidth: 0.5)
-            )
+            .akifiCard(padding: 14)
         }
         .buttonStyle(.plain)
     }
 }
 
-struct SuggestionChip: View {
-    let text: String
-
-    var body: some View {
-        HStack {
-            Image(systemName: "sparkle")
-                .font(.caption)
-                .foregroundStyle(Color.accent)
-            Text(text)
-                .font(.subheadline)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color(.systemBackground))
-        .clipShape(Capsule())
-    }
-}
-
 // MARK: - Input Bar
 
+/// The composer: one glass capsule floating at the bottom of the chat
+/// (like Messages on iOS 26) holding the text field and the send / voice
+/// button; while recording it shows the timer between cancel and send.
 struct AssistantInputBar: View {
     @Binding var text: String
     let isProcessing: Bool
@@ -462,48 +413,18 @@ struct AssistantInputBar: View {
     let onStopRecording: () -> Void
     let onCancelRecording: () -> Void
 
+    /// Half the single-line height: a capsule for one line, rounded
+    /// corners once the text wraps.
+    private static let cornerRadius: CGFloat = 22
+
     private var hasText: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 4) {
             if isRecording {
-                // Recording mode
-                HStack(spacing: 16) {
-                    Button(action: onCancelRecording) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.red)
-                    }
-
-                    Spacer()
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(.red)
-                            .frame(width: 8, height: 8)
-                        Text(formatDuration(recordingDuration))
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(.primary)
-                    }
-
-                    Spacer()
-
-                    Button(action: onStopRecording) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.aiGradientStart, .aiGradientEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 10)
+                recordingContent
             } else if isTranscribing {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -511,46 +432,77 @@ struct AssistantInputBar: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 44)
             } else {
-                // Normal mode
-                HStack(spacing: 8) {
-                    TextField(String(localized: "assistant.askSomething"), text: $text, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .lineLimit(1...4)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                TextField(String(localized: "assistant.askSomething"), text: $text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...5)
+                    .padding(.leading, 16)
+                    .padding(.vertical, 11)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if hasText || isProcessing {
-                        Button(action: onSend) {
-                            Image(systemName: isProcessing ? "stop.circle.fill" : "arrow.up.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(Color.accent)
-                        }
-                        .disabled(!hasText && !isProcessing)
-                    } else {
-                        Button(action: onStartRecording) {
-                            Image(systemName: "mic.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [.aiGradientStart, .aiGradientEnd],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                        .accessibilityLabel(String(localized: "assistant.voiceInput"))
+                if hasText || isProcessing {
+                    Button(action: onSend) {
+                        Image(systemName: isProcessing ? "stop.circle.fill" : "arrow.up.circle.fill")
+                            .font(.title2)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, Color.accent)
+                            .frame(width: 44, height: 44)
                     }
+                    .disabled(!hasText && !isProcessing)
+                    .accessibilityLabel(String(localized: "common.send"))
+                } else {
+                    Button(action: onStartRecording) {
+                        Image(systemName: "mic.fill")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(String(localized: "assistant.voiceInput"))
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
             }
         }
-        .background(.bar)
+        .padding(.trailing, 2)
+        .frame(minHeight: 44)
+        .akifiGlass(in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    private var recordingContent: some View {
+        HStack(spacing: 8) {
+            Button(action: onCancelRecording) {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(localized: "common.cancel"))
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+                Text(formatDuration(recordingDuration))
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.primary)
+            }
+            .frame(minHeight: 44)
+
+            Spacer()
+
+            Button(action: onStopRecording) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.title2)
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.accent)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel(String(localized: "common.send"))
+        }
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {
@@ -582,8 +534,9 @@ struct TypingIndicatorView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityElement()
+        .accessibilityLabel(String(localized: "common.loading"))
         .onAppear { animating = true }
     }
 }
@@ -632,7 +585,7 @@ struct ConversationListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
             }
             .task {

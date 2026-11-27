@@ -16,6 +16,7 @@ import SwiftUI
 // | `.akifiSecondary` button    | `.glass`                        | `.bordered`                         |
 // | `.akifiGlassBanner()`       | glass capsule                   | material capsule                    |
 // | `.akifiTabBarMinimizeOnScroll()` | `.tabBarMinimizeBehavior(.onScrollDown)` | no-op            |
+// | `.akifiSearchToolbarMinimize()` | `.searchToolbarBehavior(.minimize)` | no-op (field under the bar) |
 // | `.akifiCard()` (content!)   | grouped-background card         | same                                |
 //
 // Glass is for chrome only (bars, floating buttons, banners). Content —
@@ -301,6 +302,22 @@ extension View {
     /// Styles the view as a floating glass banner (see `AkifiGlassBanner`).
     func akifiGlassBanner(contentInsets: EdgeInsets = AkifiGlassBanner.defaultInsets) -> some View {
         modifier(AkifiGlassBanner(contentInsets: contentInsets))
+    }
+}
+
+// MARK: - Search
+
+extension View {
+    /// `.searchable` collapses into a toolbar search button that expands
+    /// into the glass field when tapped (iOS 26+). Before iOS 26 the field
+    /// stays in its usual place under the navigation bar.
+    @ViewBuilder
+    func akifiSearchToolbarMinimize() -> some View {
+        if #available(iOS 26.0, *) {
+            self.searchToolbarBehavior(.minimize)
+        } else {
+            self
+        }
     }
 }
 

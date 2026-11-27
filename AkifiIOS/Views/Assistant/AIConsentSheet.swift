@@ -7,14 +7,17 @@ struct AIConsentSheet: View {
     let onAccept: () -> Void
     let onDecline: () -> Void
 
+    @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 44
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack {
                         Spacer()
+                        // The Assistant's own avatar keeps the AI gradient.
                         Image(systemName: "sparkles")
-                            .font(.system(size: 44))
+                            .font(.system(size: avatarSize))
                             .foregroundStyle(
                                 LinearGradient(colors: [.aiGradientStart, .aiGradientEnd],
                                                startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -40,10 +43,7 @@ struct AIConsentSheet: View {
                         bullet("creditcard", String(localized: "assistant.consent.item.accounts"))
                         bullet("clock.arrow.circlepath", String(localized: "assistant.consent.item.history"))
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .akifiCard()
 
                     Text(String(localized: "assistant.consent.notSent"))
                         .font(.subheadline)
@@ -63,29 +63,27 @@ struct AIConsentSheet: View {
                 }
                 .padding(24)
             }
-            .safeAreaInset(edge: .bottom) {
+            .background(Color(.systemGroupedBackground))
+            .akifiSafeAreaBar(edge: .bottom, hardEdge: true) {
                 VStack(spacing: 8) {
                     Button(action: onAccept) {
                         Text(String(localized: "assistant.consent.accept"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .frame(minHeight: 50)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.accent)
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
 
                     Button(action: onDecline) {
                         Text(String(localized: "assistant.consent.decline"))
-                            .font(.subheadline.weight(.medium))
+                            .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.akifiSecondary)
+                    .controlSize(.large)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(.bar)
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

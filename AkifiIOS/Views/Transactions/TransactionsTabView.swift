@@ -12,15 +12,22 @@ struct TransactionsTabView: View {
     @State private var filterDateTo: Date?
     @State private var filterType: TransactionTypeFilter = .all
     @State private var filterCategoryIds: Set<String> = []
-    @State private var showSearch = false
     @State private var showReports = false
+    /// `.searchable` text (1.6: the system search field replaced the
+    /// search sheet). Narrows the list on top of the filters.
+    @State private var searchQuery = ""
+    @State private var searchHistory: [String] = []
+    private let searchHistoryStore = TransactionSearchHistory()
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
     private static var isoDF: DateFormatter { AppDateFormatters.isoDate }
 
+    private var isSearching: Bool { !searchQuery.isEmpty }
+
     private var displayedTransactions: [Transaction] {
         let base = viewModel.filteredTransactions(from: dataStore.transactions)
+        let query = searchQuery
         let df = Self.isoDF
         let cal = Calendar.current
         let fromDate = filterDateFrom.map { cal.startOfDay(for: $0) }
@@ -52,7 +59,10 @@ struct TransactionsTabView: View {
             // Account (multi-select)
             if !filterAccountIds.isEmpty, let accId = tx.accountId, !filterAccountIds.contains(accId) { return false }
             // Category (multi-select)
-            if !categoryFilter.matches(tx, category: dataStore.category(for: tx)) { return false }
+            let category = dataStore.category(for: tx)
+            if !categoryFilter.matches(tx, category: category) { return false }
+            // Search text
+            if !TransactionSearch.matches(tx, query: query, categoryName: category?.name) { return false }
             // Date range
             if fromDate != nil || toDate != nil {
                 guard let d = df.date(from: tx.date) else { return true }
@@ -98,11 +108,11 @@ struct TransactionsTabView: View {
     }
 
     var body: some View {
-        @Bindable var vm = viewModel
         NavigationStack {
             List {
-                // Mini dashboard
-                if !hasActiveFilters {
+                // Mini dashboard (hidden while filtering or searching — the
+                // list then shows only the matching rows)
+                if !hasActiveFilters && !isSearching {
                     TransactionsMiniDashboardView(
                         transactions: dataStore.transactions
                     ) {
@@ -110,16 +120,15 @@ struct TransactionsTabView: View {
                     }
                     .spotlight(.transactionsList)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
                 }
 
                 if hasActiveFilters {
                     // Filter indicator + reset
                     HStack {
-                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                            .foregroundStyle(Color.accent)
-                        Text(String(localized: "transactions.filtersActive"))
-                            .font(.caption)
+                        Label(String(localized: "transactions.filtersActive"), systemImage: "line.3.horizontal.decrease.circle.fill")
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button(String(localized: "transactions.reset")) {
@@ -129,9 +138,11 @@ struct TransactionsTabView: View {
                             filterDateTo = nil
                             filterType = .all
                         }
-                        .font(.caption)
+                        .font(.footnote.weight(.semibold))
+                        .buttonStyle(.borderless)
                     }
                     .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                     // Summary cells: income / expense / transfer
                     HStack(spacing: 8) {
@@ -164,17 +175,23 @@ struct TransactionsTabView: View {
                     .listRowBackground(Color.clear)
                 }
 
-                if displayedTransactions.isEmpty && !hasActiveFilters {
-                    EmptyStateView(
-                        title: String(localized: "transactions.empty.title"),
-                        systemImage: "tray.fill",
-                        description: String(localized: "transactions.empty.description"),
-                        actionTitle: String(localized: "welcome.addTransaction")
-                    ) {
-                        showAddTransaction = true
+                if displayedTransactions.isEmpty {
+                    if isSearching {
+                        ContentUnavailableView.search(text: searchQuery)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    } else if !hasActiveFilters {
+                        EmptyStateView(
+                            title: String(localized: "transactions.empty.title"),
+                            systemImage: "tray.fill",
+                            description: String(localized: "transactions.empty.description"),
+                            actionTitle: String(localized: "welcome.addTransaction")
+                        ) {
+                            showAddTransaction = true
+                        }
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
                 }
 
                 ForEach(displayedTransactions) { transaction in
@@ -187,8 +204,11 @@ struct TransactionsTabView: View {
                     .listRowBackground(Color.clear)
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        // Opening a result is a search worth remembering.
+                        if isSearching { rememberSearch(searchQuery) }
                         editingTransaction = transaction
                     }
+                    .accessibilityAddTraits(.isButton)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         // An auto-transfer the other member paid from their
                         // card can only be deleted by them (server 42501);
@@ -207,45 +227,61 @@ struct TransactionsTabView: View {
                         } label: {
                             Label(String(localized: "common.edit"), systemImage: "pencil")
                         }
-                        .tint(.blue)
+                        .tint(Color.accent)
                     }
                 }
-
-                // Bottom spacer for tab bar
-                Color.clear.frame(height: 120)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color(.systemGroupedBackground))
+            // The system insets the list for the tab bar; this keeps the
+            // last row clear of the floating «+».
+            .contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
             .refreshable {
                 await dataStore.loadAll()
             }
             .navigationTitle(String(localized: "transactions.title"))
+            .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $searchQuery, prompt: String(localized: "search.prompt"))
+            .searchSuggestions {
+                if searchQuery.isEmpty {
+                    TransactionSearchSuggestions(
+                        suggestions: TransactionSearch.suggestions(from: dataStore.transactions),
+                        history: searchHistory,
+                        onPick: { term in
+                            searchQuery = term
+                            rememberSearch(term)
+                        },
+                        onRemove: { term in
+                            searchHistory.removeAll { $0 == term }
+                            searchHistoryStore.save(searchHistory)
+                        },
+                        onClearHistory: {
+                            searchHistory = []
+                            searchHistoryStore.save([])
+                        }
+                    )
+                }
+            }
+            .onSubmit(of: .search) { rememberSearch(searchQuery) }
+            // iOS 26: a search button in the toolbar that expands into the
+            // glass field. (A bottom-bar field isn't shown inside a tab — the
+            // tab bar's search role belongs to the Assistant.)
+            .akifiSearchToolbarMinimize()
+            .onAppear { searchHistory = searchHistoryStore.load() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showFilters = true
                     } label: {
-                        Image(systemName: hasActiveFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                        Image(systemName: filterSymbol)
                     }
                     .accessibilityLabel(String(localized: "transactions.filters"))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSearch = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
+                    .accessibilityValue(hasActiveFilters ? String(localized: "transactions.filtersActive") : "")
                 }
             }
             .navigationDestination(isPresented: $showReports) {
                 ReportsView()
-            }
-            .sheet(isPresented: $showSearch) {
-                TransactionSearchView(
-                    transactions: dataStore.transactions,
-                    categories: dataStore.categories
-                )
             }
             .sheet(isPresented: $showAddTransaction) {
                 TransactionFormView(
@@ -305,41 +341,55 @@ struct TransactionsTabView: View {
                     selectedType: $filterType
                 )
                 .presentationDetents([.fraction(0.75), .large])
-                .presentationDragIndicator(.visible)
             }
         }
     }
+
+    /// Filled while filters are active. On iOS 26 the glass toolbar plate
+    /// already draws the circle around the plain symbol.
+    private var filterSymbol: String {
+        if hasActiveFilters { return "line.3.horizontal.decrease.circle.fill" }
+        return AkifiGlassRendering.current == .liquidGlass
+            ? "line.3.horizontal.decrease"
+            : "line.3.horizontal.decrease.circle"
+    }
+
+    private func rememberSearch(_ term: String) {
+        let updated = TransactionSearchHistory.adding(term, to: searchHistory)
+        guard updated != searchHistory else { return }
+        searchHistory = updated
+        searchHistoryStore.save(updated)
+    }
+
+    /// Type toggle with the filtered total: a compact content card, tinted
+    /// with the type's colour while it is the active type filter.
     private func summaryCellView(label: String, amount: Int64, color: Color, icon: String, isActive: Bool, onTap: @escaping () -> Void) -> some View {
         Button(action: onTap) {
             VStack(spacing: 4) {
-                HStack(spacing: 4) {
-                    Image(systemName: icon)
-                        .font(.system(size: 10, weight: .semibold))
-                    Text(label)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundStyle(color)
+                Label(label, systemImage: icon)
+                    .font(.caption.weight(.medium))
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Text(appViewModel.currencyManager.formatAmount(amount.displayAmount))
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(color)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
+            .foregroundStyle(color)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 6)
             .background(
-                isActive
-                    ? color.opacity(0.15)
-                    : color.opacity(0.06)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isActive ? color.opacity(0.4) : color.opacity(0.12), lineWidth: isActive ? 1.5 : 0.5)
+                isActive ? AnyShapeStyle(color.opacity(0.15)) : AnyShapeStyle(Color(.secondarySystemGroupedBackground)),
+                in: RoundedRectangle(cornerRadius: CardStyle.Size.compact.cornerRadius, style: .continuous)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -421,12 +471,12 @@ struct TransactionFilterSheet: View {
     @Binding var selectedType: TransactionTypeFilter
 
     @State private var selectedPeriod: FilterPeriod = .all
-    @State private var showCalendar = false
     @State private var calendarFrom = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
     @State private var calendarTo = Date()
 
+    /// Period presets; `custom` is the from–to calendar range.
     enum FilterPeriod: CaseIterable {
-        case all, today, week, month
+        case all, today, week, month, custom
 
         var label: String {
             switch self {
@@ -434,225 +484,185 @@ struct TransactionFilterSheet: View {
             case .today: String(localized: "filter.today")
             case .week: String(localized: "filter.week")
             case .month: String(localized: "filter.month")
+            case .custom: String(localized: "period.customRange")
+            }
+        }
+
+        /// The `dateFrom` / `dateTo` the period applies (`nil` = open end).
+        /// Presets end now; `custom` takes the calendar pickers' values.
+        func dateRange(
+            now: Date = Date(),
+            calendar: Calendar = .current,
+            customFrom: Date,
+            customTo: Date
+        ) -> (from: Date?, to: Date?) {
+            switch self {
+            case .all: (nil, nil)
+            case .today: (calendar.startOfDay(for: now), now)
+            case .week: (calendar.date(byAdding: .day, value: -7, to: now), now)
+            case .month: (calendar.date(byAdding: .month, value: -1, to: now), now)
+            case .custom: (customFrom, customTo)
             }
         }
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text(String(localized: "transactions.filters"))
-                        .font(.title2.weight(.bold))
-                        .padding(.horizontal)
+            Form {
+                // Type filter
+                Section(String(localized: "transactions.filterType")) {
+                    Picker(String(localized: "transactions.filterType"), selection: $selectedType) {
+                        ForEach(TransactionTypeFilter.allCases, id: \.self) { type in
+                            Text(type.label).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
 
-                    // Type filter
-                    filterSection(title: String(localized: "transactions.filterType")) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(TransactionTypeFilter.allCases, id: \.self) { type in
-                                    filterChip(
-                                        label: type.label,
-                                        isSelected: selectedType == type,
-                                        activeColor: type.color
-                                    ) {
-                                        selectedType = type
-                                    }
-                                }
+                // Period filter
+                Section(String(localized: "transactions.filterPeriod")) {
+                    Picker(String(localized: "transactions.filterPeriod"), selection: $selectedPeriod) {
+                        ForEach(FilterPeriod.allCases, id: \.self) { period in
+                            if period == .custom {
+                                Label(period.label, systemImage: "calendar")
+                                    .labelStyle(.iconOnly)
+                                    .tag(period)
+                            } else {
+                                Text(period.label).tag(period)
                             }
                         }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
 
-                    // Period filter
-                    filterSection(title: String(localized: "transactions.filterPeriod")) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(FilterPeriod.allCases, id: \.self) { period in
-                                    filterChip(
-                                        label: period.label,
-                                        isSelected: selectedPeriod == period && !showCalendar,
-                                        activeColor: .accent
-                                    ) {
-                                        selectedPeriod = period
-                                        showCalendar = false
-                                    }
-                                }
-
-                                Button {
-                                    showCalendar.toggle()
-                                    if showCalendar { selectedPeriod = .all }
-                                } label: {
-                                    Image(systemName: "calendar")
-                                        .font(.subheadline)
-                                        .frame(width: 40, height: 36)
-                                        .background(showCalendar ? Color.accent : Color(.systemGray6))
-                                        .foregroundStyle(showCalendar ? .white : .primary)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(showCalendar ? .clear : Color(.systemGray4), lineWidth: 0.5)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                    if selectedPeriod == .custom {
+                        DatePicker(String(localized: "filter.from"), selection: $calendarFrom, displayedComponents: .date)
+                        DatePicker(String(localized: "filter.to"), selection: $calendarTo, displayedComponents: .date)
                     }
+                }
 
-                    if showCalendar {
-                        VStack(spacing: 12) {
-                            DatePicker(String(localized: "filter.from"), selection: $calendarFrom, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                            DatePicker(String(localized: "filter.to"), selection: $calendarTo, displayedComponents: .date)
-                                .datePickerStyle(.compact)
+                // Category filter (multi-select)
+                Section(String(localized: "transactions.filterCategory")) {
+                    chipRow {
+                        TransactionFilterChip(
+                            label: String(localized: "common.all"),
+                            isSelected: selectedCategoryIds.isEmpty
+                        ) {
+                            selectedCategoryIds.removeAll()
                         }
-                        .padding(.horizontal)
-                    }
 
-                    // Category filter (multi-select)
-                    filterSection(title: String(localized: "transactions.filterCategory")) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                filterChip(
-                                    label: String(localized: "common.all"),
-                                    isSelected: selectedCategoryIds.isEmpty,
-                                    activeColor: .accent
-                                ) {
-                                    selectedCategoryIds.removeAll()
-                                }
-
-                                ForEach(categories) { cat in
-                                    filterChip(
-                                        icon: cat.icon,
-                                        label: cat.name,
-                                        isSelected: selectedCategoryIds.contains(cat.id),
-                                        activeColor: .accent
-                                    ) {
-                                        if selectedCategoryIds.contains(cat.id) {
-                                            selectedCategoryIds.remove(cat.id)
-                                        } else {
-                                            selectedCategoryIds.insert(cat.id)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Account filter (multi-select)
-                    filterSection(title: String(localized: "transactions.filterAccount")) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                filterChip(
-                                    label: String(localized: "budget.allAccounts"),
-                                    isSelected: selectedAccountIds.isEmpty,
-                                    activeColor: .accent
-                                ) {
-                                    selectedAccountIds.removeAll()
-                                }
-
-                                ForEach(accounts) { account in
-                                    filterChip(
-                                        icon: account.icon,
-                                        label: account.name,
-                                        isSelected: selectedAccountIds.contains(account.id),
-                                        activeColor: .accent
-                                    ) {
-                                        if selectedAccountIds.contains(account.id) {
-                                            selectedAccountIds.remove(account.id)
-                                        } else {
-                                            selectedAccountIds.insert(account.id)
-                                        }
-                                    }
+                        ForEach(categories) { cat in
+                            TransactionFilterChip(
+                                icon: cat.icon,
+                                label: cat.name,
+                                isSelected: selectedCategoryIds.contains(cat.id)
+                            ) {
+                                if selectedCategoryIds.contains(cat.id) {
+                                    selectedCategoryIds.remove(cat.id)
+                                } else {
+                                    selectedCategoryIds.insert(cat.id)
                                 }
                             }
                         }
                     }
                 }
-                .padding(.top, 20)
+
+                // Account filter (multi-select)
+                Section(String(localized: "transactions.filterAccount")) {
+                    chipRow {
+                        TransactionFilterChip(
+                            label: String(localized: "budget.allAccounts"),
+                            isSelected: selectedAccountIds.isEmpty
+                        ) {
+                            selectedAccountIds.removeAll()
+                        }
+
+                        ForEach(accounts) { account in
+                            TransactionFilterChip(
+                                icon: account.icon,
+                                label: account.name,
+                                isSelected: selectedAccountIds.contains(account.id)
+                            ) {
+                                if selectedAccountIds.contains(account.id) {
+                                    selectedAccountIds.remove(account.id)
+                                } else {
+                                    selectedAccountIds.insert(account.id)
+                                }
+                            }
+                        }
+                    }
+                }
             }
-
-            VStack {
-                Button {
-                    applyFilters()
-                    dismiss()
-                } label: {
-                    Text(String(localized: "common.apply"))
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accentCyan)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+            .navigationTitle(String(localized: "transactions.filters"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Type, category and account apply as they're tapped (as
+                // before); the period applies with «Применить».
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "common.close")) { dismiss() }
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "common.apply")) {
+                        applyFilters()
+                        dismiss()
+                    }
+                }
             }
         }
         .onAppear {
             if dateFrom != nil {
-                showCalendar = true
+                selectedPeriod = .custom
                 calendarFrom = dateFrom ?? Date()
                 calendarTo = dateTo ?? Date()
             }
         }
     }
 
-    private func filterSection(title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
-            content()
-                .padding(.horizontal)
-        }
-    }
-
-    private func filterChip(icon: String? = nil, label: String, isSelected: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                if let icon {
-                    Text(icon).font(.caption)
-                }
-                Text(label)
-                    .font(.subheadline.weight(.medium))
+    /// Horizontally scrolling chips, edge to edge inside the form row.
+    private func chipRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                content()
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? activeColor.opacity(0.15) : Color(.systemGray6))
-            .foregroundStyle(isSelected ? activeColor : .primary.opacity(0.7))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? activeColor.opacity(0.3) : Color(.systemGray4), lineWidth: 0.5)
-            )
+            .padding(.vertical, 10)
         }
-        .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets())
     }
 
     private func applyFilters() {
-        if showCalendar {
-            dateFrom = calendarFrom
-            dateTo = calendarTo
-            return
+        let range = selectedPeriod.dateRange(customFrom: calendarFrom, customTo: calendarTo)
+        dateFrom = range.from
+        dateTo = range.to
+    }
+}
+
+/// Multi-select chip of the filter sheet: a system bordered capsule,
+/// prominent while selected.
+private struct TransactionFilterChip: View {
+    var icon: String?
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        let button = Button(action: action) {
+            HStack(spacing: 4) {
+                if let icon {
+                    Text(icon)
+                }
+                Text(label)
+            }
+            .font(.subheadline.weight(.medium))
         }
+        .buttonBorderShape(.capsule)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
 
-        let calendar = Calendar.current
-        let now = Date()
-
-        switch selectedPeriod {
-        case .all:
-            dateFrom = nil
-            dateTo = nil
-        case .today:
-            dateFrom = calendar.startOfDay(for: now)
-            dateTo = now
-        case .week:
-            dateFrom = calendar.date(byAdding: .day, value: -7, to: now)
-            dateTo = now
-        case .month:
-            dateFrom = calendar.date(byAdding: .month, value: -1, to: now)
-            dateTo = now
+        if isSelected {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered).tint(.secondary)
         }
     }
 }

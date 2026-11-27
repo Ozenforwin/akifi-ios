@@ -12,6 +12,7 @@ struct NewPasswordView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var isDone = false
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 50
 
     /// Same rules as sign-up (EmailAuthView).
     nonisolated static func isAcceptable(_ password: String, confirmation: String) -> Bool {
@@ -34,6 +35,8 @@ struct NewPasswordView: View {
                 }
                 .padding(24)
             }
+            // Fields are content cards on the grouped background (1.6).
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "auth.newPassword.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -46,6 +49,7 @@ struct NewPasswordView: View {
                 }
             }
         }
+        .tint(Color.accent)
         .errorToast($errorMessage)
     }
 
@@ -53,8 +57,8 @@ struct NewPasswordView: View {
         VStack(spacing: 20) {
             VStack(spacing: 10) {
                 Image(systemName: "lock.rotation")
-                    .font(.system(size: 50))
-                    .foregroundStyle(Color.accent.gradient)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(Color.accent)
                     .accessibilityHidden(true)
                 Text(String(localized: "auth.newPassword.subtitle"))
                     .font(.subheadline)
@@ -99,7 +103,7 @@ struct NewPasswordView: View {
     private var doneView: some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.system(size: iconSize))
                 .foregroundStyle(.green)
                 .accessibilityHidden(true)
             Text(String(localized: "auth.newPassword.done"))

@@ -72,7 +72,7 @@ struct ShareConversationSheet: View {
             .navigationTitle(String(localized: "share.conversation.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.done")) { dismiss() }
                 }
             }

@@ -206,3 +206,24 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   bottom call-to-action bars use `akifiSafeAreaBar` so content never shows
   through them.
 - **Currency is chosen next to the amount** (quick entry chip, debt forms).
+
+## 10. Decisions from the screen sweep — Transactions / Assistant / Auth
+- **Search inside a tab:** `.searchable` + `.akifiSearchToolbarMinimize()`
+  — on iOS 26 a search button in the top toolbar that expands into the glass
+  field. A bottom-bar field (`DefaultToolbarItem(kind: .search,
+  placement: .bottomBar)`) is not shown inside a `TabView` tab, and the tab
+  bar's search role belongs to the Assistant. Suggestions/history go in
+  `.searchSuggestions`; the query narrows the list on top of the filters.
+- **Bottom controls over scrolling content** (chat composer, confirm
+  buttons of the consent/action sheets): `.akifiSafeAreaBar(edge: .bottom)`
+  (`hardEdge: true` for the two-button consent bar).
+- **Chat:** the composer is one glass capsule (22 pt corners = capsule at
+  one line) with the send/voice button inside; follow-ups and message
+  actions are `.akifiSecondary` capsules; answers are `.akifiCard()`; user
+  bubbles solid accent. Tab root → large title.
+- **Auth fields:** no coloured borders — error = red icon + message,
+  valid = green check; buttons `.akifiPrimary`/`.akifiSecondary`,
+  `.controlSize(.large)`. Sign in with Apple stays Apple's control (black in
+  light, white in dark), clipped to a capsule like the others.
+- **Signed-out screens** have no tab view setting the tint (and the app has
+  no AccentColor asset), so their roots set `.tint(Color.accent)`.

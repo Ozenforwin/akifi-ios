@@ -8,16 +8,35 @@ struct TransactionRowView: View {
     var onEdit: (() -> Void)?
     var onDelete: (() -> Void)?
 
+    /// Category tile and creator badge grow with Dynamic Type.
+    @ScaledMetric(relativeTo: .title3) private var scaledIconSize: CGFloat = 44
+    @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 18
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Accessibility text sizes stack the row's lines (title over amount,
+    /// date over account) instead of squeezing them side by side.
+    private var stacksLines: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    /// The tile stops growing at accessibility sizes, leaving the width to
+    /// the text.
+    private var iconSize: CGFloat { stacksLines ? min(scaledIconSize, 56) : scaledIconSize }
+
+    private var lineLayout: AnyLayout {
+        stacksLines
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 6))
+    }
+
     private var isTransfer: Bool { transaction.type == .transfer || transaction.transferGroupId != nil }
     private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: stacksLines ? .top : .center, spacing: 12) {
             // Category icon with creator badge
             ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(iconBackground)
-                    .frame(width: 44, height: 44)
+                    .frame(width: iconSize, height: iconSize)
                     .overlay {
                         Text(iconEmoji)
                             .font(.title3)
@@ -34,12 +53,14 @@ struct TransactionRowView: View {
             // Content
             VStack(alignment: .leading, spacing: 3) {
                 // Row 1: Category name + amount
-                HStack(alignment: .firstTextBaseline) {
+                lineLayout {
                     Text(titleText)
                         .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+                        .lineLimit(stacksLines ? 3 : 1)
 
-                    Spacer()
+                    if !stacksLines {
+                        Spacer()
+                    }
 
                     Text(formattedAmount)
                         .font(.subheadline.weight(.semibold))
@@ -48,7 +69,7 @@ struct TransactionRowView: View {
                 }
 
                 // Row 2: Date + account badge
-                HStack(spacing: 6) {
+                lineLayout {
                     Text(formattedDate)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -85,7 +106,7 @@ struct TransactionRowView: View {
                     if let directionText = transferDirectionText {
                         Text(directionText)
                             .font(.caption2)
-                            .foregroundStyle(.quaternary)
+                            .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
                 } else if let desc = transaction.description, !desc.isEmpty {
@@ -97,29 +118,20 @@ struct TransactionRowView: View {
 
                 // Row 4: "From {source}" badge for auto-transferred expenses
                 if let sourceName = paymentSourceName {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.forward.circle.fill")
-                            .font(.system(size: 10))
-                        Text(String(format: String(localized: "tx.autoTransfer.badge"), sourceName))
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundStyle(Color.accent)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color.accent.opacity(0.12))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.accent.opacity(0.24), lineWidth: 0.5)
-                    )
+                    Label(String(format: String(localized: "tx.autoTransfer.badge"), sourceName), systemImage: "arrow.forward.circle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.accent.opacity(0.12), in: Capsule())
                 }
             }
         }
+        // Content row (1.6): a compact card — no shadow, no border.
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .primary.opacity(0.06), radius: 6, x: 0, y: 2)
+        .akifiCard(.compact, padding: 0)
     }
 
     // MARK: - Computed
@@ -265,7 +277,7 @@ struct TransactionRowView: View {
                 CachedAsyncImage(url: url) {
                     initialsCircle(creator)
                 }
-                .frame(width: 18, height: 18)
+                .frame(width: badgeSize, height: badgeSize)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
             } else {
@@ -277,10 +289,11 @@ struct TransactionRowView: View {
     private func initialsCircle(_ creator: Profile) -> some View {
         Circle()
             .fill(Color(.systemGray4))
-            .frame(width: 18, height: 18)
+            .frame(width: badgeSize, height: badgeSize)
             .overlay {
+                // Sized from the scaled badge, so it follows Dynamic Type.
                 Text(String((creator.fullName ?? "?").prefix(1)).uppercased())
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: badgeSize * 0.45, weight: .bold))
                     .foregroundStyle(.white)
             }
             .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
@@ -289,14 +302,14 @@ struct TransactionRowView: View {
     private func accountBadge(_ acc: Account) -> some View {
         HStack(spacing: 3) {
             Text(acc.icon)
-                .font(.system(size: 10))
             Text(acc.name)
-                .font(.system(size: 10, weight: .medium))
+                .fontWeight(.medium)
                 .foregroundStyle(.secondary)
         }
+        .font(.caption2)
+        .lineLimit(1)
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }

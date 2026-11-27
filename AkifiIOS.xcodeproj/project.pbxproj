@@ -18,6 +18,7 @@
 		04A6BDF7961FC89DAC1B65AB /* SavingsGoalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */; };
 		04DF61DAB1C3076A88989578 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8ADA415BE7DDBDBAEAFAD34 /* SupabaseManager.swift */; };
 		052491BEC1B092900DCF435E /* R8AIConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 920913967F2AA3DDB9CD4A19 /* R8AIConsentTests.swift */; };
+		06306A351EAA24C82DAD4EA6 /* GlassSweepTransactionsAssistantAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D81416DF845627EFBC97F9F /* GlassSweepTransactionsAssistantAuthTests.swift */; };
 		06786FE8B2570DFE40FD4647 /* CategoryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C211FAE78CA989CB0EFAA97 /* CategoryPickerView.swift */; };
 		070E7F4EBF3EC68A57B59794 /* EmailConfirmationPendingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2C91B668E23E0FC3E6DB73 /* EmailConfirmationPendingView.swift */; };
 		091ACF97E687F96CC315D23C /* SkillTreeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 647B598F1EF3475B51CAFB41 /* SkillTreeView.swift */; };
@@ -410,6 +411,7 @@
 		ECCE3593C65DF683F1EF0EB1 /* NotificationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DBCC780D7A28DE9DC71A9B /* NotificationSettings.swift */; };
 		ED2A8D09F062FEEBD51D0C5F /* LiveQuickEntrySpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02AEFCC92621FD15AE55F3A /* LiveQuickEntrySpeech.swift */; };
 		EF02BB3279AE258614DC9AF9 /* UIHarnessQuickEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DA3537C7226B6FD07F7776 /* UIHarnessQuickEntry.swift */; };
+		F15C73EA0D26F07103A5B27A /* UIHarnessSweepScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4C0BE38A10E66E25C4C46C /* UIHarnessSweepScreens.swift */; };
 		F1D629C9CDC1F7DE99594D67 /* SubscriptionPaymentsHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BEFA14FE2DF1611BBCEAB2 /* SubscriptionPaymentsHistoryView.swift */; };
 		F205229791689C8A9BF4D11E /* ReceiptScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE752DC97115463EBA144B9 /* ReceiptScan.swift */; };
 		F2364BB2C52E3795B368BF5F /* AchievementBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547055718E8E86D54B15C7CF /* AchievementBadgeView.swift */; };
@@ -649,6 +651,7 @@
 		6A5E7DC6436A889E87DA686D /* InterestCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterestCalculator.swift; sourceTree = "<group>"; };
 		6AF623900A749C54CAE853BE /* DebtFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebtFormView.swift; sourceTree = "<group>"; };
 		6B48E4AF57129831965D8EE4 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
+		6B4C0BE38A10E66E25C4C46C /* UIHarnessSweepScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIHarnessSweepScreens.swift; sourceTree = "<group>"; };
 		6B4F8F2C3681D02D13593C46 /* Transaction+OfflineMutation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Transaction+OfflineMutation.swift"; sourceTree = "<group>"; };
 		6B5FE1332FF774DC471D4F3C /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		6D058D6C4B704A2FC9F6F868 /* InsightCardsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightCardsView.swift; sourceTree = "<group>"; };
@@ -724,6 +727,7 @@
 		9B0FA3EB5190F9DA6A83A065 /* NetWorthSnapshotRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthSnapshotRepository.swift; sourceTree = "<group>"; };
 		9C0A13673591986F7DC9EE90 /* AkifiWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AkifiWidget.entitlements; sourceTree = "<group>"; };
 		9D3C0355EB751BBDFF729503 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		9D81416DF845627EFBC97F9F /* GlassSweepTransactionsAssistantAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSweepTransactionsAssistantAuthTests.swift; sourceTree = "<group>"; };
 		9DE8D1CB7AD218C241D29AAD /* ShareAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareAccountView.swift; sourceTree = "<group>"; };
 		A01CAF74EBA3295E4D4B8CB3 /* KeyedEncodingContainer+Nullable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyedEncodingContainer+Nullable.swift"; sourceTree = "<group>"; };
 		A08EFE33C2EF72AF0E9AD5B5 /* StreakTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakTracker.swift; sourceTree = "<group>"; };
@@ -1241,6 +1245,7 @@
 				95C1BAC073D926CC06CCD480 /* UIHarness.swift */,
 				58DA3537C7226B6FD07F7776 /* UIHarnessQuickEntry.swift */,
 				15F3F6048452C6C698DCC839 /* UIHarnessScreens.swift */,
+				6B4C0BE38A10E66E25C4C46C /* UIHarnessSweepScreens.swift */,
 			);
 			path = Debug;
 			sourceTree = "<group>";
@@ -1355,6 +1360,7 @@
 				72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */,
 				0B100671DEFA1BB219EE226E /* FIREProjectorTests.swift */,
 				43D9B2D3489763BDB683717F /* GlassSweepHomeAnalyticsBudgetsTests.swift */,
+				9D81416DF845627EFBC97F9F /* GlassSweepTransactionsAssistantAuthTests.swift */,
 				2F44AB10468C45342AFCA1A9 /* InterestCalculatorTests.swift */,
 				71826AE4565E1435632DCB02 /* KeyboardTapDismissTests.swift */,
 				6FC888D1AF5A413541D3E232 /* LiquidGlassFoundationTests.swift */,
@@ -1907,6 +1913,7 @@
 				71CA2F5DD3B83EAF8D03DE55 /* FIREProjectorTests.swift in Sources */,
 				D8A5DB36EC95A58D446B22A5 /* FeatureStreamFixesTests.swift in Sources */,
 				CC1690A1FBEF60D120A866A5 /* GlassSweepHomeAnalyticsBudgetsTests.swift in Sources */,
+				06306A351EAA24C82DAD4EA6 /* GlassSweepTransactionsAssistantAuthTests.swift in Sources */,
 				CCCBA83E77B7B80A10B9820F /* InterestCalculatorTests.swift in Sources */,
 				E894114CB9DD63D39F7A66C3 /* KeyboardTapDismissTests.swift in Sources */,
 				4B2D1DACFD28DEEF2123CE8D /* LiquidGlassFoundationTests.swift in Sources */,
@@ -2299,6 +2306,7 @@
 				7A44D92BC29FE7D0E8027953 /* UIHarness.swift in Sources */,
 				EF02BB3279AE258614DC9AF9 /* UIHarnessQuickEntry.swift in Sources */,
 				45A11E7A6088B644424EE2AA /* UIHarnessScreens.swift in Sources */,
+				F15C73EA0D26F07103A5B27A /* UIHarnessSweepScreens.swift in Sources */,
 				5EBF242EAF545CB143F0CB36 /* UIImage+Downscale.swift in Sources */,
 				CBAE8518110E8F6A1E3FD2DA /* UserAccountDefault.swift in Sources */,
 				EBCB39ECF003DADD9FDCE904 /* UserAccountDefaultsRepository.swift in Sources */,

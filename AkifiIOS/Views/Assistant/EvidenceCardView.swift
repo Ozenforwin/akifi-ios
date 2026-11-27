@@ -30,18 +30,19 @@ struct EvidenceCardView: View {
             }
         }
         .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        // Nested content inside the answer card — a step darker, no material.
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var deltaPercentBadge: some View {
         let isPositive = evidence.deltaPercent > 0
         return HStack(spacing: 2) {
             Image(systemName: isPositive ? "arrow.up" : "arrow.down")
-                .font(.system(size: 8, weight: .bold))
+                .imageScale(.small)
             Text("\(abs(Int(evidence.deltaPercent)))%")
-                .font(.caption2.weight(.bold))
+                .monospacedDigit()
         }
+        .font(.caption2.weight(.bold))
         .foregroundStyle(isPositive ? .red : .green)
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
@@ -52,7 +53,7 @@ struct EvidenceCardView: View {
     private func valueColumn(label: String, value: Double) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(formatAmount(value))
                 .font(.caption.weight(.medium).monospacedDigit())
@@ -90,7 +91,7 @@ struct EvidenceCardView: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             Text(String(localized: "evidence.frequencyByDay"))
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 3) {
@@ -103,8 +104,10 @@ struct EvidenceCardView: View {
                             .fill(Color.red.opacity(0.1 + intensity * 0.7))
                             .frame(height: 20)
                         Text(days[dayIndex])
-                            .font(.system(size: 8))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                 }
             }
@@ -158,7 +161,7 @@ struct EvidenceListView: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(color)
         }
     }

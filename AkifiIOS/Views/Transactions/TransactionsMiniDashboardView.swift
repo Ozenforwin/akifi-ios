@@ -70,6 +70,9 @@ struct TransactionsMiniDashboardView: View {
                 }
             }
             .chartLegend(.hidden)
+            // Six month labels must fit one row; the chart's own labels
+            // stop growing at XXL (the rest of the card keeps scaling).
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             .frame(height: 120)
 
             Button(action: onOpenReports) {
@@ -77,10 +80,10 @@ struct TransactionsMiniDashboardView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.accent)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
         }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        // Content, not glass (1.6).
+        .akifiCard()
     }
 
     private func abbreviate(_ value: Double) -> String {

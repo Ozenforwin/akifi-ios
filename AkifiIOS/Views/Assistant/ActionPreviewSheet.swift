@@ -9,102 +9,82 @@ struct ActionPreviewSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                // Risk badge
-                riskBadge
-
+            Form {
                 // Plan description
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(String(localized: "action.action"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(action.label)
-                        .font(.headline)
-
-                    Text(String(localized: "action.plan"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 4)
-                    Text(preview.plan)
-                        .font(.subheadline)
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "action.action"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(action.label)
+                            .font(.headline)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(String(localized: "action.plan"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(preview.plan)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } header: {
+                    riskBadge
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 // Changes list
                 if !preview.changes.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(String(localized: "action.changes"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
+                    Section(String(localized: "action.changes")) {
                         ForEach(preview.changes, id: \.self) { change in
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                    .font(.caption)
+                            Label {
                                 Text(change)
                                     .font(.subheadline)
+                            } icon: {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
                 // Reversibility
-                HStack(spacing: 8) {
-                    Image(systemName: preview.reversible ? "arrow.uturn.backward.circle" : "exclamationmark.triangle")
-                        .foregroundStyle(preview.reversible ? .green : .orange)
-                    Text(preview.reversible ? String(localized: "action.reversible") : String(localized: "action.irreversible"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Spacer()
-
-                // Action buttons
-                VStack(spacing: 12) {
-                    Button {
-                        onConfirm()
-                    } label: {
-                        HStack {
-                            if isProcessing {
-                                ProgressView()
-                                    .tint(.white)
-                            }
-                            Text(String(localized: "action.confirm"))
-                                .fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(confirmButtonColor)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                Section {
+                    Label {
+                        Text(preview.reversible ? String(localized: "action.reversible") : String(localized: "action.irreversible"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } icon: {
+                        Image(systemName: preview.reversible ? "arrow.uturn.backward.circle" : "exclamationmark.triangle")
+                            .foregroundStyle(preview.reversible ? .green : .orange)
                     }
-                    .disabled(isProcessing)
-
-                    Button(String(localized: "common.cancel"), role: .cancel) {
-                        onCancel()
-                    }
-                    .foregroundStyle(.secondary)
                 }
             }
-            .padding()
+            .akifiSafeAreaBar(edge: .bottom) {
+                Button {
+                    onConfirm()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isProcessing {
+                            ProgressView()
+                        }
+                        Text(String(localized: "action.confirm"))
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.akifiPrimary)
+                .controlSize(.large)
+                // The risk colour carries meaning: green/blue, orange, red.
+                .tint(confirmButtonColor)
+                .disabled(isProcessing)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
             .navigationTitle(String(localized: "action.confirmation"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button {
+                    Button(String(localized: "common.cancel"), role: .cancel) {
                         onCancel()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -117,15 +97,16 @@ struct ActionPreviewSheet: View {
             Circle()
                 .fill(riskColor)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             Text("\(String(localized: "action.risk")): \(riskLabel)")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(riskColor)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(riskColor.opacity(0.12))
-        .clipShape(Capsule())
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(riskColor.opacity(0.12), in: Capsule())
+        .textCase(nil)
+        .padding(.bottom, 4)
     }
 
     private var riskColor: Color {

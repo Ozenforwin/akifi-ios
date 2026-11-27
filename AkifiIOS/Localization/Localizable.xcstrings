@@ -5505,6 +5505,28 @@
         }
       }
     },
+    "assistant.chatMenu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat options"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opciones del chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Действия с чатом"
+          }
+        }
+      }
+    },
     "assistant.cannotIdentifyMessage" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7138,6 +7160,28 @@
         }
       }
     },
+    "auth.password.hide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide password"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar contraseña"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Скрыть пароль"
+          }
+        }
+      }
+    },
     "auth.password.req.digit" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7226,6 +7270,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Заглавная буква"
+          }
+        }
+      }
+    },
+    "auth.password.show" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show password"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar contraseña"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать пароль"
           }
         }
       }
@@ -15662,6 +15728,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Опишите проблему..."
+          }
+        }
+      }
+    },
+    "feedback.helpful" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helpful"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Útil"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Полезно"
           }
         }
       }
@@ -36958,19 +37046,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ACCOUNT"
+            "value" : "Account"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CUENTA"
+            "value" : "Cuenta"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "СЧЁТ"
+            "value" : "Счёт"
           }
         }
       }
@@ -37004,19 +37092,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PERIOD"
+            "value" : "Period"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PERÍODO"
+            "value" : "Período"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ПЕРИОД"
+            "value" : "Период"
           }
         }
       }
@@ -37073,19 +37161,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TYPE"
+            "value" : "Type"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TIPO"
+            "value" : "Tipo"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ТИП"
+            "value" : "Тип"
           }
         }
       }

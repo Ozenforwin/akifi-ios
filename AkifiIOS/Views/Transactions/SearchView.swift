@@ -21,16 +21,11 @@ struct SearchView: View {
         NavigationStack {
             Group {
                 if searchText.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
+                    ContentUnavailableView {
+                        Label(String(localized: "search.title"), systemImage: "magnifyingglass")
+                    } description: {
                         Text(String(localized: "search.hint"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
                     }
-                    .frame(maxHeight: .infinity)
                 } else if results.isEmpty {
                     ContentUnavailableView.search(text: searchText)
                 } else {
@@ -39,16 +34,22 @@ struct SearchView: View {
                             transaction: transaction,
                             category: dataStore.category(for: transaction)
                         )
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .listRowBackground(Color.clear)
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGroupedBackground))
             .searchable(text: $searchText, isPresented: .constant(true), prompt: String(localized: "search.prompt"))
             .navigationTitle(String(localized: "search.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
             }
         }

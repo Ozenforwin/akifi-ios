@@ -124,19 +124,28 @@ struct SubscriptionFormView: View {
                 }
 
                 Section(String(localized: "categories.color")) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
-                        ForEach(colors, id: \.self) { color in
-                            Circle()
-                                .fill(Color(hex: color))
-                                .frame(width: 36, height: 36)
-                                .overlay {
-                                    if selectedColor == color {
-                                        Image(systemName: "checkmark")
-                                            .font(.caption.bold())
-                                            .foregroundStyle(.white)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
+                        ForEach(Array(colors.enumerated()), id: \.element) { index, color in
+                            Button {
+                                selectedColor = color
+                            } label: {
+                                Circle()
+                                    .fill(Color(hex: color))
+                                    .frame(width: 36, height: 36)
+                                    .overlay {
+                                        if selectedColor == color {
+                                            Image(systemName: "checkmark")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(.white)
+                                        }
                                     }
-                                }
-                                .onTapGesture { selectedColor = color }
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(String(localized: "categories.color"))
+                            .accessibilityValue(Text(verbatim: "\(index + 1)"))
+                            .accessibilityAddTraits(selectedColor == color ? .isSelected : [])
                         }
                     }
                 }

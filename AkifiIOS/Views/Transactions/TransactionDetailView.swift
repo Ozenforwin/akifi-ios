@@ -15,6 +15,9 @@ struct TransactionDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var deleteError: String?
 
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 48
+    @ScaledMetric(relativeTo: .subheadline) private var fireTileSize: CGFloat = 28
+
     private var dataStore: DataStore { appViewModel.dataStore }
 
     private var category: Category? {
@@ -61,7 +64,8 @@ struct TransactionDetailView: View {
                     Section {
                         HStack(spacing: 8) {
                             Image(systemName: "creditcard.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.accent)
+                                .accessibilityHidden(true)
                             Text(String(format: String(localized: "tx.autoTransfer.badge"), source.name))
                                 .font(.subheadline)
                         }
@@ -97,13 +101,8 @@ struct TransactionDetailView: View {
             .navigationTitle(String(localized: "transaction.details"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
+                ToolbarItem(placement: .cancellationAction) {
+                    SheetCloseButton { dismiss() }
                 }
             }
             .alert(
@@ -147,7 +146,8 @@ struct TransactionDetailView: View {
         Section {
             VStack(alignment: .center, spacing: 8) {
                 Text(category?.icon ?? "📦")
-                    .font(.system(size: 48))
+                    .font(.system(size: iconSize))
+                    .accessibilityHidden(true)
                 Text(formattedAmount)
                     .font(.title.weight(.bold))
                     .foregroundStyle(amountColor)
@@ -218,17 +218,11 @@ struct TransactionDetailView: View {
             Section {
                 HStack(spacing: 10) {
                     Image(systemName: "flag.checkered")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.orange, Color.orange.opacity(0.78)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .frame(width: fireTileSize, height: fireTileSize)
+                        .background(Color.warning, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "tx.fireImpact.title"))
                             .font(.subheadline.weight(.semibold))
