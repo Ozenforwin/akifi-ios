@@ -25,6 +25,8 @@ import { isCronAuthorized } from "../_shared/auth.ts";
 import { fetchAll } from "../_shared/paging.ts";
 import { fetchPriceInCurrency, MANUAL_ONLY_KINDS } from "../_shared/prices.ts";
 
+/// Wall-clock budget per run, well under the platform limit (150 s).
+const RUN_BUDGET_MS = 100_000;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -80,8 +82,34 @@ Deno.serve(async (req) => {
     tuples.push({ ticker, kind, currency });
   }
 
+  // N9: the per-ticker throttle (7.5 s on Twelve Data) used to walk every
+  // ticker in id order, so with ~20 tickers the platform killed the run and
+  // the same tail never refreshed. Stalest first, and stop before the wall
+  // clock runs out; the next run continues where this one stopped.
+  const cachedAt = new Map<string, number>();
+  try {
+    const cacheRows = await fetchAll<{ ticker: string; currency: string; kind: string; fetched_at: string }>(
+      "price_cache",
+      // (currency, kind, ticker) is the primary key: a unique total order.
+      () => supabase.from("price_cache").select("ticker,currency,kind,fetched_at", { count: "exact" })
+        .order("currency").order("kind"),
+      { pk: "ticker" },
+    );
+    for (const c of cacheRows) cachedAt.set(`${c.ticker}|${c.currency}|${c.kind}`, Date.parse(c.fetched_at) || 0);
+  } catch (err) {
+    console.error("[refresh-prices] cache read failed:", (err as Error).message);
+  }
+  tuples.sort((a, b) =>
+    (cachedAt.get(`${a.ticker}|${a.currency}|${a.kind}`) ?? 0) - (cachedAt.get(`${b.ticker}|${b.currency}|${b.kind}`) ?? 0)
+  );
+  const deadline = Date.now() + RUN_BUDGET_MS;
+
   const outcomes: Outcome[] = [];
   for (const t of tuples) {
+    if (Date.now() > deadline) {
+      outcomes.push({ ticker: t.ticker, currency: t.currency, status: "skip", reason: "next_run" });
+      continue;
+    }
     if (MANUAL_ONLY_KINDS.has(t.kind)) {
       outcomes.push({ ticker: t.ticker, currency: t.currency, status: "skip", reason: "manual_only_kind" });
       continue;
@@ -93,10 +121,11 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from("price_cache").upsert({
         ticker: t.ticker,
         currency: t.currency,
+        kind: t.kind,
         last_price: result.price,
         fetched_at: new Date().toISOString(),
         source: result.source,
-      }, { onConflict: "ticker,currency" });
+      }, { onConflict: "ticker,currency,kind" });
       outcomes.push(error
         ? { ticker: t.ticker, currency: t.currency, status: "err", reason: "cache_write_failed" }
         : { ticker: t.ticker, currency: t.currency, status: "ok" });

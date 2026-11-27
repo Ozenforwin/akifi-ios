@@ -47,13 +47,14 @@ type Client = any;
 
 type CachedPrice = { last_price: number; fetched_at: string; source: PriceSource | "manual" };
 
-async function readCache(supabase: Client, ticker: string, currency: string): Promise<CachedPrice | null> {
-  // bounded-fetch: primary-key lookup (ticker, currency).
+async function readCache(supabase: Client, ticker: string, currency: string, kind: string): Promise<CachedPrice | null> {
+  // bounded-fetch: primary-key lookup (ticker, currency, kind).
   const { data, error } = await supabase
     .from("price_cache")
     .select("last_price, fetched_at, source")
     .eq("ticker", ticker)
     .eq("currency", currency)
+    .eq("kind", kind)
     .maybeSingle();
   if (error || !data) return null;
   const age = (Date.now() - new Date(String(data.fetched_at)).getTime()) / 1000;
@@ -65,6 +66,7 @@ async function writeCache(
   supabase: Client,
   ticker: string,
   currency: string,
+  kind: string,
   price: number,
   source: PriceSource,
 ): Promise<string> {
@@ -72,10 +74,11 @@ async function writeCache(
   const { error } = await supabase.from("price_cache").upsert({
     ticker,
     currency,
+    kind,
     last_price: price,
     fetched_at: fetchedAt,
     source,
-  }, { onConflict: "ticker,currency" });
+  }, { onConflict: "ticker,currency,kind" });
   if (error) console.warn(`[fetch-price] cache write failed for ${ticker}/${currency}: ${error.code ?? "error"}`);
   return fetchedAt;
 }
@@ -122,7 +125,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const cached = await readCache(supabase, ticker, currency);
+  const cached = await readCache(supabase, ticker, currency, kind);
   if (cached) {
     return json({ ticker, currency, ...cached, cached: true });
   }
@@ -130,7 +133,7 @@ Deno.serve(async (req) => {
   const result = await fetchPriceInCurrency(ticker, kind, currency);
   if (!result.ok) return json({ error: result.code }, result.status);
 
-  const fetchedAt = await writeCache(supabase, ticker, currency, result.price, result.source);
+  const fetchedAt = await writeCache(supabase, ticker, currency, kind, result.price, result.source);
   return json({
     ticker,
     currency,

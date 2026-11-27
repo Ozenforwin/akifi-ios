@@ -413,6 +413,8 @@ interface BudgetMetricRow {
   utilization: number;
   member_ids: string[];
   alert_thresholds: number[] | null;
+  /// Account currencies without an fx_rates row (their rows were added 1:1).
+  fx_missing?: string[];
 }
 
 interface MemberContext {
@@ -530,6 +532,9 @@ function budgetWarningFor(
   lang: Lang,
 ): NotificationCandidate | null {
   if (!(m.effective_limit > 0)) return null;
+  // N8: without a rate for some account currency the server added those
+  // rows 1:1 (500 000 ₫ as 500 000 ₽) — never alert on such a number.
+  if ((m.fx_missing ?? []).length > 0) return null;
   const thresholds = m.alert_thresholds && m.alert_thresholds.length > 0
     ? m.alert_thresholds
     : [warningPercent, 100];
