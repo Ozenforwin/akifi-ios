@@ -30,3 +30,15 @@
 /* Empty state — no snapshot (signed out, fresh install) */
 "widget.empty.title" = "Abre Akifi";
 "widget.empty.subtitle" = "Inicia sesión para ver aquí tus datos";
+
+/* Quick entry control (Control Center) and its intent */
+"quickEntry.mode.type" = "Entrada rápida";
+"quickEntry.mode.expense" = "Gasto";
+"quickEntry.mode.income" = "Ingreso";
+"quickEntry.mode.voice" = "Por voz";
+"quickEntry.intent.open.title" = "Abrir entrada rápida";
+"quickEntry.intent.open.description" = "Abre Akifi directamente en la entrada de una operación";
+"quickEntry.intent.open.mode" = "Modo";
+"control.quickEntry.label" = "Gasto";
+"control.quickEntry.displayName" = "Gasto rápido";
+"control.quickEntry.description" = "Abre Akifi directamente en la entrada de un gasto";

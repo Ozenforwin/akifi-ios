@@ -249,7 +249,7 @@ struct ReportsView: View {
             transactions: monthTxs,
             previousTransactions: prevTxs,
             categories: dataStore.categories,
-            accounts: dataStore.accounts,
+            accounts: dataStore.allAccounts,  // id → name / currency lookups
             accountFilter: account,
             budgets: dataStore.budgets,
             subscriptions: dataStore.subscriptions,

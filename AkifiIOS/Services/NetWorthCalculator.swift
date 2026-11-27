@@ -29,6 +29,12 @@ enum NetWorthCalculator {
         let liabilitiesTotal: Int64
         let byAssetCategory: [AssetCategory: Int64]
         let byLiabilityCategory: [LiabilityCategory: Int64]
+        /// «Мне должны» — open debts with a positive balance, included in
+        /// `assetsTotal` (contract §A7.6). Base currency.
+        var debtsOwedToMe: Int64 = 0
+        /// «Я должен» — |negative| open debt balances, included in
+        /// `liabilitiesTotal`. Base currency.
+        var debtsIOwe: Int64 = 0
 
         /// Accounts + assets − liabilities, all in base currency.
         var netWorth: Int64 { accountsTotal + assetsTotal - liabilitiesTotal }
@@ -57,12 +63,17 @@ enum NetWorthCalculator {
     ///     missing entries → 1:1 fallback.
     ///   - baseCurrency: target currency for all outputs. Normally the
     ///     user's `CurrencyManager.dataCurrency`.
+    ///   - debtBalances: signed balances of OPEN «Долги» accounts in their
+    ///     own currency (`DebtMath.netWorthBalances`). Never part of
+    ///     `accountsTotal` (a debt is not money on an account): > 0 adds to
+    ///     the assets («мне должны»), < 0 to the liabilities («я должен»).
     static func compute(
         accountBalances: [(accountCurrency: String, amount: Int64)],
         assets: [Asset],
         liabilities: [Liability],
         fxRates: [String: Decimal],
-        baseCurrency: CurrencyCode
+        baseCurrency: CurrencyCode,
+        debtBalances: [(currency: String, amount: Int64)] = []
     ) -> Breakdown {
         let base = baseCurrency.code.uppercased()
 
@@ -100,12 +111,22 @@ enum NetWorthCalculator {
             byLiabilityCategory[liability.category, default: 0] += normalized
         }
 
+        // Debts (people): positive = asset, negative = liability.
+        var owedToMe: Int64 = 0
+        var iOwe: Int64 = 0
+        for (ccy, amt) in debtBalances {
+            let normalized = convert(amount: amt, from: ccy, to: base, rates: fxRates)
+            if normalized > 0 { owedToMe += normalized } else { iOwe += -normalized }
+        }
+
         return Breakdown(
             accountsTotal: accountsTotal,
-            assetsTotal: assetsTotal,
-            liabilitiesTotal: liabilitiesTotal,
+            assetsTotal: assetsTotal + owedToMe,
+            liabilitiesTotal: liabilitiesTotal + iOwe,
             byAssetCategory: byAssetCategory,
-            byLiabilityCategory: byLiabilityCategory
+            byLiabilityCategory: byLiabilityCategory,
+            debtsOwedToMe: owedToMe,
+            debtsIOwe: iOwe
         )
     }
 

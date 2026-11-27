@@ -1,8 +1,8 @@
 import WidgetKit
 import SwiftUI
 
-/// WidgetBundle — the entry-point that exposes all four widgets to iOS's
-/// Widget Gallery.
+/// WidgetBundle — the entry-point that exposes the four widgets to iOS's
+/// Widget Gallery and the quick-entry control to Control Center.
 ///
 /// Each widget is a standalone `Widget` conforming type defined in the
 /// adjacent files; this bundle is purely an aggregator. Adding a new
@@ -14,5 +14,6 @@ struct AkifiWidgetBundle: WidgetBundle {
         DailyLimitWidget()
         StreakWidget()
         DaySummaryWidget()
+        QuickEntryControl()
     }
 }

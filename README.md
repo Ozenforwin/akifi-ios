@@ -153,7 +153,17 @@ AkifiIOS/
 │   ├── SubscriptionDateEngine.swift  # Расчёт дат подписок (billing period, next payment)
 │   ├── SubscriptionMatcher.swift     # Авто-сопоставление транзакций с подписками
 │   ├── JournalPhotoUploader.swift    # Загрузка фото в Supabase Storage (resize, JPEG)
-│   └── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
+│   ├── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
+│   └── QuickEntry/                   # 1.6.0 быстрый ввод — движок (pure, тесты QuickEntry*Tests)
+│       ├── QuickEntryParser.swift    # «кофе 300», «+5000 подарок», «две тысячи пятьсот», даты, счёт, валюта (ru/en/es)
+│       ├── QuickEntryPredictor.swift # Категория из истории (тот же текст → имя → похожий → частота) + «повторить»
+│       ├── QuickEntryDefaults.swift  # Счёт по умолчанию (последний для типа, не вклад), дата, валюта счёта
+│       ├── QuickEntryEngine.swift    # Фраза + режим + ручные правки → QuickEntryDraft
+│       ├── QuickEntrySubmitter.swift # Единственный путь записи (DataStore.addTransaction, ADR-001)
+│       ├── QuickEntryInbox.swift     # akifi://quick-add, quick actions, Siri → ожидающий запрос для UI
+│       └── SpeechQuickEntry.swift    # SFSpeechRecognizer on-device, автостоп по тишине, seams для тестов
+│
+├── Intents/                          # App Intents: Siri / Shortcuts (AddExpense/AddIncome/Voice), quick actions
 │
 ├── Repositories/                     # Data access (все Sendable)
 │   ├── TransactionRepository.swift   # CRUD + RPC роутинг для auto-transfer триплетов

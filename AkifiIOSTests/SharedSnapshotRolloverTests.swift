@@ -72,7 +72,7 @@ final class SharedSnapshotRolloverTests: XCTestCase {
         let store = DataStore(cache: PersistenceManager(directory: tmp))
         store.isConnectedProvider = { false }
         let account = Account(id: "acc-1", userId: "u1", name: "Семейный", icon: "💳", color: "blue", initialBalance: 0, currency: "rub")
-        store.accounts = [account, account]
+        store.allAccounts = [account, account]
         let cm = CurrencyManager()
         cm.rates = ["USD": 1, "RUB": 80]
         SharedSnapshotWriter.write(dataStore: store, currencyManager: cm)

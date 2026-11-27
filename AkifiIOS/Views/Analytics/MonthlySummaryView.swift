@@ -114,7 +114,7 @@ struct MonthlySummaryView: View {
 
     /// Income up / expenses down is good (income colour), the opposite is
     /// bad (expense colour).
-    static func changeBadgeColor(change: Int, isIncome: Bool) -> Color {
+    nonisolated static func changeBadgeColor(change: Int, isIncome: Bool) -> Color {
         let isGood = isIncome ? change >= 0 : change < 0
         return isGood ? Color.income : Color.expense
     }

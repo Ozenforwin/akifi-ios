@@ -122,7 +122,7 @@ final class TabOpenBenchmarkTests: XCTestCase {
                                             nextPaymentDate: next))
         }
 
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.categories = categories
         store.transactions = txs
         store.budgets = budgets

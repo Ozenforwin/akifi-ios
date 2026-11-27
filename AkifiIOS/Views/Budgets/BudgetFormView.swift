@@ -38,7 +38,8 @@ struct BudgetFormView: View {
 
     init(categories: [Category], accounts: [Account], editingBudget: Budget? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
-        self.accounts = accounts
+        // A budget can't track a debt account (`debt_account_not_linkable`).
+        self.accounts = accounts.moneyAccounts
         self.editingBudget = editingBudget
         self.onSave = onSave
     }

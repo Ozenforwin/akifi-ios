@@ -72,6 +72,11 @@ struct HomeTabView: View {
                         .buttonStyle(.plain)
                     }
 
+                    // 1c. «Долги» — people, never part of the account totals.
+                    if !isNewUser {
+                        DebtsHomeEntry()
+                    }
+
                     // 2. Streak
                     StreakBadgeView()
 

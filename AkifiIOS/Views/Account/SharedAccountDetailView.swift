@@ -128,6 +128,7 @@ struct SharedAccountDetailView: View {
                     currency: account.currency,
                     viewModel: settlementVM
                 )
+                PersonalDebtCard(account: account, viewModel: settlementVM)
                 inviteRow
                 transactionsSection
             }
