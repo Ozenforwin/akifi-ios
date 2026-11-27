@@ -78,6 +78,9 @@ final class AppViewModel {
         self.dataStore.onSessionMissing = { [weak self] in
             self?.authManager.sessionVanished()
         }
+        // Siri / Shortcuts write through this instance's data store, never
+        // a second one (see QuickEntryHost).
+        QuickEntryHost.shared.attach(self)
     }
 
     // MARK: - Incoming URLs
@@ -90,6 +93,8 @@ final class AppViewModel {
 
     /// Single entry point for every URL the app is opened with.
     func open(_ url: URL) {
+        // akifi://quick-add?… waits in QuickEntryInbox for the signed-in UI.
+        if QuickEntryInbox.shared.open(url) { return }
         guard let link = DeepLink.parse(url) else { return }
         switch link {
         case .authCallback(let callback):
@@ -243,6 +248,7 @@ final class AppViewModel {
     func resetForSignOut(preserveQueue: Bool = false) {
         hasLoadedData = false
         pendingDeepLink = nil
+        QuickEntryInbox.shared.reset()
         // In-flight work of the previous user finishes on its own; the data
         // store discards its results (session epoch). The next sign-in
         // starts fresh instead of joining it.
