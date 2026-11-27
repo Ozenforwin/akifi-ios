@@ -221,9 +221,8 @@ struct AccountCardView: View {
     var onEdit: (() -> Void)?
 
     @ScaledMetric(relativeTo: .title3) private var iconTileSize: CGFloat = 40
-    /// The card keeps the pre-1.6 presence (≈190 pt with padding) — the
-    /// content-hugging card looked like a thin strip (Vladimir,
-    /// 2026-11-28). Grows with Dynamic Type; content can still exceed it.
+    /// Floor for the content when the card is narrow; the card's height
+    /// itself comes from `BankCardProportionLayout`.
     @ScaledMetric(relativeTo: .body) private var contentMinHeight: CGFloat = 158
 
     private var accountColor: Color { Color(hex: account.color) }
@@ -253,7 +252,9 @@ struct AccountCardView: View {
         }
         .frame(minHeight: contentMinHeight, alignment: .topLeading)
 
-        Group {
+        // A bank card's proportions (Wallet): at least width ÷ 1.586 tall,
+        // taller only when Dynamic Type needs it.
+        BankCardProportionLayout(aspect: AccountCoverCrop.cardAspect) {
             if let cover {
                 // A cover replaces the tint: the photo under a scrim, light
                 // text, still content — no glass, no shadow (Vladimir, 1.6.0).
@@ -445,4 +446,30 @@ struct AccountCardView: View {
     private var monthlyIncome: Int64 { monthFlow.income }
 
     private var monthlyExpense: Int64 { monthFlow.expense }
+}
+
+/// One child at the proposed width and at least `width / aspect` tall — the
+/// account card in a bank card's proportions (`AccountCoverCrop.cardAspect`),
+/// growing past them only when its content needs more (Dynamic Type). The
+/// child is placed at the final size, so its background / cover fills it.
+struct BankCardProportionLayout: Layout {
+    var aspect: CGFloat
+    /// Ceiling for the proportional height on very wide containers.
+    var maxProportionalHeight: CGFloat = 420
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let width = proposal.width ?? child.sizeThatFits(.unspecified).width
+        let natural = child.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+        return CGSize(width: width, height: max(natural, Self.proportionalHeight(width: width, aspect: aspect, cap: maxProportionalHeight)))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(bounds.size))
+    }
+
+    static func proportionalHeight(width: CGFloat, aspect: CGFloat, cap: CGFloat) -> CGFloat {
+        guard width.isFinite, width > 0, aspect > 0 else { return 0 }
+        return min(width / aspect, cap)
+    }
 }

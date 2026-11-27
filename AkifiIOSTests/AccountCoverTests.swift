@@ -234,8 +234,9 @@ final class AccountCoverTests: XCTestCase {
     }
 
     func test_crop_outputSize_neverUpscales() {
-        XCTAssertEqual(AccountCoverCrop.outputPixelSize(cropPixelWidth: 3000), CGSize(width: 1200, height: 632))
-        XCTAssertEqual(AccountCoverCrop.outputPixelSize(cropPixelWidth: 800.7), CGSize(width: 800, height: 421))
+        // Bank-card proportions (85.60 × 53.98): 1200 × 757, 800 × 504.
+        XCTAssertEqual(AccountCoverCrop.outputPixelSize(cropPixelWidth: 3000), CGSize(width: 1200, height: 757))
+        XCTAssertEqual(AccountCoverCrop.outputPixelSize(cropPixelWidth: 800.7), CGSize(width: 800, height: 504))
     }
 
     func test_crop_viewportFitsTheScreen() {
@@ -304,7 +305,7 @@ final class AccountCoverTests: XCTestCase {
         let orientation = props[kCGImagePropertyOrientation] as? Int
         XCTAssertTrue(orientation == nil || orientation == 1, "pixels are upright, no rotation flag")
         XCTAssertEqual(props[kCGImagePropertyPixelWidth] as? Int, 1200)
-        XCTAssertEqual(props[kCGImagePropertyPixelHeight] as? Int, 632)
+        XCTAssertEqual(props[kCGImagePropertyPixelHeight] as? Int, 757)
         XCTAssertLessThanOrEqual(jpeg.count, AccountCoverImageProcessor.maxUploadBytes)
         XCTAssertEqual(Array(jpeg.prefix(2)), [0xFF, 0xD8], "a JPEG")
     }

@@ -13,11 +13,13 @@ import CoreGraphics
 /// space (0…1 on both axes, origin top-left), independent of screen size —
 /// which `AccountCoverImageProcessor` turns into pixels.
 struct AccountCoverCrop: Equatable, Sendable {
-    /// Width / height of the Home account card (≈361 × 190 pt on a 6.1″
-    /// iPhone). Covers are cut at this ratio; the card fills itself with
-    /// the photo (`scaledToFill`), so other widths / Dynamic Type heights
-    /// trim a little at the edges.
-    static let cardAspect: CGFloat = 1.9
+    /// Width / height of the Home account card: a bank card's — ISO/IEC
+    /// 7810 ID-1, 85.60 × 53.98 mm — so a card from Wallet / Apple Pay used
+    /// as a cover fits whole (Vladimir, 2026-11-28; was 1.9). Covers are
+    /// cut at this ratio; the card fills itself with the photo
+    /// (`scaledToFill`), so a taller Dynamic Type card trims a little at
+    /// the sides.
+    static let cardAspect: CGFloat = 85.60 / 53.98
     /// Furthest zoom-in, relative to aspect fill.
     static let maxZoom: CGFloat = 5
     /// Pixel width of the uploaded cover (never upscaled beyond the crop).
