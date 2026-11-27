@@ -70,6 +70,7 @@
 		2BA016C0A6CA70898CDAAA95 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C2581E364E97B98BFB00509A /* Assets.xcassets */; };
 		2BB2291443EA46A40588E63E /* AcceptInviteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27855F4E63970F2E542A58B6 /* AcceptInviteView.swift */; };
 		2BD8E82315FDFF436D71F761 /* BudgetPeriodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E7A82F9C605CBFA7F7A437 /* BudgetPeriodTests.swift */; };
+		2C2B1A6D1C0F4246133F6497 /* DebtsScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523A25348BA8B823E62BFA8E /* DebtsScreenshotTests.swift */; };
 		2CE967F3E4B7E0BDEDE52FFB /* TransactionApplyUpdateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33623FCAD46C0861472BF90 /* TransactionApplyUpdateTests.swift */; };
 		2E3B75EEE65E51D0B974FB46 /* CategorySheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AD89107E2B86EEC4A0633E /* CategorySheetView.swift */; };
 		2ED9A088A3F0AEFACD213814 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = 834E431B1A23BD50027ACEBA /* FirebasePerformance */; };
@@ -549,6 +550,7 @@
 		50EA40FA65D58EED86060438 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
 		5122142A303ED282565C2ECD /* ReportsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsViewModel.swift; sourceTree = "<group>"; };
 		520644E0C49694D32DA72AF0 /* AccountSettlementCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettlementCardView.swift; sourceTree = "<group>"; };
+		523A25348BA8B823E62BFA8E /* DebtsScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebtsScreenshotTests.swift; sourceTree = "<group>"; };
 		523ADEA12B8BA6D31B0B17D4 /* FIREImpactCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FIREImpactCalculator.swift; sourceTree = "<group>"; };
 		535E3A1C28B95FC1C362C59A /* DepositsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepositsViewModel.swift; sourceTree = "<group>"; };
 		538EF9618B5A83AD3EDAA686 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
@@ -1222,6 +1224,7 @@
 				AFFC94444E70EF3A40B57FCC /* DebtExclusionTests.swift */,
 				DA6A5EFFDBABEFE7D173AAEF /* DebtMathTests.swift */,
 				420591D5829277B36FDD479C /* DebtsDecodingTests.swift */,
+				523A25348BA8B823E62BFA8E /* DebtsScreenshotTests.swift */,
 				D39CAF01E385EB04B0D9D807 /* DepositDatesTests.swift */,
 				E29A8A7A6D9E4A46400FD64D /* FeatureStreamFixesTests.swift */,
 				72780002F720B7F64957B56D /* FIREImpactCalculatorTests.swift */,
@@ -1739,6 +1742,7 @@
 				11BCB348A1C086C38EC3BC63 /* DebtExclusionTests.swift in Sources */,
 				79AF449B7A368A02D5CD7573 /* DebtMathTests.swift in Sources */,
 				65757493C93B2278870BD384 /* DebtsDecodingTests.swift in Sources */,
+				2C2B1A6D1C0F4246133F6497 /* DebtsScreenshotTests.swift in Sources */,
 				C5E099539D8C9A17DDFF4CE2 /* DepositDatesTests.swift in Sources */,
 				CD49FAA6B8B8B00D78F8CDBE /* FIREImpactCalculatorTests.swift in Sources */,
 				71CA2F5DD3B83EAF8D03DE55 /* FIREProjectorTests.swift in Sources */,

@@ -88,9 +88,16 @@ final class DebtsStore {
 
     // MARK: - Loading
 
-    func refresh(dataStore: DataStore) async {
+    /// Refetches `debts_summary`. `maxAge > 0` (Home card) skips the call
+    /// while a summary newer than that is still current for every local
+    /// write; screens and writes refetch unconditionally.
+    func refresh(dataStore: DataStore, maxAge: TimeInterval = 0) async {
         let viewer = dataStore.profile?.id.lowercased()
         if summary == nil, let viewer { loadCached(userId: viewer) }
+        if maxAge > 0, prefersServerBalance(dataStore), let fetchedAt = summaryFetchedAt,
+           Date().timeIntervalSince(fetchedAt) < maxAge {
+            return
+        }
         isLoading = true
         defer { isLoading = false }
         let mark = dataStore.mutationGeneration

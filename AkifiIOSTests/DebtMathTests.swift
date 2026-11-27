@@ -393,6 +393,30 @@ final class DebtsStoreTests: XCTestCase {
         _ = cm
     }
 
+    /// Home's throttled refresh skips the call while the summary is fresh;
+    /// a local write (or a plain refresh) always refetches.
+    func test_throttledRefresh() async throws {
+        let (store, _) = makeStore()
+        let calls = Box(0)
+        let debts = makeDebts()
+        let summary = DebtsSummary(debts: [])
+        debts.remote.fetchSummary = { calls.value += 1; return summary }
+
+        await debts.refresh(dataStore: store, maxAge: 120)
+        await debts.refresh(dataStore: store, maxAge: 120)
+        XCTAssertEqual(calls.value, 1, "fresh summary → no second call")
+
+        await debts.refresh(dataStore: store)
+        XCTAssertEqual(calls.value, 2, "screens refetch unconditionally")
+
+        _ = try await store.addTransaction(CreateTransactionInput(
+            user_id: "me", account_id: "card", amount: 1, currency: "RUB", type: "expense",
+            date: "2026-11-28T11:00:00", description: nil, category_id: nil, merchant_name: nil
+        ))
+        await debts.refresh(dataStore: store, maxAge: 120)
+        XCTAssertEqual(calls.value, 3, "a local write makes the summary stale")
+    }
+
     func test_offlineRefresh_keepsLocalNumbers() async {
         let (store, _) = makeStore()
         store.allAccounts.append(DebtExclusionTests.masha)

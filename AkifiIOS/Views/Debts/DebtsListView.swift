@@ -220,7 +220,7 @@ struct DebtsHomeEntry: View {
         // Re-asks the server when a debt appears or disappears (the store's
         // load timestamps are not observable).
         .task(id: appViewModel.dataStore.debtAccounts.map(\.id)) {
-            await appViewModel.debts.refresh(dataStore: appViewModel.dataStore)
+            await appViewModel.debts.refresh(dataStore: appViewModel.dataStore, maxAge: 120)
         }
     }
 }
