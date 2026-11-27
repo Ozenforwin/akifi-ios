@@ -167,13 +167,21 @@ struct AcceptInviteView: View {
     private let kind: InviteKind
 
     private let supabase = SupabaseManager.shared.client
+    /// Fetches the invite preview; nil when unavailable. Injected so the
+    /// screen can be exercised without the network.
+    private let previewLoader: @MainActor (_ token: String) async -> InvitePreview?
 
-    init(initialCode: String = "", kind: InviteKind = .account) {
+    init(
+        initialCode: String = "",
+        kind: InviteKind = .account,
+        previewLoader: @escaping @MainActor (_ token: String) async -> InvitePreview? = AcceptInviteView.fetchPreview
+    ) {
         _code = State(initialValue: initialCode)
         fromLink = !initialCode.isEmpty
         // A link never joins by itself: it opens the confirmation (S2).
         _phase = State(initialValue: initialCode.isEmpty ? .enterCode : .confirm)
         self.kind = kind
+        self.previewLoader = previewLoader
     }
 
     private var cleanCode: String {
@@ -353,12 +361,11 @@ struct AcceptInviteView: View {
         let p_token: String
     }
 
-    private func loadPreview() async {
-        let token = cleanCode
-        guard token.count >= DeepLink.minimumInviteCodeLength else { return }
-        isLoadingPreview = true
-        defer { isLoadingPreview = false }
-        let client = supabase
+    /// `preview_invite(p_token)`; nil when the RPC isn't deployed yet,
+    /// offline, or the answer doesn't parse — the screen then falls back
+    /// to the link's kind and says it can't tell who sent the link.
+    static func fetchPreview(token: String) async -> InvitePreview? {
+        let client = SupabaseManager.shared.client
         do {
             let data = try await withTimeout(seconds: 6) {
                 // bounded-fetch: preview_invite returns a single jsonb object, not a row set.
@@ -367,12 +374,18 @@ struct AcceptInviteView: View {
                     .execute()
                     .data
             }
-            preview = InvitePreview.decode(data)
+            return InvitePreview.decode(data)
         } catch {
-            // RPC not deployed yet / offline: the screen falls back to the
-            // link's kind and says it can't tell who sent the link.
-            preview = nil
+            return nil
         }
+    }
+
+    private func loadPreview() async {
+        let token = cleanCode
+        guard token.count >= DeepLink.minimumInviteCodeLength else { return }
+        isLoadingPreview = true
+        defer { isLoadingPreview = false }
+        preview = await previewLoader(token)
         switch preview?.status {
         case .expired?: phase = .failure(String(localized: "invite.errorExpired"))
         case .notFound?: phase = .failure(String(localized: "invite.errorNotFound"))
