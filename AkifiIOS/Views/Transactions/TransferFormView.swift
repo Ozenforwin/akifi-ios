@@ -48,7 +48,9 @@ struct TransferFormView: View {
     }
 
     init(accounts: [Account], editingTransaction: Transaction? = nil, onSave: @escaping () async -> Void) {
-        self.accounts = accounts
+        // Money accounts only (contract §A7): a debt movement is edited in
+        // its own sheet (see `body`).
+        self.accounts = accounts.moneyAccounts
         self.editingTransaction = editingTransaction
         self.onSave = onSave
     }
@@ -69,7 +71,18 @@ struct TransferFormView: View {
         // form used to re-price both legs at today's rate and leave the
         // expense alone — money out of thin air on the shared account.
         // Open the expense instead; when RLS hides it, read-only.
-        if let leg = editingTransaction, leg.isAutoTransferLeg {
+        if let leg = editingTransaction,
+           let debt = DebtTransferBuilder.debtAccount(
+               of: leg,
+               accounts: appViewModel.dataStore.account(withId:),
+               transactions: appViewModel.dataStore.transactions
+           ) {
+            // A «Долги» movement: both legs, the person fixed, the real
+            // account from the money accounts.
+            NavigationStack {
+                DebtMovementForm(debtAccountId: debt.id, mode: .edit(leg)) { dismiss() }
+            }
+        } else if let leg = editingTransaction, leg.isAutoTransferLeg {
             if let main = appViewModel.dataStore.mainExpense(forAutoTransferLeg: leg) {
                 TransactionFormView(
                     categories: appViewModel.dataStore.displayCategories,
@@ -281,7 +294,7 @@ struct TransferFormView: View {
             calculatorState.setValue(abs(foreign))
         } else {
             // Fall back to the source leg's account currency.
-            let srcAccount = dataStore.accounts.first { $0.id == sourceLeg.accountId }
+            let srcAccount = dataStore.account(withId: sourceLeg.accountId)
             let srcCode = srcAccount?.currencyCode ?? cm.dataCurrency
             entryCurrency.load(srcCode)
             calculatorState.setValue(abs(sourceLeg.amountNative.displayAmount))

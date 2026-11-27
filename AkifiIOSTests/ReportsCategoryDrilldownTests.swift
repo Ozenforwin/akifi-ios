@@ -20,7 +20,7 @@ final class ReportsCategoryDrilldownTests: XCTestCase {
         // row on the user's screenshot.
         cm.rates = ["USD": 1.0, "RUB": 83.7]
         store.currencyManager = cm
-        store.accounts = [
+        store.allAccounts = [
             Account(
                 id: "acc-rub", userId: "u1", name: "IBT BANK", icon: "💳",
                 color: "#3B82F6", initialBalance: 0, currency: "RUB"

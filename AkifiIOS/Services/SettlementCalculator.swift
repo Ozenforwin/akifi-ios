@@ -38,6 +38,17 @@ import Foundation
 /// server's `get_account_settlement`, which sums `amount_native` the same
 /// way; the two must agree (M11 removed a label-based conversion that
 /// made them differ on legacy rows).
+///
+/// **Personal spending (v2, 1.6.0, contract §B4/§B6).** A main
+/// auto-transfer expense with `personalDebtUserId = M`, M a current
+/// member, is not split: 100 % of it goes to M's fair share
+/// (`personalShare`). Paid from M's own card it nets to zero; paid by a
+/// partner, M owes the partner the full amount. A per-transaction mark on
+/// such an expense settles M's full share; a mark for anyone else is a
+/// no-op. A mark for a former member is ignored (the expense is shared).
+/// What members owe the ACCOUNT for personal spending from its own money
+/// is `personalDebts(...)` — outside the who-owes-whom balances, exactly
+/// like the server.
 enum SettlementCalculator {
 
     /// Aggregate of what a single member put into the shared account and
@@ -52,9 +63,29 @@ enum SettlementCalculator {
         /// (the default) this collapses to `totalExpenses / memberCount`.
         let fairShare: Int64
 
+        /// Part of `fairShare` attributed 100 % to this member — their
+        /// personal expenses paid via «Оплачено с» (v2). 0 without marks.
+        var personalShare: Int64 = 0
+
         /// `contributed - fairShare`. Positive → member is owed money;
         /// negative → member owes the group.
         var delta: Int64 { contributed - fairShare }
+        var id: String { userId }
+    }
+
+    /// What one member owes the shared account for personal spending paid
+    /// from the account's own money (server `personal_debts`, v2).
+    struct PersonalDebt: Sendable, Identifiable, Equatable {
+        let userId: String
+        /// Σ direct expenses marked for this member.
+        let expenses: Int64
+        /// Σ repayment legs (manual transfer income legs) marked for them.
+        let repaid: Int64
+        /// false: no longer a member, still has non-zero numbers.
+        let isMember: Bool
+
+        /// `max(expenses − repaid, 0)` — the number to display.
+        var owed: Int64 { max(expenses - repaid, 0) }
         var id: String { userId }
     }
 
@@ -176,6 +207,21 @@ enum SettlementCalculator {
         // (`get_account_settlement`) sums `amount_native` the same way.
         let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative } // allowlisted-amount: one shared account, one currency
 
+        // v2: personal main expenses go 100 % to their member — only for a
+        // CURRENT member; a mark for someone who left is split like a
+        // shared expense (server `v_personal` / `acct_rows.personal`).
+        let memberKeys = Dictionary(memberUserIds.map { ($0.lowercased(), $0) }, uniquingKeysWith: { first, _ in first })
+        func personalMember(of expense: Transaction) -> String? {
+            expense.personalDebtUserId.flatMap { memberKeys[$0.lowercased()] }
+        }
+        var personalShares: [String: Int64] = [:]
+        for expense in autoTransferExpenses {
+            if let member = personalMember(of: expense) {
+                personalShares[member, default: 0] += expense.amountNative // allowlisted-amount: one shared account, one currency
+            }
+        }
+        let sharedTotal = totalExpenses - personalShares.values.reduce(0, +)
+
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
         // split. We only consider members with weight > 0 for the divisor —
@@ -197,10 +243,10 @@ enum SettlementCalculator {
         var fairShares: [String: Int64] = Dictionary(
             uniqueKeysWithValues: memberUserIds.map { ($0, Int64(0)) }
         )
-        if totalExpenses > 0 && sumWeights > 0 {
+        if sharedTotal != 0 && sumWeights > 0 {
             for uid in memberUserIds {
                 let weight = resolvedWeights[uid] ?? 1.0
-                let share = Decimal(totalExpenses) * weight / sumWeights
+                let share = Decimal(sharedTotal) * weight / sumWeights
                 // Round half-up to the nearest kopeck. Explicit handler
                 // avoids banker's rounding drift when weights are equal.
                 var rounded = Decimal()
@@ -214,7 +260,7 @@ enum SettlementCalculator {
             // for tests. With 2-member equal-split the residual is at most
             // ±1; with N members and N-tier split-weights it's at most ±N/2.
             let summed = fairShares.values.reduce(0, +)
-            var residual = totalExpenses - summed
+            var residual = sharedTotal - summed
             let step: Int64 = residual > 0 ? 1 : -1
             var i = 0
             while residual != 0 && i < memberUserIds.count {
@@ -223,6 +269,9 @@ enum SettlementCalculator {
                 residual -= step
                 i += 1
             }
+        }
+        for (uid, personal) in personalShares {
+            fairShares[uid, default: 0] += personal
         }
 
         // 3. Contributions.
@@ -320,7 +369,7 @@ enum SettlementCalculator {
         //     (as if the payer received that amount back). When every
         //     non-payer member of a txn settles, the txn's net delta
         //     becomes zero — same as if it had been split off-app.
-        if !transactionMemberSettlements.isEmpty && sumWeights > 0 {
+        if !transactionMemberSettlements.isEmpty {
             // Index expense rows by id once; lookups inside the loop are O(1).
             let expensesById = Dictionary(
                 uniqueKeysWithValues: autoTransferExpenses.map { ($0.id, $0) }
@@ -346,12 +395,24 @@ enum SettlementCalculator {
 
                 // Share for the settled member, in the shared account's
                 // currency (the expense row lives on it — no FX, M11).
-                let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
-                let share = Decimal(expense.amountNative) * weight / sumWeights // allowlisted-amount: expense on the shared account, its currency
-                var rounded = Decimal()
-                var src = share
-                NSDecimalRound(&rounded, &src, 0, .plain)
-                let shareInt = Int64(truncating: rounded as NSDecimalNumber)
+                let shareInt: Int64
+                if let personal = personalMember(of: expense) {
+                    // v2: a personal expense is all M's — a mark for M
+                    // settles the full amount, a mark for anyone else is a
+                    // no-op.
+                    shareInt = personal.lowercased() == memberSettlement.settledForUserId.lowercased()
+                        ? expense.amountNative // allowlisted-amount: expense on the shared account, its currency
+                        : 0
+                } else {
+                    guard sumWeights > 0 else { continue }
+                    let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
+                    let share = Decimal(expense.amountNative) * weight / sumWeights // allowlisted-amount: expense on the shared account, its currency
+                    var rounded = Decimal()
+                    var src = share
+                    NSDecimalRound(&rounded, &src, 0, .plain)
+                    shareInt = Int64(truncating: rounded as NSDecimalNumber)
+                }
+                guard shareInt != 0 else { continue }
 
                 contributions[memberSettlement.settledForUserId, default: 0] += shareInt
                 contributions[payer, default: 0] -= shareInt
@@ -369,9 +430,55 @@ enum SettlementCalculator {
             MemberBalance(
                 userId: uid,
                 contributed: contributions[uid] ?? 0,
-                fairShare: fairShares[uid] ?? 0
+                fairShare: fairShares[uid] ?? 0,
+                personalShare: personalShares[uid] ?? 0
             )
         }
+    }
+
+    /// What each member owes the shared account for personal spending paid
+    /// from its own money — the local mirror of the server's
+    /// `personal_debts` (v2, contract §B4):
+    /// - `expenses` = Σ direct expenses (expense, no `transferGroupId`, no
+    ///   `autoTransferGroupId`) with `personalDebtUserId = M`;
+    /// - `repaid` = Σ repayment legs (income, `transferGroupId` set, no
+    ///   `autoTransferGroupId`) with `personalDebtUserId = M`;
+    /// - one entry per current member in the given order (zeros included),
+    ///   then former members with non-zero numbers (`isMember = false`).
+    ///
+    /// Cumulative (no period) and in the shared account's currency: every
+    /// summed row lives on it (ADR-001, no FX). Not part of `compute`'s
+    /// balances — direct expenses and manual transfers stay out of the
+    /// who-owes-whom math.
+    static func personalDebts(
+        sharedAccountId: String,
+        transactions: [Transaction],
+        memberUserIds: [String]
+    ) -> [PersonalDebt] {
+        var expenses: [String: Int64] = [:]
+        var repaid: [String: Int64] = [:]
+        for tx in transactions where tx.accountId == sharedAccountId && tx.autoTransferGroupId == nil {
+            guard let user = tx.personalDebtUserId?.lowercased() else { continue }
+            if tx.type == .expense && tx.transferGroupId == nil {
+                expenses[user, default: 0] += tx.amountNative // allowlisted-amount: rows on the shared account, its currency
+            } else if tx.type == .income && tx.transferGroupId != nil {
+                repaid[user, default: 0] += tx.amountNative // allowlisted-amount: rows on the shared account, its currency
+            }
+        }
+        var out: [PersonalDebt] = []
+        var seen: Set<String> = []
+        for member in memberUserIds {
+            let key = member.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            out.append(PersonalDebt(userId: member, expenses: expenses[key] ?? 0, repaid: repaid[key] ?? 0, isMember: true))
+        }
+        let former = Set(expenses.keys).union(repaid.keys).subtracting(seen).sorted()
+        for user in former {
+            let e = expenses[user] ?? 0, r = repaid[user] ?? 0
+            guard e != 0 || r != 0 else { continue }
+            out.append(PersonalDebt(userId: user, expenses: e, repaid: r, isMember: false))
+        }
+        return out
     }
 
     /// Imbalances at or below this magnitude (kopecks) are treated as

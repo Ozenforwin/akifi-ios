@@ -126,6 +126,11 @@ final class TransactionRepository: Sendable {
     func update(id: String, _ input: UpdateTransactionInput) async throws {
         if input.useAutoTransferUpdate {
             try await updateExpenseWithAutoTransfer(id: id, input)
+            // `update_expense_with_auto_transfer` never touches the personal
+            // mark (contract §B3): it is its own PATCH on the main expense.
+            if input.updatesPersonalDebt {
+                try await updatePersonalDebt(id: id, userId: input.personal_debt_user_id)
+            }
             return
         }
 
@@ -144,6 +149,18 @@ final class TransactionRepository: Sendable {
     }
 
     private struct RowId: Decodable { let id: String }
+
+    /// `{"personal_debt_user_id": <uuid|null>}` on one row (contract §B3).
+    private func updatePersonalDebt(id: String, userId: String?) async throws {
+        let touched: [RowId] = try await supabase
+            .from("transactions")
+            .update(PersonalDebtPatch(personal_debt_user_id: userId))
+            .eq("id", value: id)
+            .select("id")
+            .execute()
+            .value
+        guard !touched.isEmpty else { throw TransactionWriteError.noRowsAffected }
+    }
 
     private func updateExpenseWithAutoTransfer(id: String, _ input: UpdateTransactionInput) async throws {
         // See note in createExpenseWithAutoTransfer — must emit null keys,
@@ -318,6 +335,11 @@ struct CreateExpenseWithAutoTransferParams: Encodable, Sendable {
     let p_foreign_amount: Decimal?
     let p_foreign_currency: String?
     let p_fx_rate: Decimal?
+    /// Personal spending on a shared account (contract §B3). Emitted only
+    /// when set: the 15-key body routes to the 15-arg overload
+    /// (20261128090002), the 14-key body keeps routing to the 14-arg one —
+    /// a plain expense never depends on the 1.6 migration.
+    var p_personal_debt_user_id: String? = nil
     /// When true we emit `p_source_amount` + `p_source_currency`
     /// keys (even if null) so Postgres picks the 10-arg overload.
     /// When false we drop them entirely — 8-arg matches.
@@ -334,6 +356,7 @@ struct CreateExpenseWithAutoTransferParams: Encodable, Sendable {
         case p_payment_source_account_id
         case p_source_amount, p_source_currency
         case p_foreign_amount, p_foreign_currency, p_fx_rate
+        case p_personal_debt_user_id
     }
 
     func encode(to encoder: Encoder) throws {
@@ -355,6 +378,9 @@ struct CreateExpenseWithAutoTransferParams: Encodable, Sendable {
             try c.encode(p_foreign_amount, forKey: .p_foreign_amount)
             try c.encode(p_foreign_currency, forKey: .p_foreign_currency)
             try c.encode(p_fx_rate, forKey: .p_fx_rate)
+        }
+        if let p_personal_debt_user_id {
+            try c.encode(p_personal_debt_user_id, forKey: .p_personal_debt_user_id)
         }
     }
 }
@@ -389,6 +415,7 @@ extension CreateExpenseWithAutoTransferParams {
             p_foreign_amount: input.foreign_amount,
             p_foreign_currency: input.foreign_currency,
             p_fx_rate: input.fx_rate,
+            p_personal_debt_user_id: input.personal_debt_user_id,
             includeSourceKeys: true,
             includeForeignKeys: true
         )
@@ -433,6 +460,9 @@ struct CreateTransactionInput: Codable, Sendable {
     /// the RPC call to the 10-arg overload.
     let source_amount: Decimal?
     let source_currency: String?
+    /// Personal spending / repayment mark on a shared account (contract
+    /// §B1). Encoded only when set, so every other write is unchanged.
+    let personal_debt_user_id: String?
 
     init(
         id: String? = nil,
@@ -452,7 +482,8 @@ struct CreateTransactionInput: Codable, Sendable {
         transfer_group_id: String? = nil,
         payment_source_account_id: String? = nil,
         source_amount: Decimal? = nil,
-        source_currency: String? = nil
+        source_currency: String? = nil,
+        personal_debt_user_id: String? = nil
     ) {
         self.id = id
         self.user_id = user_id; self.account_id = account_id; self.amount = amount
@@ -467,6 +498,7 @@ struct CreateTransactionInput: Codable, Sendable {
         self.payment_source_account_id = payment_source_account_id
         self.source_amount = source_amount
         self.source_currency = source_currency
+        self.personal_debt_user_id = personal_debt_user_id?.lowercased()
     }
 
     // `source_amount` / `source_currency` are client-only — they only exist
@@ -482,6 +514,7 @@ struct CreateTransactionInput: Codable, Sendable {
         case payment_source_account_id
         case amount_native, foreign_amount, foreign_currency, fx_rate
         case source_amount, source_currency
+        case personal_debt_user_id
     }
 
     func encode(to encoder: Encoder) throws {
@@ -502,6 +535,7 @@ struct CreateTransactionInput: Codable, Sendable {
         try c.encodeIfPresent(merchant_name, forKey: .merchant_name)
         try c.encodeIfPresent(transfer_group_id, forKey: .transfer_group_id)
         try c.encodeIfPresent(payment_source_account_id, forKey: .payment_source_account_id)
+        try c.encodeIfPresent(personal_debt_user_id, forKey: .personal_debt_user_id)
         if encoder.userInfo[PersistenceManager.queuePersistenceKey] as? Bool == true {
             try c.encodeIfPresent(source_amount, forKey: .source_amount)
             try c.encodeIfPresent(source_currency, forKey: .source_currency)
@@ -528,6 +562,7 @@ struct CreateTransactionInput: Codable, Sendable {
         payment_source_account_id = try c.decodeIfPresent(String.self, forKey: .payment_source_account_id)
         source_amount = try c.decodeIfPresent(Decimal.self, forKey: .source_amount)
         source_currency = try c.decodeIfPresent(String.self, forKey: .source_currency)
+        personal_debt_user_id = try c.decodeIfPresent(String.self, forKey: .personal_debt_user_id)
     }
 
     /// Copy with a client-generated id when none is set yet.
@@ -544,7 +579,8 @@ struct CreateTransactionInput: Codable, Sendable {
             description: description, category_id: category_id,
             merchant_name: merchant_name, transfer_group_id: transfer_group_id,
             payment_source_account_id: payment_source_account_id,
-            source_amount: source_amount, source_currency: source_currency
+            source_amount: source_amount, source_currency: source_currency,
+            personal_debt_user_id: personal_debt_user_id
         )
     }
 
@@ -572,7 +608,8 @@ struct CreateTransactionInput: Codable, Sendable {
             transfer_group_id: transfer_group_id,
             payment_source_account_id: payment_source_account_id,
             source_amount: u.source_amount ?? source_amount,
-            source_currency: u.source_currency ?? source_currency
+            source_currency: u.source_currency ?? source_currency,
+            personal_debt_user_id: u.updatesPersonalDebt ? u.personal_debt_user_id : personal_debt_user_id
         )
     }
 }
@@ -611,6 +648,11 @@ struct UpdateTransactionInput: Codable, Sendable {
     /// "patch only what's set" behaviour for callers that touch a single
     /// field (e.g. updating just the description).
     let replaceCurrencyFields: Bool
+    /// Personal mark (contract §B3). Sent only when `updatesPersonalDebt`:
+    /// then nil is a JSON null that clears the mark; otherwise the column
+    /// is left alone (every pre-1.6 edit path).
+    let personal_debt_user_id: String?
+    let updatesPersonalDebt: Bool
 
     init(
         amount: Decimal? = nil,
@@ -628,7 +670,9 @@ struct UpdateTransactionInput: Codable, Sendable {
         useAutoTransferUpdate: Bool = false,
         replaceCurrencyFields: Bool = false,
         source_amount: Decimal? = nil,
-        source_currency: String? = nil
+        source_currency: String? = nil,
+        personal_debt_user_id: String? = nil,
+        updatesPersonalDebt: Bool = false
     ) {
         self.amount = amount
         self.amount_native = amount_native
@@ -644,6 +688,8 @@ struct UpdateTransactionInput: Codable, Sendable {
         self.replaceCurrencyFields = replaceCurrencyFields
         self.source_amount = source_amount
         self.source_currency = source_currency?.uppercased()
+        self.personal_debt_user_id = personal_debt_user_id?.lowercased()
+        self.updatesPersonalDebt = updatesPersonalDebt
     }
 
     /// Every field of a create, as an UPDATE of the row it created (Y4):
@@ -667,7 +713,11 @@ struct UpdateTransactionInput: Codable, Sendable {
             useAutoTransferUpdate: create.routesToAutoTransferRPC,
             replaceCurrencyFields: true,
             source_amount: create.source_amount,
-            source_currency: create.source_currency
+            source_currency: create.source_currency,
+            // Only a set mark is replayed: an unmarked create never sends
+            // the 1.6 column (a pre-1.6 server would reject the key).
+            personal_debt_user_id: create.personal_debt_user_id,
+            updatesPersonalDebt: create.personal_debt_user_id != nil
         )
     }
 
@@ -681,6 +731,7 @@ struct UpdateTransactionInput: Codable, Sendable {
         case amount_native, foreign_amount, foreign_currency, fx_rate
         case use_auto_transfer_update, replace_currency_fields
         case source_amount, source_currency
+        case personal_debt_user_id, updates_personal_debt
     }
 
     init(from decoder: Decoder) throws {
@@ -702,15 +753,24 @@ struct UpdateTransactionInput: Codable, Sendable {
         replaceCurrencyFields = try c.decodeIfPresent(Bool.self, forKey: .replace_currency_fields) ?? false
         source_amount = try c.decodeIfPresent(Decimal.self, forKey: .source_amount)
         source_currency = try c.decodeIfPresent(String.self, forKey: .source_currency)
+        personal_debt_user_id = try c.decodeIfPresent(String.self, forKey: .personal_debt_user_id)
+        updatesPersonalDebt = try c.decodeIfPresent(Bool.self, forKey: .updates_personal_debt) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        if encoder.userInfo[PersistenceManager.queuePersistenceKey] as? Bool == true {
+        let forQueue = encoder.userInfo[PersistenceManager.queuePersistenceKey] as? Bool == true
+        if forQueue {
             try c.encode(useAutoTransferUpdate, forKey: .use_auto_transfer_update)
             try c.encode(replaceCurrencyFields, forKey: .replace_currency_fields)
             try c.encodeIfPresent(source_amount, forKey: .source_amount)
             try c.encodeIfPresent(source_currency, forKey: .source_currency)
+            if updatesPersonalDebt { try c.encode(true, forKey: .updates_personal_debt) }
+        }
+        // The auto-transfer RPC path sends the mark as its own PATCH
+        // (`TransactionRepository.update`); the plain UPDATE carries it.
+        if updatesPersonalDebt && (forQueue || !useAutoTransferUpdate) {
+            try c.encode(personal_debt_user_id, forKey: .personal_debt_user_id)
         }
         if replaceCurrencyFields {
             // Always emit — nil → JSON null → DB column cleared.
@@ -734,5 +794,17 @@ struct UpdateTransactionInput: Codable, Sendable {
         try c.encodeIfPresent(category_id, forKey: .category_id)
         try c.encodeIfPresent(merchant_name, forKey: .merchant_name)
         try c.encodeIfPresent(account_id, forKey: .account_id)
+    }
+}
+
+/// Body of the personal-mark PATCH: always emits the key (null clears).
+struct PersonalDebtPatch: Encodable, Sendable {
+    let personal_debt_user_id: String?
+
+    enum CodingKeys: String, CodingKey { case personal_debt_user_id }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(personal_debt_user_id, forKey: .personal_debt_user_id)
     }
 }
