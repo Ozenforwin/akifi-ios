@@ -1,8 +1,23 @@
 import SwiftUI
 
+/// The «Бюджеты» tab: two sections behind a segmented control right under
+/// the title — «Бюджеты | Подписки» (Vladimir, 2026-11-28). The toolbar «+»
+/// adds whatever is shown.
 struct BudgetsTabView: View {
+    enum Segment: String, CaseIterable, Identifiable {
+        case budgets, subscriptions
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .budgets: String(localized: "budget.title")
+            case .subscriptions: String(localized: "subscriptions.title")
+            }
+        }
+    }
+
     @Environment(AppViewModel.self) private var appViewModel
     @State private var viewModel = BudgetsViewModel()
+    @State private var segment: Segment = .budgets
     @State private var showSubscriptionForm = false
     @State private var editingSubscription: SubscriptionTracker?
     @State private var subscriptionsVM = SubscriptionsViewModel()
@@ -40,7 +55,23 @@ struct BudgetsTabView: View {
 
         return NavigationStack {
             List {
+                // «Бюджеты | Подписки» right under the large title (a pinned
+                // bar blurred the title with its scroll-edge effect).
+                Picker(String(localized: "budget.title"), selection: $segment.animation(.snappy)) {
+                    ForEach(Segment.allCases) { item in
+                        Text(item.title).tag(item)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.large)
+                .spotlight(.subscriptions)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+
                 // MARK: - Budgets
+                if segment == .budgets {
                 if isNewUser {
                     // Demo budget with blur
                     Section {
@@ -136,36 +167,21 @@ struct BudgetsTabView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
+                }
 
                 // MARK: - Subscriptions
+                if segment == .subscriptions {
                 Section {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(String(localized: "subscriptions.title"))
-                                .font(.title3.weight(.semibold))
-                                .accessibilityAddTraits(.isHeader)
-                            if activeSubscriptionsMonthlyTotal > 0 {
-                                Text(String(localized: "subscriptions.monthlyTotal.\(appViewModel.currencyManager.formatAmount(activeSubscriptionsMonthlyTotal.displayAmount, wholeUnits: true))"))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                            }
-                        }
-                        Spacer()
-                        Button {
-                            showSubscriptionForm = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.body.weight(.semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.circle)
-                        .accessibilityLabel(String(localized: "subscriptions.add"))
+                    if activeSubscriptionsMonthlyTotal > 0 {
+                        Text(String(localized: "subscriptions.monthlyTotal.\(appViewModel.currencyManager.formatAmount(activeSubscriptionsMonthlyTotal.displayAmount, wholeUnits: true))"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                     }
-                    .spotlight(.subscriptions)
-                    .padding(.top, 12)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
 
                     if isNewUser {
                         // Demo subscriptions with single blur overlay
@@ -241,6 +257,7 @@ struct BudgetsTabView: View {
                         }
                     }
                 }
+                }
 
             }
             .listStyle(.plain)
@@ -266,10 +283,16 @@ struct BudgetsTabView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { viewModel.showForm = true } label: {
+                    // Adds what the segmented control shows.
+                    Button {
+                        switch segment {
+                        case .budgets: viewModel.showForm = true
+                        case .subscriptions: showSubscriptionForm = true
+                        }
+                    } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel(String(localized: "budget.newBudget"))
+                    .accessibilityLabel(segment == .budgets ? String(localized: "budget.newBudget") : String(localized: "subscriptions.add"))
                 }
             }
             .sheet(isPresented: $viewModel.showForm) {
