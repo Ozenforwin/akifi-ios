@@ -16,6 +16,7 @@ import UIKit
 /// | `-AkifiUIHarnessScroll <points>` | scroll the visible list down after launch (collapses the large title; the iOS 26 tab bar minimises only on a real drag — `idb ui swipe`) |
 /// | `-AkifiUIHarnessBanners` | show the data-issue and auto-match banners |
 /// | `-AkifiUIHarnessGallery` | design-system gallery instead of the tabs |
+/// | `-AkifiUIHarnessScreen <name>` | open one screen directly (`UIHarnessScreen` in `UIHarnessScreens.swift`) |
 /// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
@@ -47,6 +48,8 @@ enum UIHarness {
             .appendingPathComponent("AkifiUIHarness", isDirectory: true)
         let store = DataStore(cache: PersistenceManager(directory: directory))
         let app = AppViewModel(dataStore: store)
+        // Supabase answered from fixtures, journal seams (UIHarnessScreens.swift).
+        UIHarnessScreens.prepare(app)
         // No session here: nothing may sign the fixture out.
         store.onSessionMissing = {}
         app.authManager.onSessionEnded = nil
@@ -145,7 +148,9 @@ struct UIHarnessRoot: View {
 
     var body: some View {
         Group {
-            if UIHarness.showsGallery {
+            if let screen = UIHarnessScreen.current {
+                UIHarnessScreenHost(screen: screen)
+            } else if UIHarness.showsGallery {
                 DesignSystemGallery()
             } else {
                 MainTabView()

@@ -351,6 +351,18 @@ enum AkifiChrome {
     }
 }
 
+// MARK: - Floating «+» clearance
+
+extension View {
+    /// Extra bottom room for scrolling content on screens the floating «+»
+    /// hovers over (tab roots and everything pushed onto their stacks): the
+    /// last row can scroll clear of the button. Replaces the old ~120 pt
+    /// spacers — the system already insets for the tab bar itself.
+    func akifiFloatingButtonClearance() -> some View {
+        contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
+    }
+}
+
 // MARK: - Tab bar
 
 extension View {

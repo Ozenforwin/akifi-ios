@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Empty state of a list or screen: the system `ContentUnavailableView`
+/// (symbol, title, description) with an optional primary action.
 struct EmptyStateView: View {
     let title: String
     let systemImage: String
@@ -8,34 +10,18 @@ struct EmptyStateView: View {
     var action: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: systemImage)
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-
-            Text(title)
-                .font(.headline)
-
+        ContentUnavailableView {
+            Label(title, systemImage: systemImage)
+        } description: {
             if let description {
                 Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
-
+        } actions: {
             if let actionTitle, let action {
-                Button(action: action) {
-                    Text(actionTitle)
-                        .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(Color.accent)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
-                }
+                Button(actionTitle, action: action)
+                    .buttonStyle(.akifiPrimary)
             }
         }
-        .padding(40)
         .frame(maxWidth: .infinity)
     }
 }

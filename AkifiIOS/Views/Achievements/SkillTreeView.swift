@@ -15,6 +15,7 @@ import SwiftUI
 struct SkillTreeView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var selectedNode: SkillNode?
+    @ScaledMetric(relativeTo: .title2) private var nodeSize: CGFloat = 52
 
     private var dataStore: DataStore { appViewModel.dataStore }
 
@@ -25,10 +26,12 @@ struct SkillTreeView: View {
                 ForEach(SkillNode.Track.allCases, id: \.self) { track in
                     trackSection(track: track)
                 }
-                Color.clear.frame(height: 80)
             }
             .padding(.horizontal)
+            .padding(.top, 8)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "skills.title"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedNode) { node in
@@ -70,41 +73,22 @@ struct SkillTreeView: View {
                     .font(.subheadline.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(.systemGray5))
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.accent, Color.aiGradientStart],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * progress)
-                }
-            }
-            .frame(height: 10)
+            ProgressView(value: progress)
+                .tint(Color.accent)
             Text(String(localized: "skills.header.subtitle"))
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
     }
 
     private func trackSection(track: SkillNode.Track) -> some View {
         let nodes = SkillNode.all.filter { $0.track == track }
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(track.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .tracking(1)
-                Spacer()
-            }
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(track.title)
+                .font(.headline)
+                .padding(.horizontal, 4)
+                .accessibilityAddTraits(.isHeader)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
                       spacing: 12) {
                 ForEach(nodes) { node in
@@ -125,37 +109,27 @@ struct SkillTreeView: View {
         return VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(unlocked
-                          ? LinearGradient(colors: [Color.accent, Color.aiGradientStart],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [Color(.systemGray5), Color(.systemGray5)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 52, height: 52)
+                    .fill(unlocked ? Color.accent.opacity(0.15) : Color(.tertiarySystemFill))
                 if unlocked {
                     Text(node.icon)
-                        .font(.system(size: 22))
+                        .font(.title2)
                 } else {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.headline)
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(width: nodeSize, height: nodeSize)
             Text(node.localizedTitle)
-                .font(.caption2.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(unlocked ? .primary : .secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(height: 28)
+                .lineLimit(2, reservesSpace: true)
         }
-        .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(unlocked ? Color.accent.opacity(0.3) : Color.clear, lineWidth: 1)
-        )
+        .akifiCard(.compact, padding: 10)
         .opacity(unlocked ? 1 : 0.7)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -168,27 +142,20 @@ private struct SkillNodeDetailSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            RoundedRectangle(cornerRadius: 2.5)
-                .fill(Color(.systemGray3))
-                .frame(width: 40, height: 5)
-                .padding(.top, 8)
-
             ZStack {
                 Circle()
-                    .fill(isUnlocked
-                          ? LinearGradient(colors: [Color.accent, Color.aiGradientStart],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [Color(.systemGray4), Color(.systemGray5)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 88, height: 88)
+                    .fill(isUnlocked ? Color.accent.opacity(0.15) : Color(.tertiarySystemFill))
                 if isUnlocked {
-                    Text(node.icon).font(.system(size: 40))
+                    Text(node.icon).font(.largeTitle)
                 } else {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 32, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.title.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
+            .frame(width: 88, height: 88)
+            .padding(.top, 28)
+            .accessibilityHidden(true)
 
             Text(node.localizedTitle)
                 .font(.title3.weight(.bold))
@@ -218,8 +185,7 @@ private struct SkillNodeDetailSheet: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color(.systemGray6))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .padding(.horizontal, 24)
             }
 

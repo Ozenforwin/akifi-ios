@@ -12,250 +12,194 @@ struct JournalTabView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                filterBar
-                notesList
-            }
-            .navigationTitle(String(localized: "journal.title"))
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 8) {
-                        Text(String(localized: "journal.title"))
-                            .font(.headline)
-                        Text("BETA")
-                            .font(.system(size: 10, weight: .bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.purple.opacity(0.15)))
-                            .foregroundStyle(.purple)
+            notesList
+                .background(Color(.systemGroupedBackground))
+                .navigationTitle(String(localized: "journal.title"))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button {
+                                showNoteForm = true
+                            } label: {
+                                Label(String(localized: "journal.newNote"), systemImage: "note.text.badge.plus")
+                            }
+                            Button {
+                                showReflectionForm = true
+                            } label: {
+                                Label(String(localized: "journal.newReflection"), systemImage: "brain.head.profile")
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(String(localized: "common.add"))
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            showNoteForm = true
-                        } label: {
-                            Label(String(localized: "journal.newNote"), systemImage: "note.text.badge.plus")
-                        }
-                        Button {
-                            showReflectionForm = true
-                        } label: {
-                            Label(String(localized: "journal.newReflection"), systemImage: "brain.head.profile")
-                        }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title3)
-                    }
+                .searchable(text: $searchText, prompt: String(localized: "journal.search"))
+                .onChange(of: searchText) { _, newValue in
+                    // Debounced, cancels the previous query, leaves the feed
+                    // alone (V6).
+                    viewModel.updateSearch(newValue)
                 }
-            }
-            .searchable(text: $searchText, prompt: String(localized: "journal.search"))
-            .onChange(of: searchText) { _, newValue in
-                // Debounced, cancels the previous query, leaves the feed
-                // alone (V6).
-                viewModel.updateSearch(newValue)
-            }
-            .sheet(isPresented: $showNoteForm) {
-                JournalNoteFormView(viewModel: viewModel, initialType: .note)
-            }
-            .sheet(isPresented: $showReflectionForm) {
-                JournalNoteFormView(viewModel: viewModel, initialType: .reflection)
-            }
-            .sheet(isPresented: $showTagSheet) {
-                TagFilterSheet(viewModel: viewModel)
-            }
-            .refreshable {
-                await viewModel.loadInitial(force: true)
-            }
-            .task {
-                await viewModel.loadInitialIfNeeded()
-            }
+                .sheet(isPresented: $showNoteForm) {
+                    JournalNoteFormView(viewModel: viewModel, initialType: .note)
+                }
+                .sheet(isPresented: $showReflectionForm) {
+                    JournalNoteFormView(viewModel: viewModel, initialType: .reflection)
+                }
+                .sheet(isPresented: $showTagSheet) {
+                    TagFilterSheet(viewModel: viewModel)
+                }
+                .refreshable {
+                    await viewModel.loadInitial(force: true)
+                }
+                .task {
+                    await viewModel.loadInitialIfNeeded()
+                }
         }
     }
 
     // MARK: - Filter Bar (spec R2.3)
 
+    /// Type filter as a system segmented control, tags as a chip row
+    /// below it. Scrolls with the notes — no sticky header under the bar.
     private var filterBar: some View {
         let allTags = viewModel.tagsByFrequency
         let visibleTags = Array(allTags.prefix(Self.visibleTagLimit))
         let overflowCount = max(0, allTags.count - visibleTags.count)
 
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(JournalViewModel.NoteFilter.allCases, id: \.self) { filter in
-                    // Reuse shared FilterChip for visual consistency (R2.9).
-                    FilterChip(
-                        title: filter.localizedName,
-                        isSelected: viewModel.selectedFilter == filter
-                    ) {
-                        viewModel.selectedFilter = filter
-                        viewModel.refilter()
-                    }
-                }
-
-                if !allTags.isEmpty {
-                    Divider().frame(height: 20)
-
-                    ForEach(visibleTags, id: \.self) { tag in
-                        tagChip(tag)
-                    }
-
-                    if overflowCount > 0 {
-                        Button {
-                            showTagSheet = true
-                        } label: {
-                            Text("+\(overflowCount)")
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(Color(.quaternarySystemFill)))
-                                .foregroundStyle(.secondary)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Picker(
+                    String(localized: "journal.title"),
+                    selection: Binding(
+                        get: { viewModel.selectedFilter },
+                        set: { filter in
+                            viewModel.selectedFilter = filter
+                            viewModel.refilter()
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(String(localized: "journal.tags.moreButton \(overflowCount)")))
+                    )
+                ) {
+                    ForEach(JournalViewModel.NoteFilter.allCases, id: \.self) { filter in
+                        Text(filter.localizedName).tag(filter)
                     }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
 
-                // Small trailing spacer so the last chip always has breathing
-                // room from the fade mask (avoids clipping — BUG-004).
-                Color.clear.frame(width: 12, height: 1)
+                Text(verbatim: "BETA")
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.budget.opacity(0.15), in: Capsule())
+                    .foregroundStyle(Color.budget)
             }
-            .padding(.leading, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+
+            if !allTags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(visibleTags, id: \.self) { tag in
+                            tagChip(tag)
+                        }
+
+                        if overflowCount > 0 {
+                            FilterChip(title: "+\(overflowCount)", isSelected: false) {
+                                showTagSheet = true
+                            }
+                            .accessibilityLabel(Text(String(localized: "journal.tags.moreButton \(overflowCount)")))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
         }
-        .mask(
-            HStack(spacing: 0) {
-                Color.black
-                LinearGradient(
-                    colors: [.black, .black.opacity(0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 24)
-            }
-        )
+        .padding(.vertical, 8)
     }
 
     private func tagChip(_ tag: String) -> some View {
         let isSelected = viewModel.selectedTag == tag
-        return Button {
+        return FilterChip(title: "#\(tag)", isSelected: isSelected) {
             if isSelected {
                 viewModel.selectedTag = nil
             } else {
                 viewModel.selectedTag = tag
             }
             viewModel.refilter()
-        } label: {
-            Text("#\(tag)")
-                .font(.caption.weight(.medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().fill(isSelected
-                        ? Color.budget.opacity(0.15)
-                        : Color(.quaternarySystemFill))
-                )
-                .foregroundStyle(isSelected ? Color.budget : .secondary)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Notes List
 
     private var notesList: some View {
-        Group {
-            if !viewModel.hasLoadedOnce && viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if viewModel.filteredNotes.isEmpty {
-                emptyState
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(viewModel.groupedByDate, id: \.date) { group in
-                            Section {
-                                ForEach(group.notes) { note in
-                                    NavigationLink {
-                                        JournalNoteDetailView(note: note, viewModel: viewModel, dataStore: appViewModel.dataStore)
-                                    } label: {
-                                        JournalNoteCardView(note: note, dataStore: appViewModel.dataStore)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            } header: {
-                                HStack {
-                                    Text(formatSectionDate(group.date))
-                                        .font(.footnote.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.top, 20)
-                                .padding(.bottom, 6)
-                            }
-                        }
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                filterBar
 
-                        if viewModel.canLoadMore {
-                            ProgressView()
-                                .padding()
-                                // Re-fires after each page (the id changes),
-                                // so a filter that matches few notes keeps
-                                // paging until the screen fills or the feed
-                                // ends.
-                                .task(id: viewModel.notes.count) { await viewModel.loadMore() }
+                if !viewModel.hasLoadedOnce && viewModel.isLoading {
+                    ProgressView()
+                        .padding(.top, 80)
+                } else if viewModel.filteredNotes.isEmpty {
+                    emptyState
+                        .padding(.top, 24)
+                } else {
+                    ForEach(viewModel.groupedByDate, id: \.date) { group in
+                        Section {
+                            ForEach(group.notes) { note in
+                                NavigationLink {
+                                    JournalNoteDetailView(note: note, viewModel: viewModel, dataStore: appViewModel.dataStore)
+                                } label: {
+                                    JournalNoteCardView(note: note, dataStore: appViewModel.dataStore)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } header: {
+                            Text(formatSectionDate(group.date))
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
+                                .padding(.bottom, 6)
+                                .accessibilityAddTraits(.isHeader)
                         }
                     }
-                    .padding(.bottom, 100)
+
+                    if viewModel.canLoadMore {
+                        ProgressView()
+                            .padding()
+                            // Re-fires after each page (the id changes),
+                            // so a filter that matches few notes keeps
+                            // paging until the screen fills or the feed
+                            // ends.
+                            .task(id: viewModel.notes.count) { await viewModel.loadMore() }
+                    }
                 }
             }
         }
+        .akifiFloatingButtonClearance()
     }
 
     // MARK: - Empty State (spec R2.2)
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(Color.accent.opacity(0.08))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "text.book.closed")
-                    .font(.system(size: 32))
-                    .foregroundStyle(Color.accent)
-            }
-            VStack(spacing: 8) {
-                Text(String(localized: "journal.empty.title"))
-                    .font(.title3.weight(.semibold))
-                Text(String(localized: "journal.empty.subtitle"))
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
+        ContentUnavailableView {
+            Label(String(localized: "journal.empty.title"), systemImage: "text.book.closed")
+        } description: {
+            Text(String(localized: "journal.empty.subtitle"))
+        } actions: {
             Button {
                 showNoteForm = true
             } label: {
                 Label(String(localized: "journal.empty.writeNote"), systemImage: "pencil")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: 280)
+            .buttonStyle(.akifiPrimary)
 
-            Button {
+            Button(String(localized: "journal.empty.reflection")) {
                 showReflectionForm = true
-            } label: {
-                Text(String(localized: "journal.empty.reflection"))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.budget)
             }
-            .buttonStyle(.plain)
-            .padding(.top, -8)
-
-            Spacer()
+            .buttonStyle(.borderless)
         }
-        .padding(.horizontal, 32)
     }
 
     private func formatSectionDate(_ dateStr: String) -> String {

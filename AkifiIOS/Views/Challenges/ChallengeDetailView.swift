@@ -17,25 +17,33 @@ struct ChallengeDetailView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
+            // A sheet: an inset-grouped list, no card stack (design doc §3).
+            List {
+                Section {
                     header
+                        .listRowBackground(Color.clear)
+                }
+                Section {
                     successCard
+                }
+                Section {
                     timeCard
-                    if let desc = challenge.challengeDescription, !desc.isEmpty {
+                }
+                if let desc = challenge.challengeDescription, !desc.isEmpty {
+                    Section {
                         descriptionCard(desc)
                     }
-                    actionButtons
-                    Color.clear.frame(height: 40)
                 }
-                .padding(.horizontal)
-                .padding(.top, 20)
+                Section {
+                    actionButtons
+                }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(challenge.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
             }
             .confirmationDialog(String(localized: "challenge.confirmAbandon"),
@@ -55,6 +63,7 @@ struct ChallengeDetailView: View {
                 Button(String(localized: "common.cancel"), role: .cancel) {}
             }
         }
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: - Header
@@ -62,10 +71,10 @@ struct ChallengeDetailView: View {
     private var header: some View {
         VStack(spacing: 10) {
             Text(challenge.type.icon)
-                .font(.system(size: 52))
-                .padding(12)
-                .background(Color.accent.opacity(0.12))
-                .clipShape(Circle())
+                .font(.largeTitle)
+                .padding(16)
+                .background(statusColor.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
             Text(challenge.type.localizedTitle)
                 .font(.headline)
             Text(statusText)
@@ -73,8 +82,7 @@ struct ChallengeDetailView: View {
                 .foregroundStyle(statusColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(statusColor.opacity(0.12))
-                .clipShape(Capsule())
+                .background(statusColor.opacity(0.12), in: Capsule())
         }
         .frame(maxWidth: .infinity)
     }
@@ -107,27 +115,17 @@ struct ChallengeDetailView: View {
                     .font(.subheadline.weight(.bold).monospacedDigit())
                     .foregroundStyle(statusColor)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(statusColor)
-                        .frame(width: geo.size.width * fraction)
-                }
-            }
-            .frame(height: 8)
+            ProgressView(value: min(max(fraction, 0), 1))
+                .tint(statusColor)
             progressDetail
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 4)
     }
 
     private var progressDetail: some View {
         HStack {
             Text(progressText)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
             Spacer()
@@ -166,31 +164,21 @@ struct ChallengeDetailView: View {
                     .font(.subheadline.weight(.bold).monospacedDigit())
                     .foregroundStyle(.primary)
                 Text(String(localized: "challenge.daysLeft"))
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.accent.opacity(0.6))
-                        .frame(width: geo.size.width * timeProgress)
-                }
-            }
-            .frame(height: 8)
+            ProgressView(value: min(max(timeProgress, 0), 1))
+                .tint(Color.accent)
             HStack {
                 // First and LAST day — `endDate` itself is exclusive.
                 Text(displayDay(AppDateFormatters.day(challenge.startDate), fallback: challenge.startDate))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.footnote).foregroundStyle(.secondary)
                 Spacer()
                 Text(displayDay(challenge.lastDay, fallback: challenge.endDate))
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.footnote).foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 4)
     }
 
     private func displayDay(_ date: Date?, fallback: String) -> String {
@@ -202,39 +190,24 @@ struct ChallengeDetailView: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - Actions
 
+    /// A destructive row button, the way system sheets end (e.g. "Delete
+    /// Event").
     @ViewBuilder
     private var actionButtons: some View {
-        VStack(spacing: 10) {
-            if challenge.status == .active {
-                Button(role: .destructive) {
-                    confirmAbandon = true
-                } label: {
-                    Text(String(localized: "challenge.abandon"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.expense.opacity(0.12))
-                        .foregroundStyle(Color.expense)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-            } else {
-                Button(role: .destructive) {
-                    confirmDelete = true
-                } label: {
-                    Text(String(localized: "common.delete"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.expense.opacity(0.12))
-                        .foregroundStyle(Color.expense)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
+        if challenge.status == .active {
+            Button(String(localized: "challenge.abandon"), role: .destructive) {
+                confirmAbandon = true
             }
+            .frame(maxWidth: .infinity)
+        } else {
+            Button(String(localized: "common.delete"), role: .destructive) {
+                confirmDelete = true
+            }
+            .frame(maxWidth: .infinity)
         }
     }
 }

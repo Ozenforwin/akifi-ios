@@ -20,83 +20,71 @@ struct SavingsGoalListView: View {
                     viewModel.showForm = true
                 }
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if !viewModel.activeGoals.isEmpty {
-                            Section {
-                                ForEach(viewModel.activeGoals) { goal in
-                                    NavigationLink {
-                                        SavingsGoalDetailView(
-                                            goal: goal,
-                                            contributions: viewModel.contributions[goal.id] ?? [],
-                                            progress: viewModel.progress(for: goal),
-                                            daysRemaining: viewModel.daysRemaining(for: goal)
-                                        ) { amount, type, note, counterId in
-                                            let accounts = appViewModel.dataStore.accounts
-                                            try await viewModel.addContribution(
-                                                goalId: goal.id,
-                                                amount: amount,
-                                                type: type,
-                                                note: note,
-                                                linkedAccount: goal.accountId.flatMap { id in accounts.first { $0.id == id } },
-                                                counterAccount: counterId.flatMap { id in accounts.first { $0.id == id } },
-                                                currencyManager: appViewModel.currencyManager
-                                            )
-                                        }
-                                        .task(id: goal.id) {
-                                            await viewModel.loadContributions(for: goal.id)
-                                        }
-                                    } label: {
-                                        SavingsGoalCardView(
-                                            goal: goal,
-                                            progress: viewModel.progress(for: goal),
-                                            daysRemaining: viewModel.daysRemaining(for: goal)
+                List {
+                    if !viewModel.activeGoals.isEmpty {
+                        Section(String(localized: "savings.active")) {
+                            ForEach(viewModel.activeGoals) { goal in
+                                NavigationLink {
+                                    SavingsGoalDetailView(
+                                        goal: goal,
+                                        contributions: viewModel.contributions[goal.id] ?? [],
+                                        progress: viewModel.progress(for: goal),
+                                        daysRemaining: viewModel.daysRemaining(for: goal)
+                                    ) { amount, type, note, counterId in
+                                        let accounts = appViewModel.dataStore.accounts
+                                        try await viewModel.addContribution(
+                                            goalId: goal.id,
+                                            amount: amount,
+                                            type: type,
+                                            note: note,
+                                            linkedAccount: goal.accountId.flatMap { id in accounts.first { $0.id == id } },
+                                            counterAccount: counterId.flatMap { id in accounts.first { $0.id == id } },
+                                            currencyManager: appViewModel.currencyManager
                                         )
                                     }
-                                    .buttonStyle(.plain)
-                                    .contextMenu {
-                                        Button(role: .destructive) {
-                                            Task { await viewModel.deleteGoal(goal) }
-                                        } label: {
-                                            Label(String(localized: "common.delete"), systemImage: "trash")
-                                        }
+                                    .task(id: goal.id) {
+                                        await viewModel.loadContributions(for: goal.id)
                                     }
-                                }
-                            } header: {
-                                Text(String(localized: "savings.active"))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-
-                        if !viewModel.completedGoals.isEmpty {
-                            Section {
-                                ForEach(viewModel.completedGoals) { goal in
+                                } label: {
                                     SavingsGoalCardView(
                                         goal: goal,
-                                        progress: 1.0,
-                                        daysRemaining: nil
+                                        progress: viewModel.progress(for: goal),
+                                        daysRemaining: viewModel.daysRemaining(for: goal)
                                     )
-                                    .opacity(0.7)
                                 }
-                            } header: {
-                                Text(String(localized: "savings.completed"))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        Task { await viewModel.deleteGoal(goal) }
+                                    } label: {
+                                        Label(String(localized: "common.delete"), systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 120)
+
+                    if !viewModel.completedGoals.isEmpty {
+                        Section(String(localized: "savings.completed")) {
+                            ForEach(viewModel.completedGoals) { goal in
+                                SavingsGoalCardView(
+                                    goal: goal,
+                                    progress: 1.0,
+                                    daysRemaining: nil
+                                )
+                                .opacity(0.7)
+                            }
+                        }
+                    }
                 }
+                .listStyle(.insetGrouped)
+                .akifiFloatingButtonClearance()
             }
         }
         .refreshable {
             await viewModel.load()
         }
         .navigationTitle(String(localized: "savings.title"))
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -104,6 +92,7 @@ struct SavingsGoalListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel(String(localized: "savings.newGoal"))
             }
         }
         .task {

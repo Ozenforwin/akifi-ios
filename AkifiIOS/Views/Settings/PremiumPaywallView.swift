@@ -12,8 +12,10 @@ struct PremiumPaywallView: View {
                 // Header
                 VStack(spacing: 12) {
                     Image(systemName: "star.circle.fill")
-                        .font(.system(size: 64))
-                        .foregroundStyle(.yellow.gradient)
+                        .font(.largeTitle)
+                        .imageScale(.large)
+                        .foregroundStyle(.yellow)
+                        .accessibilityHidden(true)
 
                     Text("Akifi Pro")
                         .font(.title.bold())
@@ -24,8 +26,7 @@ struct PremiumPaywallView: View {
                             .foregroundStyle(Color.accent)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
-                            .background(Color.accent.opacity(0.15))
-                            .clipShape(Capsule())
+                            .background(Color.accent.opacity(0.15), in: Capsule())
                     } else {
                         Text("Разблокируйте все возможности")
                             .font(.subheadline)
@@ -50,9 +51,7 @@ struct PremiumPaywallView: View {
                     Divider().padding(.leading, 52)
                     PremiumFeatureRow(icon: "target", title: "Цели накоплений", subtitle: "Копите с процентами", isPro: false)
                 }
-                .padding()
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .akifiCard()
 
                 if !isPremium {
                     // Purchase buttons
@@ -65,24 +64,20 @@ struct PremiumPaywallView: View {
                                     .font(.headline)
                                 Text("Скоро")
                                     .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.8))
                             }
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.accent.gradient)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
+                        .buttonStyle(.akifiPrimary)
+                        .controlSize(.large)
                         .disabled(true)
-                        .opacity(0.6)
 
                         Button {
                             // Restore
                         } label: {
                             Text("Восстановить покупки")
                                 .font(.subheadline)
-                                .foregroundStyle(Color.accent)
                         }
+                        .buttonStyle(.borderless)
                     }
 
                     Text("Покупки в приложении появятся в следующем обновлении")
@@ -94,6 +89,8 @@ struct PremiumPaywallView: View {
             }
             .padding(.horizontal)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle("Premium")
         .navigationBarTitleDisplayMode(.inline)
     }

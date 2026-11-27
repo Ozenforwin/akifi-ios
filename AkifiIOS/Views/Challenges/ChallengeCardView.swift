@@ -43,57 +43,49 @@ struct ChallengeCardView: View {
         }
     }
 
+    /// A list row (the inset-grouped `List` provides the background).
     var body: some View {
         HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.15))
-                    .frame(width: 48, height: 48)
-                Text(challenge.type.icon).font(.title3)
-            }
+            Text(challenge.type.icon)
+                .font(.title3)
+                .frame(width: 44, height: 44)
+                .background(statusColor.opacity(0.15), in: Circle())
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(challenge.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if status == .completed {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(Color.income)
                     }
                 }
 
                 Text(progressLabel)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
 
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(.systemGray5))
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(statusColor)
-                            .frame(width: geo.size.width * fraction)
-                    }
-                }
-                .frame(height: 6)
+                ProgressView(value: min(max(fraction, 0), 1))
+                    .tint(statusColor)
             }
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(challenge.daysRemaining)")
-                    .font(.subheadline.weight(.bold).monospacedDigit())
+                    .font(.headline.monospacedDigit())
                 Text(String(localized: "challenge.daysLeft"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             .opacity(status == .active ? 1 : 0.4)
         }
-        .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
         .opacity(status == .abandoned ? 0.5 : 1.0)
+        .accessibilityElement(children: .combine)
     }
 }

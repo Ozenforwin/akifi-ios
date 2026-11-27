@@ -17,24 +17,34 @@ struct FilterHeaderView<Content: View>: View {
     }
 }
 
+/// Capsule filter toggle for a row of filters that don't fit a segmented
+/// control (tags, many categories). System bordered button styles: the
+/// selected chip is prominent (accent), the others plain bordered — both
+/// adapt to Liquid Glass on iOS 26 and to Increase Contrast.
 struct FilterChip: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.caption.weight(.medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(isSelected ? Color.accent : .clear)
-                .foregroundStyle(isSelected ? .white : .primary)
-                .clipShape(Capsule())
-                .overlay {
-                    Capsule().stroke(isSelected ? Color.clear : Color.gray.opacity(0.3))
-                }
+        Group {
+            if isSelected {
+                Button(action: action) { label }
+                    .buttonStyle(.borderedProminent)
+            } else {
+                Button(action: action) { label }
+                    .buttonStyle(.bordered)
+                    .tint(.secondary)
+            }
         }
-        .buttonStyle(.plain)
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var label: some View {
+        Text(title)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
     }
 }

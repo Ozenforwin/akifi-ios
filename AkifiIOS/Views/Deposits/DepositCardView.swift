@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Compact deposit card used in lists and Home snapshot. Shows name,
-/// status pill, principal+accrued total, and a small caption with rate +
-/// time-left to maturity.
+/// One deposit as a list row: status tile, name, status pill, principal +
+/// accrued total and a caption with rate + time-left to maturity. Sits in
+/// an inset-grouped `List`, which provides the row background.
 struct DepositCardView: View {
     let deposit: Deposit
     /// Display title — usually the tied account's name.
@@ -33,35 +33,22 @@ struct DepositCardView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#A78BFA"), Color(hex: "#7C3AED")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: statusIcon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+            SettingsIconTile(systemName: statusIcon, color: statusColor)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     statusPill
                 }
                 Text(caption)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formatAmount(totalValue))
@@ -70,22 +57,14 @@ struct DepositCardView: View {
                     .monospacedDigit()
                 if accrued > 0 {
                     Text("+\(formatAmount(accrued))")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(Color(hex: "#16A34A"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.income)
                         .monospacedDigit()
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 
     private var statusIcon: String {
@@ -96,22 +75,24 @@ struct DepositCardView: View {
         }
     }
 
+    /// Status carries meaning: running (budget violet), paid out (income
+    /// green), closed early (neutral).
+    private var statusColor: Color {
+        switch deposit.status {
+        case .active:      return Color.budget
+        case .matured:     return Color.income
+        case .closedEarly: return Color(.systemGray)
+        }
+    }
+
     @ViewBuilder
     private var statusPill: some View {
-        let color: Color = {
-            switch deposit.status {
-            case .active:      return Color(hex: "#7C3AED")
-            case .matured:     return Color(hex: "#16A34A")
-            case .closedEarly: return Color(hex: "#9CA3AF")
-            }
-        }()
         Text(deposit.status.localizedTitle)
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(color.opacity(colorScheme == .dark ? 0.22 : 0.12))
-            .foregroundStyle(color)
-            .clipShape(Capsule())
+            .background(statusColor.opacity(colorScheme == .dark ? 0.22 : 0.12), in: Capsule())
+            .foregroundStyle(statusColor)
     }
 
     private var caption: String {

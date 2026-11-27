@@ -143,7 +143,7 @@ struct DepositFormView: View {
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.red)
                     }
                 }
@@ -151,10 +151,10 @@ struct DepositFormView: View {
             .navigationTitle(String(localized: "deposit.form.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.save")) {
                         Task { await save() }
                     }

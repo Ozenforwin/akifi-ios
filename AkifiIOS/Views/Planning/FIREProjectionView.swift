@@ -38,8 +38,9 @@ struct FIREProjectionView: View {
                 inputsCard
             }
             .padding(16)
-            .padding(.bottom, 120)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "fire.title"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await reload() }
@@ -77,7 +78,7 @@ struct FIREProjectionView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
             Text(yearsLabel)
-                .font(.system(size: 36, weight: .bold, design: .rounded))
+                .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
@@ -90,8 +91,8 @@ struct FIREProjectionView: View {
             }
             HStack(spacing: 6) {
                 Text(String(localized: "fire.hero.4pctRule"))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 InfoTooltipButton(
                     titleKey: "fire.tooltip.fourPctRule.title",
                     bodyKey: "fire.tooltip.fourPctRule.body"
@@ -99,44 +100,17 @@ struct FIREProjectionView: View {
             }
             confidencePill
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.accent.opacity(0.10), Color.accent.opacity(0.20)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.accent.opacity(0.18), lineWidth: 0.5)
-        )
+        .akifiCard()
     }
 
     @ViewBuilder
     private var heroInsufficient: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 36))
-                .foregroundStyle(.tertiary)
-            Text(String(localized: "fire.insufficient.title"))
-                .font(.headline)
+        ContentUnavailableView {
+            Label(String(localized: "fire.insufficient.title"), systemImage: "calendar.badge.clock")
+        } description: {
             Text(String(localized: "fire.insufficient.subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 16)
         }
-        .frame(maxWidth: .infinity)
-        .padding(40)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     private var confidenceLocalizationKey: String {
@@ -149,9 +123,9 @@ struct FIREProjectionView: View {
 
     private var confidenceColor: Color {
         switch fireVM.rate.confidence {
-        case .low:    return .orange
-        case .medium: return .yellow
-        case .high:   return .green
+        case .low:    return Color.expense
+        case .medium: return Color.warning
+        case .high:   return Color.income
         }
     }
 
@@ -200,16 +174,15 @@ struct FIREProjectionView: View {
                 )
                 Spacer()
                 if fireVM.isManualMode {
-                    Button {
+                    Button(role: .destructive) {
                         fireVM.overrideMonthlyExpenses = nil
                         fireVM.overrideMonthlyContribution = nil
                         loadOverridesFromVM()
                     } label: {
                         Text(String(localized: "fire.manual.reset"))
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.red)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
                 }
             }
 
@@ -232,8 +205,8 @@ struct FIREProjectionView: View {
                 Text(fireVM.isManualMode
                      ? String(localized: "fire.manual.statusManual")
                      : String(localized: "fire.manual.statusAuto"))
-                    .font(.caption)
-                    .foregroundStyle(fireVM.isManualMode ? .green : .secondary)
+                    .font(.footnote)
+                    .foregroundStyle(fireVM.isManualMode ? Color.income : .secondary)
                 Spacer()
                 Button {
                     applyManualOverrides()
@@ -241,29 +214,22 @@ struct FIREProjectionView: View {
                     HStack(spacing: 6) {
                         if didApply {
                             Image(systemName: "checkmark")
-                                .font(.subheadline.weight(.bold))
+                                .fontWeight(.bold)
                         }
                         Text(didApply
                              ? String(localized: "fire.manual.applied")
                              : String(localized: "fire.manual.apply"))
-                            .font(.subheadline.weight(.semibold))
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(didApply ? Color.green : Color.accent)
-                    .clipShape(Capsule())
+                    .font(.subheadline.weight(.semibold))
                     .animation(.easeInOut(duration: 0.2), value: didApply)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.akifiPrimary)
+                .buttonBorderShape(.capsule)
+                .tint(didApply ? Color.income : Color.accent)
                 .disabled(!hasManualInput)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
         .onAppear {
             if !didLoadOverrides {
                 didLoadOverrides = true
@@ -385,11 +351,7 @@ struct FIREProjectionView: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     // MARK: - Toggle
@@ -417,11 +379,7 @@ struct FIREProjectionView: View {
             }
             .tint(Color.accent)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     // MARK: - Chart
@@ -465,12 +423,12 @@ struct FIREProjectionView: View {
                 // on `position`. The card header is roomy and stable.
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(Color.green.opacity(0.6))
+                        .fill(Color.income.opacity(0.6))
                         .frame(width: 6, height: 6)
                     Text(String(format: String(localized: "fire.chart.targetFormat"),
                                 cm.formatAmount(target.displayAmount)))
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.income)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -483,13 +441,7 @@ struct FIREProjectionView: View {
                         y: .value("value", Double(point.value) / 100.0)
                     )
                     .interpolationMethod(.monotone)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.accent.opacity(0.30), Color.accent.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .foregroundStyle(Color.accent.opacity(0.15))
                     LineMark(
                         x: .value("year", point.year),
                         y: .value("value", Double(point.value) / 100.0)
@@ -498,7 +450,7 @@ struct FIREProjectionView: View {
                     .foregroundStyle(Color.accent)
                 }
                 RuleMark(y: .value("target", targetD))
-                    .foregroundStyle(Color.green.opacity(0.6))
+                    .foregroundStyle(Color.income.opacity(0.6))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
             .frame(height: 180)
@@ -514,11 +466,7 @@ struct FIREProjectionView: View {
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     // MARK: - Scenarios
@@ -549,11 +497,7 @@ struct FIREProjectionView: View {
                     .padding(.vertical, 4)
                 }
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .akifiCard()
         }
     }
 
@@ -573,11 +517,7 @@ struct FIREProjectionView: View {
             inputsRow(label: String(localized: "fire.inputs.target"),
                       amount: fireVM.projection.fireTarget)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     @ViewBuilder

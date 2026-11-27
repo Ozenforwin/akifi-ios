@@ -12,32 +12,13 @@ struct StreakMilestoneView: View {
     @State private var showCard = false
     @State private var showParticles = false
     @State private var numberScale: CGFloat = 0.1
-    @State private var glowOpacity: Double = 0
     @State private var daysDisplayed = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var medalSize: CGFloat = 120
 
     private let particles = ["🔥", "⭐", "🏆", "💪", "✨", "🎉", "💯", "🌟", "⚡", "💎"]
 
-    private var tierGradient: LinearGradient {
-        switch info.tier {
-        case .diamond:
-            return LinearGradient(colors: [
-                Color(hex: "#67E8F9"), Color(hex: "#22D3EE"), Color(hex: "#06B6D4")
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .gold:
-            return LinearGradient(colors: [
-                Color(hex: "#FBBF24"), Color(hex: "#F59E0B"), Color(hex: "#D97706")
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .silver:
-            return LinearGradient(colors: [
-                Color(hex: "#D1D5DB"), Color(hex: "#9CA3AF"), Color(hex: "#6B7280")
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .bronze:
-            return LinearGradient(colors: [
-                Color(hex: "#F97316"), Color(hex: "#EA580C"), Color(hex: "#B45309")
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-    }
-
+    /// Tier colour of the medal — meaning (bronze … diamond), flat.
     private var tierColor: Color {
         switch info.tier {
         case .diamond: Color(hex: "#22D3EE")
@@ -53,37 +34,34 @@ struct StreakMilestoneView: View {
                 .ignoresSafeArea()
                 .onTapGesture { dismissAnim() }
 
-            if showParticles {
+            if showParticles && !reduceMotion {
                 ForEach(0..<particles.count, id: \.self) { i in
                     StreakParticle(emoji: particles[i], index: i)
                 }
             }
 
+            // Card — content over a dimmed screen: solid, no glass, no
+            // shadow (design doc §3, celebration overlays).
             if showCard {
                 VStack(spacing: 0) {
                     ZStack {
                         Circle()
-                            .fill(tierColor.opacity(glowOpacity * 0.35))
-                            .frame(width: 180, height: 180)
-                            .blur(radius: 35)
-
-                        ZStack {
-                            Circle()
-                                .fill(tierGradient)
-                                .frame(width: 120, height: 120)
-                                .shadow(color: tierColor.opacity(0.5), radius: 20, x: 0, y: 8)
-
-                            VStack(spacing: 2) {
-                                Text("\(daysDisplayed)")
-                                    .font(.system(size: 40, weight: .black, design: .rounded))
-                                    .foregroundStyle(.white)
-                                    .monospacedDigit()
-                                Text(info.icon)
-                                    .font(.system(size: 22))
-                            }
+                            .fill(tierColor)
+                        VStack(spacing: 2) {
+                            Text("\(daysDisplayed)")
+                                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
+                                .foregroundStyle(.white)
+                                .monospacedDigit()
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
+                            Text(info.icon)
+                                .font(.title2)
                         }
-                        .scaleEffect(numberScale)
+                        .padding(12)
                     }
+                    .frame(width: medalSize, height: medalSize)
+                    .scaleEffect(numberScale)
+                    .accessibilityHidden(true)
 
                     Text(String(localized: "streak.milestone.reached"))
                         .font(.caption.weight(.semibold))
@@ -107,21 +85,20 @@ struct StreakMilestoneView: View {
 
                     Button { dismissAnim() } label: {
                         Text(String(localized: "streak.milestone.continue"))
-                            .font(.headline)
-                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(tierGradient)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
                     .padding(.top, 24)
                     .padding(.horizontal, 24)
                 }
                 .padding(.vertical, 32)
                 .frame(maxWidth: 340)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: tierColor.opacity(0.35), radius: 30, x: 0, y: 10)
+                .background(
+                    Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                )
+                .padding(.horizontal, 24)
                 .transition(.asymmetric(
                     insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.8)),
                     removal: .opacity.combined(with: .scale(scale: 0.9))
@@ -132,8 +109,11 @@ struct StreakMilestoneView: View {
             HapticManager.success()
 
             withAnimation(.spring(duration: 0.6, bounce: 0.3)) { showCard = true }
-            withAnimation(.spring(duration: 0.8, bounce: 0.4).delay(0.15)) { numberScale = 1.0 }
-            withAnimation(.easeIn(duration: 0.5).delay(0.25)) { glowOpacity = 1.0 }
+            if reduceMotion {
+                numberScale = 1.0
+            } else {
+                withAnimation(.spring(duration: 0.8, bounce: 0.4).delay(0.15)) { numberScale = 1.0 }
+            }
             withAnimation(.spring(duration: 0.5).delay(0.1)) { showParticles = true }
 
             // Count up days
@@ -169,6 +149,7 @@ private struct StreakParticle: View {
     var body: some View {
         Text(emoji)
             .font(.system(size: CGFloat.random(in: 28...44)))
+            .accessibilityHidden(true)
             .offset(offset)
             .opacity(opacity)
             .rotationEffect(.degrees(rotation))

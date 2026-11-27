@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
     @AppStorage("appLanguage") private var appLanguage = "system"
     @State private var showDeleteConfirmation = false
     @State private var showReceiptScanner = false
@@ -19,331 +18,362 @@ struct SettingsView: View {
         }
     }
 
+    /// Pushed onto Home's navigation stack (1.6): the stack, the back
+    /// button and the bar belong to Home — this screen brings its list.
     var body: some View {
-        NavigationStack {
-            List {
-                // Profile header
+        List {
+            // Profile header + stats — the account card at the top of
+            // the system Settings app.
+            Section {
+                SettingsProfileHeader(
+                    avatarUrl: appViewModel.dataStore.profile?.avatarUrl,
+                    name: appViewModel.dataStore.profile?.fullName
+                        ?? appViewModel.authManager.currentUser?.email ?? "User",
+                    email: appViewModel.authManager.currentUser?.email
+                        ?? appViewModel.dataStore.profile?.email
+                )
+
+                HStack(spacing: 0) {
+                    StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: String(localized: "stats.accounts"))
+                    Divider()
+                    StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: String(localized: "stats.transactions"))
+                    Divider()
+                    StatBadge(value: "\(appViewModel.dataStore.displayCategories.count)", label: String(localized: "stats.categories"))
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section(header: Text(String(localized: "settings.section.general"))) {
+                NavigationLink {
+                    ProfileEditView()
+                } label: {
+                    SettingsRow(icon: "person.fill", color: .accent, title: String(localized: "settings.profile"))
+                }
+
+                NavigationLink {
+                    CategoriesManagementView()
+                } label: {
+                    SettingsRow(icon: "tag.fill", color: .orange, title: String(localized: "budgets.categories"))
+                }
+            }
+
+            Section(header: Text(String(localized: "settings.section.settings"))) {
+                NavigationLink {
+                    BaseCurrencyPickerView()
+                } label: {
+                    SettingsRow(icon: "banknote.fill", color: .mint, title: String(localized: "settings.baseCurrency"), value: appViewModel.currencyManager.dataCurrency.symbol)
+                }
+
+                // Active-currencies row — controls which currencies
+                // appear in the inline `ActiveCurrencyPicker` used
+                // by transaction / account / budget forms. Distinct
+                // from base/display currency above (which control
+                // analytics + home screen).
+                NavigationLink {
+                    ManageActiveCurrenciesView()
+                } label: {
+                    SettingsRow(
+                        icon: "list.bullet",
+                        color: .green,
+                        title: String(localized: "settings.activeCurrencies.title"),
+                        value: String(
+                            format: String(localized: "settings.activeCurrencies.row %lld"),
+                            UserCurrencyPreferences.shared.activeCodes.count
+                        )
+                    )
+                }
+
+                // Display-currency picker intentionally NOT duplicated
+                // here — the Home-screen currency switcher is the
+                // primary control and having both made "Base" vs
+                // "Display" indistinguishable in the user's head.
+
+                NavigationLink {
+                    LanguagePickerView()
+                } label: {
+                    SettingsRow(icon: "globe", color: .blue, title: String(localized: "settings.language"), value: currentLanguageName)
+                }
+
+                NavigationLink {
+                    AISettingsView()
+                } label: {
+                    SettingsRow(icon: "sparkles", color: .purple, title: String(localized: "settings.aiAssistant"))
+                }
+
+                NavigationLink {
+                    NotificationSettingsView()
+                } label: {
+                    SettingsRow(icon: "bell.fill", color: .red, title: String(localized: "settings.notifications"))
+                }
+
+                NavigationLink {
+                    ThemePickerView()
+                } label: {
+                    SettingsRow(icon: "paintbrush.fill", color: .indigo, title: String(localized: "settings.theme"), value: appViewModel.themeManager.themeName)
+                }
+
+                HapticToggleRow()
+
+                Button {
+                    UserDefaults.standard.set(false, forKey: "spotlight_completed")
+                } label: {
+                    SettingsRow(icon: "lightbulb.fill", color: .yellow, title: String(localized: "settings.resetTutorial"))
+                }
+            }
+
+            Section(header: Text(String(localized: "settings.section.accounts"))) {
+                NavigationLink {
+                    AcceptInviteView()
+                } label: {
+                    SettingsRow(icon: "person.badge.plus", color: .blue, title: String(localized: "invite.title"))
+                }
+
+                NavigationLink {
+                    PaymentDefaultsView()
+                } label: {
+                    SettingsRow(icon: "creditcard.fill", color: .blue, title: String(localized: "settings.paymentDefaults"))
+                }
+            }
+
+            Section(header: Text(String(localized: "settings.section.finance"))) {
+                NavigationLink {
+                    AchievementsView()
+                } label: {
+                    SettingsRow(icon: "trophy.fill", color: .yellow, title: String(localized: "achievements.title"))
+                }
+
+                // Net Worth, Assets, Liabilities, Savings, Deposits,
+                // Challenges and Reports all live under "Beta features"
+                // until they graduate — single entry, one BETA badge at
+                // the door, consistent expectation-setting for the user.
+                NavigationLink {
+                    BetaFeaturesView()
+                } label: {
+                    SettingsRow(
+                        icon: "flask.fill",
+                        color: .orange,
+                        title: String(localized: "settings.beta.title"),
+                        badge: "BETA"
+                    )
+                }
+            }
+
+            Section(header: Text(String(localized: "settings.section.data"))) {
+                NavigationLink {
+                    CurrencyReconciliationView()
+                } label: {
+                    SettingsRow(
+                        icon: "dollarsign.arrow.circlepath",
+                        color: .mint,
+                        title: String(localized: "settings.currencyReconciliation")
+                    )
+                }
+                NavigationLink {
+                    ExportView()
+                } label: {
+                    SettingsRow(icon: "square.and.arrow.up", color: .blue, title: String(localized: "settings.export"))
+                }
+
+                NavigationLink {
+                    BankImportView()
+                } label: {
+                    SettingsRow(icon: "square.and.arrow.down", color: .green, title: String(localized: "settings.import"))
+                }
+
+                Button {
+                    showReceiptScanner = true
+                } label: {
+                    SettingsRow(icon: "doc.text.viewfinder", color: .orange, title: String(localized: "settings.scanReceipt"))
+                }
+            }
+
+            Section(String(localized: "settings.about")) {
+                LabeledContent(
+                    String(localized: "common.version"),
+                    value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+                )
+
+                ShareLink(
+                    item: URL(string: "https://apps.apple.com/tj/app/akifi/id6761304897")!,
+                    subject: Text("Akifi"),
+                    message: Text(String(localized: "settings.shareMessage"))
+                ) {
+                    SettingsRow(icon: "square.and.arrow.up.fill", color: .purple, title: String(localized: "settings.share"))
+                }
+
+                Link(destination: URL(string: "https://akifi.pro/privacy")!) {
+                    SettingsRow(icon: "hand.raised.fill", color: .blue, title: String(localized: "settings.privacy"), isExternalLink: true)
+                }
+
+                Link(destination: URL(string: "https://akifi.pro/terms")!) {
+                    SettingsRow(icon: "doc.text.fill", color: .gray, title: String(localized: "settings.terms"), isExternalLink: true)
+                }
+            }
+
+            // Offline writes that gave up after repeated replay failures.
+            // Hidden entirely in the happy path.
+            if !appViewModel.dataStore.offlineQueue.deadLetterOperations.isEmpty {
                 Section {
-                    VStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 3)
-                                .frame(width: 80, height: 80)
-
-                            if let avatarUrl = appViewModel.dataStore.profile?.avatarUrl,
-                               let url = URL(string: avatarUrl) {
-                                CachedAsyncImage(url: url) {
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 32))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(width: 74, height: 74)
-                                .clipShape(Circle())
-                            } else {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 32))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Text(appViewModel.dataStore.profile?.fullName ?? appViewModel.authManager.currentUser?.email ?? "User")
-                            .font(.headline)
-
-                    }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
-                }
-
-                // Stats
-                Section {
-                    HStack(spacing: 16) {
-                        StatBadge(value: "\(appViewModel.dataStore.accounts.count)", label: String(localized: "stats.accounts"))
-                        StatBadge(value: "\(appViewModel.dataStore.transactions.count)", label: String(localized: "stats.transactions"))
-                        StatBadge(value: "\(appViewModel.dataStore.displayCategories.count)", label: String(localized: "stats.categories"))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
-                }
-
-                Section(header: Text(String(localized: "settings.section.general"))) {
-                    NavigationLink {
-                        ProfileEditView()
-                    } label: {
-                        SettingsRow(icon: "person.fill", color: .accent, title: String(localized: "settings.profile"))
-                    }
-
-                    NavigationLink {
-                        CategoriesManagementView()
-                    } label: {
-                        SettingsRow(icon: "tag.fill", color: .orange, title: String(localized: "budgets.categories"))
-                    }
-                }
-
-                Section(header: Text(String(localized: "settings.section.settings"))) {
-                    NavigationLink {
-                        BaseCurrencyPickerView()
-                    } label: {
-                        SettingsRow(icon: "banknote.fill", color: .mint, title: String(localized: "settings.baseCurrency"), value: appViewModel.currencyManager.dataCurrency.symbol)
-                    }
-
-                    // Active-currencies row — controls which currencies
-                    // appear in the inline `ActiveCurrencyPicker` used
-                    // by transaction / account / budget forms. Distinct
-                    // from base/display currency above (which control
-                    // analytics + home screen).
-                    NavigationLink {
-                        ManageActiveCurrenciesView()
-                    } label: {
-                        SettingsRow(
-                            icon: "list.bullet",
-                            color: .green,
-                            title: String(localized: "settings.activeCurrencies.title"),
-                            value: String(
-                                format: String(localized: "settings.activeCurrencies.row %lld"),
-                                UserCurrencyPreferences.shared.activeCodes.count
-                            )
+                    SettingsRow(
+                        icon: "exclamationmark.icloud.fill",
+                        color: .red,
+                        title: String(
+                            format: String(localized: "offline.syncFailed"),
+                            appViewModel.dataStore.offlineQueue.deadLetterOperations.count
                         )
-                    }
-
-                    // Display-currency picker intentionally NOT duplicated
-                    // here — the Home-screen currency switcher is the
-                    // primary control and having both made "Base" vs
-                    // "Display" indistinguishable in the user's head.
-
-                    NavigationLink {
-                        LanguagePickerView()
-                    } label: {
-                        SettingsRow(icon: "globe", color: .blue, title: String(localized: "settings.language"), value: currentLanguageName)
-                    }
-
-                    NavigationLink {
-                        AISettingsView()
-                    } label: {
-                        SettingsRow(icon: "sparkles", color: .purple, title: String(localized: "settings.aiAssistant"))
-                    }
-
-                    NavigationLink {
-                        NotificationSettingsView()
-                    } label: {
-                        SettingsRow(icon: "bell.fill", color: .orange, title: String(localized: "settings.notifications"))
-                    }
-
-                    NavigationLink {
-                        ThemePickerView()
-                    } label: {
-                        SettingsRow(icon: "paintbrush.fill", color: .indigo, title: String(localized: "settings.theme"), value: appViewModel.themeManager.themeName)
-                    }
-
-                    HapticToggleRow()
-
-                    Button {
-                        UserDefaults.standard.set(false, forKey: "spotlight_completed")
-                    } label: {
-                        SettingsRow(icon: "lightbulb.fill", color: .yellow, title: String(localized: "settings.resetTutorial"))
-                    }
-                }
-
-                Section(header: Text(String(localized: "settings.section.accounts"))) {
-                    NavigationLink {
-                        AcceptInviteView()
-                    } label: {
-                        SettingsRow(icon: "person.badge.plus", color: .blue, title: String(localized: "invite.title"))
-                    }
-
-                    NavigationLink {
-                        PaymentDefaultsView()
-                    } label: {
-                        SettingsRow(icon: "creditcard.fill", color: .blue, title: String(localized: "settings.paymentDefaults"))
-                    }
-                }
-
-                Section(header: Text(String(localized: "settings.section.finance"))) {
-                    NavigationLink {
-                        AchievementsView()
-                    } label: {
-                        SettingsRow(icon: "trophy.fill", color: .yellow, title: String(localized: "achievements.title"))
-                    }
-
-                    // Net Worth, Assets, Liabilities, Savings, Deposits,
-                    // Challenges and Reports all live under "Beta features"
-                    // until they graduate — single entry, one BETA badge at
-                    // the door, consistent expectation-setting for the user.
-                    NavigationLink {
-                        BetaFeaturesView()
-                    } label: {
-                        SettingsRow(
-                            icon: "flask.fill",
-                            color: .orange,
-                            title: String(localized: "settings.beta.title"),
-                            badge: "BETA"
-                        )
-                    }
-                }
-
-                Section(header: Text(String(localized: "settings.section.data"))) {
-                    NavigationLink {
-                        CurrencyReconciliationView()
-                    } label: {
-                        SettingsRow(
-                            icon: "dollarsign.arrow.circlepath",
-                            color: .mint,
-                            title: String(localized: "settings.currencyReconciliation")
-                        )
-                    }
-                    NavigationLink {
-                        ExportView()
-                    } label: {
-                        SettingsRow(icon: "square.and.arrow.up", color: .blue, title: String(localized: "settings.export"))
-                    }
-
-                    NavigationLink {
-                        BankImportView()
-                    } label: {
-                        SettingsRow(icon: "square.and.arrow.down", color: .green, title: String(localized: "settings.import"))
-                    }
-
-                    Button {
-                        showReceiptScanner = true
-                    } label: {
-                        SettingsRow(icon: "doc.text.viewfinder", color: .orange, title: String(localized: "settings.scanReceipt"))
-                    }
-                }
-
-                Section(String(localized: "settings.about")) {
+                    )
                     HStack {
-                        Text(String(localized: "common.version"))
+                        Button(String(localized: "offline.syncFailed.retry")) {
+                            let dataStore = appViewModel.dataStore
+                            Task { await dataStore.retryUnsyncedOperations() }
+                        }
+                        .buttonStyle(.borderless)
                         Spacer()
-                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    ShareLink(
-                        item: URL(string: "https://apps.apple.com/tj/app/akifi/id6761304897")!,
-                        subject: Text("Akifi"),
-                        message: Text(String(localized: "settings.shareMessage"))
-                    ) {
-                        SettingsRow(icon: "square.and.arrow.up.fill", color: .purple, title: String(localized: "settings.share"))
-                    }
-
-                    Link(destination: URL(string: "https://akifi.pro/privacy")!) {
-                        SettingsRow(icon: "hand.raised.fill", color: .blue, title: String(localized: "settings.privacy"))
-                    }
-
-                    Link(destination: URL(string: "https://akifi.pro/terms")!) {
-                        SettingsRow(icon: "doc.text.fill", color: .gray, title: String(localized: "settings.terms"))
-                    }
-                }
-
-                // Offline writes that gave up after repeated replay failures.
-                // Hidden entirely in the happy path.
-                if !appViewModel.dataStore.offlineQueue.deadLetterOperations.isEmpty {
-                    Section {
-                        HStack {
-                            SettingsRow(
-                                icon: "exclamationmark.icloud.fill",
-                                color: .red,
-                                title: String(
-                                    format: String(localized: "offline.syncFailed"),
-                                    appViewModel.dataStore.offlineQueue.deadLetterOperations.count
-                                )
-                            )
-                            Spacer()
-                            Button(String(localized: "offline.syncFailed.retry")) {
-                                let dataStore = appViewModel.dataStore
-                                Task { await dataStore.retryUnsyncedOperations() }
-                            }
-                            .font(.subheadline)
-                            .buttonStyle(.borderless)
-                            Button(String(localized: "offline.syncFailed.discard"), role: .destructive) {
-                                let dataStore = appViewModel.dataStore
-                                Task { await dataStore.discardUnsyncedOperations() }
-                            }
-                            .font(.subheadline)
-                            .buttonStyle(.borderless)
+                        Button(String(localized: "offline.syncFailed.discard"), role: .destructive) {
+                            let dataStore = appViewModel.dataStore
+                            Task { await dataStore.discardUnsyncedOperations() }
                         }
+                        .buttonStyle(.borderless)
                     }
+                }
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    // Sign-out wipes the offline cache including queued
+                    // and refused writes — never silently discard
+                    // unsynced entries (Y6).
+                    if appViewModel.dataStore.offlineQueue.hasUnsynced {
+                        showSignOutPendingWarning = true
+                    } else {
+                        Task { await appViewModel.signOut() }
+                    }
+                } label: {
+                    Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
                 }
 
-                Section {
-                    Button(role: .destructive) {
-                        // Sign-out wipes the offline cache including queued
-                        // and refused writes — never silently discard
-                        // unsynced entries (Y6).
-                        if appViewModel.dataStore.offlineQueue.hasUnsynced {
-                            showSignOutPendingWarning = true
-                        } else {
-                            Task { await appViewModel.signOut() }
-                        }
-                    } label: {
-                        Label(String(localized: "auth.signOut"), systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label(String(localized: "settings.deleteAccount"), systemImage: "person.crop.circle.badge.minus")
-                    }
-                }
-
-                Color.clear.frame(height: 120)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
-            .alert(String(localized: "signout.pendingWarning.title"), isPresented: $showSignOutPendingWarning) {
-                Button(String(localized: "common.cancel"), role: .cancel) {}
-                Button(String(localized: "auth.signOut"), role: .destructive) {
-                    Task { await appViewModel.signOut() }
-                }
-            } message: {
-                Text(String(
-                    format: String(localized: "signout.pendingWarning"),
-                    appViewModel.dataStore.offlineQueue.unsyncedCount
-                ))
-            }
-            .alert(String(localized: "settings.deleteAccount.title"), isPresented: $showDeleteConfirmation) {
-                Button(String(localized: "common.cancel"), role: .cancel) {}
-                Button(String(localized: "settings.deleteAccount.confirm"), role: .destructive) {
-                    showDeleteFinalConfirmation = true
-                }
-            } message: {
-                Text(String(localized: "settings.deleteAccount.warning"))
-            }
-            .alert(String(localized: "settings.deleteAccount.finalTitle"), isPresented: $showDeleteFinalConfirmation) {
-                Button(String(localized: "common.cancel"), role: .cancel) {}
-                Button(String(localized: "settings.deleteAccount.finalConfirm"), role: .destructive) {
-                    Task {
-                        do {
-                            try await appViewModel.deleteAccount()
-                        } catch {
-                            deleteError = error.localizedDescription
-                        }
-                    }
-                }
-            } message: {
-                Text(String(localized: "settings.deleteAccount.finalWarning"))
-            }
-            .alert(String(localized: "common.error"), isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
-                Button(String(localized: "common.ok")) { deleteError = nil }
-            } message: {
-                Text(deleteError ?? "")
-            }
-            .sheet(isPresented: $showReceiptScanner) {
-                ReceiptScannerView {
-                    await appViewModel.dataStore.loadAll()
-                }
-            }
-            .navigationTitle(String(localized: "common.settings"))
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label(String(localized: "settings.deleteAccount"), systemImage: "person.crop.circle.badge.minus")
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
+        .alert(String(localized: "signout.pendingWarning.title"), isPresented: $showSignOutPendingWarning) {
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+            Button(String(localized: "auth.signOut"), role: .destructive) {
+                Task { await appViewModel.signOut() }
+            }
+        } message: {
+            Text(String(
+                format: String(localized: "signout.pendingWarning"),
+                appViewModel.dataStore.offlineQueue.unsyncedCount
+            ))
+        }
+        .alert(String(localized: "settings.deleteAccount.title"), isPresented: $showDeleteConfirmation) {
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+            Button(String(localized: "settings.deleteAccount.confirm"), role: .destructive) {
+                showDeleteFinalConfirmation = true
+            }
+        } message: {
+            Text(String(localized: "settings.deleteAccount.warning"))
+        }
+        .alert(String(localized: "settings.deleteAccount.finalTitle"), isPresented: $showDeleteFinalConfirmation) {
+            Button(String(localized: "common.cancel"), role: .cancel) {}
+            Button(String(localized: "settings.deleteAccount.finalConfirm"), role: .destructive) {
+                Task {
+                    do {
+                        try await appViewModel.deleteAccount()
+                    } catch {
+                        deleteError = error.localizedDescription
+                    }
+                }
+            }
+        } message: {
+            Text(String(localized: "settings.deleteAccount.finalWarning"))
+        }
+        .alert(String(localized: "common.error"), isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
+            Button(String(localized: "common.ok")) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScannerView {
+                await appViewModel.dataStore.loadAll()
+            }
+        }
+        .navigationTitle(String(localized: "common.settings"))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Components
+
+/// Top row of Settings: photo, name and email, left-aligned like the
+/// account row of the system Settings app.
+private struct SettingsProfileHeader: View {
+    let avatarUrl: String?
+    let name: String
+    let email: String?
+
+    @ScaledMetric(relativeTo: .title2) private var avatarSize: CGFloat = 60
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Group {
+                if let avatarUrl, let url = URL(string: avatarUrl) {
+                    CachedAsyncImage(url: url) { placeholder }
+                } else {
+                    placeholder
+                }
+            }
+            .frame(width: avatarSize, height: avatarSize)
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(2)
+                if let email, email != name {
+                    Text(email)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var placeholder: some View {
+        Image(systemName: "person.crop.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.secondary)
+    }
+}
+
+/// SF Symbol on a rounded colour tile — the icon of a system Settings
+/// row. Scales with Dynamic Type; hidden from VoiceOver (the row's title
+/// speaks for it).
+struct SettingsIconTile: View {
+    let systemName: String
+    let color: Color
+
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 29
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(color, in: RoundedRectangle(cornerRadius: size * 0.26, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 
@@ -353,32 +383,41 @@ struct SettingsRow: View {
     let title: String
     var value: String? = nil
     var badge: String? = nil
+    /// Opens a web page: a trailing `arrow.up.forward` marks it.
+    var isExternalLink = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(color)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+            SettingsIconTile(systemName: icon, color: color)
 
+            // `Color.primary`, not the hierarchical `.primary`: inside a
+            // Button / Link / ShareLink the latter resolves to the tint.
             Text(title)
+                .foregroundStyle(Color.primary)
 
             if let badge {
                 Text(badge)
                     .font(.caption2.weight(.bold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.18))
+                    .background(Color.orange.opacity(0.18), in: Capsule())
                     .foregroundStyle(Color.orange)
-                    .clipShape(Capsule())
+            }
+
+            if value != nil || isExternalLink {
+                Spacer(minLength: 8)
             }
 
             if let value {
-                Spacer()
                 Text(value)
                     .foregroundStyle(.secondary)
+            }
+
+            if isExternalLink {
+                Image(systemName: "arrow.up.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -391,12 +430,16 @@ struct StatBadge: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.title3.weight(.bold))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
             Text(label)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -445,6 +488,7 @@ struct ThemePickerView: View {
             }
         }
         .navigationTitle(String(localized: "settings.theme"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -481,15 +525,12 @@ struct BaseCurrencyPickerView: View {
                     .frame(minHeight: 44)
                 }
                 .accessibilityLabel(String(localized: "settings.baseCurrency"))
-            }
-
-            Section {
+            } footer: {
                 Text(String(localized: "settings.baseCurrency.hint"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle(String(localized: "settings.baseCurrency"))
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showCurrencyPicker, onDismiss: {
             // The picker calls `dismiss()` after a tap, so by the time
             // `onDismiss` fires the new value is already in
@@ -524,15 +565,11 @@ struct HapticToggleRow: View {
     @AppStorage("hapticEnabled") private var hapticEnabled = true
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "hand.tap.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Color.pink)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            Toggle(String(localized: "settings.haptic"), isOn: $hapticEnabled)
+        Toggle(isOn: $hapticEnabled) {
+            HStack(spacing: 12) {
+                SettingsIconTile(systemName: "hand.tap.fill", color: .pink)
+                Text(String(localized: "settings.haptic"))
+            }
         }
     }
 }
@@ -576,6 +613,7 @@ struct LanguagePickerView: View {
             }
         }
         .navigationTitle(String(localized: "settings.language"))
+        .navigationBarTitleDisplayMode(.inline)
         .alert(String(localized: "settings.language.restartTitle"), isPresented: $showRestartAlert) {
             Button(String(localized: "settings.language.later"), role: .cancel) {}
         } message: {
