@@ -16,6 +16,8 @@ import SwiftUI
 // | `.akifiSecondary` button    | `.glass`                        | `.bordered`                         |
 // | `.akifiGlassBanner()`       | glass capsule                   | material capsule                    |
 // | `.akifiTabBarMinimizeOnScroll()` | `.tabBarMinimizeBehavior(.onScrollDown)` | no-op            |
+// | `.akifiBottomBar { … }`     | `safeAreaBar(edge: .bottom)`    | `safeAreaInset` on `.bar`           |
+// | `.akifiSearchToolbarMinimize()` | `.searchToolbarBehavior(.minimize)` | no-op (field under the bar) |
 // | `.akifiCard()` (content!)   | grouped-background card         | same                                |
 //
 // Glass is for chrome only (bars, floating buttons, banners). Content —
@@ -263,6 +265,44 @@ extension View {
     /// Styles the view as a floating glass banner (see `AkifiGlassBanner`).
     func akifiGlassBanner(contentInsets: EdgeInsets = AkifiGlassBanner.defaultInsets) -> some View {
         modifier(AkifiGlassBanner(contentInsets: contentInsets))
+    }
+}
+
+// MARK: - Search
+
+extension View {
+    /// `.searchable` collapses into a toolbar search button that expands
+    /// into the glass field when tapped (iOS 26+). Before iOS 26 the field
+    /// stays in its usual place under the navigation bar.
+    @ViewBuilder
+    func akifiSearchToolbarMinimize() -> some View {
+        if #available(iOS 26.0, *) {
+            self.searchToolbarBehavior(.minimize)
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - Bottom bar over scrolling content
+
+extension View {
+    /// Pins `content` (a composer, a confirm button) to the bottom edge
+    /// above scrolling content. iOS 26+: `safeAreaBar` — the content floats
+    /// with the system's soft scroll-edge effect under it, so glass controls
+    /// stay legible without an opaque bar. Before iOS 26: `safeAreaInset`
+    /// on the classic bar material, the standard look of that system.
+    @ViewBuilder
+    func akifiBottomBar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            self.safeAreaBar(edge: .bottom) { content() }
+        } else {
+            self.safeAreaInset(edge: .bottom) {
+                content()
+                    .frame(maxWidth: .infinity)
+                    .background(.bar)
+            }
+        }
     }
 }
 

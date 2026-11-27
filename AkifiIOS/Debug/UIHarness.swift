@@ -16,6 +16,7 @@ import UIKit
 /// | `-AkifiUIHarnessScroll <points>` | scroll the visible list down after launch (collapses the large title; the iOS 26 tab bar minimises only on a real drag — `idb ui swipe`) |
 /// | `-AkifiUIHarnessBanners` | show the data-issue and auto-match banners |
 /// | `-AkifiUIHarnessGallery` | design-system gallery instead of the tabs |
+/// | `-AkifiUIHarnessScreen <name>` | one screen / sheet with fixtures (`UIHarnessScreen` in UIHarnessScreens.swift) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -137,7 +138,10 @@ struct UIHarnessRoot: View {
 
     var body: some View {
         Group {
-            if UIHarness.showsGallery {
+            if let screen = UIHarnessScreen.requested {
+                // Single screens of the 1.6 sweep (UIHarnessScreens.swift).
+                UIHarnessScreenView(screen: screen)
+            } else if UIHarness.showsGallery {
                 DesignSystemGallery()
             } else {
                 MainTabView()

@@ -12,6 +12,7 @@ struct ForgotPasswordView: View {
     @State private var isSent = false
     @State private var errorMessage: String?
     @State private var resendCountdown = 0
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 50
 
     private var isEmailValid: Bool {
         EmailValidator.isValid(email)
@@ -28,6 +29,9 @@ struct ForgotPasswordView: View {
                 }
             }
             .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The field is a content card on the grouped background (1.6).
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "auth.resetPassword"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -49,11 +53,14 @@ struct ForgotPasswordView: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "lock.rotation")
-                    .font(.system(size: 50))
-                    .foregroundStyle(Color.accent.gradient)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(Color.accent)
+                    .accessibilityHidden(true)
 
                 Text(String(localized: "auth.resetPassword.title"))
                     .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
 
                 Text(String(localized: "auth.resetPassword.subtitle"))
                     .font(.subheadline)
@@ -101,11 +108,13 @@ struct ForgotPasswordView: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "envelope.badge.shield.half.filled")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Color.accent.gradient)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(Color.accent)
+                    .accessibilityHidden(true)
 
                 Text(String(localized: "auth.checkInbox"))
                     .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
 
                 Text(String(localized: "auth.resetPassword.sentTo.\(email)"))
                     .font(.subheadline)
@@ -127,17 +136,12 @@ struct ForgotPasswordView: View {
                     Button {
                         UIApplication.shared.open(mailURL)
                     } label: {
-                        HStack {
-                            Image(systemName: "envelope.open")
-                            Text(String(localized: "auth.openEmailApp"))
-                        }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        Label(String(localized: "auth.openEmailApp"), systemImage: "envelope.open")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
                     }
-                    .background(Color.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
                 }
 
                 // Resend button
@@ -154,6 +158,8 @@ struct ForgotPasswordView: View {
                             .foregroundStyle(Color.accent)
                     }
                 }
+                .buttonStyle(.borderless)
+                .frame(minHeight: 44)
                 .disabled(resendCountdown > 0 || isLoading)
 
                 // Back to sign in
@@ -161,7 +167,9 @@ struct ForgotPasswordView: View {
                     dismiss()
                 }
                 .font(.subheadline)
+                .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
+                .frame(minHeight: 44)
             }
 
             Spacer()

@@ -184,8 +184,7 @@ struct MarkdownBlockView: View {
                 .foregroundStyle(.primary)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.tertiarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         case .divider:
             Divider()
                 .padding(.vertical, 4)

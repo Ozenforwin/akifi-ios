@@ -5,6 +5,7 @@ struct CategoryPickerView: View {
     let transactionType: TransactionType
     @Binding var selectedCategoryId: String?
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .title) private var tileSize: CGFloat = 56
 
     private var filteredCategories: [Category] {
         categories.filter { $0.type.rawValue == transactionType.rawValue }
@@ -22,7 +23,7 @@ struct CategoryPickerView: View {
                             VStack(spacing: 6) {
                                 Text(category.icon)
                                     .font(.title)
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: tileSize, height: tileSize)
                                     .background(
                                         selectedCategoryId == category.id
                                             ? Color(hex: category.color).opacity(0.25)
@@ -42,7 +43,8 @@ struct CategoryPickerView: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(category.name), \(selectedCategoryId == category.id ? String(localized: "common.selected") : "")")
+                        .accessibilityLabel(category.name)
+                        .accessibilityAddTraits(selectedCategoryId == category.id ? .isSelected : [])
                     }
                 }
                 .padding()
@@ -53,12 +55,11 @@ struct CategoryPickerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(String(localized: "transaction.noCategory")) {
                         selectedCategoryId = nil
                         dismiss()
                     }
-                    .font(.caption)
                 }
             }
         }

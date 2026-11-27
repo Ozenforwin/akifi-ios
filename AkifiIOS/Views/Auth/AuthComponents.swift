@@ -17,18 +17,29 @@ struct AuthTextField: View {
     @State private var showPassword = false
     @FocusState private var isFocused: Bool
 
-    private var borderColor: Color {
-        if let errorMessage, !errorMessage.isEmpty { return .red }
-        if let isValid, isValid { return .green }
-        return isFocused ? Color.accent : Color(.separator)
+    /// What the field signals besides its text (1.6: no coloured borders —
+    /// an error is the red icon + message, a valid value a green check).
+    enum ValidationState: Equatable {
+        case neutral, valid, invalid
+    }
+
+    static func validationState(errorMessage: String?, isValid: Bool?) -> ValidationState {
+        if let errorMessage, !errorMessage.isEmpty { return .invalid }
+        if isValid == true { return .valid }
+        return .neutral
+    }
+
+    private var state: ValidationState {
+        Self.validationState(errorMessage: errorMessage, isValid: isValid)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .foregroundStyle(borderColor == .red ? .red : .secondary)
+                    .foregroundStyle(state == .invalid ? .red : .secondary)
                     .frame(width: 20)
+                    .accessibilityHidden(true)
 
                 if isSecure && !showPassword {
                     SecureField(placeholder, text: $text)
@@ -43,23 +54,32 @@ struct AuthTextField: View {
                         .focused($isFocused)
                 }
 
+                if state == .valid {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                }
+
                 if isSecure {
                     Button {
                         showPassword.toggle()
                     } label: {
-                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
                             .foregroundStyle(.secondary)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, -12)
+                    .accessibilityLabel(showPassword
+                        ? String(localized: "auth.password.hide")
+                        : String(localized: "auth.password.show"))
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(borderColor, lineWidth: isFocused || errorMessage != nil ? 1.5 : 0.5)
-            )
+            .frame(minHeight: 50)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             if let errorMessage, !errorMessage.isEmpty {
                 HStack(spacing: 4) {
@@ -72,7 +92,7 @@ struct AuthTextField: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: errorMessage)
-        .animation(.easeInOut(duration: 0.2), value: isFocused)
+        .animation(.easeInOut(duration: 0.2), value: state)
     }
 }
 
@@ -184,28 +204,31 @@ struct AuthButton: View {
         case secondary
     }
 
+    /// System call-to-action (1.6): `.akifiPrimary` / `.akifiSecondary`,
+    /// full width, large; the system draws the disabled state.
     var body: some View {
-        Button(action: {
+        let button = Button(action: {
             HapticManager.medium()
             action()
         }) {
-            Group {
+            ZStack {
+                // The title keeps its size while the spinner shows.
+                Text(title)
+                    .font(.headline)
+                    .opacity(isLoading ? 0 : 1)
                 if isLoading {
                     ProgressView()
-                        .tint(style == .primary ? .white : .accent)
-                } else {
-                    Text(title)
-                        .font(.headline)
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
         }
-        .background(style == .primary ? Color.accent : Color(uiColor: .secondarySystemGroupedBackground))
-        .foregroundStyle(style == .primary ? Color.white : Color.accent)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .opacity(disabled || isLoading ? 0.6 : 1)
+        .controlSize(.large)
         .disabled(disabled || isLoading)
+
+        switch style {
+        case .primary: button.buttonStyle(.akifiPrimary)
+        case .secondary: button.buttonStyle(.akifiSecondary)
+        }
     }
 }
 
@@ -215,24 +238,34 @@ struct ErrorToastView: View {
     let message: String
     let onDismiss: () -> Void
 
+    /// A floating glass banner (1.6), like the app's other top banners:
+    /// the red symbol carries the meaning, the text stays primary.
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.red)
+                .accessibilityHidden(true)
             Text(message)
                 .font(.subheadline.weight(.medium))
-            Spacer()
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
             Button {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.caption.bold())
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "common.close"))
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.red.gradient, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
+        // The 44 pt close button sets the height and the trailing spacing.
+        .akifiGlassBanner(contentInsets: EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 4))
+        .accessibilityElement(children: .combine)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
@@ -248,6 +281,8 @@ struct ErrorToastModifier: ViewModifier {
                 ErrorToastView(message: message) {
                     withAnimation { errorMessage = nil }
                 }
+                // Below the navigation bar's control row, never over its buttons.
+                .padding(.top, AkifiChrome.bannerTopInset)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                         withAnimation { errorMessage = nil }

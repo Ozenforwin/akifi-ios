@@ -162,6 +162,8 @@ struct AcceptInviteView: View {
     @State private var phase: Phase
     @State private var preview: InvitePreview?
     @State private var isLoadingPreview = false
+    @ScaledMetric(relativeTo: .largeTitle) private var statusIconSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .largeTitle) private var kindIconSize: CGFloat = 40
     /// Opened from a link (vs typed in Settings).
     private let fromLink: Bool
     private let kind: InviteKind
@@ -209,22 +211,24 @@ struct AcceptInviteView: View {
                 case .success:
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 56))
+                        .font(.system(size: statusIconSize))
                         .foregroundStyle(.green)
                         .accessibilityHidden(true)
                     Text((preview?.kind ?? kind) == .budget
                          ? String(localized: "invite.success.budget")
                          : String(localized: "invite.success"))
                         .font(.headline)
+                        .multilineTextAlignment(.center)
                     Button(String(localized: "common.close")) { dismiss() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.akifiPrimary)
+                        .controlSize(.large)
                         .padding(.top, 8)
                     Spacer()
                 case .failure(let message):
                     Spacer()
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.orange)
+                        .font(.system(size: statusIconSize))
+                        .foregroundStyle(Color.warning)
                         .accessibilityHidden(true)
                     Text(message)
                         .font(.subheadline)
@@ -235,6 +239,9 @@ struct AcceptInviteView: View {
                     Spacer()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Cards and the code field are content on the grouped background (1.6).
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(String(localized: "invite.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -247,6 +254,9 @@ struct AcceptInviteView: View {
                 await loadPreview()
             }
         }
+        // Presented from the app root (invite links), above the tab
+        // view's tint.
+        .tint(Color.accent)
     }
 
     // MARK: - Confirmation (S2)
@@ -258,8 +268,8 @@ struct AcceptInviteView: View {
                 HStack {
                     Spacer()
                     Image(systemName: (preview?.kind ?? kind) == .budget ? "chart.pie.fill" : "person.2.fill")
-                        .font(.system(size: 40))
-                        .foregroundStyle(Color.accent.gradient)
+                        .font(.system(size: kindIconSize))
+                        .foregroundStyle(Color.accent)
                         .accessibilityHidden(true)
                     Spacer()
                 }
@@ -268,6 +278,7 @@ struct AcceptInviteView: View {
                     .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
 
                 if isLoadingPreview {
                     HStack {
@@ -291,7 +302,7 @@ struct AcceptInviteView: View {
                     if let warning = disclosure.warning {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "exclamationmark.shield.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.warning)
                                 .accessibilityHidden(true)
                             Text(warning)
                                 .font(.subheadline)
@@ -299,8 +310,7 @@ struct AcceptInviteView: View {
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.orange.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(Color.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -318,15 +328,12 @@ struct AcceptInviteView: View {
                             }
                         }
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .akifiCard()
                 }
             }
             .padding(20)
         }
-        .safeAreaInset(edge: .bottom) {
+        .akifiBottomBar {
             VStack(spacing: 8) {
                 Button {
                     Task { await acceptInvite() }
@@ -334,26 +341,23 @@ struct AcceptInviteView: View {
                     Text(String(localized: "invite.confirm.join"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 50)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.accent)
+                .buttonStyle(.akifiPrimary)
+                .controlSize(.large)
                 .disabled(isLoadingPreview)
 
                 Button {
                     if fromLink { dismiss() } else { phase = .enterCode }
                 } label: {
                     Text(String(localized: "common.cancel"))
-                        .font(.subheadline.weight(.medium))
+                        .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.akifiSecondary)
+                .controlSize(.large)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(.bar)
         }
     }
 
@@ -406,8 +410,8 @@ struct AcceptInviteView: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .padding(12)
-                .background(Color(.secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .frame(minHeight: 44)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .padding(.horizontal, 16)
 
             Button {
@@ -415,19 +419,13 @@ struct AcceptInviteView: View {
                 preview = nil
                 phase = .confirm
             } label: {
-                HStack {
-                    Spacer()
-                    Text(String(localized: "invite.continue"))
-                        .fontWeight(.semibold)
-                    Spacer()
-                }
-                .padding(.vertical, 12)
-                .background(cleanCode.count >= 16 ? Color.accent : Color.gray)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                Text(String(localized: "invite.continue"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.akifiPrimary)
+            .controlSize(.large)
             .disabled(cleanCode.count < 16)
-            .buttonStyle(.plain)
             .padding(.horizontal, 16)
         }
         .padding(.top, 20)

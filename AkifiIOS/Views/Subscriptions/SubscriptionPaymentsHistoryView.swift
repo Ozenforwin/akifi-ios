@@ -47,12 +47,13 @@ struct SubscriptionPaymentsHistoryView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         showAdd = true
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel(String(localized: "subscriptions.addPayment"))
                 }
             }
             .task {
@@ -72,6 +73,8 @@ struct SubscriptionPaymentsHistoryView: View {
                     await load()
                     await onChange()
                 }
+                // Two fields — a short sheet.
+                .presentationDetents([.medium])
             }
             .errorAlert($errorMessage)
         }
@@ -93,6 +96,7 @@ struct SubscriptionPaymentsHistoryView: View {
             Spacer()
             Text(formatAmount(payment.amount, currency: payment.currency))
                 .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
         }
     }
 

@@ -10,11 +10,12 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(0..<6) { step in
                     Circle()
-                        .fill(step <= currentStep ? Color.accent : .gray.opacity(0.3))
+                        .fill(step <= currentStep ? Color.accent : Color(.systemFill))
                         .frame(width: 8, height: 8)
                 }
             }
             .padding(.top, 20)
+            .accessibilityHidden(true)
 
             TabView(selection: $currentStep) {
                 WelcomeStepView { currentStep = 1 }
@@ -41,6 +42,29 @@ struct OnboardingView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentStep)
         }
+        // Rows and fields are content cards on the grouped background (1.6).
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        // No tab view above sets the app tint yet.
+        .tint(Color.accent)
+    }
+}
+
+/// The large symbol on top of each onboarding step: one accent colour, no
+/// gradient, sized with Dynamic Type.
+private struct OnboardingSymbol: View {
+    let systemName: String
+    @ScaledMetric private var size: CGFloat
+
+    init(_ systemName: String, size: CGFloat = 64) {
+        self.systemName = systemName
+        _size = ScaledMetric(wrappedValue: size, relativeTo: .largeTitle)
+    }
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: size))
+            .foregroundStyle(Color.accent)
+            .accessibilityHidden(true)
     }
 }
 
@@ -53,13 +77,12 @@ struct WelcomeStepView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 80))
-                .foregroundStyle(Color.accent.gradient)
+            OnboardingSymbol("sparkles", size: 80)
 
             Text(String(localized: "onboarding.welcome.title"))
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             Text(String(localized: "onboarding.welcome.subtitle"))
                 .font(.body)
@@ -95,12 +118,12 @@ struct CurrencyStepView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "dollarsign.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.accent.gradient)
+            OnboardingSymbol("dollarsign.circle.fill")
 
             Text(String(localized: "onboarding.currency.title"))
                 .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             Text(String(localized: "onboarding.currency.subtitle"))
                 .font(.subheadline)
@@ -123,14 +146,15 @@ struct CurrencyStepView: View {
                             if appViewModel.currencyManager.selectedCurrency == currency {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(Color.accent)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .akifiCard(.compact, padding: 0)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(appViewModel.currencyManager.selectedCurrency == currency ? .isSelected : [])
                 }
 
                 Button {
@@ -140,17 +164,18 @@ struct CurrencyStepView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .frame(width: 36)
+                            .accessibilityHidden(true)
                         Text(String(localized: "currencyPicker.title"))
                             .font(.subheadline)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .akifiCard(.compact, padding: 0)
                 }
                 .buttonStyle(.plain)
             }
@@ -197,28 +222,32 @@ struct AccountStepView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "creditcard.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.accent.gradient)
+            OnboardingSymbol("creditcard.fill")
 
             Text(String(localized: "onboarding.account.title"))
                 .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: 16) {
                 TextField(String(localized: "onboarding.account.namePlaceholder"), text: $accountName)
                     .padding()
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 HStack(spacing: 12) {
                     ForEach(icons, id: \.self) { icon in
-                        Text(icon)
-                            .font(.title)
-                            .frame(width: 48, height: 48)
-                            .background(selectedIcon == icon ? Color.accent.opacity(0.2) : .clear)
-                            .clipShape(Circle())
-                            .overlay { Circle().stroke(selectedIcon == icon ? Color.accent : .clear, lineWidth: 2) }
-                            .onTapGesture { selectedIcon = icon }
+                        Button {
+                            selectedIcon = icon
+                        } label: {
+                            Text(icon)
+                                .font(.title)
+                                .frame(width: 48, height: 48)
+                                .background(selectedIcon == icon ? Color.accent.opacity(0.2) : .clear, in: Circle())
+                                .overlay { Circle().strokeBorder(selectedIcon == icon ? Color.accent : .clear, lineWidth: 2) }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text(verbatim: icon))
+                        .accessibilityAddTraits(selectedIcon == icon ? .isSelected : [])
                     }
                 }
             }
@@ -265,7 +294,9 @@ struct AccountStepView: View {
                 if !accountName.isEmpty {
                     Button(String(localized: "common.skip")) { onNext() }
                         .font(.subheadline)
+                        .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
+                        .frame(minHeight: 44)
                 }
             }
         }
@@ -283,13 +314,17 @@ struct FeaturesStepView: View {
 
             Text(String(localized: "onboarding.features.title"))
                 .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
+            // One accent colour for the feature symbols (1.6: colour is for
+            // meaning, not decoration).
             VStack(alignment: .leading, spacing: 16) {
-                FeatureRow(icon: "arrow.left.arrow.right", color: .blue, title: String(localized: "onboarding.features.transactions"), subtitle: String(localized: "onboarding.features.transactions.subtitle"))
-                FeatureRow(icon: "chart.bar.fill", color: .purple, title: String(localized: "onboarding.features.analytics"), subtitle: String(localized: "onboarding.features.analytics.subtitle"))
-                FeatureRow(icon: "wallet.bifold.fill", color: .orange, title: String(localized: "onboarding.features.budgets"), subtitle: String(localized: "onboarding.features.budgets.subtitle"))
+                FeatureRow(icon: "arrow.left.arrow.right", color: Color.accent, title: String(localized: "onboarding.features.transactions"), subtitle: String(localized: "onboarding.features.transactions.subtitle"))
+                FeatureRow(icon: "chart.bar.fill", color: Color.accent, title: String(localized: "onboarding.features.analytics"), subtitle: String(localized: "onboarding.features.analytics.subtitle"))
+                FeatureRow(icon: "wallet.bifold.fill", color: Color.accent, title: String(localized: "onboarding.features.budgets"), subtitle: String(localized: "onboarding.features.budgets.subtitle"))
                 FeatureRow(icon: "target", color: Color.accent, title: String(localized: "onboarding.features.savings"), subtitle: String(localized: "onboarding.features.savings.subtitle"))
-                FeatureRow(icon: "sparkles", color: .yellow, title: String(localized: "onboarding.features.aiAssistant"), subtitle: String(localized: "onboarding.features.aiAssistant.subtitle"))
+                FeatureRow(icon: "sparkles", color: Color.accent, title: String(localized: "onboarding.features.aiAssistant"), subtitle: String(localized: "onboarding.features.aiAssistant.subtitle"))
             }
             .padding(.horizontal, 24)
 
@@ -312,8 +347,8 @@ struct FeatureRow: View {
                 .font(.title3)
                 .foregroundStyle(color)
                 .frame(width: 36, height: 36)
-                .background(color.opacity(0.12))
-                .clipShape(Circle())
+                .background(color.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold))
@@ -334,12 +369,12 @@ struct NotificationsStepView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.accent.gradient)
+            OnboardingSymbol("bell.badge.fill")
 
             Text(String(localized: "onboarding.notifications.title"))
                 .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             Text(String(localized: "onboarding.notifications.subtitle"))
                 .font(.subheadline)
@@ -365,7 +400,9 @@ struct NotificationsStepView: View {
 
                 Button(String(localized: "common.skip")) { onNext() }
                     .font(.subheadline)
+                    .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
+                    .frame(minHeight: 44)
             }
         }
     }
@@ -380,6 +417,7 @@ struct NotificationFeatureRow: View {
             Image(systemName: icon)
                 .foregroundStyle(Color.accent)
                 .frame(width: 24)
+                .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline)
         }
@@ -395,12 +433,12 @@ struct CompletionStepView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(Color.accent.gradient)
+            OnboardingSymbol("checkmark.circle.fill", size: 80)
 
             Text(String(localized: "onboarding.completion.title"))
                 .font(.title.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             Text(String(localized: "onboarding.completion.subtitle"))
                 .font(.body)
@@ -433,6 +471,7 @@ struct OnboardingButton: View {
         self.action = { action() }
     }
 
+    /// The step's primary call to action: system `.akifiPrimary`, full width.
     var body: some View {
         Button {
             isLoading = true
@@ -441,22 +480,20 @@ struct OnboardingButton: View {
                 isLoading = false
             }
         } label: {
-            if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            } else {
+            ZStack {
                 Text(title)
                     .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
+                    .opacity(isLoading ? 0 : 1)
+                if isLoading {
+                    ProgressView()
+                }
             }
+            .frame(maxWidth: .infinity)
         }
-        .background(Color.accent.gradient)
-        .foregroundStyle(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .buttonStyle(.akifiPrimary)
+        .controlSize(.large)
         .padding(.horizontal, 24)
-        .padding(.bottom, 56)
+        .padding(.bottom, 32)
         .disabled(isLoading)
     }
 }

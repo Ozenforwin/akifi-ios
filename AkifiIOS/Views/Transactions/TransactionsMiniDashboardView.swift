@@ -77,10 +77,10 @@ struct TransactionsMiniDashboardView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.accent)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
         }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        // Content, not glass (1.6).
+        .akifiCard()
     }
 
     private func abbreviate(_ value: Double) -> String {

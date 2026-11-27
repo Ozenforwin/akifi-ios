@@ -1,280 +1,164 @@
 import SwiftUI
 
-struct TransactionSearchView: View {
-    @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
+// Transaction search (1.6). The Transactions tab searches with the system
+// `.searchable` field (bottom of the screen on iOS 26) instead of a sheet
+// with a hand-made search bar; the matching, the suggestions and the
+// history live here so they stay testable.
 
-    let transactions: [Transaction]
-    let categories: [Category]
+// MARK: - Matching and suggestions
 
-    @State private var query = ""
-    @State private var history: [String] = []
-    @FocusState private var isSearchFocused: Bool
+enum TransactionSearch {
+    /// Merchants offered as suggestions (most frequent first).
+    static let merchantSuggestionLimit = 10
+    /// Description keywords offered after the merchants.
+    static let keywordSuggestionLimit = 5
 
-    private static let historyKey = "searchHistory"
-    private static let maxHistory = 20
-
-    // MARK: - Computed
-
-    private var results: [Transaction] {
-        guard !query.isEmpty else { return [] }
+    /// Case-insensitive substring match on the description, the merchant
+    /// and the category name. An empty query matches everything.
+    static func matches(_ tx: Transaction, query: String, categoryName: String?) -> Bool {
+        guard !query.isEmpty else { return true }
         let q = query.lowercased()
-        return transactions.filter { tx in
-            tx.description?.lowercased().contains(q) == true ||
-            tx.merchantName?.lowercased().contains(q) == true ||
-            categoryName(for: tx)?.lowercased().contains(q) == true
-        }
+        return tx.description?.lowercased().contains(q) == true
+            || tx.merchantName?.lowercased().contains(q) == true
+            || categoryName?.lowercased().contains(q) == true
     }
 
-    private var merchantSuggestions: [String] {
-        var freq: [String: Int] = [:]
+    /// Search suggestions for the empty field: the most frequent merchants,
+    /// then the most frequent description words (longer than two letters)
+    /// that aren't one of those merchants. Ties break alphabetically so the
+    /// list doesn't reshuffle between renders.
+    static func suggestions(from transactions: [Transaction]) -> [String] {
+        var merchantCounts: [String: Int] = [:]
+        var wordCounts: [String: Int] = [:]
         for tx in transactions {
-            if let m = tx.merchantName, !m.isEmpty {
-                freq[m, default: 0] += 1
+            if let merchant = tx.merchantName, !merchant.isEmpty {
+                merchantCounts[merchant, default: 0] += 1
             }
-        }
-        return freq.sorted { $0.value > $1.value }
-            .prefix(10)
-            .map(\.key)
-    }
-
-    private var descriptionKeywords: [String] {
-        var freq: [String: Int] = [:]
-        for tx in transactions {
             guard let desc = tx.description, !desc.isEmpty else { continue }
-            let words = desc.split(separator: " ")
-                .map { $0.trimmingCharacters(in: .punctuationCharacters) }
-                .filter { $0.count > 2 }
-            for word in words {
-                let lower = word.lowercased()
-                freq[lower, default: 0] += 1
+            for word in desc.split(separator: " ") {
+                let trimmed = word.trimmingCharacters(in: .punctuationCharacters)
+                guard trimmed.count > 2 else { continue }
+                wordCounts[trimmed.lowercased(), default: 0] += 1
             }
         }
-        let merchantSet = Set(merchantSuggestions.map { $0.lowercased() })
-        return freq.sorted { $0.value > $1.value }
-            .map(\.key)
+        let merchants = ranked(merchantCounts).prefix(merchantSuggestionLimit)
+        let merchantSet = Set(merchants.map { $0.lowercased() })
+        let keywords = ranked(wordCounts)
             .filter { !merchantSet.contains($0) }
-            .prefix(5)
-            .map { $0 }
+            .prefix(keywordSuggestionLimit)
+        return Array(merchants) + Array(keywords)
     }
 
-    private var allSuggestions: [String] {
-        merchantSuggestions + descriptionKeywords
+    private static func ranked(_ counts: [String: Int]) -> [String] {
+        counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
+    }
+}
+
+// MARK: - History
+
+/// Recent search terms, newest first, persisted in `UserDefaults` under the
+/// key the pre-1.6 search sheet used (existing history carries over).
+struct TransactionSearchHistory {
+    static let defaultsKey = "searchHistory"
+    static let limit = 20
+
+    var defaults: UserDefaults = .standard
+
+    func load() -> [String] {
+        guard let data = defaults.data(forKey: Self.defaultsKey),
+              let items = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+        return items
     }
 
-    // MARK: - Body
+    func save(_ items: [String]) {
+        if let data = try? JSONEncoder().encode(items) {
+            defaults.set(data, forKey: Self.defaultsKey)
+        }
+    }
+
+    /// `history` with `term` moved (or added) to the front, capped at
+    /// `limit`. Blank terms leave it unchanged.
+    static func adding(_ term: String, to history: [String]) -> [String] {
+        let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return history }
+        var items = history.filter { $0 != trimmed }
+        items.insert(trimmed, at: 0)
+        return Array(items.prefix(limit))
+    }
+}
+
+// MARK: - Suggestions list
+
+/// Content of `.searchSuggestions` while the search field is empty:
+/// frequent merchants / words and the recent searches (each removable,
+/// or all at once).
+struct TransactionSearchSuggestions: View {
+    let suggestions: [String]
+    let history: [String]
+    let onPick: (String) -> Void
+    let onRemove: (String) -> Void
+    let onClearHistory: () -> Void
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                searchBar
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                if query.isEmpty {
-                    emptyStateContent
-                } else if results.isEmpty {
-                    ContentUnavailableView.search(text: query)
-                } else {
-                    resultsList
-                }
-            }
-            .navigationTitle(String(localized: "search.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
-                }
-            }
-            .onAppear {
-                loadHistory()
-                isSearchFocused = true
-            }
-        }
-    }
-
-    // MARK: - Search Bar
-
-    private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField(String(localized: "search.placeholder"), text: $query)
-                .focused($isSearchFocused)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .submitLabel(.search)
-                .onSubmit { saveToHistory(query) }
-            if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(10)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    // MARK: - Empty State (Suggestions + History)
-
-    private var emptyStateContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // AI Suggestions
-                if !allSuggestions.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(String(localized: "search.suggestions"))
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(allSuggestions, id: \.self) { suggestion in
-                                    chipButton(suggestion) {
-                                        query = suggestion
-                                        saveToHistory(suggestion)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                }
-
-                // Search History
-                if !history.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(String(localized: "search.history"))
-                                .font(.caption.weight(.medium))
+        if !suggestions.isEmpty {
+            Section(String(localized: "search.suggestions")) {
+                ForEach(suggestions, id: \.self) { suggestion in
+                    Button {
+                        onPick(suggestion)
+                    } label: {
+                        Label {
+                            Text(suggestion)
+                        } icon: {
+                            Image(systemName: "magnifyingglass")
                                 .foregroundStyle(.secondary)
-                            Spacer()
-                            Button(String(localized: "search.clearHistory")) {
-                                clearHistory()
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                        }
-                        .padding(.horizontal)
-
-                        ForEach(history, id: \.self) { item in
-                            HStack {
-                                Button {
-                                    query = item
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "clock.arrow.circlepath")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text(item)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.primary)
-                                        Spacer()
-                                    }
-                                }
-                                .buttonStyle(.plain)
-
-                                Button { removeFromHistory(item) } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            .padding(.horizontal)
-                            .padding(.vertical, 6)
                         }
                     }
+                    .tint(.primary)
                 }
             }
-            .padding(.top, 16)
         }
-    }
 
-    // MARK: - Results
+        if !history.isEmpty {
+            Section {
+                ForEach(history, id: \.self) { item in
+                    HStack {
+                        Button {
+                            onPick(item)
+                        } label: {
+                            Label {
+                                Text(item)
+                                    .foregroundStyle(.primary)
+                            } icon: {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
 
-    private var resultsList: some View {
-        List {
-            ForEach(results) { transaction in
-                TransactionRowView(
-                    transaction: transaction,
-                    category: category(for: transaction)
-                )
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                .listRowBackground(Color.clear)
+                        Button {
+                            onRemove(item)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "common.delete"))
+                    }
+                }
+            } header: {
+                HStack {
+                    Text(String(localized: "search.history"))
+                    Spacer()
+                    Button(String(localized: "search.clearHistory"), role: .destructive, action: onClearHistory)
+                        .font(.footnote)
+                        .textCase(nil)
+                }
             }
         }
-        .listStyle(.plain)
-        .scrollDismissesKeyboard(.interactively)
-        .onAppear { saveToHistory(query) }
-    }
-
-    // MARK: - Chip
-
-    private func chipButton(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(.systemGray6))
-                .foregroundStyle(.primary.opacity(0.7))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(Color(.systemGray4), lineWidth: 0.5)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Helpers
-
-    private func categoryName(for tx: Transaction) -> String? {
-        guard let cid = tx.categoryId else { return nil }
-        return categories.first { $0.id == cid }?.name
-    }
-
-    private func category(for tx: Transaction) -> Category? {
-        guard let cid = tx.categoryId else { return nil }
-        return categories.first { $0.id == cid }
-    }
-
-    // MARK: - History Persistence
-
-    private func loadHistory() {
-        guard let data = UserDefaults.standard.data(forKey: Self.historyKey),
-              let items = try? JSONDecoder().decode([String].self, from: data) else { return }
-        history = items
-    }
-
-    private func persistHistory() {
-        if let data = try? JSONEncoder().encode(history) {
-            UserDefaults.standard.set(data, forKey: Self.historyKey)
-        }
-    }
-
-    private func saveToHistory(_ term: String) {
-        let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        history.removeAll { $0 == trimmed }
-        history.insert(trimmed, at: 0)
-        if history.count > Self.maxHistory {
-            history = Array(history.prefix(Self.maxHistory))
-        }
-        persistHistory()
-    }
-
-    private func removeFromHistory(_ item: String) {
-        history.removeAll { $0 == item }
-        persistHistory()
-    }
-
-    private func clearHistory() {
-        history.removeAll()
-        persistHistory()
     }
 }
