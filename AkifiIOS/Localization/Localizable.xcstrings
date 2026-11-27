@@ -133,6 +133,52 @@
         }
       }
     },
+    "contribution.counter.none.deposit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already on “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya está en «%@»"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Уже на счёте «%@»"
+          }
+        }
+      }
+    },
+    "contribution.counter.none.withdrawal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take out of “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirar de «%@»"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Снять со счёта «%@»"
+          }
+        }
+      }
+    },
     "currencyReconciliation.error.rateMissing" : {
       "localizations" : {
         "en" : {
@@ -239,6 +285,52 @@
     },
     "-%@" : {
 
+    },
+    "pdf.budgets.currentPeriod" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budgets — current period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presupuestos — período actual"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Бюджеты — текущий период"
+          }
+        }
+      }
+    },
+    "settlement.offline.approximate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approximate, no connection — you can record settlements once you're back online"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aproximado, sin conexión: podrás registrar las liquidaciones cuando vuelva la red"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приблизительно, нет связи — расчёты можно отметить, когда сеть вернётся"
+          }
+        }
+      }
     },
     "—" : {
 
