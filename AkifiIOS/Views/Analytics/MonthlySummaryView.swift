@@ -36,8 +36,8 @@ struct MonthlySummaryView: View {
     }
 
     var body: some View {
-        // Side by side; stacked at accessibility text sizes.
-        let layout = dynamicTypeSize.isAccessibilitySize
+        // Side by side; stacked from XXXL up.
+        let layout = dynamicTypeSize >= .xxxLarge
             ? AnyLayout(VStackLayout(spacing: 12))
             : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
         VStack(spacing: 12) {
@@ -95,6 +95,8 @@ struct MonthlySummaryView: View {
                     .font(.caption2.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(color)
+                    .lineLimit(1)
+                    .fixedSize()
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(color.opacity(0.15), in: Capsule())

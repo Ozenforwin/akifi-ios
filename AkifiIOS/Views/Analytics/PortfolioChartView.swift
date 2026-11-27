@@ -235,8 +235,11 @@ struct PortfolioChartView: View {
                 let pct = balanceD / totalD * 100
                 Text(item.balance >= 0 ? "\(Int(pct))%" : "")
                     .font(.caption)
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
-                    .frame(width: 36, alignment: .trailing)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(minWidth: 36, alignment: .trailing)
             }
         }
     }

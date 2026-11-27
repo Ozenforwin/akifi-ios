@@ -173,6 +173,8 @@ struct CategoryBreakdownView: View {
                             .font(.caption)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize()
                             .frame(minWidth: 36, alignment: .trailing)
                     }
                     .padding(.vertical, 8)

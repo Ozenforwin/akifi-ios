@@ -63,9 +63,9 @@ struct SummaryCardsView: View {
         }
         let monthlyIncome = totals.income
         let monthlyExpense = totals.expense
-        // Side by side; stacked at accessibility text sizes, where two
-        // amounts no longer fit across the screen.
-        let layout = dynamicTypeSize.isAccessibilitySize
+        // Side by side; stacked from XXXL up, where two titles and amounts
+        // no longer fit across the screen.
+        let layout = dynamicTypeSize >= .xxxLarge
             ? AnyLayout(VStackLayout(spacing: 12))
             : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
         layout {
@@ -113,6 +113,8 @@ struct SummaryCard: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    // Wrap instead of truncating inside the equal-height row.
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Text(verbatim: formattedAmount)
