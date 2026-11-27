@@ -1363,6 +1363,19 @@ final class DataStore {
         allAccounts.filter(\.isDebtAccount)
     }
 
+    /// The owner changed an account's cover (`AccountCoverStore`; the
+    /// server row already points at `path`): mirror it now, so every card
+    /// shows it before the next load. A load already in flight would bring
+    /// the old row back — counted as a local mutation, it is re-run.
+    func setCoverPath(_ path: String?, forAccountId id: String) {
+        guard let index = allAccounts.firstIndex(where: { $0.id == id }),
+              allAccounts[index].coverPath != path else { return }
+        noteLocalMutation()
+        allAccounts[index].coverPath = path
+        tagCacheOwnerIfNeeded()
+        cache.saveAccounts(allAccounts)
+    }
+
     var recentTransactions: [Transaction] {
         Array(transactions.prefix(10))
     }

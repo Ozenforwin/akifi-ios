@@ -137,6 +137,13 @@ struct AccountFormView: View {
                     }
                 }
 
+                // Cover photo (1.6.0) — an existing account only (the object
+                // lives in the account's folder). Owner: pick / crop /
+                // remove; members of a shared account: see it.
+                if let acc = editingAccount, AccountCoverPolicy.supportsCover(acc) {
+                    AccountCoverSection(account: acc)
+                }
+
                 // Shared-account management — only for existing accounts.
                 // Routes into ShareAccountView which exposes invite flow +
                 // per-member split weights (used by settlement). We show it
@@ -399,6 +406,13 @@ struct AccountFormView: View {
     private func deleteAccount(_ account: Account) async {
         isDeleting = true
         do {
+            // The cover first: once the row is gone the storage policies
+            // can't tell who owns the folder. Best effort, bounded — never
+            // blocks the deletion.
+            let live = appViewModel.dataStore.accounts.first { $0.id == account.id } ?? account
+            if AccountCoverPolicy.canEdit(live, viewerId: appViewModel.dataStore.profile?.id) {
+                await appViewModel.accountCovers.purgeObjects(of: live)
+            }
             try await accountRepo.delete(id: account.id)
             await onSave()
             dismiss()

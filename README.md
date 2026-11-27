@@ -624,6 +624,7 @@ DB layer:
 ### Storage Buckets
 - `avatars` — аватары пользователей (public)
 - `journal-photos` — фото журнала (public, 5MB limit, JPEG/PNG/HEIC/WebP, RLS по user_id)
+- `account-covers` — обложки счетов (private, 2MB, JPEG; `<account_id>/<uuid>.jpg`; читают владелец и участники счёта, пишет только владелец; `accounts.cover_path`, миграция 20261128100000). Клиент: `AccountCoverRepository` / `AccountCoverStore` (кэш в памяти и на диске по имени объекта, скачивание только через authenticated Storage API, без signed URL)
 
 ### Edge Functions
 

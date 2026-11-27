@@ -130,7 +130,7 @@ struct DepositListView: View {
             Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
             Button(String(localized: "common.delete"), role: .destructive) {
                 if let d = pendingDelete {
-                    Task { await viewModel.delete(d, dataStore: dataStore) }
+                    Task { await viewModel.delete(d, dataStore: dataStore, covers: appViewModel.accountCovers) }
                 }
                 pendingDelete = nil
             }

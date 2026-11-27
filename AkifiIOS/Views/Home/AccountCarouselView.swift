@@ -32,7 +32,8 @@ private enum HiddenBalancesStore {
 /// around). The card is content, not glass, washed in the account's own
 /// colour (`.akifiCard(tint:)` — Vladimir: the white cards lost which
 /// account is which, 2026-11-28); the colour also marks the icon tile, the
-/// primary star and the selected page dot.
+/// primary star and the selected page dot. An account whose owner set a
+/// cover photo shows it instead of the wash (`AccountCoverViews.swift`).
 struct AccountCarouselView: View {
     @Environment(AppViewModel.self) private var appViewModel
     let accounts: [Account]
@@ -124,6 +125,16 @@ struct AccountCarouselView: View {
         .task(id: accounts.map(\.id)) {
             await appViewModel.dataStore.accountMembership.refresh(viewerId: appViewModel.dataStore.profile?.id)
         }
+        // Cached covers nobody points at any more (replaced, account gone)
+        // leave the device. The user's real accounts, not the demo ones.
+        .task(id: liveCoverPaths) {
+            guard !appViewModel.dataStore.accounts.isEmpty else { return }
+            await appViewModel.accountCovers.prune(keeping: liveCoverPaths)
+        }
+    }
+
+    private var liveCoverPaths: Set<String> {
+        Set(appViewModel.dataStore.accounts.compactMap(\.coverPath))
     }
 
     // MARK: - Page control
@@ -218,8 +229,18 @@ struct AccountCardView: View {
     private var accountColor: Color { Color(hex: account.color) }
     private var fmt: CurrencyManager { appViewModel.currencyManager }
 
+    /// The account's cover photo once it is in memory; until then (and
+    /// offline with nothing cached) the tinted card.
+    private var cover: AccountCoverImage? {
+        appViewModel.accountCovers.image(for: account.coverPath)
+    }
+
+    private var palette: AccountCardPalette {
+        cover == nil ? .tinted(accountColor) : .cover
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let content = VStack(alignment: .leading, spacing: 12) {
             header
 
             // Balance at the bottom edge, like a card in Wallet.
@@ -231,7 +252,20 @@ struct AccountCardView: View {
             }
         }
         .frame(minHeight: contentMinHeight, alignment: .topLeading)
-        .akifiCard(tint: accountColor)
+
+        Group {
+            if let cover {
+                // A cover replaces the tint: the photo under a scrim, light
+                // text, still content — no glass, no shadow (Vladimir, 1.6.0).
+                content.accountCoverCard(cover)
+            } else {
+                content.akifiCard(tint: accountColor)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: cover != nil)
+        .task(id: account.coverPath) {
+            await appViewModel.accountCovers.load(account.coverPath)
+        }
     }
 
     // MARK: - Subviews
@@ -241,18 +275,19 @@ struct AccountCardView: View {
             Text(account.icon)
                 .font(.title3)
                 .frame(width: iconTileSize, height: iconTileSize)
-                .background(accountColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(palette.iconTileFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(account.name)
                         .font(.headline)
+                        .foregroundStyle(palette.primary)
                         .lineLimit(1)
                     if account.isPrimary {
                         Image(systemName: "star.fill")
                             .font(.caption)
-                            .foregroundStyle(accountColor)
+                            .foregroundStyle(palette.mark)
                             .accessibilityLabel(String(localized: "account.primary"))
                     }
                 }
@@ -260,7 +295,7 @@ struct AccountCardView: View {
                 if isSharedAccount {
                     Label(String(localized: "categories.shared"), systemImage: "person.2.fill")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(palette.secondary)
                 }
             }
 
@@ -301,9 +336,9 @@ struct AccountCardView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(palette.secondary)
                 .frame(width: 32, height: 32)
-                .background(Color(.tertiarySystemFill), in: Circle())
+                .background(palette.controlFill, in: Circle())
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
@@ -317,7 +352,7 @@ struct AccountCardView: View {
                  : fmt.formatAmount(balance.displayAmount))
                 .font(.largeTitle.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(balance < 0 ? Color.expense : .primary)
+                .foregroundStyle(balance < 0 ? palette.expense : palette.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .blur(radius: isBalanceHidden ? 10 : 0)
@@ -329,7 +364,7 @@ struct AccountCardView: View {
             } label: {
                 Image(systemName: isBalanceHidden ? "eye.slash" : "eye")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(palette.secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -361,7 +396,7 @@ struct AccountCardView: View {
         flowLabel(
             text: "+\(fmt.formatAmount(monthlyIncome.displayAmount))",
             systemImage: "arrow.up.right",
-            color: Color.income,
+            color: palette.income,
             accessibilityTitle: String(localized: "summary.monthlyIncome")
         )
     }
@@ -370,7 +405,7 @@ struct AccountCardView: View {
         flowLabel(
             text: "-\(fmt.formatAmount(monthlyExpense.displayAmount))",
             systemImage: "arrow.down.left",
-            color: Color.expense,
+            color: palette.expense,
             accessibilityTitle: String(localized: "summary.monthlyExpense")
         )
     }
