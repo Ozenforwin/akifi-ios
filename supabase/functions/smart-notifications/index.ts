@@ -264,6 +264,7 @@ async function alreadySentKeys(
 ): Promise<Set<string>> {
   const keys = [...new Set(candidates.map((c) => c.key))];
   if (keys.length === 0) return new Set();
+  // bounded-fetch: at most one row per candidate key of this event (a handful)
   const { data, error } = await supabase
     .from("notification_log")
     .select("notification_key")
@@ -412,6 +413,8 @@ interface BudgetMetricRow {
   utilization: number;
   member_ids: string[];
   alert_thresholds: number[] | null;
+  /// Account currencies without an fx_rates row (their rows were added 1:1).
+  fx_missing?: string[];
 }
 
 interface MemberContext {
@@ -480,7 +483,7 @@ async function fetchBudgetMetrics(
   ctx: MemberContext,
   budgetIds?: string[],
 ): Promise<BudgetMetricRow[]> {
-  // One jsonb value, not a row set — max-rows cannot truncate it (ADR-003).
+  // bounded-fetch: one jsonb value, not a row set — max-rows cannot truncate it (ADR-003)
   const { data, error } = await supabase.rpc("get_budget_metrics", {
     p_today: localDateIn(ctx.tz),
     p_tz: ctx.tz,
@@ -529,6 +532,9 @@ function budgetWarningFor(
   lang: Lang,
 ): NotificationCandidate | null {
   if (!(m.effective_limit > 0)) return null;
+  // N8: without a rate for some account currency the server added those
+  // rows 1:1 (500 000 ₫ as 500 000 ₽) — never alert on such a number.
+  if ((m.fx_missing ?? []).length > 0) return null;
   const thresholds = m.alert_thresholds && m.alert_thresholds.length > 0
     ? m.alert_thresholds
     : [warningPercent, 100];
@@ -1127,12 +1133,12 @@ async function handleCronInactivity(
 async function handleCronWeeklyPace(
   supabase: SupabaseClient,
 ): Promise<Response> {
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id,telegram_chat_id,fcm_token,preferred_language")
-    .or("telegram_chat_id.not.is.null,fcm_token.not.is.null");
-
-  if (profilesError) throw profilesError;
+  // N10: every reachable profile, not the first 1000 (ADR-003).
+  const profiles = await fetchAll<{ id: string; telegram_chat_id: string | number | null; fcm_token: string | null; preferred_language: string | null }>(
+    "profiles(weekly_pace)",
+    () => supabase.from("profiles").select("id,telegram_chat_id,fcm_token,preferred_language", { count: "exact" })
+      .or("telegram_chat_id.not.is.null,fcm_token.not.is.null"),
+  );
 
   const users = (profiles ?? []) as {
     id: string;

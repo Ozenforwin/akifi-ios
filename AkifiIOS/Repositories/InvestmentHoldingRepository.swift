@@ -112,6 +112,8 @@ struct CreateHoldingInput: Encodable, Sendable {
     }
 }
 
+/// Partial update; `notes` is double-optional so the form can clear it
+/// (`.some(nil)` → NULL) — see `UpdateLiabilityInput`.
 struct UpdateHoldingInput: Encodable, Sendable {
     let ticker: String?
     let kind: String?
@@ -119,12 +121,27 @@ struct UpdateHoldingInput: Encodable, Sendable {
     let cost_basis: Int64?
     let last_price: String?
     let last_price_date: String?
-    let notes: String?
+    let notes: String??
+
+    enum CodingKeys: String, CodingKey {
+        case ticker, kind, quantity, cost_basis, last_price, last_price_date, notes
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(ticker, forKey: .ticker)
+        try c.encodeIfPresent(kind, forKey: .kind)
+        try c.encodeIfPresent(quantity, forKey: .quantity)
+        try c.encodeIfPresent(cost_basis, forKey: .cost_basis)
+        try c.encodeIfPresent(last_price, forKey: .last_price)
+        try c.encodeIfPresent(last_price_date, forKey: .last_price_date)
+        try c.encodeNullable(notes, forKey: .notes)
+    }
 
     init(ticker: String? = nil, kind: HoldingKind? = nil,
          quantity: Decimal? = nil, costBasis: Int64? = nil,
          lastPrice: Decimal? = nil, lastPriceDate: String? = nil,
-         notes: String? = nil) {
+         notes: String?? = nil) {
         self.ticker = ticker
         self.kind = kind?.rawValue
         self.quantity = quantity.map { NSDecimalNumber(decimal: $0).stringValue }

@@ -16,6 +16,12 @@ struct MonthlyAggregate: Sendable, Equatable {
     var net: Int64 { income - expense }
 }
 
+/// A write that finished after the user signed out: its result belongs to
+/// the previous session and was not applied locally (Y9).
+struct SessionEndedError: LocalizedError, Equatable {
+    var errorDescription: String? { String(localized: "auth.sessionEnded.title") }
+}
+
 @Observable @MainActor
 final class DataStore {
     var accounts: [Account] = []
@@ -32,6 +38,9 @@ final class DataStore {
             case load
             /// A user action (delete, …) failed and was not applied.
             case mutation
+            /// The server refused queued writes for good (dead letters,
+            /// Y6) — they stay on the device as «не сохранено».
+            case unsynced
         }
         let id = UUID()
         let kind: Kind
@@ -157,10 +166,24 @@ final class DataStore {
     @ObservationIgnored var sessionValidator: @MainActor () async -> Bool = {
         await SupabaseManager.shared.hasValidSession()
     }
-    /// Cheap re-check after a long fetch: the session object still exists.
+    /// Cheap re-check after a long fetch: a session still exists AND its
+    /// access token is still valid (Y5) — a token that ran out mid-fetch
+    /// with a failed refresh sent the rest of the requests as anon.
     @ObservationIgnored var localSessionPresent: @MainActor () -> Bool = {
-        SupabaseManager.shared.hasLocalSession
+        SupabaseManager.shared.hasUnexpiredLocalSession
     }
+    /// The signed-in user per the SDK, synchronously — owner of what this
+    /// store caches (Y3). nil without a session.
+    @ObservationIgnored var currentUserIdProvider: @MainActor () -> String? = {
+        SupabaseManager.shared.client.auth.currentSession?.user.id.uuidString.lowercased()
+    }
+    /// Online, yet the SDK holds no session at all: it dropped it (dead
+    /// refresh token) and the auth event was missed. `AppViewModel` routes
+    /// this into the forced sign-out (Y1) — otherwise every write would
+    /// queue forever behind a session that will never come back.
+    @ObservationIgnored var onSessionMissing: (@MainActor () -> Void)?
+    /// The user whose id is in `cache_owner.json` this session (Y3).
+    @ObservationIgnored private var taggedCacheOwner: String?
     /// Network seam — see `DataStoreRemote`.
     @ObservationIgnored var remote: DataStoreRemote = .live
 
@@ -189,6 +212,9 @@ final class DataStore {
     init(cache: PersistenceManager = .shared) {
         self.cache = cache
         self.offlineQueue = OfflineQueue(persistence: cache)
+        offlineQueue.onDeadLettered = { [weak self] ops in
+            self?.handleDeadLettered(ops)
+        }
     }
 
     // MARK: - Auto-match settings key
@@ -231,8 +257,20 @@ final class DataStore {
         guard !hasLoadedCache else { return hasDisplayableData }
         hasLoadedCache = true
         let epoch = sessionEpoch
-        let snapshot = await cache.loadDataSnapshot()
+        var snapshot = await cache.loadDataSnapshot()
         guard epoch == sessionEpoch else { return false }
+
+        // Y3: only the signed-in user's own cache is ever shown. A cache
+        // left by someone else (sign-out interrupted, session dropped by
+        // the SDK) — or one nobody can vouch for — is wiped, not decoded
+        // into the UI and the widget.
+        let user = currentUserIdProvider()
+        if snapshot.hasAnyContent, user == nil || snapshot.owner != user {
+            AppLogger.data.warning("Offline cache belongs to another user — discarding it")
+            cache.clearAll(preservingQueue: true)
+            snapshot = CachedDataSnapshot()
+        }
+        tagCacheOwnerIfNeeded()
 
         var changed = false
         if accounts.isEmpty, let v = snapshot.accounts, !v.isEmpty { accounts = v; changed = true }
@@ -243,6 +281,7 @@ final class DataStore {
             // the ones that did).
             let restored = OfflineOverlay.apply(
                 offlineQueue.pendingOperations,
+                deadLetters: offlineQueue.deadLetterOperations,
                 to: snapshot.transactions ?? [],
                 nowISO: AppDateFormatters.nowTimestamp()
             )
@@ -299,10 +338,14 @@ final class DataStore {
         // Diff against what's on screen off the main actor; equal
         // collections are neither reassigned nor rewritten to disk.
         let pendingOps = offlineQueue.pendingOperations
+        let deadLetters = offlineQueue.deadLetterOperations
         let current = content
         let nowISO = AppDateFormatters.nowTimestamp()
         var changes = await Task.detached(priority: .userInitiated) {
-            DataStoreChangeSet.compute(fetched: fetched, overlay: pendingOps, current: current, nowISO: nowISO)
+            DataStoreChangeSet.compute(
+                fetched: fetched, overlay: pendingOps, deadLetters: deadLetters,
+                current: current, nowISO: nowISO
+            )
         }.value
         guard epoch == sessionEpoch else { return }
 
@@ -374,7 +417,22 @@ final class DataStore {
 
     private func persist(_ encoded: Data, _ filename: String) {
         guard !encoded.isEmpty else { return }
+        tagCacheOwnerIfNeeded()
         cache.writeInBackground(encoded, filename: filename)
+    }
+
+    /// Makes sure the on-disk cache is tagged with the signed-in user
+    /// before anything of theirs goes into it (Y3). A cache tagged with
+    /// someone else (or nobody, with data in it) is wiped first — files of
+    /// two users must never mix.
+    private func tagCacheOwnerIfNeeded() {
+        guard let user = currentUserIdProvider(), taggedCacheOwner != user else { return }
+        let owner = PersistenceManager.cacheOwner(
+            tag: cache.loadCacheOwner(), cachedProfileId: cache.loadProfile()?.id
+        )
+        if owner != user { cache.clearAll(preservingQueue: true) }
+        cache.saveCacheOwner(user)
+        taggedCacheOwner = user
     }
 
     private var content: DataStoreContent {
@@ -394,7 +452,14 @@ final class DataStore {
     /// Online AND a valid session (Y2).
     private func canReachServer() async -> Bool {
         guard isOnline else { return false }
-        return await sessionValidator()
+        if await sessionValidator() { return true }
+        // No session object at all (not merely an expired token whose
+        // refresh failed): the SDK dropped it for good. Y1 safety net in
+        // case the `.signedOut` event was missed.
+        if isOnline, !localSessionPresent(), currentUserIdProvider() == nil {
+            onSessionMissing?()
+        }
+        return false
     }
 
     /// Replays the offline queue and refreshes transactions afterwards so
@@ -430,10 +495,11 @@ final class DataStore {
             }
             guard epoch == sessionEpoch, localSessionPresent() else { return }
             let pendingOps = offlineQueue.pendingOperations
+            let deadLetters = offlineQueue.deadLetterOperations
             let current = transactions
             let nowISO = AppDateFormatters.nowTimestamp()
             let changed = await Task.detached(priority: .userInitiated) { () -> DataStoreChangeSet.Changed<[Transaction]>? in
-                let final = OfflineOverlay.apply(pendingOps, to: fetched, nowISO: nowISO)
+                let final = OfflineOverlay.apply(pendingOps, deadLetters: deadLetters, to: fetched, nowISO: nowISO)
                 guard let bytes = ContentComparison.changedEncoding(final, comparedTo: current) else { return nil }
                 return DataStoreChangeSet.Changed(value: final, encoded: bytes)
             }.value
@@ -456,12 +522,49 @@ final class DataStore {
     /// would make the user's offline entries vanish from the UI.
     /// Internal (not private) so tests can exercise the overlay directly.
     func applyPendingOverlay() {
-        guard offlineQueue.hasPending else { return }
+        guard offlineQueue.hasUnsynced else { return }
         transactions = OfflineOverlay.apply(
             offlineQueue.pendingOperations,
+            deadLetters: offlineQueue.deadLetterOperations,
             to: transactions,
             nowISO: AppDateFormatters.nowTimestamp()
         )
+    }
+
+    // MARK: - Refused writes (Y6)
+
+    /// The server refused queued writes for good: say so right away, and
+    /// mark their rows «не сохранено» — a refused create must not silently
+    /// drop out of the list and the balance on the next refresh.
+    private func handleDeadLettered(_ ops: [PendingOperation]) {
+        guard !ops.isEmpty else { return }
+        let targets = Set(ops.flatMap(\.targetTransactionIds))
+        // A triplet's legs go with its expense.
+        let tripletGroups = Set(transactions.filter { targets.contains($0.id) }.compactMap(\.autoTransferGroupId))
+        var transferGroups: [String] = []
+        for op in ops {
+            if case .deleteTransferGroup(let groupId, _) = op.operation { transferGroups.append(groupId) }
+        }
+        var touched = false
+        for i in transactions.indices {
+            let tx = transactions[i]
+            let hit = targets.contains(tx.id)
+                || (tx.autoTransferGroupId.map(tripletGroups.contains) ?? false)
+                || transferGroups.contains { tx.isManualTransferLeg(ofGroup: $0) }
+            if hit, !tx.isUnsynced {
+                transactions[i].status = Transaction.unsyncedStatus
+                touched = true
+            }
+        }
+        if touched {
+            noteLocalMutation()
+            persistTransactions()
+            rebuildCaches()
+        }
+        reportIssue(.unsynced, message: String(
+            format: String(localized: "sync.error.unsynced"),
+            offlineQueue.deadLetterOperations.count
+        ))
     }
 
     // MARK: - Sign-out
@@ -500,7 +603,45 @@ final class DataStore {
         isLoading = false
         hasLoadedCache = false
         lastCompleteLoadAt = nil
+        taggedCacheOwner = nil
         rebuildCaches()
+    }
+
+    // MARK: - Refused writes: retry / discard (Y6)
+
+    /// «Повторить»: refused writes go back into the queue, in order, and
+    /// replay now (no-op offline — they wait for the network).
+    func retryUnsyncedOperations() async {
+        offlineQueue.retryDeadLetters()
+        if issue?.kind == .unsynced { issue = nil }
+        // Every refused op is queued again — its rows are pending again.
+        for i in transactions.indices where transactions[i].isUnsynced {
+            transactions[i].status = "pending"
+        }
+        await syncPendingOperations()
+    }
+
+    /// «Не сохранять»: forget refused writes. Rows that exist only because
+    /// of them (placeholders of refused creates) go now; the rest returns
+    /// to the server's version on the next refresh.
+    func discardUnsyncedOperations() async {
+        let refused = offlineQueue.deadLetterOperations
+        offlineQueue.discardDeadLetters()
+        if issue?.kind == .unsynced { issue = nil }
+        var localOnly: Set<String> = []
+        for op in refused {
+            if case .create(let input) = op.operation, let id = input.id {
+                localOnly.formUnion([id, "\(id)-out", "\(id)-in"])
+            }
+        }
+        if !localOnly.isEmpty {
+            noteLocalMutation()
+            transactions.removeAll { localOnly.contains($0.id) && $0.isUnsynced }
+            persistTransactions()
+            rebuildCaches()
+            writeWidgetSnapshot()
+        }
+        await refreshTransactions()
     }
 
     // MARK: - Widget snapshot & persistence
@@ -533,6 +674,7 @@ final class DataStore {
     }
 
     private func persistTransactions() {
+        tagCacheOwnerIfNeeded()
         cache.saveTransactions(transactions)
     }
 
@@ -549,13 +691,18 @@ final class DataStore {
         // duplicated replay fails with 23505 which the queue treats as
         // "already synced" (the auto-transfer RPC gets it as `p_id`).
         let stamped = input.withClientId()
+        // Y9: a create that returns after a sign-out belongs to the previous
+        // user — it must not land in the next user's list, cache or widget.
+        let epoch = sessionEpoch
 
         guard await canReachServer() else {
+            guard epoch == sessionEpoch else { throw SessionEndedError() }
             return enqueueCreateLocally(stamped)
         }
 
         do {
             let tx = try await remote.createTransaction(stamped)
+            guard epoch == sessionEpoch else { throw SessionEndedError() }
             noteLocalMutation()
             if !transactions.contains(where: { $0.id == tx.id }) {
                 transactions.insert(tx, at: 0)
@@ -564,9 +711,13 @@ final class DataStore {
             rebuildCaches()
             writeWidgetSnapshot()
             AnalyticsService.logAddTransaction(type: stamped.type)
-            await attemptAutoMatch(for: tx)
+            if epoch == sessionEpoch { await attemptAutoMatch(for: tx) }
             return tx
         } catch {
+            if error is SessionEndedError { throw error }
+            // Signed out meanwhile: the queue now belongs to nobody (or to
+            // the next user) — don't queue the previous user's write there.
+            guard epoch == sessionEpoch else { throw SessionEndedError() }
             // The database never answered (lie-fi, the gateway timing out —
             // the 2026-09-10 outage) or answered "try later": queue it like
             // an offline create rather than losing it. The client id makes
@@ -647,12 +798,14 @@ final class DataStore {
             for: tx,
             in: subscriptions,
             fxRates: fxRatesDouble,
-            baseCode: ctx.baseCode
+            baseCode: ctx.baseCode,
+            accountsById: ctx.accountsById
         ) else { return }
 
         let sub = match.subscription
         let previousLast = sub.lastPaymentDate
         let previousNext = sub.nextPaymentDate
+        let epoch = sessionEpoch
 
         guard let txDate = SubscriptionDateEngine.parseDbDate(tx.date) else { return }
 
@@ -678,6 +831,11 @@ final class DataStore {
                 nextPaymentDate: newNextStr
             )
 
+            // Signed out while the payment was being recorded (Y9): the
+            // server has it; the next user's state, banner and reminders
+            // must not.
+            guard epoch == sessionEpoch else { return }
+
             // Local state update.
             if let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) {
                 var updated = subscriptions[idx]
@@ -696,6 +854,7 @@ final class DataStore {
                 )
             }
 
+            guard epoch == sessionEpoch else { return }
             pendingAutoMatch = PendingAutoMatch(
                 subscriptionId: sub.id,
                 subscriptionName: sub.serviceName,
@@ -764,7 +923,8 @@ final class DataStore {
                 transaction: tx,
                 subscription: sub,
                 fxRates: fxRatesDouble,
-                baseCode: ctx.baseCode
+                baseCode: ctx.baseCode,
+                accountsById: ctx.accountsById
             )
             guard scored.total >= SubscriptionMatcher.matchThreshold else { continue }
             let cycle = SubscriptionDateEngine.cycleKey(forPaymentOn: tx.date, subscription: sub)
@@ -889,7 +1049,10 @@ final class DataStore {
 
     /// Clears the pending-match banner (used when the user dismisses or the
     /// timer expires, without undoing).
-    func clearPendingAutoMatch() {
+    /// Clears the pending match — only `id` when given, so an expiring
+    /// banner can't dismiss a newer match (V9).
+    func clearPendingAutoMatch(id: UUID? = nil) {
+        if let id, pendingAutoMatch?.id != id { return }
         pendingAutoMatch = nil
     }
 
@@ -999,6 +1162,10 @@ final class DataStore {
     /// chain further writes on success (source reassignment) must use this.
     func deleteTransactionThrowing(_ transaction: Transaction) async throws {
         let target = deletionTarget(for: transaction)
+        if let groupId = target.manualTransferGroupId {
+            try await deleteTransferGroup(groupId)
+            return
+        }
 
         // Queued work on the row → through the queue (Y4); a delete of a
         // queued create cancels it there.
@@ -1025,6 +1192,49 @@ final class DataStore {
         }
         noteLocalMutation()
         removeLocal(target)
+        persistTransactions()
+        rebuildCaches()
+        writeWidgetSnapshot()
+        AnalyticsService.logDeleteTransaction()
+    }
+
+    /// Manual transfer (Y8): the list shows one row per `transfer_group_id`,
+    /// so deleting "the transfer" means both legs — one request by group,
+    /// locally and through the queue. Deleting only the swiped leg left the
+    /// other on its account and shifted that balance by the amount.
+    private func deleteTransferGroup(_ groupId: String) async throws {
+        let legIds = transactions.filter { $0.isManualTransferLeg(ofGroup: groupId) }.map(\.id)
+        if legIds.contains(where: offlineQueue.hasPendingOperations(for:)) {
+            deleteTransferGroupOffline(groupId, legIds: legIds)
+            scheduleQueueSync()
+            return
+        }
+        guard await canReachServer() else {
+            deleteTransferGroupOffline(groupId, legIds: legIds)
+            return
+        }
+        do {
+            try await remote.deleteTransferGroup(groupId)
+        } catch {
+            guard OfflineQueue.shouldQueueFailedWrite(error) else { throw error }
+            AppLogger.data.warning("Transfer delete failed without a database answer, queueing offline: \(error)")
+            deleteTransferGroupOffline(groupId, legIds: legIds)
+            return
+        }
+        noteLocalMutation()
+        transactions.removeAll { $0.isManualTransferLeg(ofGroup: groupId) }
+        persistTransactions()
+        rebuildCaches()
+        writeWidgetSnapshot()
+        AnalyticsService.logDeleteTransaction()
+    }
+
+    private func deleteTransferGroupOffline(_ groupId: String, legIds: [String]) {
+        offlineQueue.enqueue(PendingOperation(
+            operation: .deleteTransferGroup(groupId: groupId, transactionIds: legIds)
+        ))
+        noteLocalMutation()
+        transactions.removeAll { $0.isManualTransferLeg(ofGroup: groupId) }
         persistTransactions()
         rebuildCaches()
         writeWidgetSnapshot()
@@ -1082,10 +1292,12 @@ final class DataStore {
 
     /// Categories deduplicated by name+type for UI display (pickers, management).
     /// Prefers the current user's own categories over shared-account duplicates.
+    /// Active only: `categories` also holds hidden ones (M11 — budget math and
+    /// lookups need them), but nobody picks a hidden category.
     var displayCategories: [Category] {
         let currentUserId = profile?.id ?? ""
         // Sort: current user's categories first so they "win" in dedup
-        let sorted = categories.sorted { a, b in
+        let sorted = categories.filter(\.isActive).sorted { a, b in
             let aOwn = a.userId == currentUserId
             let bOwn = b.userId == currentUserId
             if aOwn != bOwn { return aOwn }
@@ -1342,7 +1554,10 @@ final class DataStore {
                     budget: budget, transactions: transactions, subscriptions: subscriptions,
                     categories: categories,
                     externalSpendRows: externalSpendByBudget[budget.id] ?? [],
-                    currencyContext: ctx
+                    currencyContext: ctx,
+                    members: BudgetMath.memberIds(
+                        for: budget, viewerId: profile?.id, budgetMembers: budgetMembersByBudget[budget.id]
+                    )
                 )
                 return AssistantContext.BudgetSummary(
                     name: budget.name,

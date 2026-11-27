@@ -55,25 +55,25 @@ struct SubscriptionPaymentsHistoryView: View {
                     }
                 }
             }
-            .task { await load() }
+            .task {
+                // The VM tracks the subscription's dates across record /
+                // delete; seeded once, so a second edit sees the first one's
+                // dates, not the stale copy passed in.
+                if viewModel.subscriptions.isEmpty { viewModel.subscriptions = [subscription] }
+                await load()
+            }
             .sheet(isPresented: $showAdd) {
                 AddPaymentForm(subscription: subscription) { amount, date in
-                    // Seed VM with the current subscription for recordPayment to work.
-                    viewModel.subscriptions = [subscription]
                     _ = await viewModel.recordPayment(subscriptionId: subscription.id, amount: amount, date: date)
+                    if let error = viewModel.error {
+                        errorMessage = error
+                        viewModel.error = nil
+                    }
                     await load()
                     await onChange()
                 }
             }
-            .alert(
-                String(localized: "common.error"),
-                isPresented: .constant(errorMessage != nil),
-                presenting: errorMessage
-            ) { _ in
-                Button(String(localized: "common.ok")) { errorMessage = nil }
-            } message: { message in
-                Text(message)
-            }
+            .errorAlert($errorMessage)
         }
     }
 
@@ -108,15 +108,16 @@ struct SubscriptionPaymentsHistoryView: View {
         isLoading = false
     }
 
+    /// Deletes the rows and rolls the subscription's last / next payment
+    /// dates back like the undo banner does (V8).
     private func deletePayments(at offsets: IndexSet) {
+        let toDelete = offsets.map { payments[$0] }
+        let all = payments
         Task {
-            for idx in offsets {
-                let payment = payments[idx]
-                do {
-                    try await repo.deletePayment(id: payment.id)
-                } catch {
-                    errorMessage = error.localizedDescription
-                }
+            do {
+                try await viewModel.deletePayments(toDelete, of: subscription, allPayments: all)
+            } catch {
+                errorMessage = error.localizedDescription
             }
             await load()
             await onChange()
@@ -190,7 +191,7 @@ private struct AddPaymentForm: View {
                     Button(String(localized: "common.save")) {
                         Task { await save() }
                     }
-                    .disabled(amountText.isEmpty || isSaving)
+                    .disabled((DecimalInput.kopecks(amountText) ?? 0) <= 0 || isSaving)
                 }
             }
             .onAppear {
@@ -201,9 +202,8 @@ private struct AddPaymentForm: View {
     }
 
     private func save() async {
+        guard !isSaving, let amountCents = DecimalInput.kopecks(amountText), amountCents > 0 else { return }
         isSaving = true
-        guard let decimal = Decimal(string: amountText.replacingOccurrences(of: ",", with: ".")) else { return }
-        let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
         await onSave(amountCents, paymentDate)
         dismiss()
     }

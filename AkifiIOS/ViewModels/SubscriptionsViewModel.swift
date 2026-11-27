@@ -330,6 +330,62 @@ final class SubscriptionsViewModel {
         }
     }
 
+    /// Deletes payment rows from the history and rolls the subscription's
+    /// dates back to what the remaining payments justify (V8) — the history
+    /// counterpart of `undoPayment`. Deleting used to leave
+    /// `next_payment_date` a cycle ahead, so the real charge and its
+    /// reminder were skipped.
+    ///
+    /// Stops at the first failed delete; the dates are still recomputed for
+    /// the rows that did go, then the error is rethrown.
+    func deletePayments(
+        _ toDelete: [SubscriptionPayment],
+        of subscription: SubscriptionTracker,
+        allPayments: [SubscriptionPayment]
+    ) async throws {
+        var deleted: [SubscriptionPayment] = []
+        var failure: Error?
+        for payment in toDelete {
+            do {
+                try await repo.deletePayment(id: payment.id)
+                deleted.append(payment)
+            } catch {
+                failure = error
+                break
+            }
+        }
+
+        if !deleted.isEmpty {
+            let sub = subscriptions.first { $0.id == subscription.id } ?? subscription
+            let deletedIds = Set(deleted.map(\.id))
+            let dates = SubscriptionDateEngine.datesAfterDeleting(
+                paymentDates: deleted.map(\.paymentDate),
+                remainingPaymentDates: allPayments.filter { !deletedIds.contains($0.id) }.map(\.paymentDate),
+                subscription: sub
+            )
+            let currentLast = sub.lastPaymentDate.map { String($0.prefix(10)) }
+            let currentNext = sub.nextPaymentDate.map { String($0.prefix(10)) }
+            if dates.last != currentLast || dates.next != currentNext {
+                try await repo.updateDates(
+                    id: sub.id,
+                    lastPaymentDate: dates.last,
+                    nextPaymentDate: dates.next
+                )
+                var updated = sub
+                updated.lastPaymentDate = dates.last
+                updated.nextPaymentDate = dates.next
+                if let idx = subscriptions.firstIndex(where: { $0.id == sub.id }) {
+                    subscriptions[idx] = updated
+                } else {
+                    subscriptions.append(updated)
+                }
+                await scheduleReminder(for: updated)
+            }
+        }
+
+        if let failure { throw failure }
+    }
+
     // MARK: - Notifications
 
     private func scheduleReminder(for sub: SubscriptionTracker) async {

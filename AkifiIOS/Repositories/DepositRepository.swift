@@ -63,6 +63,45 @@ final class DepositRepository: Sendable {
             .execute()
     }
 
+    /// Flips an ACTIVE deposit to `status` — and only an active one
+    /// (`WHERE status = 'active'`), so two taps, a pull-to-refresh during
+    /// maturity or a second device can't close the same deposit twice
+    /// (V1). Returns the updated row, or nil when it was no longer active
+    /// (someone else already closed it — the caller must not pay out).
+    func closeIfActive(
+        id: String,
+        status: DepositStatus,
+        closedAt: String,
+        returnToAccountId: String
+    ) async throws -> Deposit? {
+        let payload = CloseDepositInput(
+            status: status.rawValue,
+            closed_at: closedAt,
+            return_to_account_id: returnToAccountId
+        )
+        let rows: [Deposit] = try await supabase
+            .from("deposits")
+            .update(payload)
+            .eq("id", value: id)
+            .eq("status", value: DepositStatus.active.rawValue)
+            .select()
+            .execute()
+            .value
+        return rows.first
+    }
+
+    /// Undoes `closeIfActive` when the payout could not be written, so the
+    /// deposit doesn't show "matured" without its money having moved. Only
+    /// touches the row if it still has the status we set.
+    func reopen(id: String, from status: DepositStatus) async throws {
+        try await supabase
+            .from("deposits")
+            .update(ReopenDepositInput())
+            .eq("id", value: id)
+            .eq("status", value: status.rawValue)
+            .execute()
+    }
+
     func delete(id: String) async throws {
         // ON DELETE CASCADE on deposits.account_id would leave an orphan
         // account row — we delete the account instead, which cascades to
@@ -100,4 +139,23 @@ struct UpdateDepositInput: Encodable, Sendable {
     let status: String?
     let closed_at: String?
     let end_date: String?
+}
+
+/// Status flip of `closeIfActive`.
+struct CloseDepositInput: Encodable, Sendable {
+    let status: String
+    let closed_at: String
+    let return_to_account_id: String
+}
+
+/// Back to active with `closed_at` explicitly NULL (a synthesized
+/// Encodable would drop a nil key and leave the timestamp behind).
+struct ReopenDepositInput: Encodable, Sendable {
+    enum CodingKeys: String, CodingKey { case status, closed_at }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(DepositStatus.active.rawValue, forKey: .status)
+        try c.encodeNil(forKey: .closed_at)
+    }
 }

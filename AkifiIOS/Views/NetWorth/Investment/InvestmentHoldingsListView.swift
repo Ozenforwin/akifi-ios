@@ -20,6 +20,7 @@ struct InvestmentHoldingsListView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showForm = false
     @State private var editingHolding: InvestmentHolding?
+    @State private var deleteError: String?
 
     private var cm: CurrencyManager { appViewModel.currencyManager }
 
@@ -68,7 +69,7 @@ struct InvestmentHoldingsListView: View {
                 parentAssets: viewModel.assetsForPortfolio,
                 initialAssetId: asset.id,
                 onSave: { input in
-                    await viewModel.create(input, currencyManager: cm)
+                    try await viewModel.create(input, currencyManager: cm)
                 }
             )
         }
@@ -79,10 +80,11 @@ struct InvestmentHoldingsListView: View {
                 editingHolding: h,
                 onSave: { _ in /* unused for edit */ },
                 onUpdate: { id, input in
-                    await viewModel.update(id: id, input, currencyManager: cm)
+                    try await viewModel.update(id: id, input, currencyManager: cm)
                 }
             )
         }
+        .errorAlert($deleteError)
     }
 
     // MARK: - Rows
@@ -135,7 +137,10 @@ struct InvestmentHoldingsListView: View {
         .padding(.vertical, 10)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
-                Task { await viewModel.delete(holding: h, currencyManager: cm) }
+                Task {
+                    do { try await viewModel.delete(holding: h, currencyManager: cm) }
+                    catch { deleteError = error.localizedDescription }
+                }
             } label: {
                 Label(String(localized: "common.delete"), systemImage: "trash")
             }

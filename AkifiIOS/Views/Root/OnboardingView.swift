@@ -182,8 +182,16 @@ struct AccountStepView: View {
     @State private var accountName = ""
     @State private var selectedIcon = "💳"
     @State private var isCreating = false
+    @State private var errorMessage: String?
 
     private let icons = ["💳", "🏦", "💰", "👛", "💵", "🪙"]
+
+    /// `accounts.currency` for the first account: the currency picked on the
+    /// currency step (stored as the data currency), lowercase like every
+    /// other account write.
+    static func firstAccountCurrency(_ chosen: Currency) -> String {
+        chosen.code.lowercased()
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -222,11 +230,36 @@ struct AccountStepView: View {
                 OnboardingButton(title: accountName.isEmpty ? String(localized: "common.skip") : String(localized: "onboarding.account.createAndContinue")) {
                     if !accountName.isEmpty {
                         isCreating = true
-                        let repo = AccountRepository()
-                        _ = try? await repo.create(name: accountName, icon: selectedIcon, color: "#4ADE80", initialBalance: 0)
+                        errorMessage = nil
+                        defer { isCreating = false }
+                        do {
+                            // M3: in the currency chosen on the previous
+                            // step — it used to default to roubles, so «50»
+                            // on a USD user's first account was 50 ₽.
+                            _ = try await AccountRepository().create(
+                                name: accountName,
+                                icon: selectedIcon,
+                                color: "#4ADE80",
+                                initialBalance: 0,
+                                currency: Self.firstAccountCurrency(appViewModel.currencyManager.dataCurrency)
+                            )
+                        } catch {
+                            // Stay on this step: a silent `try?` left the
+                            // user with no account and no idea why.
+                            errorMessage = FormErrorMessage.text(for: error)
+                            return
+                        }
                         await appViewModel.dataStore.loadAll()
                     }
                     onNext()
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
 
                 if !accountName.isEmpty {

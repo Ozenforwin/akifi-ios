@@ -139,9 +139,23 @@ struct UpdateSubscriptionInput: Encodable, Sendable {
     let account_id: String?
 }
 
+/// Both dates as the caller wants them stored — nil is written as NULL.
+/// Every caller passes the full intended state (record / undo / delete a
+/// payment); a synthesized Encodable dropped nil keys, so restoring "no
+/// last payment" after an undo or a history delete left the old date on
+/// the row (V8). A NULL `next_payment_date` is recomputed by the
+/// subscriptions trigger.
 struct UpdateSubscriptionDatesInput: Encodable, Sendable {
     let last_payment_date: String?
     let next_payment_date: String?
+
+    enum CodingKeys: String, CodingKey { case last_payment_date, next_payment_date }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(last_payment_date, forKey: .last_payment_date)
+        try c.encode(next_payment_date, forKey: .next_payment_date)
+    }
 }
 
 struct UpdateSubscriptionTrackerStatusInput: Encodable, Sendable {

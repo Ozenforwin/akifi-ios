@@ -13,6 +13,47 @@ final class JournalViewModel {
     var selectedTag: String?
 
     private let repo = FinancialNoteRepository()
+    /// Bumped by `reset()` (sign-out). A load that returns afterwards
+    /// belongs to the previous user and is dropped (Y9).
+    @ObservationIgnored private var sessionEpoch: UInt64 = 0
+    /// Network seams (tests drive the sign-out race without a server).
+    @ObservationIgnored var fetchPage: @MainActor (_ limit: Int, _ after: FinancialNoteRepository.PageCursor?) async throws -> [FinancialNote] = {
+        try await FinancialNoteRepository().fetchPage(limit: $0, after: $1)
+    }
+    @ObservationIgnored var fetchAllTags: @MainActor () async throws -> [String] = {
+        try await FinancialNoteRepository().fetchAllTags()
+    }
+
+    /// Results of the current search; nil while no search is active. Kept
+    /// apart from `notes`, the paged feed (V6): `search()` used to REPLACE
+    /// the feed — of 120 notes, the 3 matching "кофе" were all that was
+    /// left after clearing the search, and scrolling appended the old
+    /// cursor's second page to them.
+    private(set) var searchResults: [FinancialNote]?
+
+    /// The in-flight (debounced) search. Each keystroke cancels it; a
+    /// response for an older query is dropped instead of landing after
+    /// the newer one.
+    @ObservationIgnored private(set) var searchTask: Task<Void, Never>?
+    @ObservationIgnored private let searchNotes: @Sendable (String) async throws -> [FinancialNote]
+    @ObservationIgnored private let searchDebounce: Duration
+
+    /// `searchNotes` / `searchDebounce` are injectable for tests.
+    init(
+        searchNotes: (@Sendable (String) async throws -> [FinancialNote])? = nil,
+        searchDebounce: Duration = .milliseconds(300)
+    ) {
+        self.searchNotes = searchNotes ?? { try await FinancialNoteRepository().search(query: $0) }
+        self.searchDebounce = searchDebounce
+    }
+
+    /// The feed can page further: not while showing search results (they
+    /// are complete), and only while the server has more. The list's
+    /// "load more" sentinel follows this — not "50 notes are visible",
+    /// which hid older notes whenever a type/tag filter matched fewer than
+    /// 50 of the loaded ones.
+    var canLoadMore: Bool { searchResults == nil && hasMorePages }
+
     private var hasMorePages = true
     /// Keyset position: the last note of the last page fetched (Y12).
     private var pageCursor: FinancialNoteRepository.PageCursor?
@@ -66,20 +107,24 @@ final class JournalViewModel {
         if !hasLoadedOnce { isLoading = true }
         error = nil
         hasMorePages = true
+        let epoch = sessionEpoch
 
         do {
             // The page fetch has no IN filter, so we fetch all types and
             // filter client-side when `selectedFilter` groups multiple types.
-            let firstPage = try await repo.fetchPage(limit: pageSize, after: nil)
+            let firstPage = try await fetchPage(pageSize, nil)
+            guard epoch == sessionEpoch else { return }
             notes = firstPage
             pageCursor = Self.cursor(after: firstPage)
             hasMorePages = firstPage.count == pageSize
-            let fetchedTags = try await repo.fetchAllTags()
+            let fetchedTags = try await fetchAllTags()
+            guard epoch == sessionEpoch else { return }
             allTags = fetchedTags.filter { !hiddenTags.contains($0) }
             applyFilters()
             hasLoadedOnce = true
             lastLoadedAt = Date()
         } catch {
+            guard epoch == sessionEpoch else { return }
             self.error = error.localizedDescription
         }
         isLoading = false
@@ -89,16 +134,20 @@ final class JournalViewModel {
         guard hasMorePages, !isLoading, !isLoadingMore, let cursor = pageCursor else { return }
         isLoadingMore = true
         defer { isLoadingMore = false }
+        let epoch = sessionEpoch
 
         do {
-            let newNotes = try await repo.fetchPage(limit: pageSize, after: cursor)
-            // A reload replaced the feed while this page was in flight.
-            guard pageCursor == cursor else { return }
+            let newNotes = try await fetchPage(pageSize, cursor)
+            // A reload replaced the feed while this page was in flight, or
+            // the user signed out (Y9).
+            guard epoch == sessionEpoch, pageCursor == cursor else { return }
             if newNotes.count < pageSize { hasMorePages = false }
             notes = Self.appendingPage(newNotes, to: notes)
             pageCursor = Self.cursor(after: newNotes) ?? cursor
             applyFilters()
         } catch {
+            // The sentinel scrolled away mid-request — not a failure.
+            if Task.isCancelled || epoch != sessionEpoch { return }
             self.error = error.localizedDescription
         }
     }
@@ -123,6 +172,7 @@ final class JournalViewModel {
     /// Sign-out: nothing of the previous user's journal may survive into
     /// the next session (the view-model lives as long as the app).
     func reset() {
+        sessionEpoch &+= 1
         notes = []
         filteredNotes = []
         isLoading = false
@@ -135,21 +185,42 @@ final class JournalViewModel {
         hasMorePages = true
         pageCursor = nil
         lastLoadedAt = nil
+        searchTask?.cancel()
+        searchTask = nil
+        searchResults = nil
     }
 
-    func search() async {
-        guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else {
+    /// The search field changed. Debounced; the feed (`notes`) is never
+    /// touched — clearing the field shows it again as it was.
+    func updateSearch(_ text: String) {
+        searchText = text
+        searchTask?.cancel()
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchTask = nil
+            searchResults = nil
             applyFilters()
             return
         }
-        isLoading = true
-        do {
-            notes = try await repo.search(query: searchText)
-            applyFilters()
-        } catch {
-            self.error = error.localizedDescription
+        let searchNotes = searchNotes
+        let debounce = searchDebounce
+        // Y9: results of the previous user's search never land after sign-out.
+        let epoch = sessionEpoch
+        searchTask = Task { [weak self] in
+            if debounce > .zero {
+                do { try await Task.sleep(for: debounce) } catch { return }
+            }
+            do {
+                let results = try await searchNotes(query)
+                guard !Task.isCancelled, let self, epoch == self.sessionEpoch else { return }
+                self.searchResults = results
+                self.applyFilters()
+            } catch {
+                guard !Task.isCancelled, !(error is CancellationError), let self,
+                      epoch == self.sessionEpoch else { return }
+                self.error = error.localizedDescription
+            }
         }
-        isLoading = false
     }
 
     func createNote(title: String?, content: String, transactionId: String? = nil, tags: [String]? = nil, mood: NoteMood? = nil, photoUrls: [String]? = nil, noteType: NoteType = .freeform, periodStart: String? = nil, periodEnd: String? = nil, noteId: String? = nil) async throws -> FinancialNote {
@@ -167,9 +238,14 @@ final class JournalViewModel {
             period_start: periodStart,
             period_end: periodEnd
         )
+        let epoch = sessionEpoch
         let note = try await repo.create(input)
+        // Saved for the previous user; not shown to the next one (Y9).
+        guard epoch == sessionEpoch else { throw SessionEndedError() }
         notes.insert(note, at: 0)
         applyFilters()
+        // A new note may match the active search — re-run it.
+        if searchResults != nil { updateSearch(searchText) }
         if let newTags = tags {
             for tag in newTags where !allTags.contains(tag) {
                 allTags.append(tag)
@@ -192,20 +268,24 @@ final class JournalViewModel {
         return note
     }
 
-    func updateNote(id: String, title: String? = nil, content: String? = nil, transactionId: String?? = nil, tags: [String]? = nil, mood: NoteMood? = nil, photoUrls: [String]? = nil, periodStart: String?? = nil, periodEnd: String?? = nil) async throws {
+    /// `mood` is double-optional (V4): `.some(nil)` clears the mood; a plain
+    /// optional dropped the key and a deselected mood stayed on the server.
+    func updateNote(id: String, title: String? = nil, content: String? = nil, transactionId: String?? = nil, tags: [String]? = nil, mood: NoteMood?? = nil, photoUrls: [String]? = nil, periodStart: String?? = nil, periodEnd: String?? = nil) async throws {
         let input = UpdateNoteInput(
             title: title,
             content: content,
             transaction_id: transactionId,
             tags: tags,
-            mood: mood?.rawValue,
+            mood: mood.map { $0?.rawValue },
             photo_urls: photoUrls,
             period_start: periodStart,
             period_end: periodEnd
         )
+        let epoch = sessionEpoch
         try await repo.update(id: id, input)
-        if let idx = notes.firstIndex(where: { $0.id == id }) {
-            var note = notes[idx]
+        guard epoch == sessionEpoch else { return }
+        func patched(_ original: FinancialNote) -> FinancialNote {
+            var note = original
             if let title { note.title = title }
             if let content { note.content = content }
             if let transactionId { note.transactionId = transactionId }
@@ -214,9 +294,15 @@ final class JournalViewModel {
             if let photoUrls { note.photoUrls = photoUrls }
             if let periodStart { note.periodStart = periodStart }
             if let periodEnd { note.periodEnd = periodEnd }
-            notes[idx] = note
-            applyFilters()
+            return note
         }
+        if let idx = notes.firstIndex(where: { $0.id == id }) {
+            notes[idx] = patched(notes[idx])
+        }
+        if let idx = searchResults?.firstIndex(where: { $0.id == id }) {
+            searchResults?[idx] = patched(searchResults![idx])
+        }
+        applyFilters()
         if let newTags = tags {
             for tag in newTags where !allTags.contains(tag) {
                 allTags.append(tag)
@@ -226,9 +312,12 @@ final class JournalViewModel {
     }
 
     func deleteNote(_ note: FinancialNote) async {
+        let epoch = sessionEpoch
         do {
             try await repo.delete(id: note.id)
+            guard epoch == sessionEpoch else { return }
             notes.removeAll { $0.id == note.id }
+            searchResults?.removeAll { $0.id == note.id }
             applyFilters()
             // Best-effort: remove attached photos from Storage.
             if let urls = note.photoUrls {
@@ -246,7 +335,7 @@ final class JournalViewModel {
     }
 
     private func applyFilters() {
-        var result = notes
+        var result = searchResults ?? notes
 
         if let matchingTypes = selectedFilter.matchingTypes {
             result = result.filter { matchingTypes.contains($0.noteType) }

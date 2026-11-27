@@ -2,11 +2,11 @@ import WidgetKit
 
 struct DailyLimitProvider: TimelineProvider {
     func placeholder(in context: Context) -> SnapshotEntry {
-        SnapshotEntry(date: Date(), snapshot: SharedSnapshot.placeholder)
+        SnapshotTimelinePolicy.placeholderEntry()
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SnapshotEntry) -> Void) {
-        completion(SnapshotTimelinePolicy.currentEntry())
+        completion(SnapshotTimelinePolicy.currentEntry(isPreview: context.isPreview))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SnapshotEntry>) -> Void) {

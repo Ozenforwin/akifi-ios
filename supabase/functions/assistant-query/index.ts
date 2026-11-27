@@ -37,7 +37,7 @@ import {
 import { timingSafeEqual } from '../_shared/auth.ts';
 import { fetchAll, fetchAllIn } from '../_shared/paging.ts';
 import { getRubRates, toUsdPivot } from '../_shared/fx.ts';
-import { localDate, resolveTimeZone, startOfLocalDayUtc } from '../_shared/timezone.ts';
+import { localDate, resolveTimeZone } from '../_shared/timezone.ts';
 import { createRequestContext, requestContext, runWithRequestContext } from './request-context.ts';
 import { graceEligibleSub, type Jwk, verifyJwtSignature } from './jwt.ts';
 
@@ -288,6 +288,7 @@ async function verifyGraceToken(token: string, serviceClient: SupabaseClient): P
   if (user.deleted_at) return null;
   if (user.banned_until && Date.parse(user.banned_until) > Date.now()) return null;
 
+  // bounded-fetch: RPC returns one boolean
   const { data: alive, error: sessionError } = await serviceClient.rpc('auth_session_is_active', {
     p_session_id: claims.session_id,
   });
@@ -597,17 +598,16 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const { count: todayCount, error: countError } = await serviceClient
-      .from('ai_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', startOfLocalDayUtc(new Date(), reqCtx.timeZone).toISOString());
-
-    if (countError && countError.code !== '42P01') {
-      throw new Error(`Failed to count daily quota: ${countError.message}`);
+    // Daily quota: rolling 24 h, taken atomically before any LLM work
+    // (ai_quota_take, migration 20261127190000). The client's time zone no
+    // longer decides the window, and parallel requests can't all pass.
+    const { data: quota, error: quotaError } = await serviceClient
+      .rpc('ai_quota_take', { p_user_id: userId, p_limit: AI_DAILY_LIMIT }); // bounded-fetch: RPC returns one jsonb
+    if (quotaError) {
+      throw new Error(`Failed to take daily quota: ${quotaError.code ?? 'unknown'}`);
     }
 
-    if ((todayCount ?? 0) >= AI_DAILY_LIMIT) {
+    if ((quota as { allowed?: boolean } | null)?.allowed === false) {
       const limitedResponse = sanitizeAssistantResponse({
         answer: t('dailyLimitAnswer', lang, { n: AI_DAILY_LIMIT }),
         facts: [t('dailyLimitFact', lang)],
@@ -796,10 +796,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
     // Load account IDs the user has access to (own + shared accounts).
     // Also remember each account's role so we can mark shared accounts in LLM context.
-    const { data: memberRows } = await anonClient
-      .from('account_members')
-      .select('account_id,role')
-      .eq('user_id', userId);
+    const memberRows = await fetchAll<{ account_id: string; role: 'owner' | 'editor' | 'viewer' }>(
+      'account_members(own)',
+      () => anonClient.from('account_members').select('id,account_id,role', { count: 'exact' }).eq('user_id', userId),
+    );
     const memberRoleByAccount = new Map<string, 'owner' | 'editor' | 'viewer'>();
     for (const row of (memberRows ?? []) as Array<{ account_id: string; role: 'owner' | 'editor' | 'viewer' }>) {
       memberRoleByAccount.set(row.account_id, row.role);
@@ -810,10 +810,11 @@ async function handleRequest(req: Request): Promise<Response> {
     // owned by co-members of shared accounts — each user has their own categories).
     const allMemberUserIds = new Set<string>([userId]);
     if (accessibleAccountIds.length > 0) {
-      const { data: coMemberRows } = await anonClient
-        .from('account_members')
-        .select('user_id')
-        .in('account_id', accessibleAccountIds);
+      const coMemberRows = await fetchAllIn<{ user_id: string }>(
+        'account_members(co)',
+        accessibleAccountIds,
+        (ids) => anonClient.from('account_members').select('id,user_id', { count: 'exact' }).in('account_id', ids),
+      );
       for (const row of (coMemberRows ?? []) as Array<{ user_id: string }>) {
         if (row.user_id) allMemberUserIds.add(row.user_id);
       }
@@ -824,10 +825,11 @@ async function handleRequest(req: Request): Promise<Response> {
     const memberNames: Record<string, string> = {};
     const coMemberIds = Array.from(allMemberUserIds).filter((id) => id !== userId);
     if (coMemberIds.length > 0) {
-      const { data: profileRows } = await anonClient
-        .from('profiles')
-        .select('id,full_name')
-        .in('id', coMemberIds);
+      const profileRows = await fetchAllIn<{ id: string; full_name: string | null }>(
+        'profiles(co)',
+        coMemberIds,
+        (ids) => anonClient.from('profiles').select('id,full_name', { count: 'exact' }).in('id', ids),
+      );
       for (const row of (profileRows ?? []) as Array<{ id: string; full_name: string | null }>) {
         if (row.full_name) memberNames[row.id] = row.full_name;
       }
@@ -1173,7 +1175,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const cats = await getCategories();
       computed = buildEditTransactionResponse(rawQuery, transactions, cats, classification.llmEntities);
     } else if (intent === 'delete_transaction') {
-      computed = buildDeleteTransactionResponse(rawQuery, transactions, classification.llmEntities);
+      computed = buildDeleteTransactionResponse(rawQuery, transactions, classification.llmEntities, userId);
     } else if (intent === 'edit_budget') {
       computed = await buildEditBudgetResponse(rawQuery, anonClient, classification.llmEntities, userId);
     } else if (intent === 'savings_advice') {

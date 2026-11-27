@@ -1215,10 +1215,16 @@ export function buildDeleteTransactionResponse(
   query: string,
   transactions: TxRow[],
   llmEntities?: LLMClassificationResult['entities'],
+  callerUserId?: string,
 ): { answer: string; facts: string[]; actions: AssistantAction[]; followUps: string[] } {
   const txRef = llmEntities?.tx_ref ?? null;
 
-  const recentTxs = [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+  // Same candidates as edit: the caller's own expenses, never a transfer leg
+  // and never a partner's row on a shared account (review 2026-11-27, M17).
+  const recentTxs = transactions
+    .filter((tx) => tx.type === 'expense' && !tx.transfer_group_id)
+    .filter((tx) => !callerUserId || !tx.user_id || tx.user_id === callerUserId)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   let targetTx: TxRow | null = null;
 

@@ -115,6 +115,9 @@ struct HomeTabView: View {
             .refreshable {
                 await dataStore.loadAll()
                 await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id, force: true)
+                // «Доступно сегодня» comes from the server's budget numbers;
+                // an explicit pull asks for them again (Y2).
+                await BudgetMetricsStore.shared.refresh(dataStore: dataStore, force: true)
             }
             .task(id: membershipTrigger) {
                 await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id)

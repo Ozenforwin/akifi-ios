@@ -1,7 +1,6 @@
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 DerivedData/
 build/
 *.moved-aside
@@ -19,8 +18,6 @@ xcuserdata/
 .build/
 Packages/
 Package.pins
-Package.resolved
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # CocoaPods
 Pods/

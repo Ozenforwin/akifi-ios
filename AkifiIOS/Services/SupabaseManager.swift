@@ -118,6 +118,13 @@ final class SupabaseManager: Sendable {
         client.auth.currentSession != nil
     }
 
+    /// A local session whose access token has not run out yet (no safety
+    /// margin) — after a fetch, "the requests went out authenticated".
+    var hasUnexpiredLocalSession: Bool {
+        guard let session = client.auth.currentSession else { return false }
+        return Date(timeIntervalSince1970: session.expiresAt) > Date()
+    }
+
     // MARK: - User ID helper
     //
     // Every user-owned table in Supabase has:

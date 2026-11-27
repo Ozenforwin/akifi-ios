@@ -32,6 +32,10 @@ struct AccountSettlementCardView: View {
             if viewModel.isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
+            } else if viewModel.reliability == .unavailable {
+                // M7: no server, no settlement history — any number would be
+                // a guess that ignores closed debts.
+                SettlementOfflineNote()
             } else if viewModel.balances.isEmpty {
                 // Nothing to settle in this period — skip history too,
                 // since past settlements without their source transactions
@@ -40,6 +44,9 @@ struct AccountSettlementCardView: View {
                 // noise.
                 emptyState
             } else {
+                if viewModel.reliability == .approximate {
+                    SettlementOfflineNote()
+                }
                 balancesList
                 if !viewModel.suggestions.isEmpty {
                     Divider().padding(.vertical, 4)
@@ -458,5 +465,17 @@ struct AccountSettlementCardView: View {
         if isEven(b) { return .secondary }
         if b.delta > 0 { return .income }
         return .expense
+    }
+}
+
+/// «Приблизительно, нет связи» — the settlement numbers are an offline
+/// estimate and nothing can be recorded until the server answers (M7).
+struct SettlementOfflineNote: View {
+    var body: some View {
+        Label(String(localized: "settlement.offline.approximate"), systemImage: "wifi.slash")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .accessibilityElement(children: .combine)
     }
 }

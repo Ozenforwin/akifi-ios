@@ -83,26 +83,6 @@ final class CurrencyManager {
         return amountInDisplayCurrency / Decimal(to) * Decimal(from)
     }
 
-    /// Convert amount from base (data) currency to a specific account currency.
-    func convertToAccountCurrency(_ amountInBase: Decimal, accountCurrency: Currency) -> Decimal {
-        guard dataCurrency != accountCurrency else { return amountInBase }
-        guard let from = rates[dataCurrency.code], from > 0,
-              let to   = rates[accountCurrency.code], to > 0 else {
-            return amountInBase
-        }
-        return amountInBase / Decimal(from) * Decimal(to)
-    }
-
-    /// Convert amount from a specific account currency back to base (data) currency.
-    func convertFromAccountCurrency(_ amount: Decimal, accountCurrency: Currency) -> Decimal {
-        guard dataCurrency != accountCurrency else { return amount }
-        guard let from = rates[dataCurrency.code], from > 0,
-              let to   = rates[accountCurrency.code], to > 0 else {
-            return amount
-        }
-        return amount / Decimal(to) * Decimal(from)
-    }
-
     func format(_ amount: Decimal) -> String {
         let converted = convert(amount)
         return currencyFormatter.string(from: converted as NSDecimalNumber) ?? "0"
@@ -145,7 +125,41 @@ final class CurrencyManager {
     }
 
     func fetchRates() async {
-        rates = await exchangeRateService.fetchRates(base: "USD")
+        let snapshot = await exchangeRateService.fetchRates(base: "USD")
+        rates = snapshot.rates
+        rateQuotedAt = snapshot.quotedAt
+    }
+
+    // MARK: - Write-path rates (M5)
+
+    /// When each code in `rates` was quoted by the network or the server
+    /// `fx_rates` table. Codes without an entry (hard-coded fallback, the
+    /// instant-start cache seeded by `AppViewModel`) are display-only.
+    @ObservationIgnored private(set) var rateQuotedAt: [String: Date] = [:]
+
+    /// Rates a WRITE may freeze into `amount_native`: only quotes younger
+    /// than `FXRateSnapshot.maxWriteAge`. Pass this — never `rates` — to
+    /// `TransactionMath.convertForStorage`; a missing code makes the save
+    /// fail with "no exchange rate" instead of storing a stale conversion.
+    func writeRates(now: Date = Date()) -> [String: Double] {
+        FXRateSnapshot(rates: rates, quotedAt: rateQuotedAt).writableRates(now: now)
+    }
+
+    /// `writeRates`, refreshed first when any of `codes` is missing or
+    /// stale — so a form opened on a two-day-old cache re-quotes on Save
+    /// when the network is back, and still refuses offline.
+    func ratesForWrite(_ codes: [String]) async -> [String: Double] {
+        let wanted = codes.map { $0.uppercased() }
+        let current = writeRates()
+        if wanted.allSatisfy({ current[$0] != nil }) { return current }
+        await fetchRates()
+        return writeRates()
+    }
+
+    /// Test seam: install a table with its quote times.
+    func apply(_ snapshot: FXRateSnapshot) {
+        rates = snapshot.rates
+        rateQuotedAt = snapshot.quotedAt
     }
 }
 

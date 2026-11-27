@@ -26,8 +26,23 @@ struct ShareAccountView: View {
         inviteToken.map { String($0.prefix(12)).uppercased() }
     }
 
-    /// True iff we have ≥ 2 members and can meaningfully edit percentages.
-    private var canEditSplits: Bool { members.count >= 2 }
+    /// ≥ 2 members: shares mean something and are shown.
+    private var showsSplits: Bool { members.count >= 2 }
+
+    /// The viewer may change the shares. `account_members` UPDATE is
+    /// owner-only on the server (`is_account_owner`): the editor was shown
+    /// to every member, and an editor's save was a silent 0-row UPDATE
+    /// reported as "saved" (V10). Everyone else sees the shares read-only.
+    private var canEditSplits: Bool {
+        showsSplits && Self.isOwner(viewerId: appViewModel.dataStore.profile?.id, members: members)
+    }
+
+    /// Mirrors the server's `is_account_owner`: the viewer's own membership
+    /// row has role `owner`.
+    nonisolated static func isOwner(viewerId: String?, members: [AccountMember]) -> Bool {
+        guard let viewerId else { return false }
+        return members.contains { $0.userId == viewerId && $0.role == .owner }
+    }
 
     private var totalSplitPercent: Double {
         splitPercents.values.reduce(0, +)
@@ -60,6 +75,8 @@ struct ShareAccountView: View {
 
                                 if canEditSplits {
                                     splitStepper(for: member.userId)
+                                } else if showsSplits {
+                                    splitReadOnly(for: member.userId)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -67,6 +84,10 @@ struct ShareAccountView: View {
 
                         if canEditSplits {
                             splitsSummary
+                        } else if showsSplits {
+                            Text(String(localized: "share.split.ownerOnly"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -266,6 +287,18 @@ struct ShareAccountView: View {
     }
 
     @ViewBuilder
+    private func splitReadOnly(for userId: String) -> some View {
+        HStack {
+            Text(String(localized: "share.split.share"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(Int((splitPercents[userId] ?? 0).rounded()))%")
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+        }
+    }
+
+    @ViewBuilder
     private var splitsSummary: some View {
         let total = Int(totalSplitPercent.rounded())
         let isValid = total != 0 && totalSplitPercent > 0
@@ -334,15 +367,21 @@ struct ShareAccountView: View {
         struct UpdatePayload: Encodable {
             let split_weight: Double
         }
+        struct UpdatedRow: Decodable { let id: String }
         do {
             for m in members {
                 let pct = clean[m.userId] ?? 0
                 // Persist as a 0..100 value; the calculator normalizes it.
-                try await supabase
+                // RLS filters an UPDATE it refuses down to zero rows — no
+                // error — so the returned rows are checked (V10).
+                let updated: [UpdatedRow] = try await supabase
                     .from("account_members")
                     .update(UpdatePayload(split_weight: pct))
                     .eq("id", value: m.id)
+                    .select("id")
                     .execute()
+                    .value
+                guard !updated.isEmpty else { throw SplitSaveError.notApplied }
             }
             splitPercents = clean
             splitSaveOK = true
@@ -356,6 +395,11 @@ struct ShareAccountView: View {
             self.error = error.localizedDescription
             HapticManager.error()
         }
+    }
+
+    private enum SplitSaveError: LocalizedError {
+        case notApplied
+        var errorDescription: String? { String(localized: "share.split.error.notApplied") }
     }
 
     private struct InviteParams: Encodable {

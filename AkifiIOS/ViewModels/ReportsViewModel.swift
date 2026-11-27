@@ -455,7 +455,9 @@ final class ReportsViewModel {
         }
         for tx in solos {
             let amount = dataStore.amountInBase(tx)
-            if tx.amountNative < 0 {
+            // A leg whose pair is hidden is still an expense/income row
+            // stored positive — its type, not its sign, says which way (M9).
+            if tx.movesMoneyOut {
                 directions.append(Direction(from: tx.accountId, to: nil, amount: abs(amount)))
             } else {
                 directions.append(Direction(from: nil, to: tx.accountId, amount: abs(amount)))

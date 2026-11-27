@@ -67,7 +67,7 @@ struct NetWorthDashboardView: View {
         .sheet(isPresented: $showLiabilityForm) {
             LiabilityFormView(
                 onSave: { input in
-                    await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
+                    try await viewModel.createLiability(input, dataStore: dataStore, currencyManager: cm)
                 }
             )
         }
@@ -323,11 +323,16 @@ struct NetWorthDashboardView: View {
         let cal = Calendar(identifier: .gregorian)
         let cutoff = cal.date(byAdding: .day, value: -chartPeriod.rawValue, to: Date()) ?? Date()
         let parser = NetWorthSnapshotRepository.dateFormatter
+        let base = cm.dataCurrency.code
+        let rates = cm.rates.mapValues { Decimal($0) }
         return viewModel.snapshots
             .compactMap { snap -> SnapshotPoint? in
                 guard let date = parser.date(from: snap.snapshotDate),
-                      date >= cutoff else { return nil }
-                return SnapshotPoint(id: snap.id, date: date, netWorth: snap.netWorth)
+                      date >= cutoff,
+                      // In today's base currency (V9).
+                      let netWorth = NetWorthViewModel.chartNetWorth(of: snap, baseCurrency: base, rates: rates)
+                else { return nil }
+                return SnapshotPoint(id: snap.id, date: date, netWorth: netWorth)
             }
             .sorted { $0.date < $1.date }
     }

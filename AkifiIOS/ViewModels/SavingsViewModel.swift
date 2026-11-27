@@ -24,6 +24,16 @@ enum SavingsStatus {
     }
 }
 
+enum SavingsInputError: LocalizedError, Equatable {
+    case amountNotPositive
+
+    var errorDescription: String? {
+        switch self {
+        case .amountNotPositive: String(localized: "savings.error.amountNotPositive")
+        }
+    }
+}
+
 @Observable @MainActor
 final class SavingsViewModel {
     var goals: [SavingsGoal] = []
@@ -70,7 +80,19 @@ final class SavingsViewModel {
         }
     }
 
-    func createGoal(name: String, icon: String, color: String, targetAmount: Int64, deadline: String?, accountId: String?) async {
+    /// Interest settings of a goal as the form collected them.
+    struct GoalInterest: Equatable, Sendable {
+        /// Percent, 0…100.
+        var rate: Decimal
+        /// "annual" | "monthly".
+        var type: String
+        var compound: Bool
+
+        static let noInterest = GoalInterest(rate: 0, type: "annual", compound: true)
+    }
+
+    /// Throws (V7): the form shows the error and keeps the user's input.
+    func createGoal(name: String, icon: String, color: String, targetAmount: Int64, deadline: String?, accountId: String?, interest: GoalInterest = .noInterest) async throws {
         do {
             let userId = try await repo.currentUserId()
             let input = CreateSavingsGoalInput(
@@ -82,18 +104,53 @@ final class SavingsViewModel {
                 deadline: deadline,
                 account_id: accountId,
                 reminder_enabled: false,
-                priority: goals.count
+                priority: goals.count,
+                interest_rate: min(max(interest.rate, 0), 100),
+                interest_type: interest.type,
+                interest_compound: interest.compound
             )
             let goal = try await repo.create(input)
             goals.insert(goal, at: 0)
             AnalyticsService.logCreateGoal()
         } catch {
-            self.error = error.localizedDescription
+            throw error
         }
     }
 
-    func addContribution(goalId: String, amount: Int64, type: ContributionType, note: String?, accountCurrency: String? = nil) async {
+    /// Records a contribution / withdrawal and the account movement it
+    /// stands for (M2, see `accountLegs`).
+    ///
+    /// - `linkedAccount`: the goal's account — where the goal's money lives.
+    /// - `counterAccount`: where a contribution comes FROM / a withdrawal
+    ///   goes TO; nil = none (see `accountLegs`).
+    /// - `amount`: kopecks in the linked account's currency, > 0.
+    ///
+    /// Throws (V7): the sheet shows the error and stays open — it used to
+    /// close as if the money had been put aside.
+    func addContribution(
+        goalId: String,
+        amount: Int64,
+        type: ContributionType,
+        note: String?,
+        linkedAccount: Account?,
+        counterAccount: Account?,
+        currencyManager: CurrencyManager?
+    ) async throws {
+        guard amount > 0 else { throw SavingsInputError.amountNotPositive }
         do {
+            // Everything that can fail without a write comes first: a missing
+            // rate for a cross-currency counter-account saves nothing.
+            let rates: [String: Double]
+            if let linkedAccount, let counterAccount {
+                rates = await currencyManager?.ratesForWrite([linkedAccount.currency, counterAccount.currency]) ?? [:]
+            } else {
+                rates = [:]
+            }
+            let legs = try Self.accountLegs(
+                type: type, amount: amount,
+                linked: linkedAccount, counter: counterAccount, rates: rates
+            )
+
             let userId = try await repo.currentUserId()
             let input = CreateContributionInput(
                 user_id: userId,
@@ -105,37 +162,45 @@ final class SavingsViewModel {
             let contribution = try await repo.addContribution(input)
             AnalyticsService.logContribution(type: type.rawValue)
 
-            // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }
             let desc = "\(goal?.name ?? String(localized: "home.savings")): \(type == .withdrawal ? String(localized: "contribution.withdrawal") : String(localized: "contribution.deposit"))\(note != nil ? " — \(note!)" : "")"
-            // ADR-001: contribution flows into the goal's linked account, so
-            // the tx currency is the account's own currency. No foreign_*
-            // because the user entered the amount in that same currency.
-            let amountDecimal = Decimal(amount) / 100
-            let txInput = CreateTransactionInput(
-                user_id: userId,
-                account_id: goal?.accountId,
-                amount: amountDecimal,
-                amount_native: amountDecimal,
-                currency: accountCurrency?.uppercased(),
-                type: "transfer",
-                date: isoDateFormatter.string(from: Date()),
-                description: desc,
-                category_id: nil,
-                merchant_name: nil
-            )
+            let dateStr = isoDateFormatter.string(from: Date())
+            let groupId = legs.count > 1 ? UUID().uuidString : nil
+            var written: [Transaction] = []
             do {
-                // Through DataStore when available: no network / no answer →
-                // queued like any offline entry, and the account balance
-                // moves locally right away.
-                if let dataStore {
-                    _ = try await dataStore.addTransaction(txInput)
-                } else {
-                    _ = try await TransactionRepository().create(txInput.withClientId())
+                for leg in legs {
+                    let txInput = CreateTransactionInput(
+                        user_id: userId,
+                        account_id: leg.accountId,
+                        amount: leg.amountNative,
+                        amount_native: leg.amountNative,
+                        currency: leg.currency,
+                        foreign_amount: leg.foreignAmount,
+                        foreign_currency: leg.foreignCurrency,
+                        fx_rate: leg.fxRate,
+                        type: leg.type.rawValue,
+                        date: dateStr,
+                        description: desc,
+                        category_id: nil,
+                        merchant_name: nil,
+                        transfer_group_id: groupId
+                    )
+                    // Through DataStore when available: no network / no
+                    // answer → queued like any offline entry, and the account
+                    // balance moves locally right away.
+                    if let dataStore {
+                        written.append(try await dataStore.addTransaction(txInput))
+                    } else {
+                        written.append(try await TransactionRepository().create(txInput.withClientId()))
+                    }
                 }
             } catch {
-                // The account side was rejected: undo the goal side so the
-                // goal doesn't show money the account never moved (Y10).
+                // The account side was rejected: undo what did land and the
+                // goal side, so the goal doesn't show money the accounts
+                // never moved (Y10) and no half transfer stays behind.
+                for tx in written {
+                    _ = await dataStore?.deleteTransaction(tx)
+                }
                 try? await repo.deleteContribution(id: contribution.id)
                 await load()
                 dataStore?.reportIssue(.mutation, message: error.localizedDescription)
@@ -150,7 +215,80 @@ final class SavingsViewModel {
             // Reload goal from DB (trigger auto-updates current_amount)
             await load()
         } catch {
-            self.error = error.localizedDescription
+            throw error
+        }
+    }
+
+    // MARK: - Account movement of a contribution (M2)
+
+    /// One transaction row a contribution writes.
+    struct AccountLeg: Equatable, Sendable {
+        let accountId: String
+        let type: TransactionType
+        /// Main units of the leg account's currency, signed as stored.
+        let amountNative: Decimal
+        let currency: String
+        let foreignAmount: Decimal?
+        let foreignCurrency: String?
+        let fxRate: Decimal?
+    }
+
+    /// What a goal contribution does to real accounts. The goal's money
+    /// lives on its linked account L; `counter` is the other side.
+    ///
+    /// - No linked account → nothing (a goal not tied to an account).
+    /// - Contribution from S ≠ L → a two-leg transfer S → L (expense leg on
+    ///   S, income leg on L, one `transfer_group_id`): L up, S down, no
+    ///   income or spending in analytics.
+    /// - Contribution with no source → nothing: the money is already on L,
+    ///   the goal just earmarks it. It used to write a positive legacy
+    ///   `.transfer` on L — money out of nowhere.
+    /// - Withdrawal to D ≠ L → a two-leg transfer L → D.
+    /// - Withdrawal with no destination → one legacy `.transfer` row on L with
+    ///   a NEGATIVE amount: L goes down, cashflow untouched
+    ///   (`NativeBalance.signedAmount`). The positive row it used to write
+    ///   raised L by the amount taken out.
+    ///
+    /// `amount` is kopecks of L's currency; a counter-account in another
+    /// currency gets its leg converted with `rates` (write rates — throws
+    /// `MissingFXRateError` rather than guess).
+    static func accountLegs(
+        type: ContributionType,
+        amount: Int64,
+        linked: Account?,
+        counter: Account?,
+        rates: [String: Double]
+    ) throws -> [AccountLeg] {
+        guard let linked, amount > 0 else { return [] }
+        let units = Decimal(amount) / 100
+        let linkedCode = linked.currencyCode
+        let counter = counter.flatMap { $0.id == linked.id ? nil : $0 }
+
+        func leg(on account: Account, type: TransactionType) throws -> AccountLeg {
+            let fields = try TransferFormView.legFields(
+                amountValue: units, entryCurrency: linkedCode, account: account, rates: rates
+            )
+            return AccountLeg(
+                accountId: account.id, type: type, amountNative: fields.amountInAccount,
+                currency: fields.currencyLabel, foreignAmount: fields.foreignAmount,
+                foreignCurrency: fields.foreignCurrency, fxRate: fields.fxRate
+            )
+        }
+
+        switch (type, counter) {
+        case (.contribution, nil), (.interest, _):
+            // Interest is goal bookkeeping; the bank's own payout reaches the
+            // account through its statement, not through this row.
+            return []
+        case (.contribution, let source?):
+            return [try leg(on: source, type: .expense), try leg(on: linked, type: .income)]
+        case (.withdrawal, nil):
+            return [AccountLeg(
+                accountId: linked.id, type: .transfer, amountNative: -units,
+                currency: linkedCode.code, foreignAmount: nil, foreignCurrency: nil, fxRate: nil
+            )]
+        case (.withdrawal, let destination?):
+            return [try leg(on: linked, type: .expense), try leg(on: destination, type: .income)]
         }
     }
 

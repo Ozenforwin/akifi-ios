@@ -20,9 +20,26 @@ enum SettlementPeriod: Hashable, Sendable {
         }
     }
 
-    func dateInterval(reference: Date = Date()) -> DateInterval {
+    /// Interval in the frame transaction dates live in (M6): rows carry
+    /// the author's LOCAL wall clock under a UTC label, so "this month" is
+    /// the user's local month written the same way — month boundaries of
+    /// the UTC calendar around the wall-clock "now". Reading the real
+    /// instant in UTC showed November's rows until 03:00 on 1 December in
+    /// Moscow.
+    func transactionInterval(now: Date = Date(), timeZone: TimeZone = .current) -> DateInterval {
+        dateInterval(reference: TransactionInstant.wallClock(of: now, in: timeZone), calendarTimeZone: AppDateFormatters.utcTimeZone)
+    }
+
+    /// Interval of real instants (`settled_at`), month boundaries in the
+    /// user's zone (M6): a settlement at 01:30 on 1 December in Moscow is
+    /// December's, not November's.
+    func instantInterval(now: Date = Date(), timeZone: TimeZone = .current) -> DateInterval {
+        dateInterval(reference: now, calendarTimeZone: timeZone)
+    }
+
+    func dateInterval(reference: Date = Date(), calendarTimeZone: TimeZone = AppDateFormatters.utcTimeZone) -> DateInterval {
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
+        cal.timeZone = calendarTimeZone
         let now = reference
         switch self {
         case .thisMonth:
@@ -71,6 +88,43 @@ final class SettlementViewModel {
     /// `true` when `balances` came from `get_account_settlement` (identical
     /// for every member); `false` when we fell back to the local calculator.
     var isServerComputed = false
+
+    /// How far the card's numbers can be trusted (M7).
+    enum Reliability: Equatable, Sendable {
+        /// Server balances, settlements and per-row marks all loaded.
+        case confirmed
+        /// Something is missing (offline): numbers are an estimate — shown
+        /// as «приблизительно, нет связи», no suggestions, no recording.
+        case approximate
+        /// Neither the server nor the settlement history answered: a local
+        /// computation without past settlements would re-suggest debts that
+        /// are already closed, so no balances at all.
+        case unavailable
+    }
+
+    private(set) var reliability: Reliability = .confirmed
+
+    /// Recording (or undoing) a settlement / per-row mark is only offered
+    /// on confirmed numbers. Offline the local fallback ran without the
+    /// settlement history and offered «A → B 5 858,92 ₽» again; tapping it
+    /// once the network was back wrote a second settlement and flipped the
+    /// debt (M7).
+    var canRecordSettlements: Bool { reliability == .confirmed }
+
+    nonisolated static func reliability(serverOK: Bool, settlementsLoaded: Bool, marksLoaded: Bool) -> Reliability {
+        if serverOK && settlementsLoaded && marksLoaded { return .confirmed }
+        if !serverOK && !settlementsLoaded { return .unavailable }
+        return .approximate
+    }
+
+    /// Settle suggestions are built only from confirmed balances (M7).
+    nonisolated static func suggestions(
+        from balances: [SettlementCalculator.MemberBalance],
+        reliability: Reliability
+    ) -> [SettlementCalculator.SettlementSuggestion] {
+        guard reliability == .confirmed else { return [] }
+        return SettlementCalculator.settlements(from: balances)
+    }
     var isLoading = false
     var errorMessage: String?
 
@@ -153,13 +207,18 @@ final class SettlementViewModel {
         // fetch per-member, per-txn marks — they nudge the contributions
         // map the same way an aggregate settlement does, but at txn-row
         // granularity (used by the swipe / sheet UX).
+        var settlementsLoaded = false
+        var marksLoaded = false
         do {
             pastSettlements = try await settlementsFetch
+            settlementsLoaded = true
         } catch {
-            errorMessage = error.localizedDescription
+            // Offline is reported through `reliability`, not as a red error.
+            AppLogger.data.debug("settlements load: \(error.localizedDescription)")
         }
         do {
             transactionMemberSettlements = try await marksFetch
+            marksLoaded = true
         } catch {
             // Non-fatal — feature is additive; falling through with the
             // previous list (or empty) keeps the rest of the card working.
@@ -195,12 +254,18 @@ final class SettlementViewModel {
             baseCurrency: baseCurrency
         )
 
+        var serverOK = false
         do {
             let server = try await serverFetch
             balances = server.memberBalances
             serverPayers = server.payers
             isServerComputed = true
-            if let diff = Self.integrityMismatch(server: balances, local: local) {
+            serverOK = true
+            // Compare only when the local side had everything the server
+            // had — otherwise a "mismatch" is just missing offline data.
+            if settlementsLoaded, marksLoaded,
+               let diff = Self.integrityMismatch(server: balances, local: local),
+               Self.shouldReportMismatch(accountId: sharedAccountId) {
                 // The phone's own view disagrees with the server — the class
                 // of bug that showed different debts to the two members of
                 // «Семейный». Server wins; we want to hear about it.
@@ -219,9 +284,32 @@ final class SettlementViewModel {
             serverPayers = [:]
             isServerComputed = false
         }
-        suggestions = SettlementCalculator.settlements(from: balances)
+        reliability = Self.reliability(
+            serverOK: serverOK, settlementsLoaded: settlementsLoaded, marksLoaded: marksLoaded
+        )
+        if reliability == .unavailable { balances = [] }
+        suggestions = Self.suggestions(from: balances, reliability: reliability)
 
         isLoading = false
+    }
+
+    // MARK: - Mismatch event dedupe (M10)
+
+    /// One `settlement_integrity_mismatch` per account per local day — it
+    /// used to fire on every visit of the screen.
+    nonisolated static func mismatchDedupeKey(accountId: String, now: Date = Date(), timeZone: TimeZone = .current) -> String {
+        "settlement.mismatch.reported.\(accountId).\(AppDateFormatters.localDate(in: timeZone).string(from: now))"
+    }
+
+    nonisolated static func shouldReportMismatch(
+        accountId: String,
+        now: Date = Date(),
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        let key = mismatchDedupeKey(accountId: accountId, now: now)
+        guard !defaults.bool(forKey: key) else { return false }
+        defaults.set(true, forKey: key)
+        return true
     }
 
     nonisolated private static func members(
@@ -265,9 +353,13 @@ final class SettlementViewModel {
     /// quarter, YTD all show it). Filtering by *when the settlement
     /// happened* keeps each row in exactly one period view.
     var pastSettlementsForCurrentPeriod: [Settlement] {
-        let interval = selectedPeriod.dateInterval()
+        Self.settlements(pastSettlements, in: selectedPeriod.instantInterval())
+    }
 
-        return pastSettlements.filter { s in
+    /// `settled_at` is a real instant: bucket it by the user's local month
+    /// (`SettlementPeriod.instantInterval`), M6.
+    nonisolated static func settlements(_ all: [Settlement], in interval: DateInterval) -> [Settlement] {
+        all.filter { s in
             let raw = s.settledAt ?? s.createdAt
             guard let raw, let parsed = AppDateFormatters.parseTimestamp(raw) else { return false }
             return interval.contains(parsed)
@@ -311,10 +403,15 @@ final class SettlementViewModel {
         dataStore: DataStore,
         currencyManager: CurrencyManager? = nil
     ) async {
+        guard canRecordSettlements else {
+            errorMessage = String(localized: "settlement.offline.approximate")
+            return
+        }
         do {
             let user = try await SupabaseManager.shared.currentUserId()
+            // Informational period, in the transactions' wall-clock days.
             let fmt = AppDateFormatters.utcDate
-            let interval = selectedPeriod.dateInterval()
+            let interval = selectedPeriod.transactionInterval()
 
             let input = CreateSettlementInput(
                 shared_account_id: sharedAccountId,
@@ -384,6 +481,10 @@ final class SettlementViewModel {
         dataStore: DataStore,
         currencyManager: CurrencyManager? = nil
     ) async {
+        guard canRecordSettlements else {
+            errorMessage = String(localized: "settlement.offline.approximate")
+            return
+        }
         do {
             let me = try await SupabaseManager.shared.currentUserId()
             let input = CreateTransactionMemberSettlementInput(
@@ -413,6 +514,10 @@ final class SettlementViewModel {
         dataStore: DataStore,
         currencyManager: CurrencyManager? = nil
     ) async {
+        guard canRecordSettlements else {
+            errorMessage = String(localized: "settlement.offline.approximate")
+            return
+        }
         do {
             try await txMemberRepo.delete(
                 transactionId: transactionId,
@@ -445,6 +550,10 @@ final class SettlementViewModel {
         dataStore: DataStore,
         currencyManager: CurrencyManager? = nil
     ) async {
+        guard canRecordSettlements else {
+            errorMessage = String(localized: "settlement.offline.approximate")
+            return
+        }
         do {
             let me = try await SupabaseManager.shared.currentUserId()
             let alreadySettled = memberSettlementsByTxn[transactionId] ?? []
@@ -490,6 +599,10 @@ final class SettlementViewModel {
         dataStore: DataStore,
         currencyManager: CurrencyManager? = nil
     ) async {
+        guard canRecordSettlements else {
+            errorMessage = String(localized: "settlement.offline.approximate")
+            return
+        }
         let toClear = transactionMemberSettlements
             .filter { $0.transactionId == transactionId }
         for s in toClear {

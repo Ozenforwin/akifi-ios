@@ -66,6 +66,24 @@ enum AuthRedirect {
         return .other(params["error_description"] ?? code)
     }
 
+    /// Why a code exchange failed. supabase-swift 2.43 doesn't check for
+    /// the PKCE verifier itself — it sends none and the server refuses
+    /// (`bad_code_verifier` / `validation_failed`); newer SDKs throw
+    /// "code verifier not found" locally. Either way, or when this device
+    /// never started an email flow, the link belongs to another device.
+    static func exchangeFailure(errorCode: String?, errorText: String, pendingFlow: Flow?) -> LinkError {
+        let code = (errorCode ?? "").lowercased()
+        if ["flow_state_expired", "flow_state_not_found", "otp_expired"].contains(code) {
+            return .expiredOrUsed
+        }
+        if ["bad_code_verifier", "validation_failed"].contains(code)
+            || errorText.lowercased().contains("code verifier")
+            || pendingFlow == nil {
+            return .otherDevice
+        }
+        return .other(code)
+    }
+
     // MARK: - Flow detection
 
     /// Recovery or sign-up. The server is authoritative: a session issued

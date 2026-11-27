@@ -49,6 +49,18 @@ final class A1EmailAuthLinkTests: XCTestCase {
         XCTAssertNil(AuthRedirect.linkError(in: URL(string: "akifi://auth-callback?code=1234")!))
     }
 
+    /// supabase-swift 2.43 (the pinned version) sends no verifier and the
+    /// server refuses; newer SDKs fail locally. Both mean "other device".
+    func test_A1_exchangeFailure_classified() {
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: "bad_code_verifier", errorText: "", pendingFlow: .signup), .otherDevice)
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: "validation_failed", errorText: "", pendingFlow: .recovery), .otherDevice)
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: nil, errorText: "PKCE code verifier not found", pendingFlow: .signup), .otherDevice)
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: "unexpected_failure", errorText: "", pendingFlow: nil), .otherDevice,
+                       "this device never asked for an email link")
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: "flow_state_not_found", errorText: "", pendingFlow: .signup), .expiredOrUsed)
+        XCTAssertEqual(AuthRedirect.exchangeFailure(errorCode: "unexpected_failure", errorText: "", pendingFlow: .signup), .other("unexpected_failure"))
+    }
+
     // MARK: - Flow detection
 
     func test_A1_recoveryDetectedFromTheTokenItself() {

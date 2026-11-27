@@ -52,7 +52,7 @@ enum ChallengeProgressEngine {
         case .categoryLimit:
             return categoryLimitProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         case .roundUp:
-            return roundUpProgress(transactions: inRange.filter { !$0.isTransfer })
+            return roundUpProgress(transactions: inRange.filter { !$0.isTransfer }, currencyContext: currencyContext)
         case .weeklyAmount:
             return weeklyAmountProgress(challenge: challenge, transactions: inRange, currencyContext: currencyContext)
         }
@@ -144,14 +144,29 @@ enum ChallengeProgressEngine {
     /// `roundUp`: for every expense, compute the delta needed to round up
     /// to the nearest 100 minor units (e.g. 1_250 kopecks → +50 kopecks saved;
     /// but we treat already-round values as 0 savings). Sum over all expenses.
-    private static func roundUpProgress(transactions: [Transaction]) -> Int64 {
+    private static func roundUpProgress(
+        transactions: [Transaction],
+        currencyContext: TransactionMath.CurrencyContext
+    ) -> Int64 {
         let expenses = transactions.filter { $0.type == .expense }
-        // Round-up granularity: 100 minor units (1 whole currency unit).
+        // Round-up granularity: 100 minor units (1 whole currency unit) of the
+        // transaction's OWN account currency; the saved delta is then brought
+        // to the base currency in the same proportion as the expense itself.
+        // Summing raw deltas mixed kopecks with dong (ADR-001).
         let granularity: Int64 = 100
         return expenses.reduce(Int64(0)) { acc, tx in
-            let remainder = tx.amountNative % granularity
-            let delta = remainder == 0 ? 0 : granularity - remainder
-            return acc + delta
+            let native = tx.amountNative
+            let remainder = native % granularity // allowlisted-amount: per-row remainder in its own currency
+            let delta = remainder == 0 ? 0 : granularity - abs(remainder)
+            guard delta != 0, native != 0 else { return acc }
+            let inBase = TransactionMath.amountInBase(
+                tx,
+                accountsById: currencyContext.accountsById,
+                fxRates: currencyContext.fxRates,
+                baseCode: currencyContext.baseCode
+            )
+            let deltaInBase = (Double(delta) * Double(abs(inBase)) / Double(abs(native))).rounded()
+            return acc + Int64(deltaInBase)
         }
     }
 

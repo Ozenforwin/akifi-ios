@@ -73,6 +73,11 @@ final class AppViewModel {
         authManager.onSessionEnded = { [weak self] in
             self?.resetForSignOut(preserveQueue: true)
         }
+        // A load or write found no session at all while online: the SDK
+        // dropped it and the event was missed — same forced sign-out (Y1).
+        self.dataStore.onSessionMissing = { [weak self] in
+            self?.authManager.sessionVanished()
+        }
     }
 
     // MARK: - Incoming URLs
@@ -95,6 +100,9 @@ final class AppViewModel {
     }
 
     func initialize() async {
+        // Before anything can refresh a token: the SDK may end the session
+        // on its own and only tells through this stream (Y1).
+        authManager.startObservingAuthEvents()
         await authManager.checkSession()
         if authManager.isAuthenticated {
             await loadAfterAuth()
@@ -207,18 +215,25 @@ final class AppViewModel {
     /// local part always runs — offline sign-out used to leave the UI
     /// signed in with no session behind it.
     func signOut() async {
-        await sessionEffects.unregisterPushToken()
-        await authManager.signOut()
-        resetForSignOut()
+        await authManager.withExplicitSignOut {
+            await sessionEffects.unregisterPushToken()
+            // Y3: wipe BEFORE the session goes. Revoking can take seconds;
+            // if the app died in between (or the SDK dropped the session),
+            // the previous user's cache stayed on disk for the next one.
+            resetForSignOut()
+            await authManager.signOut()
+        }
     }
 
     /// Deletes the account server-side, then signs out and wipes local
     /// state. Throws (and changes nothing locally) when the deletion failed.
     func deleteAccount() async throws {
-        try await authManager.deleteAccount()
-        await authManager.signOut()
-        hasCompletedOnboarding = false
-        resetForSignOut()
+        try await authManager.withExplicitSignOut {
+            try await authManager.deleteAccount()
+            hasCompletedOnboarding = false
+            resetForSignOut()
+            await authManager.signOut()
+        }
     }
 
     /// One place that forgets the previous user: data store (memory, disk

@@ -147,7 +147,11 @@ struct ContentView: View {
                 externalSpendByBudget: dataStore.externalSpendByBudget
             )
         )
-        await NotificationManager.scheduleWeeklyDigest(body: body)
+        // Not when notifications are off, not when the server sends it (N2).
+        await NotificationManager.syncWeeklyDigest(
+            body: body,
+            userId: appViewModel.authManager.currentUser?.id.uuidString.lowercased()
+        )
     }
 }
 
@@ -285,9 +289,14 @@ struct MainTabView: View {
                     if let dataIssue {
                         DataIssueBanner(
                             issue: dataIssue,
-                            onRetry: dataIssue.kind == .load
-                                ? { Task { await appViewModel.dataStore.loadAll() } }
-                                : nil,
+                            onRetry: {
+                                let dataStore = appViewModel.dataStore
+                                switch dataIssue.kind {
+                                case .load: return { Task { await dataStore.loadAll() } }
+                                case .unsynced: return { Task { await dataStore.retryUnsyncedOperations() } }
+                                case .mutation: return nil
+                                }
+                            }(),
                             onDismiss: { appViewModel.dataStore.dismissIssue() }
                         )
                         .id(dataIssue.id)
@@ -300,7 +309,7 @@ struct MainTabView: View {
                                 Task { await appViewModel.dataStore.undoAutoMatch() }
                             },
                             onDismiss: {
-                                appViewModel.dataStore.clearPendingAutoMatch()
+                                appViewModel.dataStore.clearPendingAutoMatch(id: match.id)
                             }
                         )
                         .id(match.id)
@@ -560,6 +569,8 @@ private struct DataIssueBanner: View {
         .padding(.horizontal, 16)
         .accessibilityElement(children: .combine)
         .task(id: issue.id) {
+            // Refused writes stay until the user acts on them (Y6).
+            guard issue.kind != .unsynced else { return }
             try? await Task.sleep(for: .seconds(8))
             guard !Task.isCancelled else { return }
             onDismiss()

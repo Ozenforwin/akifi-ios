@@ -16,6 +16,7 @@ final class NetWorthSnapshotRepository: Sendable {
     /// Newest `limit` daily snapshots — the dashboard's longest range is a
     /// year, so a bounded window is the contract here.
     func fetchForUser(limit: Int = 365) async throws -> [NetWorthSnapshot] {
+        // bounded-fetch: newest `limit` (≤ 365) daily points for the chart, by contract
         try await supabase
             .from("net_worth_snapshots")
             .select()

@@ -133,6 +133,52 @@
         }
       }
     },
+    "contribution.counter.none.deposit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already on “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya está en «%@»"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Уже на счёте «%@»"
+          }
+        }
+      }
+    },
+    "contribution.counter.none.withdrawal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take out of “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirar de «%@»"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Снять со счёта «%@»"
+          }
+        }
+      }
+    },
     "currencyReconciliation.error.rateMissing" : {
       "localizations" : {
         "en" : {
@@ -239,6 +285,52 @@
     },
     "-%@" : {
 
+    },
+    "pdf.budgets.currentPeriod" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budgets — current period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presupuestos — período actual"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Бюджеты — текущий период"
+          }
+        }
+      }
+    },
+    "settlement.offline.approximate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approximate, no connection — you can record settlements once you're back online"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aproximado, sin conexión: podrás registrar las liquidaciones cuando vuelva la red"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приблизительно, нет связи — расчёты можно отметить, когда сеть вернётся"
+          }
+        }
+      }
     },
     "—" : {
 
@@ -5403,6 +5495,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Регистрация"
+          }
+        }
+      }
+    },
+    "auth.sessionEnded.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your session has ended — please sign in again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión ha terminado: vuelve a iniciar sesión"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сессия завершилась — войдите снова"
+          }
+        }
+      }
+    },
+    "auth.sessionEnded.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld unsynced entries will be sent once you sign back in to this account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld registros sin sincronizar se enviarán cuando vuelvas a iniciar sesión en esta cuenta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Несохранённых записей: %lld. Они отправятся, когда вы снова войдёте в этот аккаунт."
           }
         }
       }
@@ -11933,6 +12069,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Вкладов пока нет"
+          }
+        }
+      }
+    },
+    "deposit.error.alreadyClosing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This deposit is already being closed — please wait for it to finish."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este depósito ya se está cerrando; espera a que termine."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вклад уже закрывается — дождитесь окончания."
+          }
+        }
+      }
+    },
+    "deposit.error.contributionsNotLoaded" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load this deposit's top-ups, so it can't be closed right now. Refresh the screen and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar las aportaciones de este depósito, así que ahora no se puede cerrar. Actualiza la pantalla e inténtalo de nuevo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось загрузить пополнения вклада, поэтому закрыть его сейчас нельзя. Обновите экран и попробуйте ещё раз."
           }
         }
       }
@@ -26448,6 +26630,29 @@
         }
       }
     },
+    "savings.error.amountNotPositive" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The amount must be greater than zero."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El importe debe ser mayor que cero."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сумма должна быть больше нуля."
+          }
+        }
+      }
+    },
     "savings.expired" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -29758,6 +29963,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Отправить"
+          }
+        }
+      }
+    },
+    "share.split.error.notApplied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shares weren't saved: only the account owner can change them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las partes no se guardaron: solo el propietario de la cuenta puede cambiarlas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доли не сохранены: изменить их может только владелец счёта."
+          }
+        }
+      }
+    },
+    "share.split.ownerOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the account owner can change the shares."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el propietario de la cuenta puede cambiar las partes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить доли может только владелец счёта."
           }
         }
       }
@@ -33550,6 +33801,50 @@
         }
       }
     },
+    "sync.error.noRowsAffected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The change wasn't applied: the entry wasn't found or you can't edit it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cambio no se aplicó: no se encontró el registro o no tienes permiso para editarlo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменение не применилось: запись не найдена или нет прав на её изменение"
+          }
+        }
+      }
+    },
+    "sync.error.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server didn't accept %lld entries — they're marked “not saved”. Retry, or discard them in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no aceptó %lld registros: están marcados como «no guardado». Reinténtalo o descártalos en Ajustes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не принял записи (%lld) — они помечены «не сохранено». Повторите или удалите их в Настройках."
+          }
+        }
+      }
+    },
     "sync.error.partialLoad" : {
       "localizations" : {
         "en" : {
@@ -36046,6 +36341,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Этот счёт (обычный расход)"
+          }
+        }
+      }
+    },
+    "tx.unsynced" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не сохранено"
           }
         }
       }

@@ -4,12 +4,26 @@ import SwiftUI
 /// progress ring, conditions, contributions history, projected maturity,
 /// and action buttons (contribute, early close).
 struct DepositDetailView: View {
-    let deposit: Deposit
+    private let initialDeposit: Deposit
     let viewModel: DepositsViewModel
 
     @Environment(AppViewModel.self) private var appViewModel
     @State private var showContributeSheet = false
     @State private var showCloseConfirmation = false
+    /// A failed close shows here (V1) — it used to go to a view-model
+    /// field no screen displayed.
+    @State private var closeError: String?
+
+    init(deposit: Deposit, viewModel: DepositsViewModel) {
+        self.initialDeposit = deposit
+        self.viewModel = viewModel
+    }
+
+    /// The live row. The copy the list pushed stays "active" after a close;
+    /// reading it kept the close button on screen for a second payout.
+    private var deposit: Deposit {
+        viewModel.deposits.first { $0.id == initialDeposit.id } ?? initialDeposit
+    }
 
     private var dataStore: DataStore { appViewModel.dataStore }
     private var depositAccount: Account? {
@@ -59,6 +73,7 @@ struct DepositDetailView: View {
         } message: {
             Text(String(localized: "deposit.closeEarly.confirmMessage"))
         }
+        .errorAlert($closeError)
     }
 
     // MARK: - Hero
@@ -374,15 +389,23 @@ struct DepositDetailView: View {
             Button {
                 showCloseConfirmation = true
             } label: {
-                Label(String(localized: "deposit.closeEarly"), systemImage: "xmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.orange.opacity(0.16))
-                    .foregroundStyle(.orange)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                Group {
+                    if viewModel.isClosing(deposit) {
+                        ProgressView().tint(.orange)
+                    } else {
+                        Label(String(localized: "deposit.closeEarly"), systemImage: "xmark.seal.fill")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.orange.opacity(0.16))
+                .foregroundStyle(.orange)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
+        // No second close (or top-up) while a payout is being written.
+        .disabled(viewModel.isClosing(deposit))
     }
 
     // MARK: - Helpers
@@ -426,7 +449,7 @@ struct DepositDetailView: View {
                 dataStore: dataStore
             )
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            closeError = error.localizedDescription
         }
     }
 

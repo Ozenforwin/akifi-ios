@@ -83,50 +83,77 @@ final class NotificationRepository: Sendable {
         }
     }
 
-    /// Sync notification settings to server
-    func syncSettings(
-        enabled: Bool,
-        budgetWarnings: Bool,
-        largeExpenses: Bool,
-        inactivity: Bool,
-        savingsMilestones: Bool,
-        weeklyPace: Bool,
-        largeExpenseThreshold: Int,
-        budgetWarningPercent: Int
-    ) async {
-        do {
-            let userId = try await SupabaseManager.shared.currentUserId()
+    // MARK: - Notification settings (N5)
+    //
+    // `notification_settings` (one row per user) is what smart-notifications
+    // obeys. The screen used to keep its own copy in @AppStorage — per
+    // device, not per user — and upsert it on every open: switching pushes
+    // off on one phone was undone by opening the screen on another, and a
+    // second account on the same phone got the first one's settings.
 
-            struct SettingsInput: Encodable {
-                let user_id: String
-                let enabled: Bool
-                let budget_warnings: Bool
-                let large_expenses: Bool
-                let inactivity: Bool
-                let savings_milestones: Bool
-                let weekly_pace: Bool
-                let large_expense_threshold: Int
-                let budget_warning_percent: Int
-            }
+    /// The signed-in user's row, or nil when they have none yet.
+    func fetchSettings() async throws -> NotificationSettings? {
+        let userId = try await SupabaseManager.shared.currentUserId()
+        // bounded-fetch: one row per user (user_id is the primary key)
+        let rows: [NotificationSettings] = try await supabase
+            .from("notification_settings")
+            .select(NotificationSettings.columns)
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
+    }
 
-            let input = SettingsInput(
-                user_id: userId,
-                enabled: enabled,
-                budget_warnings: budgetWarnings,
-                large_expenses: largeExpenses,
-                inactivity: inactivity,
-                savings_milestones: savingsMilestones,
-                weekly_pace: weeklyPace,
-                large_expense_threshold: largeExpenseThreshold,
-                budget_warning_percent: budgetWarningPercent
+    /// Writes the user's choice (after a change on the screen).
+    func saveSettings(_ settings: NotificationSettings) async throws {
+        let userId = try await SupabaseManager.shared.currentUserId()
+        try await supabase
+            .from("notification_settings")
+            .upsert(NotificationSettings.Row(userId: userId, settings: settings), onConflict: "user_id")
+            .execute()
+    }
+
+    /// First visit without a row: store the defaults the screen shows (the
+    /// server skips users without a row). Insert-only — a row created
+    /// meanwhile by another device is never overwritten.
+    func createSettingsIfMissing(_ settings: NotificationSettings) async throws {
+        let userId = try await SupabaseManager.shared.currentUserId()
+        try await supabase
+            .from("notification_settings")
+            .upsert(
+                NotificationSettings.Row(userId: userId, settings: settings),
+                onConflict: "user_id",
+                ignoreDuplicates: true
             )
+            .execute()
+    }
+}
 
-            try await supabase
-                .from("notification_settings")
-                .upsert(input)
-                .execute()
-        } catch {
-            // Non-critical
-        }
+/// Last known settings per USER on this device (N5): shown instantly and
+/// offline, and read by the local notifications this device schedules
+/// itself (weekly digest, N2). The server row stays the source of truth.
+enum NotificationPreferencesCache {
+    private static func settingsKey(_ userId: String) -> String { "notifications.settings.\(userId.lowercased())" }
+    private static func digestKey(_ userId: String) -> String { "notifications.digestOptIn.\(userId.lowercased())" }
+
+    static func settings(userId: String, defaults: UserDefaults = .standard) -> NotificationSettings? {
+        guard let data = defaults.data(forKey: settingsKey(userId)) else { return nil }
+        return try? JSONDecoder().decode(NotificationSettings.self, from: data)
+    }
+
+    static func store(_ settings: NotificationSettings, userId: String, defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        defaults.set(data, forKey: settingsKey(userId))
+    }
+
+    /// `ai_user_settings.digest_opt_in` as last seen; false when unknown
+    /// (the server sends the digest only on an explicit opt-in).
+    static func digestOptIn(userId: String, defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: digestKey(userId))
+    }
+
+    static func storeDigestOptIn(_ value: Bool, userId: String, defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: digestKey(userId))
     }
 }
