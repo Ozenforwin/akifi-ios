@@ -177,8 +177,14 @@ Phase 1-3 on fixture-only tests.
   - `supabase/migrations/20260419170000_multi_currency_phase1.sql`
   - `supabase/migrations/20260422120000_fix_vnd_rub_foreign_fields.sql`
 - FX source (Phase 6 historical quotes): APILayer Exchange Rates Data
-  API, Pro Plan, 100k requests/month. Key in `Config/*.xcconfig` as
-  `EXCHANGE_RATE_API_KEY`, surfaced through Info.plist,
-  gitignored. Used only via `ExchangeRateService.fetchHistoricalRate`;
-  the hot-path `fetchRates` stays on free open.er-api.com so an
-  expired paid key doesn't break core balance math.
+  API, Pro Plan, 100k requests/month, reached ONLY through the
+  `fx-historical` edge function (key = function secret
+  `EXCHANGE_RATE_API_KEY`; answers cached in `fx_rates_historical`).
+  The app never holds the key (S4, 2026-11-27 — it used to ship in
+  Info.plist). The hot-path `fetchRates` stays on free open.er-api.com,
+  falling back to the server `fx_rates` table.
+- Write-path rates (M5, 2026-11-27): a conversion frozen into
+  `amount_native` uses only quotes younger than 48 h from the network
+  or `fx_rates` (`CurrencyManager.writeRates` /
+  `FXRateSnapshot.writableRates`); the hard-coded fallback table is
+  display-only.
