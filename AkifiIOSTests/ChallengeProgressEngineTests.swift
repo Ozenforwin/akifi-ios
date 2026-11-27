@@ -109,6 +109,29 @@ final class ChallengeProgressEngineTests: XCTestCase {
                        50 + 0 + 67)
     }
 
+    func testRoundUp_ConvertsEachDeltaFromItsOwnAccountCurrency() {
+        // 1 USD = 100 RUB. A $1.50 coffee on a USD account rounds up by 50
+        // cents = 50 ₽ (5 000 kopecks); summing raw deltas would have added
+        // "50" as if it were 50 kopecks.
+        let ch = challenge(type: .roundUp, target: 1000_00, categoryId: nil)
+        var usd = tx(amount: 1_50, type: .expense, categoryId: "x", date: "2026-04-10")
+        usd = Transaction(
+            id: usd.id, userId: "u1", accountId: "usd-card",
+            amount: 1_50, currency: "USD", description: nil,
+            categoryId: "x", type: .expense, date: "2026-04-10",
+            merchantName: nil, merchantFuzzy: nil, transferGroupId: nil,
+            status: nil, createdAt: nil, updatedAt: nil
+        )
+        let accounts: [String: Account] = [
+            "usd-card": Account(id: "usd-card", userId: "u1", name: "USD", icon: "", color: "", initialBalance: 0, currency: "USD", accountType: .checking),
+        ]
+        let rates: [String: Decimal] = ["USD": 1, "RUB": 100]
+        XCTAssertEqual(
+            ChallengeProgressEngine.progress(for: ch, transactions: [usd], currencyContext: (accounts, rates, "RUB")),
+            50_00
+        )
+    }
+
     // MARK: - nextStatus
 
     func testNextStatus_CategoryLimitWithinTarget_PostPeriod_Completed() {

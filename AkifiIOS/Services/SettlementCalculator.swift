@@ -174,7 +174,7 @@ enum SettlementCalculator {
         // label, which on old TMA rows disagrees with the account and
         // turned a correct kopeck figure into a ×rate one. The server
         // (`get_account_settlement`) sums `amount_native` the same way.
-        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative }
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative } // allowlisted-amount: one shared account, one currency
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
@@ -292,9 +292,9 @@ enum SettlementCalculator {
             // the source leg on the payer's personal card is never summed
             // (it only identifies the payer). No FX, no label (M11).
             if row.type == .income {
-                contributions[attributedUser, default: 0] += row.amountNative
+                contributions[attributedUser, default: 0] += row.amountNative // allowlisted-amount: leg on the shared account, its currency
             } else if row.type == .expense {
-                contributions[attributedUser, default: 0] -= row.amountNative
+                contributions[attributedUser, default: 0] -= row.amountNative // allowlisted-amount: leg on the shared account, its currency
             }
         }
 
@@ -347,7 +347,7 @@ enum SettlementCalculator {
                 // Share for the settled member, in the shared account's
                 // currency (the expense row lives on it — no FX, M11).
                 let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
-                let share = Decimal(expense.amountNative) * weight / sumWeights
+                let share = Decimal(expense.amountNative) * weight / sumWeights // allowlisted-amount: expense on the shared account, its currency
                 var rounded = Decimal()
                 var src = share
                 NSDecimalRound(&rounded, &src, 0, .plain)
