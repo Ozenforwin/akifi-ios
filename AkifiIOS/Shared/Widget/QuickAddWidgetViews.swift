@@ -27,7 +27,7 @@ struct QuickAddWidgetView: View {
     /// The medium widget's list.
     static let repeatLimit = 3
     /// Width of the button column in the medium widget.
-    static let buttonsWidth: CGFloat = 124
+    static let buttonsWidth: CGFloat = 140
 
     var body: some View {
         switch family {

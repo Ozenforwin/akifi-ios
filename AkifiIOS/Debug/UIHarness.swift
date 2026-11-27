@@ -169,6 +169,11 @@ struct UIHarnessRoot: View {
             }
         }
         .environment(app)
+        // Same routing as `ContentView`: widget / quick-add links can be
+        // tried on the fixture (`xcrun simctl openurl <id> akifi://…`).
+        .onOpenURL { url in
+            app.open(url)
+        }
         .task {
             guard let offset = UIHarness.scrollOffset else { return }
             try? await Task.sleep(for: .seconds(2))
