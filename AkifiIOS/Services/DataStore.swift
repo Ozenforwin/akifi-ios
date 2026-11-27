@@ -563,11 +563,7 @@ final class DataStore {
             persistTransactions()
             rebuildCaches()
             writeWidgetSnapshot()
-            AnalyticsService.logAddTransaction(
-                type: stamped.type,
-                amount: Double(truncating: stamped.amount as NSDecimalNumber),
-                category: stamped.category_id
-            )
+            AnalyticsService.logAddTransaction(type: stamped.type)
             await attemptAutoMatch(for: tx)
             return tx
         } catch {
@@ -599,11 +595,7 @@ final class DataStore {
         persistTransactions()
         rebuildCaches()
         writeWidgetSnapshot()
-        AnalyticsService.logAddTransaction(
-            type: input.type,
-            amount: Double(truncating: input.amount as NSDecimalNumber),
-            category: input.category_id
-        )
+        AnalyticsService.logAddTransaction(type: input.type)
         return rows[0]
     }
 

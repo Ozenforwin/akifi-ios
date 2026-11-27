@@ -127,6 +127,7 @@
 		5C8BC6CB019FA31D9ED58699 /* TransactionsMiniDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 078DB91A5775EA921538DB48 /* TransactionsMiniDashboardView.swift */; };
 		5D06A7492FB09370A52F5C3C /* PortfolioChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19329F8617609B485DA08998 /* PortfolioChartView.swift */; };
 		5D7827ABF42584DAB7BF4B9C /* SyncReliabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9242B3BB9998B1CD358AD31A /* SyncReliabilityTests.swift */; };
+		5E0F315BE16D9F01C49140EC /* R7AnalyticsPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD047D442764CBD47395117C /* R7AnalyticsPrivacyTests.swift */; };
 		5E2A3595F7D04ED9FB2F8CB4 /* JournalTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB681778FB8A85A387AEB294 /* JournalTabView.swift */; };
 		5FCB5522E033DC91329B5699 /* SharedSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66DD31195D714F4FCC81FCD0 /* SharedSnapshot.swift */; };
 		5FDDF97F33E7242BB3D605E6 /* SharedSnapshotRolloverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54582FFC45ACC2786C448E4F /* SharedSnapshotRolloverTests.swift */; };
@@ -737,6 +738,7 @@
 		FA6DFEEE8D7227448497DDFC /* ChallengeProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeProgressEngine.swift; sourceTree = "<group>"; };
 		FB681778FB8A85A387AEB294 /* JournalTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalTabView.swift; sourceTree = "<group>"; };
 		FC424039F21E974B8C0A6567 /* BudgetMetricsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetMetricsStore.swift; sourceTree = "<group>"; };
+		FD047D442764CBD47395117C /* R7AnalyticsPrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R7AnalyticsPrivacyTests.swift; sourceTree = "<group>"; };
 		FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsRateCalculatorTests.swift; sourceTree = "<group>"; };
 		FED43B92B56D99F955B20ECD /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		FEF54246AA8846CFBFDE7C2B /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
@@ -1146,6 +1148,7 @@
 				858E6B9892EC765AE6C97E15 /* PendingOperationCodableTests.swift */,
 				2CA362150B64F12442D070BA /* PerfDerivationTests.swift */,
 				5BC53531605C76B9D1E1755D /* PortfolioCalculatorTests.swift */,
+				FD047D442764CBD47395117C /* R7AnalyticsPrivacyTests.swift */,
 				D9D69516335AAE88A38504AF /* R11PluralsTests.swift */,
 				AFCAB87ABE1C431B755A12EE /* RefreshRenderBenchmarkTests.swift */,
 				2787AC5D77698A252A358F7F /* ReportsAndExportDateTests.swift */,
@@ -1627,6 +1630,7 @@
 				2A11056FAC8DAB7D2479E1D1 /* PerfDerivationTests.swift in Sources */,
 				4C07097105036584EAE0146D /* PortfolioCalculatorTests.swift in Sources */,
 				1FD8B4D8392419D66DA43A4E /* R11PluralsTests.swift in Sources */,
+				5E0F315BE16D9F01C49140EC /* R7AnalyticsPrivacyTests.swift in Sources */,
 				A83B6E0A548F075C9017D178 /* RefreshRenderBenchmarkTests.swift in Sources */,
 				6332F00C4F83E53B450BF104 /* ReportsAndExportDateTests.swift in Sources */,
 				12D0EA9184DF898A3FA0B2B7 /* ReportsCategoryDrilldownTests.swift in Sources */,

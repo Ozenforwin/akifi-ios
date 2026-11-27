@@ -103,7 +103,7 @@ final class SavingsViewModel {
                 note: note
             )
             let contribution = try await repo.addContribution(input)
-            AnalyticsService.logContribution(type: type.rawValue, amount: Double(amount) / 100)
+            AnalyticsService.logContribution(type: type.rawValue)
 
             // Create linked transfer transaction (not expense — money moves, not spent)
             let goal = goals.first { $0.id == goalId }

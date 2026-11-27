@@ -1,104 +1,151 @@
 import Foundation
 import FirebaseAnalytics
 
-/// Centralized analytics for all key user actions
+/// Centralized analytics for all key user actions.
+///
+/// Privacy contract (R7): events describe *what the user did*, never the
+/// money involved. Every event goes through `send`, which keeps only the
+/// parameter names in `allowedParameterKeys` — an amount, a category id,
+/// a description or a balance is dropped before it reaches Firebase, even
+/// if a future call site passes one. The App Store privacy label and
+/// PrivacyInfo.xcprivacy declare analytics as product interaction only.
 enum AnalyticsService {
+
+    /// Parameter names whose values say nothing about the user's finances
+    /// or identity. Add a key only after checking that holds for every
+    /// value it can take.
+    static let allowedParameterKeys: Set<String> = [
+        AnalyticsParameterMethod,
+        AnalyticsParameterScreenName,
+        "type", "period", "period_type", "target", "status", "score", "days",
+        "scheduled", "cancelled", "currency", "language", "count", "mood",
+        "field", "shared", "table", "assembled", "expected", "members",
+        "diff_bucket",
+    ]
+
+    /// Where events go. Firebase in the app; tests capture them.
+    nonisolated(unsafe) static var sink: (_ name: String, _ parameters: [String: Any]?) -> Void = { name, parameters in
+        Analytics.logEvent(name, parameters: parameters)
+    }
+
+    /// `params` without the keys outside the allowlist (nil when nothing
+    /// is left).
+    static func sanitized(_ params: [String: Any]?) -> [String: Any]? {
+        guard let params else { return nil }
+        let kept = params.filter { allowedParameterKeys.contains($0.key) }
+        if kept.count != params.count {
+            let dropped = params.keys.filter { !allowedParameterKeys.contains($0) }.sorted()
+            AppLogger.data.warning("Analytics: dropped non-allowlisted parameters \(dropped, privacy: .public)")
+        }
+        return kept.isEmpty ? nil : kept
+    }
+
+    /// Order of magnitude of a money difference in minor units — enough
+    /// to tell a rounding kopeck from a missing transaction without
+    /// sending the amount.
+    static func magnitudeBucket(_ minorUnits: Int64) -> String {
+        switch minorUnits.magnitude {
+        case 0: "0"
+        case 1: "1"
+        case 2..<100: "<100"
+        case 100..<10_000: "<10k"
+        default: "10k+"
+        }
+    }
+
+    private static func send(_ name: String, _ params: [String: Any]?) {
+        sink(name, sanitized(params))
+    }
 
     // MARK: - Auth
     static func logSignIn(method: String) {
-        Analytics.logEvent(AnalyticsEventLogin, parameters: [AnalyticsParameterMethod: method])
+        send(AnalyticsEventLogin, [AnalyticsParameterMethod: method])
     }
 
     static func logSignUp(method: String) {
-        Analytics.logEvent(AnalyticsEventSignUp, parameters: [AnalyticsParameterMethod: method])
+        send(AnalyticsEventSignUp, [AnalyticsParameterMethod: method])
     }
 
     // MARK: - Transactions
-    static func logAddTransaction(type: String, amount: Double, category: String?) {
-        Analytics.logEvent("add_transaction", parameters: [
-            "type": type,
-            "amount": amount,
-            "category": category ?? "none"
-        ])
+    static func logAddTransaction(type: String) {
+        send("add_transaction", ["type": type])
     }
 
     static func logDeleteTransaction() {
-        Analytics.logEvent("delete_transaction", parameters: nil)
+        send("delete_transaction", nil)
     }
 
     // MARK: - Accounts
     static func logCreateAccount() {
-        Analytics.logEvent("create_account_bank", parameters: nil)
+        send("create_account_bank", nil)
     }
 
     // MARK: - Budgets
     static func logCreateBudget(period: String) {
-        Analytics.logEvent("create_budget", parameters: ["period": period])
+        send("create_budget", ["period": period])
     }
 
     // MARK: - Savings
     static func logCreateGoal() {
-        Analytics.logEvent("create_savings_goal", parameters: nil)
+        send("create_savings_goal", nil)
     }
 
-    static func logContribution(type: String, amount: Double) {
-        Analytics.logEvent("savings_contribution", parameters: ["type": type, "amount": amount])
+    static func logContribution(type: String) {
+        send("savings_contribution", ["type": type])
     }
 
     // MARK: - AI Assistant
     static func logAIChat() {
-        Analytics.logEvent("ai_chat_sent", parameters: nil)
+        send("ai_chat_sent", nil)
     }
 
     static func logAIVoice() {
-        Analytics.logEvent("ai_voice_sent", parameters: nil)
+        send("ai_voice_sent", nil)
     }
 
     // MARK: - Receipt Scanner
     static func logScanReceipt() {
-        Analytics.logEvent("scan_receipt", parameters: nil)
+        send("scan_receipt", nil)
     }
 
     // MARK: - Import / Export
     static func logImportStatement() {
-        Analytics.logEvent("import_statement", parameters: nil)
+        send("import_statement", nil)
     }
 
     static func logExportCSV() {
-        Analytics.logEvent("export_csv", parameters: nil)
+        send("export_csv", nil)
     }
 
     // MARK: - Settings
     static func logChangeCurrency(to currency: String) {
-        Analytics.logEvent("change_currency", parameters: ["currency": currency])
+        send("change_currency", ["currency": currency])
     }
 
     static func logChangeLanguage(to language: String) {
-        Analytics.logEvent("change_language", parameters: ["language": language])
+        send("change_language", ["language": language])
     }
 
     // MARK: - Screens
     static func logScreen(_ name: String) {
-        Analytics.logEvent(AnalyticsEventScreenView, parameters: [
-            AnalyticsParameterScreenName: name
-        ])
+        send(AnalyticsEventScreenView, [AnalyticsParameterScreenName: name])
     }
 
     // MARK: - Subscriptions
     static func logSubscriptionStatusChange(to status: String) {
-        Analytics.logEvent("subscription_status_change", parameters: ["status": status])
+        send("subscription_status_change", ["status": status])
     }
 
     static func logSubscriptionAutoMatch(score: Int) {
-        Analytics.logEvent("subscription_auto_match", parameters: ["score": score])
+        send("subscription_auto_match", ["score": score])
     }
 
     static func logSubscriptionAutoMatchUndo() {
-        Analytics.logEvent("subscription_auto_match_undo", parameters: nil)
+        send("subscription_auto_match_undo", nil)
     }
 
     static func logRemindersRescheduled(scheduled: Int, cancelled: Int) {
-        Analytics.logEvent("subscription_reminders_rescheduled", parameters: [
+        send("subscription_reminders_rescheduled", [
             "scheduled": scheduled,
             "cancelled": cancelled
         ])
@@ -107,6 +154,6 @@ enum AnalyticsService {
     // MARK: - Generic
 
     static func logEvent(_ name: String, params: [String: Any]? = nil) {
-        Analytics.logEvent(name, parameters: params)
+        send(name, params)
     }
 }
