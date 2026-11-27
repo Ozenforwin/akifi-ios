@@ -20,11 +20,20 @@ struct PendingOperation: Codable, Sendable, Identifiable {
     /// locally: the server may already hold the row, so later edits and
     /// deletes are appended behind it instead of folded into it.
     var mayExistOnServer: Bool
+    /// A create that later offline edits were folded into (Y4). If its
+    /// replay hits 23505 the row is already on the server — but possibly
+    /// with the values from before the edits, so the folded fields are
+    /// replayed as an UPDATE instead of being dropped as "synced".
+    var hasFoldedUpdates: Bool
 
     enum OperationType: Codable, Sendable {
         case create(CreateTransactionInput)
         case update(transactionId: String, UpdateTransactionInput)
         case delete(transactionId: String)
+        /// Both legs of a manual transfer (Y8): one DELETE by
+        /// `transfer_group_id`. `transactionIds` are the legs this op
+        /// orders behind (their queued creates replay first).
+        case deleteTransferGroup(groupId: String, transactionIds: [String])
     }
 
     init(operation: OperationType, mayExistOnServer: Bool = false) {
@@ -35,6 +44,7 @@ struct PendingOperation: Codable, Sendable, Identifiable {
         self.lastErrorDescription = nil
         self.lastAttemptAt = nil
         self.mayExistOnServer = mayExistOnServer
+        self.hasFoldedUpdates = false
     }
 
     /// Copy with a replaced operation, preserving identity/ordering metadata.
@@ -47,10 +57,12 @@ struct PendingOperation: Codable, Sendable, Identifiable {
         self.lastErrorDescription = original.lastErrorDescription
         self.lastAttemptAt = original.lastAttemptAt
         self.mayExistOnServer = original.mayExistOnServer
+        self.hasFoldedUpdates = original.hasFoldedUpdates
     }
 
     enum CodingKeys: String, CodingKey {
         case id, timestamp, operation, attempts, lastErrorDescription, lastAttemptAt, mayExistOnServer
+        case hasFoldedUpdates
     }
 
     init(from decoder: Decoder) throws {
@@ -63,15 +75,25 @@ struct PendingOperation: Codable, Sendable, Identifiable {
         lastErrorDescription = try c.decodeIfPresent(String.self, forKey: .lastErrorDescription)
         lastAttemptAt = try c.decodeIfPresent(Date.self, forKey: .lastAttemptAt)
         mayExistOnServer = try c.decodeIfPresent(Bool.self, forKey: .mayExistOnServer) ?? false
+        hasFoldedUpdates = try c.decodeIfPresent(Bool.self, forKey: .hasFoldedUpdates) ?? false
     }
 
-    /// The transaction this operation targets (client id for creates).
+    /// The transaction this operation targets (client id for creates); nil
+    /// for an op on several rows (`deleteTransferGroup`).
     var targetTransactionId: String? {
         switch operation {
         case .create(let input): return input.id
         case .update(let txId, _): return txId
         case .delete(let txId): return txId
+        case .deleteTransferGroup: return nil
         }
+    }
+
+    /// Every transaction this operation touches — the ordering key of the
+    /// replay (an op never overtakes an earlier op on one of its rows).
+    var targetTransactionIds: [String] {
+        if case .deleteTransferGroup(_, let ids) = operation { return ids }
+        return targetTransactionId.map { [$0] } ?? []
     }
 
     var isCreate: Bool {
@@ -152,8 +174,18 @@ final class OfflineQueue {
     /// later and overwrites it with older values (or the UPDATE hits a row
     /// whose INSERT hasn't replayed yet and silently matches nothing).
     func hasPendingOperations(for transactionId: String) -> Bool {
-        pendingOperations.contains { $0.targetTransactionId == transactionId }
+        pendingOperations.contains { $0.targetTransactionIds.contains(transactionId) }
     }
+
+    /// Queued plus dead-lettered — everything this device holds that the
+    /// server doesn't have. Sign-out wipes all of it, so its warning counts
+    /// both (Y6).
+    var unsyncedCount: Int { pendingOperations.count + deadLetterOperations.count }
+    var hasUnsynced: Bool { unsyncedCount > 0 }
+
+    /// Called with the ops a replay round just moved to dead letters, so the
+    /// store can raise a banner and mark their rows "не сохранено" (Y6).
+    @ObservationIgnored var onDeadLettered: (@MainActor ([PendingOperation]) -> Void)?
 
     func discardDeadLetters() {
         deadLetterOperations = []
@@ -238,10 +270,12 @@ final class OfflineQueue {
                isFoldable(queue[idx]),
                case .create(let input) = queue[idx].operation {
                 var merged = queue
-                merged[idx] = PendingOperation(
+                var folded = PendingOperation(
                     recreating: queue[idx],
                     operation: .create(input.applying(update))
                 )
+                folded.hasFoldedUpdates = true
+                merged[idx] = folded
                 return merged
             }
             return queue + [op]
@@ -254,6 +288,26 @@ final class OfflineQueue {
             // Synced (or possibly synced) row: queued updates are obsolete,
             // except one already on the wire.
             return queue.filter { !isUpdate($0, of: txId) || $0.id == inFlightId } + [op]
+
+        case .deleteTransferGroup(let groupId, let legIds):
+            // Per leg, like `.delete`: a leg whose create never left the
+            // device is cancelled outright; a leg that is (or may be) on the
+            // server needs the DELETE — which removes the whole group there.
+            var result = queue
+            var serverLegs: [String] = []
+            for txId in legIds {
+                if let create = result.first(where: { isCreate($0, of: txId) }), isFoldable(create) {
+                    result = result.filter { !$0.targetTransactionIds.contains(txId) }
+                } else {
+                    result = result.filter { !isUpdate($0, of: txId) || $0.id == inFlightId }
+                    serverLegs.append(txId)
+                }
+            }
+            guard !serverLegs.isEmpty else { return result }
+            return result + [PendingOperation(
+                recreating: op,
+                operation: .deleteTransferGroup(groupId: groupId, transactionIds: serverLegs)
+            )]
         }
     }
 
@@ -273,6 +327,9 @@ final class OfflineQueue {
         /// The server already has this state (duplicate create / missing
         /// row on delete) — drop the op as synced.
         case treatAsSynced
+        /// Duplicate create whose payload carries folded offline edits (Y4):
+        /// the row is there, the edits may not be — replay them as UPDATE.
+        case replayAsUpdate
         /// Transport-level or transient server failure — stop the round,
         /// keep ALL remaining ops in order so dependent chains never replay
         /// out of order. No attempt is burned.
@@ -293,7 +350,8 @@ final class OfflineQueue {
         attempts: Int,
         lastAttemptAt: Date? = nil,
         now: Date = Date(),
-        maxAttempts: Int = OfflineQueue.maxAttempts
+        maxAttempts: Int = OfflineQueue.maxAttempts,
+        hasFoldedUpdates: Bool = false
     ) -> ReplayOutcome {
         if isServerUnreachable(error) || isTransientServerError(error) { return .haltTransport }
 
@@ -301,9 +359,10 @@ final class OfflineQueue {
             switch operation {
             case .create where pgError.code == "23505":
                 // Duplicate key on the client-generated id (plain INSERT, or
-                // `p_id` of the auto-transfer RPC) — a previous replay
-                // committed but the response was lost.
-                return .treatAsSynced
+                // `p_id` of the auto-transfer RPC) — a previous request
+                // committed but the response was lost. Edits folded in after
+                // that request went out are not on the server yet.
+                return hasFoldedUpdates ? .replayAsUpdate : .treatAsSynced
             case .delete where pgError.code == "PGRST116":
                 // Pre-delete row lookup found nothing — already deleted.
                 return .treatAsSynced
@@ -389,18 +448,41 @@ final class OfflineQueue {
         isServerUnreachable(error) || isTransientServerError(error)
     }
 
-    /// The write MAY have committed even though we got no usable answer:
-    /// a timeout at any layer (local, or the gateway giving up on
-    /// PostgREST).
+    /// The write MAY have committed even though we got no usable answer (Y4).
+    ///
+    /// Only an error that provably happened before the request left the
+    /// device (no route, DNS, TCP connect, TLS handshake) means "not sent".
+    /// Everything else — a timeout, a connection dropped mid-response
+    /// (`networkConnectionLost`), any gateway status — may have reached the
+    /// database with the answer lost on the way back. Treating those as
+    /// "not sent" let a later offline edit fold into the create; the replay
+    /// then hit 23505, counted as synced, and the edit was gone.
     static func mayHaveCommitted(_ error: Error) -> Bool {
         if error is TimeoutError { return true }
-        if (error as? URLError)?.code == .timedOut { return true }
+        if let code = urlErrorCode(error) { return !preSendURLErrorCodes.contains(code) }
         if let http = error as? HTTPError {
-            return [504, 522, 524].contains(http.response.statusCode)
+            return gatewayStatusCodes.contains(http.response.statusCode)
         }
         // A codeless gateway message carries no status — assume the worst.
         if let pg = error as? PostgrestError { return pg.code == nil || pg.code == "57014" }
         return false
+    }
+
+    /// Transport failures that happen before a byte of the request is sent:
+    /// there is no connection to send it over yet.
+    static let preSendURLErrorCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff, .callIsActive,
+        .cannotFindHost, .dnsLookupFailed, .cannotConnectToHost,
+        .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+        .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid,
+        .clientCertificateRejected, .clientCertificateRequired,
+        .appTransportSecurityRequiresSecureConnection, .badURL, .unsupportedURL,
+    ]
+
+    private static func urlErrorCode(_ error: Error) -> URLError.Code? {
+        if let url = error as? URLError { return url.code }
+        let ns = error as NSError
+        return ns.domain == NSURLErrorDomain ? URLError.Code(rawValue: ns.code) : nil
     }
 
     /// Whether a failed online create should fall back to the offline
@@ -452,10 +534,26 @@ final class OfflineQueue {
         // transaction so they never overtake it.
         var attempted: Set<String> = []
         var blockedTargets: Set<String> = []
+        var deadLettered: [PendingOperation] = []
+        defer {
+            if !deadLettered.isEmpty { onDeadLettered?(deadLettered) }
+        }
         while let op = pendingOperations.first(where: { candidate in
             !attempted.contains(candidate.id)
-                && !(candidate.targetTransactionId.map(blockedTargets.contains) ?? false)
+                && candidate.targetTransactionIds.allSatisfy { !blockedTargets.contains($0) }
         }) {
+            // Y5: the session is re-validated before EVERY op, not once per
+            // round. A token that expired mid-round with a failed refresh
+            // makes the SDK send the anon key: the UPDATE matches nothing
+            // and "succeeds", the DELETE's lookup finds nothing and counts
+            // as done. Stop instead; the next round runs after a refresh.
+            if !attempted.isEmpty {
+                guard await sessionUserIdProvider() == sessionUser else {
+                    AppLogger.data.warning("Offline queue: session expired or changed mid-round, halting")
+                    save()
+                    return
+                }
+            }
             let opId = op.id
             attempted.insert(opId)
             if op.isCreate { markMayExistOnServer(opId, true) }
@@ -472,12 +570,31 @@ final class OfflineQueue {
                 let current = pendingOperations.first { $0.id == opId } ?? op
                 let outcome = Self.outcome(
                     for: error, operation: current.operation,
-                    attempts: current.attempts, lastAttemptAt: current.lastAttemptAt, now: now()
+                    attempts: current.attempts, lastAttemptAt: current.lastAttemptAt, now: now(),
+                    hasFoldedUpdates: current.hasFoldedUpdates
                 )
                 switch outcome {
                 case .treatAsSynced:
                     pendingOperations.removeAll { $0.id == opId }
                     AppLogger.data.info("Offline queue: \(opId) already on server, dropping")
+                case .replayAsUpdate:
+                    // The row exists; send the final field values as an
+                    // UPDATE in this same round (same position in the queue,
+                    // so later ops of the row still wait for it).
+                    if case .create(let input) = current.operation, let txId = input.id,
+                       let idx = pendingOperations.firstIndex(where: { $0.id == opId }) {
+                        var asUpdate = PendingOperation(
+                            recreating: current,
+                            operation: .update(transactionId: txId, UpdateTransactionInput(replaying: input))
+                        )
+                        asUpdate.hasFoldedUpdates = false
+                        asUpdate.mayExistOnServer = false
+                        pendingOperations[idx] = asUpdate
+                        attempted.remove(opId)
+                        AppLogger.data.info("Offline queue: \(opId) already created, replaying its edits as update")
+                    } else {
+                        pendingOperations.removeAll { $0.id == opId }
+                    }
                 case .haltTransport:
                     AppLogger.data.warning("Offline queue: server unavailable, halting round: \(error)")
                     save()
@@ -493,11 +610,11 @@ final class OfflineQueue {
                        (error as? PostgrestError)?.code != nil {
                         markMayExistOnServer(opId, false)
                     }
-                    if let target = current.targetTransactionId { blockedTargets.insert(target) }
+                    blockedTargets.formUnion(current.targetTransactionIds)
                     AppLogger.data.warning("Offline queue: failed \(opId), will retry: \(error)")
                 case .deadLetter:
-                    deadLetter(opId, error: error)
-                    if let target = current.targetTransactionId { blockedTargets.insert(target) }
+                    deadLettered += deadLetter(opId, error: error)
+                    blockedTargets.formUnion(current.targetTransactionIds)
                     AppLogger.data.error("Offline queue: \(opId) dead-lettered after \(Self.maxAttempts) attempts: \(error)")
                 }
             }
@@ -505,24 +622,28 @@ final class OfflineQueue {
         save()
     }
 
-    /// Moves the op to dead letters — together with every later op of the
-    /// same transaction, which can only fail (or silently match nothing)
-    /// without it. "Повторить" brings the chain back in order.
-    private func deadLetter(_ opId: String, error: Error) {
-        guard let idx = pendingOperations.firstIndex(where: { $0.id == opId }) else { return }
+    /// Moves the op to dead letters — together with every later op on one
+    /// of its transactions, which can only fail (or silently match nothing)
+    /// without it. "Повторить" brings the chain back in order. Returns the
+    /// moved ops.
+    @discardableResult
+    private func deadLetter(_ opId: String, error: Error) -> [PendingOperation] {
+        guard let idx = pendingOperations.firstIndex(where: { $0.id == opId }) else { return [] }
         var dead = pendingOperations[idx]
         dead.attempts += 1
         dead.lastAttemptAt = now()
         dead.lastErrorDescription = "\(error)"
         var moved = [dead]
-        if let target = dead.targetTransactionId {
-            let dependents = pendingOperations[(idx + 1)...].filter { $0.targetTransactionId == target }
-            moved += dependents
+        var targets = Set(dead.targetTransactionIds)
+        for later in pendingOperations[(idx + 1)...] where !targets.isDisjoint(with: later.targetTransactionIds) {
+            moved.append(later)
+            targets.formUnion(later.targetTransactionIds)
         }
         let movedIds = Set(moved.map(\.id))
         pendingOperations.removeAll { movedIds.contains($0.id) }
         deadLetterOperations.append(contentsOf: moved)
         persistence.saveDeadLetterOps(deadLetterOperations)
+        return moved
     }
 
     private static func liveReplay(_ op: PendingOperation) async throws {
@@ -534,6 +655,8 @@ final class OfflineQueue {
             try await repo.update(id: txId, input)
         case .delete(let txId):
             try await repo.delete(id: txId)
+        case .deleteTransferGroup(let groupId, _):
+            try await repo.deleteTransferGroup(groupId: groupId)
         }
     }
 

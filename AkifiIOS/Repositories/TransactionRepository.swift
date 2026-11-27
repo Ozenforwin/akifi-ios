@@ -129,12 +129,21 @@ final class TransactionRepository: Sendable {
             return
         }
 
-        try await supabase
+        // Y5: return the touched ids and fail on none. A zero-row UPDATE is
+        // what PostgREST answers when RLS hides the row — including a
+        // request that went out with the anon key after a failed refresh.
+        // It used to count as success: the edit vanished on the next fetch.
+        let touched: [RowId] = try await supabase
             .from("transactions")
             .update(input)
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        guard !touched.isEmpty else { throw TransactionWriteError.noRowsAffected }
     }
+
+    private struct RowId: Decodable { let id: String }
 
     private func updateExpenseWithAutoTransfer(id: String, _ input: UpdateTransactionInput) async throws {
         // See note in createExpenseWithAutoTransfer — must emit null keys,
@@ -247,11 +256,43 @@ final class TransactionRepository: Sendable {
             return
         }
 
-        try await supabase
+        // The lookup above saw the row; a delete that removes nothing was
+        // refused by RLS (viewer role) — not a success (Y5).
+        let removed: [RowId] = try await supabase
             .from("transactions")
             .delete()
             .eq("id", value: id)
+            .select("id")
             .execute()
+            .value
+        guard !removed.isEmpty else { throw TransactionWriteError.noRowsAffected }
+    }
+
+    /// Deletes both legs of a manual transfer in one request (Y8): every
+    /// row of the `transfer_group_id` that is not part of an auto-transfer
+    /// triplet (those go through `delete_expense_with_auto_transfer`).
+    /// Deleting one leg used to leave the other on its account, shifting
+    /// that balance by the transfer amount. Zero rows = already deleted
+    /// (the caller validated the session first).
+    func deleteTransferGroup(groupId: String) async throws {
+        try await supabase
+            .from("transactions")
+            .delete()
+            .eq("transfer_group_id", value: groupId)
+            .is("auto_transfer_group_id", value: nil)
+            .execute()
+    }
+}
+
+/// Write outcomes PostgREST reports as success.
+enum TransactionWriteError: LocalizedError, Equatable {
+    /// The UPDATE / DELETE matched no row this session may change.
+    case noRowsAffected
+
+    var errorDescription: String? {
+        switch self {
+        case .noRowsAffected: return String(localized: "sync.error.noRowsAffected")
+        }
     }
 }
 
@@ -603,6 +644,31 @@ struct UpdateTransactionInput: Codable, Sendable {
         self.replaceCurrencyFields = replaceCurrencyFields
         self.source_amount = source_amount
         self.source_currency = source_currency?.uppercased()
+    }
+
+    /// Every field of a create, as an UPDATE of the row it created (Y4):
+    /// replays offline edits that were folded into a create whose INSERT
+    /// had already committed. Same routing as the create (auto-transfer
+    /// RPC for a payment-source expense), currency block written verbatim.
+    init(replaying create: CreateTransactionInput) {
+        self.init(
+            amount: create.amount,
+            amount_native: create.amount_native,
+            currency: create.currency,
+            foreign_amount: create.foreign_amount,
+            foreign_currency: create.foreign_currency,
+            fx_rate: create.fx_rate,
+            type: create.type,
+            date: create.date,
+            description: create.description,
+            category_id: create.category_id,
+            merchant_name: create.merchant_name,
+            account_id: create.account_id,
+            useAutoTransferUpdate: create.routesToAutoTransferRPC,
+            replaceCurrencyFields: true,
+            source_amount: create.source_amount,
+            source_currency: create.source_currency
+        )
     }
 
     // Keep `useAutoTransferUpdate` and `replaceCurrencyFields` out of the

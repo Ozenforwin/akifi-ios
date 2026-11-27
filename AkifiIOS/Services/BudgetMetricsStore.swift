@@ -52,6 +52,11 @@ struct BudgetMetricsSnapshot: Codable, Sendable, Equatable {
     var generation: UInt64
     let budgets: [String: ServerBudgetMetrics]
     let baselines: [String: Baseline]
+    /// `BudgetMetricsStore.inputsFingerprint` at fetch time (Y2): partner
+    /// spend, subscriptions and members are server inputs too — the answer
+    /// is exact only while they are unchanged. nil in payloads persisted
+    /// before this field (stale anyway after a relaunch).
+    var inputs: Int? = nil
 }
 
 /// Pure resolution: which numbers each budget shows. No I/O, unit-tested.
@@ -71,6 +76,9 @@ enum BudgetMetricsResolver {
         /// (members' rows, others' only on linked accounts). A budget
         /// missing here gets no author rule (tests of other rules).
         var memberIdsByBudget: [String: Set<String>] = [:]
+        /// `BudgetMetricsStore.inputsFingerprint` of the current data; nil
+        /// = not tracked (callers that only compare generations).
+        var inputs: Int? = nil
 
         func members(of budget: Budget) -> Set<String>? { memberIdsByBudget[budget.id] }
     }
@@ -134,7 +142,8 @@ enum BudgetMetricsResolver {
               let baseline = snapshot.baselines[budget.id],
               baseline.definition == definitionKey(budget) else { return nil }
 
-        if snapshot.generation == input.generation && snapshot.day == today {
+        if snapshot.generation == input.generation && snapshot.day == today
+            && (input.inputs == nil || snapshot.inputs == input.inputs) {
             return ResolvedBudgetMetrics(
                 budget: budget, metrics: BudgetMath.metrics(fromServer: s), source: .server,
                 isPartial: false, server: s, spentToday: s.spentToday
@@ -288,6 +297,12 @@ final class BudgetMetricsStore {
     /// Off under XCTest so DataStore tests that write widget snapshots never
     /// reach the network.
     @ObservationIgnored var autoRefreshEnabled = !BudgetMetricsStore.isRunningUnitTests
+    /// Whether the SDK holds a session — without one the RPC would go out
+    /// as anon. Seam for tests.
+    @ObservationIgnored var sessionPresent: @MainActor () -> Bool = {
+        SupabaseManager.shared.client.auth.currentSession != nil
+    }
+    @ObservationIgnored var now: @MainActor () -> Date = { Date() }
 
     nonisolated static var isRunningUnitTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -337,17 +352,18 @@ final class BudgetMetricsStore {
         let userId = dataStore.profile?.id
         let usableSnapshot = snapshot.flatMap { $0.userId == userId ? $0 : nil }
         let failed = lastFetchFailed
+        let inputs = Self.inputsFingerprint(subscriptions: subscriptions, external: external, members: members)
 
         let key = MemoKey(
             generation: dataStore.txGenerationToken,
             txCount: transactions.count,
             budgets: Self.hash(budgets.map(BudgetMetricsResolver.definitionKey) + budgets.map(\.id)),
-            subscriptions: Self.hash(subscriptions.map { "\($0.id)|\($0.amount)|\($0.status.rawValue)|\($0.currency ?? "")|\($0.billingPeriod.rawValue)|\($0.categoryId ?? "")" }),
             categories: Self.hash(categories.map { "\($0.id)|\($0.name)" }),
-            external: Self.hash(external.map { "\($0.key)|\($0.value.count)" }.sorted()),
-            // Member identities, not just counts: they decide whose rows
-            // count (`BudgetMath.memberIds`).
-            members: Self.hash(members.map { "\($0.key)|\($0.value.map(\.userId).sorted().joined(separator: ","))" }.sorted() + [userId ?? ""]),
+            // Partner spend, subscriptions and member identities by content
+            // (Y2) — members also decide whose rows count
+            // (`BudgetMath.memberIds`), together with the viewer.
+            inputs: inputs,
+            viewer: userId ?? "",
             snapshotStamp: usableSnapshot?.fetchedAt,
             snapshotGeneration: usableSnapshot?.generation,
             lastFetchFailed: failed,
@@ -365,7 +381,8 @@ final class BudgetMetricsStore {
             currencyContext: dataStore.currencyContext,
             generation: dataStore.txGenerationToken,
             now: now,
-            memberIdsByBudget: Self.memberIds(budgets: budgets, viewerId: userId, members: members)
+            memberIdsByBudget: Self.memberIds(budgets: budgets, viewerId: userId, members: members),
+            inputs: inputs
         )
         let value = BudgetMetricsResolver.resolve(input, snapshot: usableSnapshot, lastFetchFailed: failed)
         memo = (key, value)
@@ -383,16 +400,9 @@ final class BudgetMetricsStore {
         guard autoRefreshEnabled else { return }
         self.dataStore = dataStore
         // No session → every PostgREST call would go out as anon (Y2).
-        guard SupabaseManager.shared.client.auth.currentSession != nil,
-              let userId = dataStore.profile?.id,
-              !dataStore.budgets.isEmpty else { return }
-
-        let key = FetchKey(
-            userId: userId,
-            generation: dataStore.txGenerationToken,
-            day: BudgetMetricsResolver.dayKey(Date()),
-            budgets: Self.hash(dataStore.budgets.map(BudgetMetricsResolver.definitionKey) + dataStore.budgets.map(\.id))
-        )
+        guard sessionPresent(), dataStore.profile?.id != nil,
+              !dataStore.budgets.isEmpty,
+              let key = Self.fetchKey(for: dataStore, now: now()) else { return }
         if inFlight != nil {
             rerunRequested = true
             return
@@ -413,8 +423,13 @@ final class BudgetMetricsStore {
         }
     }
 
-    /// Awaitable variant for `.task` / pull-to-refresh.
+    /// Awaitable variant for `.task` / pull-to-refresh. `force` (an explicit
+    /// pull) always asks the server again — after a fetch already in flight,
+    /// which may have started before the data the user is looking at.
     func refresh(dataStore: DataStore, force: Bool = false) async {
+        if force {
+            while let running = inFlight { await running.value }
+        }
         refreshIfNeeded(dataStore: dataStore, force: force)
         await inFlight?.value
     }
@@ -432,8 +447,15 @@ final class BudgetMetricsStore {
         if let persistenceURL { try? FileManager.default.removeItem(at: persistenceURL) }
     }
 
-    /// Applies a server answer (also the test entry point).
-    func apply(_ response: ServerBudgetMetricsResponse, generation: UInt64, dataStore: DataStore, now: Date = Date()) {
+    /// Applies a server answer (also the test entry point). `inputs` is the
+    /// fingerprint the request was made for (default: the current data).
+    func apply(
+        _ response: ServerBudgetMetricsResponse,
+        generation: UInt64,
+        dataStore: DataStore,
+        now: Date = Date(),
+        inputs: Int? = nil
+    ) {
         guard let userId = dataStore.profile?.id else { return }
         let input = BudgetMetricsResolver.Input(
             budgets: dataStore.budgets,
@@ -459,7 +481,12 @@ final class BudgetMetricsStore {
         }
         let snap = BudgetMetricsSnapshot(
             userId: userId, day: response.today, fetchedAt: now, generation: generation,
-            budgets: serverById, baselines: baselines
+            budgets: serverById, baselines: baselines,
+            inputs: inputs ?? Self.inputsFingerprint(
+                subscriptions: dataStore.subscriptions,
+                external: dataStore.externalSpendByBudget,
+                members: dataStore.budgetMembersByBudget
+            )
         )
         snapshot = snap
         lastFetchFailed = false
@@ -481,7 +508,7 @@ final class BudgetMetricsStore {
         do {
             let response = try await fetcher(key.day, TimeZone.current.identifier)
             if let ds = dataStore, ds.profile?.id == key.userId {
-                apply(response, generation: key.generation, dataStore: ds)
+                apply(response, generation: key.generation, dataStore: ds, inputs: key.inputs)
                 lastAttempt = (key, Date(), true)
                 applied = true
             }
@@ -541,21 +568,75 @@ final class BudgetMetricsStore {
         let generation: UInt64
         let txCount: Int
         let budgets: Int
-        let subscriptions: Int
         let categories: Int
-        let external: Int
-        let members: Int
+        let inputs: Int
+        let viewer: String
         let snapshotStamp: Date?
         let snapshotGeneration: UInt64?
         let lastFetchFailed: Bool
         let day: String
     }
 
-    private struct FetchKey: Equatable {
+    /// What a server answer was computed from. A change of any part means
+    /// the numbers on screen may be stale and the server is asked again.
+    struct FetchKey: Equatable {
         let userId: String
         let generation: UInt64
         let day: String
         let budgets: Int
+        /// Partner spend, subscriptions, members — see `inputsFingerprint`.
+        let inputs: Int
+    }
+
+    static func fetchKey(for dataStore: DataStore, now: Date = Date()) -> FetchKey? {
+        guard let userId = dataStore.profile?.id else { return nil }
+        return FetchKey(
+            userId: userId,
+            generation: dataStore.txGenerationToken,
+            day: BudgetMetricsResolver.dayKey(now),
+            budgets: hash(dataStore.budgets.map(BudgetMetricsResolver.definitionKey) + dataStore.budgets.map(\.id)),
+            inputs: inputsFingerprint(
+                subscriptions: dataStore.subscriptions,
+                external: dataStore.externalSpendByBudget,
+                members: dataStore.budgetMembersByBudget
+            )
+        )
+    }
+
+    /// Content hash of the server inputs that don't move
+    /// `txGenerationToken` (Y2): a partner's spending only changes
+    /// `externalSpendByBudget`, a subscription edit only `subscriptions`, a
+    /// new member only `budgetMembersByBudget`. Every field that feeds the
+    /// numbers is hashed — a partner's 500 ₽ becoming 1 500 ₽ keeps the row
+    /// count, so counts can't be the key.
+    static func inputsFingerprint(
+        subscriptions: [SubscriptionTracker],
+        external: [String: [BudgetMath.ExternalSpendRow]],
+        members: [String: [BudgetMember]]
+    ) -> Int {
+        var h = Hasher()
+        h.combine(subscriptions.count)
+        for s in subscriptions.sorted(by: { $0.id < $1.id }) {
+            h.combine(s.id); h.combine(s.amount); h.combine(s.currency)
+            h.combine(s.billingPeriod.rawValue); h.combine(s.status.rawValue); h.combine(s.isActive)
+            h.combine(s.startDate); h.combine(s.lastPaymentDate); h.combine(s.nextPaymentDate)
+            h.combine(s.categoryId); h.combine(s.accountId)
+        }
+        h.combine(external.count)
+        for budgetId in external.keys.sorted() {
+            h.combine(budgetId)
+            for row in external[budgetId] ?? [] {
+                h.combine(row.txId); h.combine(row.amountNative); h.combine(row.currency); h.combine(row.txDate)
+            }
+        }
+        h.combine(members.count)
+        for budgetId in members.keys.sorted() {
+            h.combine(budgetId)
+            for m in (members[budgetId] ?? []).sorted(by: { $0.id < $1.id }) {
+                h.combine(m.id); h.combine(m.userId); h.combine(m.role.rawValue)
+            }
+        }
+        return h.finalize()
     }
 
     private static func hash(_ parts: [String]) -> Int {

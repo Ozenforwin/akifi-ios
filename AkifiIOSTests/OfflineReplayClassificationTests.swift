@@ -160,8 +160,11 @@ final class OfflineReplayClassificationTests: XCTestCase {
                        "no status on a codeless envelope — assume it may have committed")
 
         XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(URLError(.notConnectedToInternet), routesToAutoTransferRPC: true, hasClientId: false))
-        XCTAssertTrue(OfflineQueue.shouldQueueFailedCreate(httpError(status: 503), routesToAutoTransferRPC: true, hasClientId: false),
-                      "503 = upstream unavailable, the request was never processed")
+        // Y4: a gateway 503 is an answer from in front of the database, not
+        // proof the request never reached it — only pre-send transport
+        // failures are.
+        XCTAssertFalse(OfflineQueue.shouldQueueFailedCreate(httpError(status: 503), routesToAutoTransferRPC: true, hasClientId: false),
+                       "503 may come after the request was forwarded")
     }
 
     // MARK: - Transient server errors (Y5)

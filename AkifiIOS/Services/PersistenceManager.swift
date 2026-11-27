@@ -10,9 +10,20 @@ struct CachedDataSnapshot: Sendable {
     var budgets: [Budget]?
     var subscriptions: [SubscriptionTracker]?
     var profile: Profile?
+    /// `cache_owner.json` (Y3).
+    var ownerTag: String?
+
+    /// Whose data this is — see `PersistenceManager.cacheOwner`.
+    var owner: String? { PersistenceManager.cacheOwner(tag: ownerTag, cachedProfileId: profile?.id) }
 
     var isEmpty: Bool {
         (accounts ?? []).isEmpty && (transactions ?? []).isEmpty
+    }
+
+    /// Anything at all of somebody's data.
+    var hasAnyContent: Bool {
+        !isEmpty || !(categories ?? []).isEmpty || !(budgets ?? []).isEmpty
+            || !(subscriptions ?? []).isEmpty || profile != nil
     }
 }
 
@@ -194,7 +205,8 @@ final class PersistenceManager: Sendable {
                     categories: loadCategories(),
                     budgets: loadBudgets(),
                     subscriptions: loadSubscriptions(),
-                    profile: loadProfile()
+                    profile: loadProfile(),
+                    ownerTag: loadCacheOwner()
                 ))
             }
         }
@@ -241,6 +253,16 @@ final class PersistenceManager: Sendable {
     }
     func loadQueueOwner() -> String? { load([String: String].self, filename: "queue_owner.json")?["userId"] }
 
+    /// The user the data cache (accounts, transactions, …) belongs to (Y3).
+    /// Written synchronously before the first cache write of a session and
+    /// wiped with the cache, so a cache that outlived its sign-out (app
+    /// killed mid-sign-out, session dropped by the SDK) is never shown to
+    /// the next user.
+    func saveCacheOwner(_ userId: String) {
+        save(["userId": userId], filename: Filename.cacheOwner)
+    }
+    func loadCacheOwner() -> String? { load([String: String].self, filename: Filename.cacheOwner)?["userId"] }
+
     enum Filename {
         static let transactions = "transactions.json"
         static let accounts = "accounts.json"
@@ -248,6 +270,14 @@ final class PersistenceManager: Sendable {
         static let budgets = "budgets.json"
         static let subscriptions = "subscriptions.json"
         static let profile = "profile.json"
+        static let cacheOwner = "cache_owner.json"
+    }
+
+    /// Whose data the cache holds: the owner tag, or — for a cache written
+    /// before the tag existed — the id in its cached profile. nil = unknown
+    /// (nothing that may be shown to anybody).
+    static func cacheOwner(tag: String?, cachedProfileId: String?) -> String? {
+        (tag ?? cachedProfileId)?.lowercased()
     }
 
     /// Remove cached data. Full wipe on sign-out (queued ops belong to the

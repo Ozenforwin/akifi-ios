@@ -6,9 +6,10 @@ import WidgetKit
 /// by sign (green ≥ 0, red < 0).
 struct DaySummaryWidgetView: View {
     let entry: SnapshotEntry
+    let snapshot: SharedSnapshot
 
     private var netColor: Color {
-        entry.snapshot.todayNet >= 0 ? .green : .red
+        snapshot.todayNet >= 0 ? .green : .red
     }
 
     var body: some View {
@@ -38,23 +39,23 @@ struct DaySummaryWidgetView: View {
                 HStack(spacing: 0) {
                     column(
                         title: String(localized: "widget.daySummary.income", defaultValue: "Доход"),
-                        amount: entry.snapshot.todayIncome,
+                        amount: snapshot.todayIncome,
                         color: .green,
                         sign: "+"
                     )
                     Divider().frame(height: 42)
                     column(
                         title: String(localized: "widget.daySummary.expense", defaultValue: "Расход"),
-                        amount: entry.snapshot.todayExpense,
+                        amount: snapshot.todayExpense,
                         color: .red,
                         sign: "−"
                     )
                     Divider().frame(height: 42)
                     column(
                         title: String(localized: "widget.daySummary.net", defaultValue: "Итого"),
-                        amount: entry.snapshot.todayNet,
+                        amount: snapshot.todayNet,
                         color: netColor,
-                        sign: entry.snapshot.todayNet >= 0 ? "+" : "−"
+                        sign: snapshot.todayNet >= 0 ? "+" : "−"
                     )
                 }
 
@@ -78,7 +79,7 @@ struct DaySummaryWidgetView: View {
                 .foregroundStyle(.secondary)
 
             let abs: Int64 = amount < 0 ? -amount : amount
-            Text("\(sign)\(WidgetFormatters.compactAmount(abs, snapshot: entry.snapshot))")
+            Text("\(sign)\(WidgetFormatters.compactAmount(abs, snapshot: snapshot))")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
@@ -96,10 +97,20 @@ struct DaySummaryWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DaySummaryProvider()) { entry in
-            DaySummaryWidgetView(entry: entry)
-                .containerBackground(for: .widget) {
-                    Color(.systemBackground)
+            Group {
+                if let snapshot = entry.snapshot {
+                    DaySummaryWidgetView(entry: entry, snapshot: snapshot)
+                } else {
+                    WidgetEmptyStateView(
+                        systemImage: "calendar",
+                        title: LocalizedStringResource("widget.daySummary.title", defaultValue: "Сегодня"),
+                        deepLink: URL(string: "akifi://transactions")
+                    )
                 }
+            }
+            .containerBackground(for: .widget) {
+                Color(.systemBackground)
+            }
         }
         .configurationDisplayName(
             Text(LocalizedStringResource("widget.daySummary.displayName", defaultValue: "День в цифрах"))

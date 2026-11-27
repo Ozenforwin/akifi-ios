@@ -63,6 +63,13 @@ struct TransactionRowView: View {
                             .font(.caption2)
                             .foregroundStyle(.orange)
                             .accessibilityLabel(String(localized: "tx.pendingSync"))
+                    } else if transaction.isUnsynced {
+                        // The server refused it (Y6): retry or discard in
+                        // Settings.
+                        Label(String(localized: "tx.unsynced"), systemImage: "exclamationmark.icloud.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.red)
                     }
                 }
 
