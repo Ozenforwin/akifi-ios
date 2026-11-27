@@ -207,7 +207,7 @@ struct MainTabView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Custom opaque tab bar (replaces system TabView to avoid iOS 26 liquid glass)
-            CustomTabBar(selectedTab: $selectedTab, onAITap: { showAssistant = true })
+            CustomTabBar(selectedTab: $selectedTab, onAITap: openAssistant)
 
             // FAB
             FABView { action in
@@ -467,6 +467,15 @@ struct MainTabView: View {
         case .journal: JournalTabView()
         case .budgets: BudgetsTabView()
         }
+    }
+
+    /// The assistant's request carries the client context (balances in
+    /// account currency, FX rates, display currency, language) built from
+    /// the data store — which was never attached, so every request went
+    /// out without it.
+    private func openAssistant() {
+        assistantVM.dataStore = appViewModel.dataStore
+        showAssistant = true
     }
 
     private func handleNavigationTarget(_ target: NavigationTarget) {
