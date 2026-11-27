@@ -231,23 +231,46 @@ struct CardStyle: ViewModifier {
     var size: Size = .regular
     /// Inner padding; `nil` uses the size's default, `0` for edge-to-edge content.
     var padding: CGFloat?
+    /// An identity colour washed over the card (the account cards on Home —
+    /// Vladimir wants each account in its own colour, 2026-11-28). Still
+    /// content, not glass: a light diagonal wash and a hairline in the
+    /// colour, no shadow.
+    var tint: Color?
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: size.cornerRadius, style: .continuous)
         content
             .padding(padding ?? size.defaultPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: shape)
+            .background {
+                ZStack {
+                    shape.fill(Color(.secondarySystemGroupedBackground))
+                    if let tint {
+                        shape.fill(
+                            LinearGradient(
+                                colors: [tint.opacity(Self.tintWash.start), tint.opacity(Self.tintWash.end)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        shape.strokeBorder(tint.opacity(Self.tintStroke), lineWidth: 0.5)
+                    }
+                }
+            }
             // Nested shapes (`ConcentricRectangle`, `.containerRelative`)
             // follow the card's corners.
             .containerShape(shape)
     }
+
+    /// Wash opacities (top-leading → bottom-trailing), as on the pre-1.6 cards.
+    static let tintWash: (start: Double, end: Double) = (0.10, 0.22)
+    static let tintStroke: Double = 0.20
 }
 
 extension View {
     /// Wraps the view in the standard content card (see `CardStyle`).
-    func akifiCard(_ size: CardStyle.Size = .regular, padding: CGFloat? = nil) -> some View {
-        modifier(CardStyle(size: size, padding: padding))
+    func akifiCard(_ size: CardStyle.Size = .regular, padding: CGFloat? = nil, tint: Color? = nil) -> some View {
+        modifier(CardStyle(size: size, padding: padding, tint: tint))
     }
 }
 

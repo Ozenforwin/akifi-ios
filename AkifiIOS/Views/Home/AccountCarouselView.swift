@@ -29,9 +29,10 @@ private enum HiddenBalancesStore {
 // MARK: - AccountCarouselView
 
 /// Home's hero: one account card at a time, swiped left / right (wrapping
-/// around). The card is content (`.akifiCard()`), not glass; the account's
-/// colour is only a small accent — the icon tile, the primary star and the
-/// selected page dot.
+/// around). The card is content, not glass, washed in the account's own
+/// colour (`.akifiCard(tint:)` — Vladimir: the white cards lost which
+/// account is which, 2026-11-28); the colour also marks the icon tile, the
+/// primary star and the selected page dot.
 struct AccountCarouselView: View {
     @Environment(AppViewModel.self) private var appViewModel
     let accounts: [Account]
@@ -222,7 +223,7 @@ struct AccountCardView: View {
                 monthFlowRow
             }
         }
-        .akifiCard()
+        .akifiCard(tint: accountColor)
     }
 
     // MARK: - Subviews
