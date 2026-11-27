@@ -24,16 +24,17 @@ struct CategoryBreakdownView: View {
         let data = breakdown.spending
         VStack(alignment: .leading, spacing: 12) {
             // Header: title + expense/income toggle
-            HStack {
-                Text(String(localized: "analytics.byCategory"))
-                    .font(.headline)
-                Spacer()
-                Picker("", selection: $selectedType) {
-                    Text(String(localized: "common.expenses")).tag(CategoryType.expense)
-                    Text(String(localized: "common.incomes")).tag(CategoryType.income)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    title
+                    Spacer()
+                    typePicker
+                        .frame(width: 180)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
+                VStack(alignment: .leading, spacing: 8) {
+                    title
+                    typePicker
+                }
             }
 
             // Period filter is rendered once in `AnalyticsTabView` and
@@ -53,14 +54,7 @@ struct CategoryBreakdownView: View {
                 categoryListSection(data)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(.systemGray4).opacity(0.5), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .akifiCard()
         .sheet(item: $sheetCategory) { category in
             CategoryTransactionsSheet(
                 category: category,
@@ -69,7 +63,6 @@ struct CategoryBreakdownView: View {
                 }
             )
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
         .onChange(of: chartSelection) { _, newValue in
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -80,6 +73,21 @@ struct CategoryBreakdownView: View {
                 }
             }
         }
+    }
+
+    private var title: some View {
+        Text(String(localized: "analytics.byCategory"))
+            .font(.headline)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var typePicker: some View {
+        Picker(String(localized: "common.type"), selection: $selectedType) {
+            Text(String(localized: "common.expenses")).tag(CategoryType.expense)
+            Text(String(localized: "common.incomes")).tag(CategoryType.income)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     // MARK: - Donut Chart with tap selection
@@ -105,13 +113,16 @@ struct CategoryBreakdownView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("\(Int(sel.percentage))%")
-                        .font(.title2.bold())
+                        .font(.title2.weight(.semibold))
+                        .monospacedDigit()
                     Text(appViewModel.currencyManager.formatAmount(sel.amount))
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                 } else {
                     Text(appViewModel.currencyManager.formatAmount(total))
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
                     Text(selectedType == .expense
                          ? String(localized: "common.expenses")
                          : String(localized: "common.incomes"))
@@ -156,13 +167,16 @@ struct CategoryBreakdownView: View {
                         Spacer()
                         Text(appViewModel.currencyManager.formatAmount(item.amount))
                             .font(isSelected ? .subheadline.weight(.semibold) : .subheadline.weight(.medium))
+                            .monospacedDigit()
                             .foregroundStyle(.primary)
                         Text("\(Int(item.percentage))%")
                             .font(.caption)
+                            .monospacedDigit()
                             .foregroundStyle(.secondary)
-                            .frame(width: 36, alignment: .trailing)
+                            .frame(minWidth: 36, alignment: .trailing)
                     }
                     .padding(.vertical, 8)
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -207,39 +221,36 @@ struct CategoryTransactionsSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Group {
                 if transactions.isEmpty {
                     ContentUnavailableView(String(localized: "home.noTransactions"), systemImage: "tray")
-                        .padding(.top, 60)
                 } else {
-                    VStack(spacing: 16) {
-                        // Summary
-                        HStack {
-                            Text(category.icon)
-                                .font(.title2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(category.name)
-                                    .font(.headline)
-                                Text(String(localized: "analytics.transactionsCount.\(transactions.count)"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                    // A system inset-grouped list: summary on top, the
+                    // rows below (was material cards on a cleared sheet).
+                    List {
+                        Section {
+                            HStack(spacing: 12) {
+                                Text(category.icon)
+                                    .font(.title2)
+                                    .accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(category.name)
+                                        .font(.headline)
+                                    Text(String(localized: "analytics.transactionsCount.\(transactions.count)"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 8)
+                                Text(appViewModel.currencyManager.formatAmount(category.amount))
+                                    .font(.title3.weight(.semibold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Color.expense)
                             }
-                            Spacer()
-                            Text(appViewModel.currencyManager.formatAmount(category.amount))
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(Color.expense)
+                            .accessibilityElement(children: .combine)
                         }
-                        .padding()
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(.white.opacity(0.3), lineWidth: 0.5)
-                        )
 
-                        // Transactions
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(transactions.enumerated()), id: \.element.id) { index, tx in
+                        Section {
+                            ForEach(transactions) { tx in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(tx.description ?? category.name)
@@ -248,42 +259,27 @@ struct CategoryTransactionsSheet: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
-                                    Spacer()
+                                    Spacer(minLength: 8)
                                     Text("-\(appViewModel.currencyManager.formatAmount(appViewModel.dataStore.amountInBaseDisplay(tx)))")
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(Color.expense)
                                         .monospacedDigit()
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-
-                                if index < transactions.count - 1 {
-                                    Divider().padding(.leading, 16)
-                                }
+                                .accessibilityElement(children: .combine)
                             }
                         }
-                        .background(.regularMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(.white.opacity(0.3), lineWidth: 0.5)
-                        )
                     }
-                    .padding()
+                    .listStyle(.insetGrouped)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(.clear)
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
             }
         }
-        .background(.clear)
     }
 }
 

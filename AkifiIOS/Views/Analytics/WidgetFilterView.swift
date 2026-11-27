@@ -28,38 +28,19 @@ enum WidgetPeriod: String, CaseIterable, Sendable {
     }
 }
 
+/// Period of the cashflow chart and the category breakdown — the system
+/// segmented control (Liquid Glass on iOS 26), replacing the hand-made
+/// capsule chips.
 struct WidgetFilterView: View {
     @Binding var selectedPeriod: WidgetPeriod
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(WidgetPeriod.allCases, id: \.self) { period in
-                    Button {
-                        selectedPeriod = period
-                    } label: {
-                        Text(period.label)
-                            .font(.system(size: 11, weight: .medium))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                selectedPeriod == period
-                                    ? Color.accent.opacity(0.15)
-                                    : Color(.systemGray6)
-                            )
-                            .foregroundStyle(selectedPeriod == period ? Color.accent : .primary.opacity(0.6))
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(
-                                        selectedPeriod == period ? Color.accent.opacity(0.3) : Color(.systemGray4),
-                                        lineWidth: 0.5
-                                    )
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
+        Picker(String(localized: "common.period"), selection: $selectedPeriod) {
+            ForEach(WidgetPeriod.allCases, id: \.self) { period in
+                Text(period.label).tag(period)
             }
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 }

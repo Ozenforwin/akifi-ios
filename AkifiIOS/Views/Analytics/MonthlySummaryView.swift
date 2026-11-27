@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MonthlySummaryView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Pre-computed monthly aggregates in base currency (kopecks),
     /// chronologically sorted (oldest → newest). Last element is the
@@ -35,8 +36,12 @@ struct MonthlySummaryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
+        // Side by side; stacked at accessibility text sizes.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+        VStack(spacing: 12) {
+            layout {
                 // Income card
                 summaryCard(
                     title: String(localized: "common.incomes"),
@@ -53,73 +58,64 @@ struct MonthlySummaryView: View {
                     isIncome: false
                 )
             }
+            .fixedSize(horizontal: false, vertical: true)
 
-            // Net income
+            // Net income — a small row-like card.
             let net = currentMonthTotals.income - currentMonthTotals.expense
             HStack {
                 Text(String(localized: "analytics.net"))
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(appViewModel.currencyManager.formatAmount(net))
                     .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
                     .foregroundStyle(net >= 0 ? Color.income : Color.expense)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
-            )
+            .akifiCard(.compact)
+            .accessibilityElement(children: .combine)
         }
     }
 
     private func summaryCard(title: String, amount: Decimal, change: Int?, isIncome: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Spacer()
+                Spacer(minLength: 4)
                 if let change {
-                    HStack(spacing: 2) {
+                    let color = Self.changeBadgeColor(change: change, isIncome: isIncome)
+                    Label {
+                        Text(verbatim: "\(abs(change))%")
+                    } icon: {
                         Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.system(size: 8, weight: .bold))
-                        Text("\(abs(change))%")
-                            .font(.system(size: 10, weight: .bold))
                     }
-                    .foregroundStyle(changeBadgeColor(change: change, isIncome: isIncome))
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(color)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(changeBadgeColor(change: change, isIncome: isIncome).opacity(0.12))
-                    .clipShape(Capsule())
+                    .background(color.opacity(0.15), in: Capsule())
                 }
             }
 
             Text(appViewModel.currencyManager.formatAmount(amount))
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .akifiCard()
+        .accessibilityElement(children: .combine)
     }
 
-    private func changeBadgeColor(change: Int, isIncome: Bool) -> Color {
-        // For income: up is good (green), down is bad (red)
-        // For expenses: up is bad (red), down is good (green)
-        if isIncome {
-            return change >= 0 ? .green : .red
-        } else {
-            return change >= 0 ? .red : .green
-        }
+    /// Income up / expenses down is good (income colour), the opposite is
+    /// bad (expense colour).
+    static func changeBadgeColor(change: Int, isIncome: Bool) -> Color {
+        let isGood = isIncome ? change >= 0 : change < 0
+        return isGood ? Color.income : Color.expense
     }
 }

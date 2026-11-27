@@ -14,35 +14,36 @@ struct CashflowChartView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "analytics.cashflow"))
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if points.isEmpty {
                 ContentUnavailableView(String(localized: "common.noData"), systemImage: "chart.bar")
                     .frame(height: 200)
             } else {
+                // Semantic colours, solid (the bars had decorative
+                // gradients).
                 Chart(points) { point in
                     BarMark(
                         x: .value(String(localized: "chart.period"), point.label),
                         y: .value(String(localized: "chart.amount"), point.income)
                     )
-                    .foregroundStyle(.green.gradient)
+                    .foregroundStyle(Color.income)
                     .position(by: .value("type", String(localized: "common.incomes")))
 
                     BarMark(
                         x: .value(String(localized: "chart.period"), point.label),
                         y: .value(String(localized: "chart.amount"), point.expense)
                     )
-                    .foregroundStyle(.red.gradient)
+                    .foregroundStyle(Color.expense)
                     .position(by: .value("type", String(localized: "common.expenses")))
                 }
                 .chartForegroundStyleScale([
-                    String(localized: "common.incomes"): Color.green,
-                    String(localized: "common.expenses"): Color.red
+                    String(localized: "common.incomes"): Color.income,
+                    String(localized: "common.expenses"): Color.expense
                 ])
                 .frame(height: 220)
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
     }
 }

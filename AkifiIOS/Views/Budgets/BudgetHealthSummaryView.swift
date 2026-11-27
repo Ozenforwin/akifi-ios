@@ -45,16 +45,16 @@ struct BudgetHealthSummaryView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(fmt.formatAmount(totalSpent.displayAmount, wholeUnits: true))
-                        .font(.title3.weight(.bold).monospacedDigit())
+                        .font(.title3.weight(.semibold).monospacedDigit())
                     + Text(" / \(fmt.formatAmount(totalLimit.displayAmount, wholeUnits: true))")
-                        .font(.caption)
+                        .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Text("\(overallUtilization)%")
-                    .font(.title2.weight(.bold).monospacedDigit())
+                    .font(.title2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(overallColor)
             }
 
@@ -68,7 +68,7 @@ struct BudgetHealthSummaryView: View {
                             : 1.0 / CGFloat(max(1, allMetrics.count))
                         let segmentWidth = max(4, (geo.size.width - CGFloat(max(0, allMetrics.count - 1)) * 2) * proportion)
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(hex: pair.1.progressColor).gradient)
+                            .fill(Color(hex: pair.1.progressColor))
                             .frame(width: segmentWidth)
                     }
                 }
@@ -110,10 +110,7 @@ struct BudgetHealthSummaryView: View {
                 .padding(.top, 4)
             }
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
+        .akifiCard()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(String(localized: "budget.summary.accessibility.\(onTrackCount).\(warningCount).\(overCount).\(overallUtilization)"))
     }

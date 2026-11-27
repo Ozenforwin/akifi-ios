@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SummaryCardsView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let transactions: [Transaction]
     let selectedAccount: Account?
 
@@ -62,7 +63,12 @@ struct SummaryCardsView: View {
         }
         let monthlyIncome = totals.income
         let monthlyExpense = totals.expense
-        HStack(spacing: 8) {
+        // Side by side; stacked at accessibility text sizes, where two
+        // amounts no longer fit across the screen.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+        layout {
             SummaryCard(
                 title: String(localized: "summary.monthlyIncome"),
                 formattedAmount: "+\(appViewModel.currencyManager.formatAmount(monthlyIncome.displayAmount))",
@@ -79,6 +85,8 @@ struct SummaryCardsView: View {
                 amountColor: Color.expense
             )
         }
+        // Both cards as tall as the taller one.
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -89,34 +97,33 @@ struct SummaryCard: View {
     let iconColor: Color
     let amountColor: Color
 
+    @ScaledMetric(relativeTo: .caption) private var iconTileSize: CGFloat = 24
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                // Icon in colored square (matches HTML design)
                 Image(systemName: systemIcon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(iconColor)
-                    .frame(width: 24, height: 24)
-                    .background(iconColor.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .frame(width: iconTileSize, height: iconTileSize)
+                    .background(iconColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
-            Text(formattedAmount)
-                .font(.system(size: 16, weight: .bold))
+            Text(verbatim: formattedAmount)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
                 .foregroundStyle(amountColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .akifiCard()
+        .accessibilityElement(children: .combine)
     }
 }

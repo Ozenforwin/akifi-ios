@@ -49,19 +49,21 @@ struct PortfolioChartView: View {
         let totalPositive = portfolioData.reduce(Decimal.zero) { $0 + max(0, $1.balance) }
         VStack(alignment: .leading, spacing: 16) {
             // Header
-            HStack(alignment: .firstTextBaseline) {
+            HStack {
                 Text(String(localized: "analytics.portfolio"))
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 filterMenu(includedCount: portfolioData.count)
             }
 
             // Total balance with sign
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(formattedTotal(totalBalance))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(totalBalance < 0 ? Color.expense : .primary)
-            }
+            Text(formattedTotal(totalBalance))
+                .font(.title.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(totalBalance < 0 ? Color.expense : .primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             // Stacked progress bar — only positive balances.
             // We swapped a GeometryReader for a custom proportional Layout:
@@ -82,11 +84,12 @@ struct PortfolioChartView: View {
                 ProportionalHStack(spacing: 1.5, weights: segments.map(\.weight), minSegmentWidth: 4) {
                     ForEach(segments, id: \.id) { seg in
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(hex: seg.color).gradient)
+                            .fill(Color(hex: seg.color))
                     }
                 }
                 .frame(height: 8)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .clipShape(Capsule())
+                .accessibilityHidden(true)
             }
 
             // Account list
@@ -105,14 +108,7 @@ struct PortfolioChartView: View {
                 }
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .akifiCard()
     }
 
     // MARK: - Filter menu
@@ -172,6 +168,8 @@ struct PortfolioChartView: View {
                 }
             }
             .foregroundStyle(excludedIds.isEmpty ? Color.secondary : Color.accent)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel(String(localized: "portfolio.filter.title"))
     }
@@ -212,6 +210,7 @@ struct PortfolioChartView: View {
 
             Text(item.account.icon)
                 .font(.title3)
+                .accessibilityHidden(true)
 
             Text(item.account.name)
                 .font(.subheadline)
