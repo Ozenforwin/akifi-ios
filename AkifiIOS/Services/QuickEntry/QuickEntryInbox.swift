@@ -6,6 +6,8 @@ import Observation
 struct QuickEntryRequest: Equatable, Sendable, Identifiable {
     enum Source: String, Equatable, Sendable {
         case link, quickAction, control, siri, shortcut
+        /// Inside the app: the «+» button and the assistant's «add» actions.
+        case addButton, assistant
     }
 
     let id: UUID

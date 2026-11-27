@@ -1,15 +1,14 @@
 import SwiftUI
 
 enum SheetDestination: Identifiable {
-    case expense(categoryId: String? = nil, accountId: String? = nil)
-    case income(categoryId: String? = nil, accountId: String? = nil)
+    /// The full form, prefilled — quick entry's «Подробнее».
+    case transactionForm(TransactionFormPrefill)
     case transfer
     case receipt
 
     var id: String {
         switch self {
-        case .expense: "expense"
-        case .income: "income"
+        case .transactionForm: "transactionForm"
         case .transfer: "transfer"
         case .receipt: "receipt"
         }
@@ -151,7 +150,8 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var assistantVM = AssistantViewModel()
     @State private var activeSheet: SheetDestination?
-    @State private var fabSelectedCategoryId: String?
+    /// The quick-entry sheet, its undo toast and the «Подробнее» hand-over.
+    @State private var quickEntry = QuickEntryCoordinator()
     @State private var unlockedAchievement: Achievement?
     @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
@@ -338,26 +338,13 @@ struct MainTabView: View {
         .sheet(item: $activeSheet) { sheet in
             Group {
                 switch sheet {
-                case .expense(let categoryId, let accountId):
+                case .transactionForm(let prefill):
                     TransactionFormView(
                         categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
-                        defaultCategoryId: categoryId,
-                        defaultAccountId: accountId
+                        prefill: prefill
                     ) {
                         await appViewModel.dataStore.loadAll()
-                        fabSelectedCategoryId = nil
-                    }
-                case .income(let categoryId, let accountId):
-                    TransactionFormView(
-                        categories: appViewModel.dataStore.displayCategories,
-                        accounts: appViewModel.dataStore.accounts,
-                        defaultType: .income,
-                        defaultCategoryId: categoryId,
-                        defaultAccountId: accountId
-                    ) {
-                        await appViewModel.dataStore.loadAll()
-                        fabSelectedCategoryId = nil
                     }
                 case .transfer:
                     TransferFormView(accounts: appViewModel.dataStore.accounts) {
@@ -369,6 +356,30 @@ struct MainTabView: View {
                     }
                 }
             }
+        }
+        // Quick entry: «+», the inbox (links, quick actions, Control Center,
+        // Siri), the assistant. «Подробнее» opens the form once the sheet
+        // is gone (two sheets can't be up at once).
+        .sheet(item: $quickEntry.presented, onDismiss: {
+            if let prefill = quickEntry.takePendingDetails() {
+                activeSheet = .transactionForm(prefill)
+            } else {
+                presentInboxRequestIfAny()
+            }
+        }) { presentation in
+            QuickEntrySheet(
+                model: presentation.model,
+                onClose: { quickEntry.presented = nil },
+                onSaved: { quickEntry.didSave($0) },
+                onDetails: { quickEntry.openDetails() }
+            )
+        }
+        .onChange(of: QuickEntryInbox.shared.pending?.id, initial: true) { _, _ in
+            presentInboxRequestIfAny()
+        }
+        // A request that waited for another sheet goes when it closes.
+        .onChange(of: activeSheet == nil && pendingInvite == nil) { _, free in
+            if free { presentInboxRequestIfAny() }
         }
         .task { await checkNewAchievements() }
         // URLs arrive in ContentView (`AppViewModel.open`); widget taps and
@@ -446,8 +457,20 @@ struct MainTabView: View {
         let isOffline = !NetworkMonitor.shared.isConnected
         let dataIssue = appViewModel.dataStore.issue
         let match = appViewModel.dataStore.pendingAutoMatch
-        if isOffline || dataIssue != nil || match != nil {
+        let saved = quickEntry.toast
+        if isOffline || dataIssue != nil || match != nil || saved != nil {
             VStack(spacing: 8) {
+                if let saved {
+                    QuickEntrySavedToast(
+                        saved: saved,
+                        onUndo: {
+                            let dataStore = appViewModel.dataStore
+                            Task { await quickEntry.undo(saved, dataStore: dataStore) }
+                        },
+                        onDismiss: { quickEntry.dismissToast(id: saved.id) }
+                    )
+                    .id(saved.id)
+                }
                 if isOffline {
                     OfflineBanner(pendingCount: appViewModel.dataStore.offlineQueue.pendingCount)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -486,6 +509,7 @@ struct MainTabView: View {
             // cover the toolbar buttons (profile, currency, filters).
             .padding(.top, AkifiChrome.bannerTopInset)
             .animation(.easeInOut(duration: 0.25), value: match)
+            .animation(.easeInOut(duration: 0.25), value: saved)
             .animation(.easeInOut(duration: 0.25), value: dataIssue)
             .animation(.easeInOut, value: isOffline)
         }
@@ -512,25 +536,44 @@ struct MainTabView: View {
     }
 
     private func handleFABAction(_ action: FABAction) {
-        // Only forward the contextual account on tabs where it makes
-        // sense (Home carousel + pushed shared-account screens). On
-        // Analytics / Budgets / etc. there's no "current account",
-        // so we leave the form's Account picker empty.
-        let contextualAccountId: String? = selectedTab == .home
-            ? currentAccountContext.accountId
-            : nil
-        switch action {
-        case .income(let categoryId):
-            fabSelectedCategoryId = categoryId
-            activeSheet = .income(categoryId: categoryId, accountId: contextualAccountId)
-        case .expense(let categoryId):
-            fabSelectedCategoryId = categoryId
-            activeSheet = .expense(categoryId: categoryId, accountId: contextualAccountId)
+        // The contextual account (Home carousel, pushed account screen)
+        // only counts where it is a real choice — see
+        // `QuickEntryCoordinator.pinnedAccountId`.
+        let route = QuickEntryCoordinator.route(
+            action,
+            selectedTab: selectedTab,
+            contextAccountId: currentAccountContext.accountId,
+            accounts: appViewModel.dataStore.accounts
+        )
+        switch route {
+        case .quickEntry(let mode, let categoryId, let accountId):
+            presentQuickEntry(QuickEntryRequest(mode: mode, source: .addButton, categoryId: categoryId, accountId: accountId))
         case .transfer:
             activeSheet = .transfer
         case .receipt:
             activeSheet = .receipt
+        case .debt(let debtAction):
+            openDebtAction(debtAction)
         }
+    }
+
+    // INTEGRATION POINT — debts stream (1.6.0): open «Дал в долг» /
+    // «Взял в долг» here, then set `FABMenu.showsDebtActions = true`.
+    // Unreachable until then (the menu doesn't show the items).
+    private func openDebtAction(_ action: FABDebtAction) {
+        AppLogger.data.info("Debt action requested before the debts UI exists: \(String(describing: action), privacy: .public)")
+    }
+
+    private func presentQuickEntry(_ request: QuickEntryRequest) {
+        quickEntry.present(request, dataStore: appViewModel.dataStore, currencyManager: appViewModel.currencyManager)
+    }
+
+    /// Takes the waiting `QuickEntryInbox` request (Siri, a link, a Home
+    /// screen quick action, Control Center) unless another sheet is up.
+    private func presentInboxRequestIfAny() {
+        let otherSheet = activeSheet != nil || pendingInvite != nil
+        guard let request = quickEntry.takeInboxRequest(from: QuickEntryInbox.shared, otherSheetPresented: otherSheet) else { return }
+        presentQuickEntry(request)
     }
 
     private func handleNavigationTarget(_ target: NavigationTarget) {
@@ -538,9 +581,9 @@ struct MainTabView: View {
         case .selectTab(let tab):
             selectedTab = tab
         case .addExpense:
-            activeSheet = .expense(categoryId: nil)
+            presentQuickEntry(QuickEntryRequest(mode: .expense, source: .assistant))
         case .addIncome:
-            activeSheet = .income(categoryId: nil)
+            presentQuickEntry(QuickEntryRequest(mode: .income, source: .assistant))
         case .none:
             break
         }

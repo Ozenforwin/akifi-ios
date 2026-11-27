@@ -1,6 +1,21 @@
 import SwiftUI
 import Supabase
 
+/// Values a NEW transaction form opens with — the quick-entry draft behind
+/// «Подробнее». Editing an existing row ignores it.
+struct TransactionFormPrefill: Equatable, Sendable {
+    var type: TransactionType
+    /// Main units of `currencyCode` (or of the account currency).
+    var amount: Decimal?
+    /// Set only when the entry currency differs from the account's (the
+    /// phrase said «€20»); the form keeps it as the user's pick.
+    var currencyCode: String?
+    var accountId: String?
+    var categoryId: String?
+    var date: Date
+    var description: String
+}
+
 struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppViewModel.self) private var appViewModel
@@ -67,6 +82,29 @@ struct TransactionFormView: View {
     private let currencyPrefs = UserCurrencyPreferences.shared
 
     private var isEditing: Bool { editingTransaction != nil }
+
+    /// Entry currency from a `TransactionFormPrefill` (see there).
+    private var prefillCurrency: CurrencyCode?
+
+    /// A new transaction prefilled with `prefill` (quick entry «Подробнее»).
+    init(categories: [Category], accounts: [Account], prefill: TransactionFormPrefill, onSave: @escaping () async -> Void) {
+        self.init(
+            categories: categories,
+            accounts: accounts,
+            defaultType: prefill.type,
+            defaultCategoryId: prefill.categoryId,
+            defaultAccountId: prefill.accountId,
+            onSave: onSave
+        )
+        _description = State(initialValue: prefill.description)
+        _date = State(initialValue: prefill.date)
+        if let amount = prefill.amount, amount > 0 {
+            let calculator = CalculatorState()
+            calculator.setValue(amount)
+            _calculatorState = State(initialValue: calculator)
+        }
+        prefillCurrency = prefill.currencyCode.flatMap(CurrencyCode.init(code:))
+    }
 
     init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, defaultAccountId: String? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
@@ -720,6 +758,12 @@ struct TransactionFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
+            // Quick entry named another currency («€20»): keep it, as if
+            // picked by hand (it then survives account switches).
+            if let prefillCurrency {
+                entryCurrency.userSelected(prefillCurrency)
+                return
+            }
             // New transaction: prefer the currency of the pre-selected account
             // (e.g. when opened from a specific account screen) so the user
             // doesn't accidentally enter a VND amount as RUB on a VND account.
