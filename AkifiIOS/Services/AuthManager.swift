@@ -29,10 +29,81 @@ final class AuthManager {
         _ = try? await withTimeout(seconds: 3) { try await client.auth.signOut(scope: .local) }
     }
 
-    // MARK: - Password Reset
+    // MARK: - Email links (A1)
+
+    /// The user opened a password-reset link: they are signed in and the
+    /// app asks for a new password before anything else.
+    var isPasswordRecoveryPending = false
+    /// Why the last email link didn't work; shown as a toast on the auth
+    /// screens and the root view.
+    var authLinkError: String?
+
+    enum SignUpOutcome: Equatable {
+        case signedIn
+        /// "Confirm email" is on: nothing is signed in until the link in
+        /// the email is opened.
+        case confirmationRequired(email: String)
+    }
 
     func resetPassword(email: String) async throws {
-        try await supabase.auth.resetPasswordForEmail(email)
+        try await supabase.auth.resetPasswordForEmail(email, redirectTo: AuthRedirect.callbackURL)
+        AuthRedirect.setPendingFlow(.recovery)
+    }
+
+    func resendSignupConfirmation(email: String) async throws {
+        try await supabase.auth.resend(email: email, type: .signup, emailRedirectTo: AuthRedirect.callbackURL)
+        AuthRedirect.setPendingFlow(.signup)
+    }
+
+    /// Exchanges the one-time code of a confirmation / reset link for a
+    /// session. Never throws: problems end up in `authLinkError`.
+    func handleAuthCallback(_ url: URL) async {
+        if let linkError = AuthRedirect.linkError(in: url) {
+            AppLogger.auth.warning("Email link rejected by the server")
+            authLinkError = AuthRedirect.message(for: linkError)
+            return
+        }
+        // Exchanging would replace the current session with another
+        // account's while this user's data is on screen. The keychain
+        // check covers a cold start where checkSession() hasn't finished.
+        guard !isAuthenticated, supabase.auth.currentSession == nil else {
+            authLinkError = String(localized: "auth.emailLink.alreadySignedIn")
+            return
+        }
+        do {
+            let session = try await supabase.auth.session(from: url)
+            let flow = AuthRedirect.flow(accessToken: session.accessToken, pendingFlow: AuthRedirect.pendingFlow())
+            AuthRedirect.setPendingFlow(nil)
+            authLinkError = nil
+            isPasswordRecoveryPending = flow == .recovery
+            currentUser = session.user
+            isAuthenticated = true
+            if flow == .signup {
+                AnalyticsService.logSignUp(method: "email")
+            } else {
+                AnalyticsService.logSignIn(method: "password_recovery")
+            }
+        } catch {
+            // Not the description: SDK messages can embed the callback URL,
+            // and its one-time code must not reach a log.
+            let code = (error as? AuthError)?.errorCode.rawValue ?? String(describing: type(of: error))
+            AppLogger.auth.error("Email link exchange failed: \(code, privacy: .public)")
+            let missingVerifier = "\(error)".lowercased().contains("code verifier")
+            authLinkError = AuthRedirect.message(for: missingVerifier ? .otherDevice : .other("\(error)"))
+        }
+    }
+
+    /// Sets the new password after a reset link. The screen stays up to
+    /// confirm; `dismissPasswordRecovery()` closes it.
+    func updatePassword(_ newPassword: String) async throws {
+        _ = try await supabase.auth.update(user: UserAttributes(password: newPassword))
+    }
+
+    /// Leaves the new-password screen — after saving, or without changing
+    /// the password ("Позже"): the user stays signed in, the link proved
+    /// they own the email.
+    func dismissPasswordRecovery() {
+        isPasswordRecoveryPending = false
     }
 
     // MARK: - Google Sign In
@@ -165,13 +236,24 @@ final class AuthManager {
         AnalyticsService.logSignIn(method: "email")
     }
 
-    func signUpWithEmail(email: String, password: String) async throws {
-        let session = try await supabase.auth.signUp(email: email, password: password)
-        if let session = session.session {
-            currentUser = session.user
-            isAuthenticated = true
-            AnalyticsService.logSignUp(method: "email")
+    /// With "Confirm email" on, Supabase returns no session (also for an
+    /// already registered address — it doesn't reveal which); the caller
+    /// shows "check your inbox". The link comes back to
+    /// `handleAuthCallback`.
+    func signUpWithEmail(email: String, password: String) async throws -> SignUpOutcome {
+        let response = try await supabase.auth.signUp(
+            email: email,
+            password: password,
+            redirectTo: AuthRedirect.callbackURL
+        )
+        guard let session = response.session else {
+            AuthRedirect.setPendingFlow(.signup)
+            return .confirmationRequired(email: email)
         }
+        currentUser = session.user
+        isAuthenticated = true
+        AnalyticsService.logSignUp(method: "email")
+        return .signedIn
     }
 
     func migrateWithCode(_ code: String) async throws {
@@ -211,6 +293,7 @@ final class AuthManager {
         }
         await removeLocalSession()
         currentUser = nil
+        isPasswordRecoveryPending = false
         isAuthenticated = false
     }
 

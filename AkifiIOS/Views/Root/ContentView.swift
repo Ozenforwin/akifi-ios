@@ -41,10 +41,14 @@ struct ContentView: View {
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var auth = appViewModel.authManager
         ZStack {
             Group {
                 if !showSplash && !appViewModel.authManager.isLoading {
-                    if !appViewModel.authManager.isAuthenticated {
+                    if appViewModel.authManager.isPasswordRecoveryPending {
+                        // A password-reset link signed the user in (A1).
+                        NewPasswordView()
+                    } else if !appViewModel.authManager.isAuthenticated {
                         LoginView()
                     } else if !appViewModel.hasCompletedOnboarding {
                         OnboardingView()
@@ -60,6 +64,14 @@ struct ContentView: View {
                     .zIndex(1)
             }
         }
+        // One handler for every URL, also on the login screen: email links
+        // (A1) must work signed out, invites wait for the signed-in UI.
+        .onOpenURL { url in
+            appViewModel.open(url)
+        }
+        // An email link that failed with no auth sheet on screen (cold
+        // start from the link, or already signed in).
+        .errorToast($auth.authLinkError)
         .task {
             // `initialize()` returns as soon as the disk cache is on screen
             // (P3) — the network refresh continues behind the UI. Without a
@@ -151,8 +163,13 @@ struct MainTabView: View {
     @State private var unlockedAchievement: Achievement?
     @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
-    @State private var pendingInviteCode: String?
-    @State private var pendingBudgetInviteCode: String?
+    @State private var pendingInvite: PendingInvite?
+
+    private struct PendingInvite: Identifiable {
+        let code: String
+        let kind: AcceptInviteView.InviteKind
+        var id: String { "\(kind)-\(code)" }
+    }
     /// Tracks the account the user is currently "looking at" (Home carousel
     /// selection or a pushed shared-account detail). Read by the FAB to
     /// preselect the Account picker on the new-transaction sheet. Only
@@ -407,74 +424,28 @@ struct MainTabView: View {
             }
         }
         .task { await checkNewAchievements() }
-        .onOpenURL { url in
-            // 1) Widget deep links: akifi://home | akifi://budgets | akifi://transactions
-            if url.scheme == "akifi" {
-                if let host = url.host {
-                    switch host {
-                    case "home":
-                        withAnimation { selectedTab = .home }
-                        AnalyticsService.logEvent("widget_tap", params: ["target": "home"])
-                        return
-                    case "budgets":
-                        withAnimation { selectedTab = .budgets }
-                        AnalyticsService.logEvent("widget_tap", params: ["target": "budgets"])
-                        return
-                    case "transactions":
-                        withAnimation { selectedTab = .transactions }
-                        AnalyticsService.logEvent("widget_tap", params: ["target": "transactions"])
-                        return
-                    case "analytics":
-                        withAnimation { selectedTab = .analytics }
-                        AnalyticsService.logEvent("widget_tap", params: ["target": "analytics"])
-                        return
-                    default:
-                        break
-                    }
-                }
-            }
-
-            // 2) Budget invite links: akifi://budget-invite/<code> or
-            //    https://akifi.pro/budget-invite/<code>. Checked BEFORE the
-            //    account branch — pathComponents of "/budget-invite/x" don't
-            //    contain "invite", but keep the ordering explicit anyway.
-            let budgetCode: String?
-            if url.scheme == "akifi", url.host == "budget-invite" {
-                budgetCode = url.pathComponents.last
-            } else if url.host == "akifi.pro", url.pathComponents.contains("budget-invite") {
-                budgetCode = url.pathComponents.last
-            } else {
-                budgetCode = nil
-            }
-            if let budgetCode, budgetCode != "/", budgetCode.count >= 16 {
-                pendingBudgetInviteCode = budgetCode
-                return
-            }
-
-            // 3) Account invite links: akifi://invite/<code> or https://akifi.pro/invite/<code>
-            let code: String?
-            if url.scheme == "akifi", url.host == "invite" {
-                code = url.pathComponents.last
-            } else if url.host == "akifi.pro", url.pathComponents.contains("invite") {
-                code = url.pathComponents.last
-            } else {
-                code = nil
-            }
-            if let code, code != "/", code.count >= 16 {
-                pendingInviteCode = code
+        // URLs arrive in ContentView (`AppViewModel.open`); widget taps and
+        // invites wait in `pendingDeepLink` — also when they came in on the
+        // login screen (`initial: true` consumes them on first appearance).
+        .onChange(of: appViewModel.pendingDeepLink, initial: true) { _, link in
+            guard let link else { return }
+            appViewModel.pendingDeepLink = nil
+            switch link {
+            case .tab(let tab):
+                withAnimation { selectedTab = tab }
+                AnalyticsService.logEvent("widget_tap", params: ["target": tab.screenName.lowercased()])
+            case .accountInvite(let code):
+                pendingInvite = PendingInvite(code: code, kind: .account)
+            case .budgetInvite(let code):
+                pendingInvite = PendingInvite(code: code, kind: .budget)
+            case .authCallback:
+                break  // handled by AuthManager
             }
         }
-        .sheet(isPresented: Binding(
-            get: { pendingInviteCode != nil },
-            set: { if !$0 { pendingInviteCode = nil } }
-        )) {
-            AcceptInviteView(initialCode: pendingInviteCode ?? "")
-        }
-        .sheet(isPresented: Binding(
-            get: { pendingBudgetInviteCode != nil },
-            set: { if !$0 { pendingBudgetInviteCode = nil } }
-        )) {
-            AcceptInviteView(initialCode: pendingBudgetInviteCode ?? "", kind: .budget)
+        // S2: the link opens a confirmation screen — who invites, to what,
+        // with which role and what they will see. Joining needs a tap.
+        .sheet(item: $pendingInvite) { invite in
+            AcceptInviteView(initialCode: invite.code, kind: invite.kind)
         }
     }
 

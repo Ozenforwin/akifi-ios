@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Supabase
 
 // MARK: - AuthTextField
 
@@ -267,7 +268,29 @@ extension View {
 // MARK: - AuthErrorMapper
 
 enum AuthErrorMapper {
+    /// Sign-in refused because the address was never confirmed — the UI
+    /// offers to resend the confirmation email (A1).
+    static func isEmailNotConfirmed(_ error: Error) -> Bool {
+        if let authError = error as? AuthError, authError.errorCode == .emailNotConfirmed { return true }
+        let desc = error.localizedDescription.lowercased()
+        return desc.contains("email_not_confirmed") || desc.contains("email not confirmed")
+    }
+
     static func message(for error: Error) -> String {
+        // The server's error code first: the SDK's localizedDescription is
+        // the human message ("Email not confirmed"), not the code, so the
+        // substring checks below missed several cases.
+        if let authError = error as? AuthError {
+            switch authError.errorCode {
+            case .invalidCredentials: return String(localized: "auth.error.invalidCredentials")
+            case .userAlreadyExists, .emailExists: return String(localized: "auth.error.alreadyRegistered")
+            case .emailNotConfirmed: return String(localized: "auth.error.emailNotConfirmed")
+            case .overEmailSendRateLimit, .overRequestRateLimit: return String(localized: "auth.error.rateLimited")
+            case .weakPassword: return String(localized: "auth.error.weakPassword")
+            case .samePassword: return String(localized: "auth.error.samePassword")
+            default: break
+            }
+        }
         let desc = error.localizedDescription.lowercased()
 
         if desc.contains("invalid_credentials") || desc.contains("invalid login") {
@@ -276,7 +299,7 @@ enum AuthErrorMapper {
         if desc.contains("user_already_registered") || desc.contains("already registered") {
             return String(localized: "auth.error.alreadyRegistered")
         }
-        if desc.contains("email_not_confirmed") {
+        if desc.contains("email_not_confirmed") || desc.contains("email not confirmed") {
             return String(localized: "auth.error.emailNotConfirmed")
         }
         if desc.contains("over_email_send_rate_limit") || desc.contains("rate") {

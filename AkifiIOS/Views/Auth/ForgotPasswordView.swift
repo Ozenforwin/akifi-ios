@@ -18,6 +18,7 @@ struct ForgotPasswordView: View {
     }
 
     var body: some View {
+        @Bindable var auth = appViewModel.authManager
         NavigationStack {
             VStack(spacing: 24) {
                 if isSent {
@@ -36,6 +37,8 @@ struct ForgotPasswordView: View {
             }
         }
         .errorToast($errorMessage)
+        // A reset link that failed while this sheet is up (A1).
+        .errorToast($auth.authLinkError)
     }
 
     // MARK: - Input View
@@ -108,6 +111,14 @@ struct ForgotPasswordView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+
+                // The link opens the app's new-password screen (A1) — only
+                // on the device that asked for it (PKCE).
+                Text(String(localized: "auth.resetPassword.sameDeviceHint"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(spacing: 12) {
