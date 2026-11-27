@@ -4,29 +4,52 @@ import SwiftUI
 final class SpotlightManager {
     var isActive = false
     var currentStepIndex = 0
-    var frames: [SpotlightTarget: CGRect] = [:]
+    /// Frames of the targets currently on screen, in global coordinates.
+    /// Written by `.spotlight(_:)` anchors through `report` / `withdraw`.
+    private(set) var frames: [SpotlightTarget: CGRect] = [:]
+
+    /// How long a step may wait for its target to appear (tab switch, first
+    /// layout of a tab) before it is skipped as having nothing to point at.
+    static let anchorGracePeriod: Duration = .seconds(1.2)
+
+    let steps: [SpotlightStep]
+    @ObservationIgnored private let defaults: UserDefaults
+    /// Which anchor instance reported each frame (see `SpotlightAnchor`).
+    @ObservationIgnored private var frameOwners: [SpotlightTarget: UUID] = [:]
+
+    static let completedKey = "spotlight_completed"
+
+    init(steps: [SpotlightStep] = SpotlightStep.allSteps, defaults: UserDefaults = .standard) {
+        self.steps = steps
+        self.defaults = defaults
+    }
 
     @ObservationIgnored
     private var completed: Bool {
-        get { UserDefaults.standard.bool(forKey: "spotlight_completed") }
-        set { UserDefaults.standard.set(newValue, forKey: "spotlight_completed") }
+        get { defaults.bool(forKey: Self.completedKey) }
+        set { defaults.set(newValue, forKey: Self.completedKey) }
     }
 
     var currentStep: SpotlightStep? {
-        guard isActive, currentStepIndex < SpotlightStep.allSteps.count else { return nil }
-        return SpotlightStep.allSteps[currentStepIndex]
+        guard isActive, currentStepIndex < steps.count else { return nil }
+        return steps[currentStepIndex]
     }
 
+    /// The frame to cut out for the current step — `nil` while its target
+    /// isn't on screen (or has no size yet).
     var currentFrame: CGRect? {
-        guard let step = currentStep else { return nil }
-        return frames[step.target]
+        guard let step = currentStep,
+              let frame = frames[step.target],
+              frame.width > 0, frame.height > 0
+        else { return nil }
+        return frame
     }
 
     var requiredTab: AppTab? {
         currentStep?.tab
     }
 
-    var totalSteps: Int { SpotlightStep.allSteps.count }
+    var totalSteps: Int { steps.count }
 
     func start() {
         guard !completed else { return }
@@ -35,7 +58,7 @@ final class SpotlightManager {
     }
 
     func next() {
-        if currentStepIndex + 1 < SpotlightStep.allSteps.count {
+        if currentStepIndex + 1 < steps.count {
             currentStepIndex += 1
         } else {
             finish()
@@ -55,5 +78,28 @@ final class SpotlightManager {
     func reset() {
         completed = false
         currentStepIndex = 0
+    }
+
+    // MARK: - Anchors
+
+    func report(_ target: SpotlightTarget, frame: CGRect, owner: UUID) {
+        frameOwners[target] = owner
+        if frames[target] != frame {
+            frames[target] = frame
+        }
+    }
+
+    func withdraw(_ target: SpotlightTarget, owner: UUID) {
+        guard frameOwners[target] == owner else { return }
+        frameOwners[target] = nil
+        frames[target] = nil
+    }
+
+    /// No step may point at nothing: called once the grace period after a
+    /// step change has passed; if the step's target still isn't on screen
+    /// (no budgets yet → no budget card, …) the tour moves on.
+    func skipStepIfUnanchored() {
+        guard isActive, currentStep != nil, currentFrame == nil else { return }
+        next()
     }
 }

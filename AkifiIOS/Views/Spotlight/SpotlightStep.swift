@@ -8,7 +8,6 @@ enum SpotlightTarget: String, CaseIterable {
     case summaryCards
     case insightCards
     case fabButton
-    case aiButton
     case transactionsList
     case analyticsChart
     case budgetCard
@@ -23,6 +22,9 @@ enum TooltipPosition {
 
 // MARK: - Step Definition
 
+/// One stop of the onboarding tour. Every target must be anchored with
+/// `.spotlight(_:)` on its `tab`; a step whose target isn't on screen is
+/// skipped after `SpotlightManager.anchorGracePeriod`.
 struct SpotlightStep {
     let target: SpotlightTarget
     let tab: AppTab
@@ -63,12 +65,10 @@ struct SpotlightStep {
             descriptionKey: "spotlight.fab.description",
             tooltipPosition: .above, cornerRadius: 28, padding: 8
         ),
-        SpotlightStep(
-            target: .aiButton, tab: .home,
-            titleKey: "spotlight.ai.title",
-            descriptionKey: "spotlight.ai.description",
-            tooltipPosition: .above, cornerRadius: 26, padding: 8
-        ),
+        // 1.6: no Assistant step. The Assistant is a system tab item now
+        // (the trailing round tab) and UIKit offers no public way to get a
+        // tab item's frame, so the step would point at nothing. The
+        // `spotlight.ai.*` strings stay in the catalog for a future anchor.
         SpotlightStep(
             target: .transactionsList, tab: .transactions,
             titleKey: "spotlight.transactions.title",

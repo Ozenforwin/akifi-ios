@@ -58,8 +58,8 @@ struct HomeTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    // 0. Header
-                    AppHeaderView(showProfile: $showProfile)
+                    // 0. Header — the navigation bar (title + currency and
+                    //    profile toolbar items, see `HomeTabToolbar`).
 
                     // 1. Account Carousel
                     accountSection
@@ -129,7 +129,11 @@ struct HomeTabView: View {
                 Task { await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id) }
             }
             .animation(.easeOut(duration: 0.4), value: isNewUser)
-            .navigationBarHidden(true)
+            .navigationTitle(String(localized: "tab.home"))
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                HomeTabToolbar { showProfile = true }
+            }
             .navigationDestination(isPresented: $showProfile) {
                 SettingsView()
             }

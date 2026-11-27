@@ -9,6 +9,10 @@ struct AssistantView: View {
     @State private var feedbackCustomText = ""
     @State private var showShareSheet = false
 
+    /// The close (×) button — only when presented modally. As the Assistant
+    /// tab (1.6) there is nothing to dismiss.
+    var showsCloseButton = true
+
     /// Callback for navigation actions from the assistant
     var onNavigate: ((NavigationTarget) -> Void)?
 
@@ -138,12 +142,14 @@ struct AssistantView: View {
             .navigationTitle(String(localized: "assistant.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                if showsCloseButton {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -245,7 +251,8 @@ struct AssistantView: View {
             }
         )
         if let target = viewModel.handleNavigationAction(action) {
-            dismiss()
+            // Modal: close first. As a tab: the target switches tabs itself.
+            if showsCloseButton { dismiss() }
             onNavigate?(target)
         }
     }

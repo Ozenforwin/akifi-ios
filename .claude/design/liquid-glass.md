@@ -141,3 +141,32 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   dark mode (`xcrun simctl io <id> screenshot`), plus Dynamic Type XL for the
   main tabs.
 - Full XCTest suite and all lints stay green.
+- Signed-in screens without signing in: the DEBUG-only harness
+  (`AkifiIOS/Debug/UIHarness.swift`, compiled out of Release). Launch with
+  `xcrun simctl launch <id> ru.akifi.app -AkifiUIHarness -spotlight_completed YES`
+  (+ `-AkifiUIHarnessTab budgets`, `-AkifiUIHarnessBanners`,
+  `-AkifiUIHarnessGallery` for every `Glass.swift` component). Drive taps and
+  swipes with `idb ui tap|swipe --udid <id>`; the tab bar minimises only on a
+  real drag, not on a programmatic scroll.
+
+## 7. Decisions made while building the foundation (phase A)
+- **Shell:** `MainTabView` = system `TabView` with `Tab(value:)` bound to
+  `AppTab`; the system keeps every visited tab alive (state, scroll, nav
+  stack). Tab bar tint = `Color.accent`. Journal is not in the bar (it had no
+  entry point before 1.6 either); a stray `.journal` selection falls back to
+  Home.
+- **«+»:** tap opens the quick-add menu (income, expense, transfer, receipt —
+  glass capsules morphing out of the button on 26); long press opens the
+  category quick-add (wheel / grid / list per Settings), the pre-1.6 tap flow.
+  It floats 12 pt above the measured top of the tab bar, trailing edge aligned
+  with the bar (21 pt on 26, 16 pt before).
+- **Banners** (offline, data issue, auto-match undo) float 50 pt below the top
+  safe-area edge — over the title, never over toolbar buttons.
+- **Home toolbar:** large title «Главная»; top-trailing currency switcher
+  (`Menu`), fixed spacer, profile avatar without the shared glass plate
+  (`sharedBackgroundVisibility(.hidden)`). Other tab roots keep their own
+  toolbar items.
+- **Spotlight:** anchors report frames through the environment (preferences
+  don't cross `TabView` / toolbar hosting). The Assistant step is gone (no
+  public API for a tab item's frame); any step whose target isn't on screen
+  after 1.2 s is skipped. The tour never starts over the Assistant tab.

@@ -7,6 +7,17 @@ enum FABAction {
     case receipt
 }
 
+/// The floating «+» (1.6): one round accent-tinted glass button above the
+/// tab bar, trailing.
+///
+/// - Tap: the quick-add menu (income, expense, transfer, receipt) grows out
+///   of the button — glass capsules that morph from it on iOS 26
+///   (`AkifiGlassContainer` + `akifiGlassID`), material capsules before.
+/// - Long press: the category quick-add (wheel / grid / list, per Settings →
+///   «Вид категорий») — the pre-1.6 tap flow, kept reachable.
+///
+/// Every choice leaves through `onAction(FABAction)`; `MainTabView` owns the
+/// sheets.
 struct FABView: View {
     @Environment(AppViewModel.self) private var appViewModel
     @AppStorage("categoryLayout") private var categoryLayout = "wheel"
@@ -16,89 +27,54 @@ struct FABView: View {
     @State private var currentPage = 0
     @State private var didLongPress = false
     @State private var showCategorySheet = false
+    @Namespace private var glassNamespace
+
+    /// Distance from the bottom edge of the screen to the bottom of the
+    /// button — `MainTabView` puts it just above the tab bar.
+    var bottomInset: CGFloat
+    /// Distance from the trailing edge of the screen.
+    var trailingInset: CGFloat
+    /// `false` on the Assistant tab and while a keyboard is up.
+    var isButtonVisible: Bool = true
     var onAction: (FABAction) -> Void
 
-    private let mainButtonSize: CGFloat = 56
-    private let subButtonSize: CGFloat = 48
+    static let mainButtonSize: CGFloat = 56
+    private let menuItemMinHeight: CGFloat = 48
 
-    // Angles match Telegram: arc from bottom-right going up-left
-    private var menuItems: [(action: FABAction, label: String, icon: String, color: Color, angle: Double)] {
+    private struct MenuItem: Identifiable {
+        let id: String
+        let action: FABAction
+        let label: String
+        let icon: String
+        let color: Color
+    }
+
+    /// Top to bottom — the same order as the pre-1.6 long-press menu.
+    private var menuItems: [MenuItem] {
         [
-            (.income(), String(localized: "common.income"), "arrow.up.right", Color.income.opacity(0.85), -100),
-            (.expense(), String(localized: "common.expense"), "arrow.down.left", Color.expense.opacity(0.85), -125),
-            (.transfer, String(localized: "common.transfer"), "arrow.left.arrow.right", Color.transfer.opacity(0.85), -150),
-            (.receipt, String(localized: "fab.receipt"), "doc.text.viewfinder", Color.budget.opacity(0.85), -175),
+            MenuItem(id: "income", action: .income(), label: String(localized: "common.income"),
+                     icon: "arrow.up.right", color: .income),
+            MenuItem(id: "expense", action: .expense(), label: String(localized: "common.expense"),
+                     icon: "arrow.down.left", color: .expense),
+            MenuItem(id: "transfer", action: .transfer, label: String(localized: "common.transfer"),
+                     icon: "arrow.left.arrow.right", color: .transfer),
+            MenuItem(id: "receipt", action: .receipt, label: String(localized: "fab.receipt"),
+                     icon: "doc.text.viewfinder", color: .budget),
         ]
     }
 
     var body: some View {
         ZStack {
-            // MARK: - Long-press arc menu
+            // MARK: - Menu backdrop (tap outside closes)
             if isMenuExpanded {
-                Color.black.opacity(0.3)
-                    .background(.ultraThinMaterial)
+                Color.black.opacity(0.25)
                     .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
-                    }
-
-                VStack {
-                    Spacer()
-
-                    // Menu items stacked vertically
-                    VStack(spacing: 14) {
-                        ForEach(Array(menuItems.enumerated()), id: \.offset) { index, item in
-                            Button {
-                                HapticManager.light()
-                                withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
-                                onAction(item.action)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Spacer()
-                                    Text(item.label)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(.primary)
-                                    ZStack {
-                                        Circle()
-                                            .fill(item.color)
-                                            .frame(width: subButtonSize, height: subButtonSize)
-                                        Image(systemName: item.icon)
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .opacity
-                            ))
-                            .animation(
-                                .spring(duration: 0.35, bounce: 0.2).delay(Double(index) * 0.06),
-                                value: isMenuExpanded
-                            )
-                        }
-                    }
-                    .padding(.trailing, 24)
-
-                    // Close button
-                    HStack {
-                        Spacer()
-                        Button {
-                            withAnimation(.spring(duration: 0.3)) { isMenuExpanded = false }
-                        } label: {
-                            fabCircle(icon: "xmark")
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 110)
-                }
-                .onAppear { HapticManager.medium() }
+                    .onTapGesture { setMenuExpanded(false) }
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
             }
 
-            // MARK: - Category wheel (tap mode) — only wheel layout uses fullscreen overlay
+            // MARK: - Category wheel (long press) — only the wheel layout uses the fullscreen overlay
             if showCategoryWheel && categoryLayout == "wheel" {
                 Color.black.opacity(0.15)
                     .background(.ultraThinMaterial)
@@ -107,44 +83,19 @@ struct FABView: View {
                 categoryWheelContent
             }
 
-            // MARK: - FAB button
-            if !isMenuExpanded && !showCategoryWheel {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        fabCircle(icon: "plus")
-                            .spotlight(.fabButton)
-                            .accessibilityLabel(String(localized: "fab.addTransaction"))
-                            .accessibilityHint(String(localized: "fab.addHint"))
-                            .onLongPressGesture(minimumDuration: 0.4, perform: {
-                                // Long press → arc menu
-                                didLongPress = true
-                                showCategoryWheel = false
-                                withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                                    isMenuExpanded = true
-                                }
-                            }, onPressingChanged: { pressing in
-                                if !pressing && !didLongPress {
-                                    selectedType = .expense
-                                    currentPage = 0
-                                    if categoryLayout == "wheel" {
-                                        withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                                            showCategoryWheel = true
-                                        }
-                                    } else {
-                                        showCategorySheet = true
-                                    }
-                                }
-                                if !pressing {
-                                    didLongPress = false
-                                }
-                            })
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 110)
-                    }
-                }
+            // MARK: - Button + menu
+            if !showCategoryWheel && (isButtonVisible || isMenuExpanded) {
+                buttonStack
+                    .padding(.trailing, trailingInset)
+                    .padding(.bottom, bottomInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .ignoresSafeArea()
+                    .transition(.scale(scale: 0.5, anchor: .center).combined(with: .opacity))
             }
+        }
+        .animation(.spring(duration: 0.3), value: isButtonVisible)
+        .onChange(of: isButtonVisible) { _, visible in
+            if !visible { setMenuExpanded(false) }
         }
         .sheet(isPresented: $showCategorySheet) {
             CategorySheetView(
@@ -165,34 +116,107 @@ struct FABView: View {
         }
     }
 
-    // MARK: - FAB circle
+    // MARK: - Button stack
 
-    private func fabCircle(icon: String) -> some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color.fabStart.opacity(0.8), location: 0),
-                            .init(color: Color.fabEnd.opacity(0.8), location: 1),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: mainButtonSize, height: mainButtonSize)
-                .shadow(color: Color.accent.opacity(0.2), radius: 12.5, x: 0, y: 10)
-                .overlay(
-                    Circle()
-                        .inset(by: 0.5)
-                        .stroke(.white.opacity(0.25), lineWidth: 1)
-                )
-
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
+    private var buttonStack: some View {
+        AkifiGlassContainer(spacing: 12) {
+            VStack(alignment: .trailing, spacing: 12) {
+                if isMenuExpanded {
+                    ForEach(menuItems) { item in
+                        menuItemButton(item)
+                    }
+                }
+                mainButton
+            }
         }
     }
+
+    private func menuItemButton(_ item: MenuItem) -> some View {
+        Button {
+            HapticManager.light()
+            setMenuExpanded(false)
+            onAction(item.action)
+        } label: {
+            HStack(spacing: 10) {
+                Text(item.label)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Image(systemName: item.icon)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(item.color)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 18)
+            .frame(minHeight: menuItemMinHeight)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .akifiGlass(in: Capsule(), interactive: true)
+        .akifiGlassID(item.id, in: glassNamespace)
+        .transition(.scale(scale: 0.6, anchor: .bottomTrailing).combined(with: .opacity))
+    }
+
+    private var mainButton: some View {
+        Button {
+            // A long press already opened the category picker; its release
+            // must not also toggle the menu.
+            if didLongPress {
+                didLongPress = false
+                return
+            }
+            HapticManager.medium()
+            setMenuExpanded(!isMenuExpanded)
+        } label: {
+            Image(systemName: "plus")
+                .font(.title2.weight(.semibold))
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .foregroundStyle(.white)
+                .rotationEffect(.degrees(isMenuExpanded ? 45 : 0))
+                .frame(width: Self.mainButtonSize, height: Self.mainButtonSize)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .akifiGlass(in: Circle(), tint: .accent, interactive: true)
+        .akifiGlassID("fab.main", in: glassNamespace)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard !isMenuExpanded else { return }
+                didLongPress = true
+                openCategoryPicker()
+            }
+        )
+        .spotlight(.fabButton)
+        .accessibilityLabel(isMenuExpanded ? String(localized: "common.close") : String(localized: "fab.addTransaction"))
+        .accessibilityHint(isMenuExpanded ? "" : String(localized: "fab.addHint"))
+        .accessibilityAction(named: Text(String(localized: "fab.selectCategory"))) {
+            openCategoryPicker()
+        }
+    }
+
+    // MARK: - Actions
+
+    private func setMenuExpanded(_ expanded: Bool) {
+        guard expanded != isMenuExpanded else { return }
+        withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+            isMenuExpanded = expanded
+        }
+    }
+
+    /// The pre-1.6 tap flow: categories first (wheel overlay or sheet).
+    private func openCategoryPicker() {
+        HapticManager.medium()
+        selectedType = .expense
+        currentPage = 0
+        if categoryLayout == "wheel" {
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                showCategoryWheel = true
+            }
+        } else {
+            showCategorySheet = true
+        }
+    }
+
 
     // MARK: - Category wheel
 

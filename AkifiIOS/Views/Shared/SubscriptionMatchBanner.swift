@@ -5,6 +5,8 @@ import SwiftUI
 ///
 /// Driven by `DataStore.pendingAutoMatch`; the banner auto-dismisses after the
 /// timer elapses. Tapping "Отменить" calls `dataStore.undoAutoMatch()`.
+/// Floating glass banner (1.6, `.akifiGlassBanner`); the countdown runs as a
+/// thin line inside its bottom edge.
 struct SubscriptionMatchBanner: View {
     let match: DataStore.PendingAutoMatch
     let onUndo: () -> Void
@@ -20,6 +22,7 @@ struct SubscriptionMatchBanner: View {
             Image(systemName: "link.circle.fill")
                 .font(.title2)
                 .foregroundStyle(Color.accent)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "subscriptions.autoMatch.title"))
@@ -38,27 +41,25 @@ struct SubscriptionMatchBanner: View {
                 Text(String(localized: "common.undo"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.accent)
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, 8)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 8)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
-        )
         .overlay(alignment: .bottom) {
-            // Countdown bar
+            // Countdown line, kept clear of the rounded corners.
             GeometryReader { geo in
-                Rectangle()
+                Capsule()
                     .fill(Color.accent.opacity(0.7))
                     .frame(width: geo.size.width * progress, height: 2)
             }
             .frame(height: 2)
-            .clipShape(RoundedRectangle(cornerRadius: 2))
+            .padding(.horizontal, AkifiGlassBanner.cornerRadius / 2)
+            .offset(y: 6)
+            .accessibilityHidden(true)
         }
-        .padding(.horizontal, 12)
+        .akifiGlassBanner(contentInsets: EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 8))
         .transition(.move(edge: .top).combined(with: .opacity))
         // One timer per match (V9). The old `.task` ignored cancellation:
         // when a second match replaced the first, the first banner's
