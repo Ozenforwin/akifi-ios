@@ -290,6 +290,7 @@ actor FakeCoverRemote: AccountCoverRemote {
         case download(String)
         case upload(String)
         case setCoverPath(String?, String)
+        case setCoverDim(Int?, String)
         case remove([String])
         case list(String)
     }
@@ -332,6 +333,12 @@ actor FakeCoverRemote: AccountCoverRemote {
 
     func setCoverPath(_ path: String?, accountId: String) async throws {
         calls.append(.setCoverPath(path, accountId))
+        try await wait()
+        if let setCoverPathError { throw setCoverPathError }
+    }
+
+    func setCoverDim(_ dim: Int?, accountId: String) async throws {
+        calls.append(.setCoverDim(dim, accountId))
         try await wait()
         if let setCoverPathError { throw setCoverPathError }
     }

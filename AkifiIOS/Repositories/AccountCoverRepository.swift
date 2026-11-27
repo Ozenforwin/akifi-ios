@@ -10,6 +10,8 @@ protocol AccountCoverRemote: Sendable {
     func upload(jpeg: Data, path: String) async throws
     /// Points `accounts.cover_path` at `path` (nil removes the cover).
     func setCoverPath(_ path: String?, accountId: String) async throws
+    /// Sets `accounts.cover_dim` (nil = automatic).
+    func setCoverDim(_ dim: Int?, accountId: String) async throws
     /// Deletes objects; already-missing ones are not an error.
     func removeObjects(paths: [String]) async throws
     /// Every object in the account's folder (at most one page).
@@ -79,6 +81,18 @@ final class AccountCoverRepository: AccountCoverRemote {
         guard !rows.isEmpty else { throw AccountCoverError.notPermitted }
     }
 
+    func setCoverDim(_ dim: Int?, accountId: String) async throws {
+        struct Row: Decodable { let id: String }
+        let rows: [Row] = try await client
+            .from("accounts")
+            .update(DimPatch(coverDim: dim.map { min(max($0, 0), 100) }))
+            .eq("id", value: accountId)
+            .select("id")
+            .execute()
+            .value
+        guard !rows.isEmpty else { throw AccountCoverError.notPermitted }
+    }
+
     func removeObjects(paths: [String]) async throws {
         let valid = paths.filter { AccountCoverPath.isValid($0) }
         guard !valid.isEmpty else { return }
@@ -105,6 +119,21 @@ final class AccountCoverRepository: AccountCoverRemote {
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(coverPath, forKey: .coverPath)
+        }
+    }
+}
+
+extension AccountCoverRepository {
+    /// `{"cover_dim": <0…100 or null>}` — an explicit null returns to
+    /// automatic.
+    struct DimPatch: Encodable {
+        let coverDim: Int?
+
+        enum CodingKeys: String, CodingKey { case coverDim = "cover_dim" }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(coverDim, forKey: .coverDim)
         }
     }
 }

@@ -244,7 +244,7 @@ struct SharedAccountDetailView: View {
             if let cover {
                 // The Home card's photo; text spans the whole header here,
                 // so the scrim is even (as strong as its stronger band).
-                AccountCoverBackdrop(cover: cover, uniformScrim: true)
+                AccountCoverBackdrop(cover: cover, uniformScrim: true, dim: account.coverDim)
             } else {
                 shape.fill(
                     LinearGradient(

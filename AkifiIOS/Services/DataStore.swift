@@ -1376,6 +1376,15 @@ final class DataStore {
         cache.saveAccounts(allAccounts)
     }
 
+    func setCoverDim(_ dim: Int?, forAccountId id: String) {
+        guard let index = allAccounts.firstIndex(where: { $0.id == id }),
+              allAccounts[index].coverDim != dim else { return }
+        noteLocalMutation()
+        allAccounts[index].coverDim = dim
+        tagCacheOwnerIfNeeded()
+        cache.saveAccounts(allAccounts)
+    }
+
     var recentTransactions: [Transaction] {
         Array(transactions.prefix(10))
     }

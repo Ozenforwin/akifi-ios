@@ -154,6 +154,12 @@ final class AccountCoverStore {
         return path
     }
 
+    /// The owner's «Затемнение» (nil = automatic), shared with every member.
+    /// No busy state: the slider's preview already shows the value.
+    func setDim(_ dim: Int?, for account: Account) async throws {
+        try await remote.setCoverDim(dim, accountId: account.id)
+    }
+
     /// Clears the account's cover, then deletes the object (best effort).
     func removeCover(of account: Account) async throws {
         busyAccountIds.insert(account.id)

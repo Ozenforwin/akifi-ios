@@ -257,7 +257,7 @@ struct AccountCardView: View {
             if let cover {
                 // A cover replaces the tint: the photo under a scrim, light
                 // text, still content — no glass, no shadow (Vladimir, 1.6.0).
-                content.accountCoverCard(cover)
+                content.accountCoverCard(cover, dim: account.coverDim)
             } else {
                 content.akifiCard(tint: accountColor)
             }

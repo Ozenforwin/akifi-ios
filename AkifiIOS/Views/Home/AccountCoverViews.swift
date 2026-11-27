@@ -63,6 +63,9 @@ final class AccountCoverFlow {
     var isApplying = false
     var errorMessage: String?
     var showRemoveConfirmation = false
+    /// «Затемнение» while the slider is dragged / being saved — the preview
+    /// follows it live; nil = show the account's stored value.
+    var draftDim: Int?
 
     init() {}
 
@@ -139,6 +142,19 @@ final class AccountCoverFlow {
         }
     }
 
+    /// Saves the owner's «Затемнение» (nil = automatic) for every member.
+    func saveDim(_ dim: Int?, account: Account, app: AppViewModel) async {
+        errorMessage = nil
+        do {
+            try await app.accountCovers.setDim(dim, for: account)
+            app.dataStore.setCoverDim(dim, forAccountId: account.id)
+        } catch {
+            AppLogger.data.warning("Account cover: saving the dimming failed: \(error.localizedDescription)")
+            errorMessage = AccountCoverErrorMessage.text(for: error)
+        }
+        draftDim = nil
+    }
+
     func remove(account: Account, app: AppViewModel) async {
         errorMessage = nil
         do {
@@ -169,6 +185,7 @@ struct AccountCoverSection: View {
     @Bindable var flow: AccountCoverFlow
 
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.colorSchemeContrast) private var contrast
 
     private var covers: AccountCoverStore { appViewModel.accountCovers }
     private var dataStore: DataStore { appViewModel.dataStore }
@@ -177,6 +194,10 @@ struct AccountCoverSection: View {
     private var liveAccount: Account {
         dataStore.accounts.first { $0.id == account.id } ?? account
     }
+
+    /// The dimming the preview shows: the slider while it moves, else the
+    /// stored one (nil = automatic).
+    private var shownDim: Int? { flow.draftDim ?? liveAccount.coverDim }
 
     private var canEdit: Bool {
         AccountCoverPolicy.canEdit(liveAccount, viewerId: dataStore.profile?.id)
@@ -215,6 +236,8 @@ struct AccountCoverSection: View {
                     }
                     .disabled(isBusy)
 
+                    dimRow
+
                     Button(role: .destructive) {
                         flow.showRemoveConfirmation = true
                     } label: {
@@ -243,6 +266,58 @@ struct AccountCoverSection: View {
         }
     }
 
+    // MARK: Dimming
+
+    /// «Затемнение»: sun … moon, «Авто» to return to the computed level.
+    /// The preview follows the slider; the value is saved when the finger
+    /// lifts (one write per drag) and shared with every member.
+    private var dimRow: some View {
+        let tone = covers.image(for: liveAccount.coverPath)?.tone ?? .unknown
+        let autoPosition = AccountCoverScrim.autoDimPosition(for: tone, increasedContrast: contrast == .increased)
+        let isAuto = shownDim == nil
+        let value = Binding<Double>(
+            get: { Double(shownDim ?? autoPosition) },
+            set: { flow.draftDim = Int($0.rounded()) }
+        )
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(String(localized: "account.cover.dim.title"))
+                Spacer(minLength: 8)
+                if isAuto {
+                    Text(String(localized: "account.cover.dim.auto"))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button(String(localized: "account.cover.dim.auto")) {
+                        let account = liveAccount
+                        flow.draftDim = nil
+                        Task { await flow.saveDim(nil, account: account, app: appViewModel) }
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityHint(String(localized: "account.cover.dim.auto.hint"))
+                }
+            }
+            Slider(value: value, in: 0...100, step: 1) {
+                Text(String(localized: "account.cover.dim.title"))
+            } minimumValueLabel: {
+                Image(systemName: "sun.max")
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(String(localized: "account.cover.dim.lighter"))
+            } maximumValueLabel: {
+                Image(systemName: "moon")
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(String(localized: "account.cover.dim.darker"))
+            } onEditingChanged: { editing in
+                guard !editing, let dim = flow.draftDim else { return }
+                let account = liveAccount
+                Task { await flow.saveDim(dim, account: account, app: appViewModel) }
+            }
+            .accessibilityValue(isAuto
+                                ? String(localized: "account.cover.dim.auto")
+                                : "\(Int(value.wrappedValue)) %")
+            .disabled(isBusy)
+        }
+    }
+
     // MARK: Preview
 
     private var preview: some View {
@@ -250,7 +325,7 @@ struct AccountCoverSection: View {
         let cover = covers.image(for: liveAccount.coverPath)
         return ZStack {
             if let cover {
-                AccountCoverBackdrop(cover: cover)
+                AccountCoverBackdrop(cover: cover, dim: shownDim)
                 AccountCoverCardText(
                     account: liveAccount,
                     balanceText: AccountCoverFlow.balanceText(for: liveAccount, app: appViewModel),
@@ -440,7 +515,7 @@ struct AccountCoverCropView: View {
 
                     // The card's text over the window, live.
                     ZStack {
-                        AccountCoverScrimView(tone: tone)
+                        AccountCoverScrimView(tone: tone, dim: account.coverDim)
                         AccountCoverCardText(account: account, balanceText: balanceText)
                             .padding(CardStyle.Size.regular.defaultPadding)
                     }

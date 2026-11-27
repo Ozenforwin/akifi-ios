@@ -69,6 +69,8 @@ struct AccountCoverScrim: Equatable, Sendable {
 
     static var textLuminances: [Double] { textHexes.map(relativeLuminance(hex:)) }
 
+    /// The automatic scrim: the least darkening that keeps every text
+    /// colour at the contrast target over the measured tone.
     static func make(for tone: AccountCoverTone, increasedContrast: Bool = false) -> AccountCoverScrim {
         let target = (increasedContrast ? Self.increasedContrast : normalContrast) * margin
         let darkestText = textLuminances.min() ?? 1
@@ -80,6 +82,54 @@ struct AccountCoverScrim: Equatable, Sendable {
             bottom: min(max(floor.bottom, needed(tone.bottom)), maxOpacity),
             uniform: min(max(floor.bottom, needed(tone.overall)), maxOpacity)
         )
+    }
+
+    // MARK: - Owner's dimming («Затемнение», accounts.cover_dim)
+
+    /// Contrast at the light end of the slider: WCAG AA for large text —
+    /// the balance and the name stay readable however light the owner
+    /// goes; the small month figures may soften. Never lighter with
+    /// Increase Contrast on (the automatic 7 : 1 is the light end then).
+    static let lightestContrast = 3.0
+    /// Black opacity at the dark end of the slider.
+    static let darkestOpacity = 0.85
+
+    /// The scrim for the owner's `dim` (nil = automatic): per band,
+    /// `dim` 0…100 runs from the readability floor to `darkestOpacity`.
+    static func make(for tone: AccountCoverTone, increasedContrast: Bool = false, dim: Int?) -> AccountCoverScrim {
+        let auto = make(for: tone, increasedContrast: increasedContrast)
+        guard let dim else { return auto }
+        let lightest = lightestScrim(for: tone, increasedContrast: increasedContrast)
+        let t = Double(min(max(dim, 0), 100)) / 100
+        func band(_ light: Double) -> Double {
+            let dark = max(light, darkestOpacity)
+            return min(light + (dark - light) * t, maxOpacity)
+        }
+        return AccountCoverScrim(top: band(lightest.top), bottom: band(lightest.bottom), uniform: band(lightest.uniform))
+    }
+
+    /// Where the automatic scrim sits on the slider (0…100) — the slider's
+    /// position while the account is on «Авто». Measured on the balance
+    /// band, the one the card is read by.
+    static func autoDimPosition(for tone: AccountCoverTone, increasedContrast: Bool = false) -> Int {
+        let auto = make(for: tone, increasedContrast: increasedContrast)
+        let light = lightestScrim(for: tone, increasedContrast: increasedContrast).bottom
+        let dark = max(light, darkestOpacity)
+        guard dark - light > 0.0001 else { return 0 }
+        let t = (auto.bottom - light) / (dark - light)
+        return Int((min(max(t, 0), 1) * 100).rounded())
+    }
+
+    /// The slider's light end: the large-text contrast floor (or the
+    /// automatic scrim with Increase Contrast on).
+    private static func lightestScrim(for tone: AccountCoverTone, increasedContrast: Bool) -> AccountCoverScrim {
+        if increasedContrast { return make(for: tone, increasedContrast: true) }
+        let target = lightestContrast * margin
+        let darkestText = textLuminances.min() ?? 1
+        func needed(_ background: Double) -> Double {
+            min(requiredOpacity(backgroundLuminance: background, textLuminance: darkestText, contrast: target), maxOpacity)
+        }
+        return AccountCoverScrim(top: needed(tone.top), bottom: needed(tone.bottom), uniform: needed(tone.overall))
     }
 
     /// Gradient stops (location, black opacity), top to bottom: flat over

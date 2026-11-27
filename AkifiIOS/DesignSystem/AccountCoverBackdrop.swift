@@ -54,6 +54,8 @@ struct AccountCoverBackdrop: View {
     /// One even scrim instead of the two text bands — for layouts other
     /// than the Home card's (the shared account header).
     var uniformScrim = false
+    /// The owner's «Затемнение» (`Account.coverDim`; nil = automatic).
+    var dim: Int?
 
     var body: some View {
         ZStack {
@@ -66,7 +68,7 @@ struct AccountCoverBackdrop: View {
                     }
                     .clipped()
             }
-            AccountCoverScrimView(tone: tone ?? cover.tone, uniform: uniformScrim)
+            AccountCoverScrimView(tone: tone ?? cover.tone, uniform: uniformScrim, dim: dim)
         }
         .accessibilityHidden(true)
     }
@@ -77,12 +79,14 @@ struct AccountCoverBackdrop: View {
 struct AccountCoverScrimView: View {
     let tone: AccountCoverTone
     var uniform = false
+    /// The owner's «Затемнение» (nil = automatic).
+    var dim: Int?
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let scrim = AccountCoverScrim.make(for: tone, increasedContrast: contrast == .increased)
+        let scrim = AccountCoverScrim.make(for: tone, increasedContrast: contrast == .increased, dim: dim)
         Group {
             if uniform || dynamicTypeSize.isAccessibilitySize {
                 // Accessibility sizes move the text out of the bands the
@@ -105,12 +109,12 @@ extension View {
     /// The account card's frame with a cover: same padding and corners as
     /// `.akifiCard(tint:)` (20 pt continuous), the photo instead of the
     /// tint, no shadow, no glass.
-    func accountCoverCard(_ cover: AccountCoverImage, cornerRadius: CGFloat = CardStyle.Size.regular.cornerRadius) -> some View {
+    func accountCoverCard(_ cover: AccountCoverImage, dim: Int? = nil, cornerRadius: CGFloat = CardStyle.Size.regular.cornerRadius) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return self
             .padding(CardStyle.Size.regular.defaultPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background { AccountCoverBackdrop(cover: cover) }
+            .background { AccountCoverBackdrop(cover: cover, dim: dim) }
             .clipShape(shape)
             .contentShape(shape)
             .containerShape(shape)

@@ -20,6 +20,12 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
     /// the account's owner; every member sees it. Nil = the tinted card.
     /// Optional on decode: servers before 20261128100000 don't send it.
     var coverPath: String?
+    /// How dark the scrim over the cover is: nil = automatic (the least
+    /// darkening that keeps the text at WCAG AA), 0…100 = the owner's choice
+    /// from «Светлее» to «Темнее» (`AccountCoverScrim.make(for:dim:)`).
+    /// Shared like the cover. Optional on decode: servers before
+    /// 20261128110000 don't send it.
+    var coverDim: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -30,6 +36,7 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         case accountType = "account_type"
         case createdAt = "created_at"
         case coverPath = "cover_path"
+        case coverDim = "cover_dim"
     }
 
     init(from decoder: Decoder) throws {
@@ -49,6 +56,8 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         // Tolerant: a missing column, null or a value of the wrong type
         // never fails the account row — the card just has no cover.
         coverPath = (try? container.decodeIfPresent(String.self, forKey: .coverPath)) ?? nil
+        coverDim = ((try? container.decodeIfPresent(Int.self, forKey: .coverDim)) ?? nil)
+            .flatMap { (0...100).contains($0) ? $0 : nil }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -65,13 +74,15 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         try container.encode(accountType, forKey: .accountType)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(coverPath, forKey: .coverPath)
+        try container.encodeIfPresent(coverDim, forKey: .coverDim)
     }
 
-    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", accountType: AccountType = .checking, createdAt: String? = nil, coverPath: String? = nil) {
+    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", accountType: AccountType = .checking, createdAt: String? = nil, coverPath: String? = nil, coverDim: Int? = nil) {
         self.id = id; self.userId = userId; self.name = name; self.icon = icon
         self.color = color; self.initialBalance = initialBalance; self.isPrimary = isPrimary
         self.currency = currency; self.accountType = accountType; self.createdAt = createdAt
         self.coverPath = coverPath
+        self.coverDim = coverDim
     }
 
     var currencyCode: CurrencyCode {

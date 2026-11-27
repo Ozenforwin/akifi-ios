@@ -122,6 +122,43 @@ final class AccountCoverRepositoryTests: XCTestCase {
         XCTAssertEqual(body, #"{"cover_path":null}"#)
     }
 
+    // MARK: - cover_dim
+
+    func test_setCoverDim_patchesOnlyTheColumn() async throws {
+        CoverStubProtocol.respond { _ in (200, ["Content-Type": "application/json"],
+                                          Data(#"[{"id":"\#(Self.accountId)"}]"#.utf8)) }
+
+        try await repository.setCoverDim(40, accountId: Self.accountId)
+
+        let request = try onlyRequest()
+        XCTAssertEqual(request.method, "PATCH")
+        XCTAssertEqual(request.url.path, "/rest/v1/accounts")
+        let items = URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        XCTAssertTrue(items.contains(URLQueryItem(name: "id", value: "eq.\(Self.accountId)")))
+        XCTAssertEqual(String(decoding: request.body, as: UTF8.self), #"{"cover_dim":40}"#)
+        assertNoSecretInURL(request)
+    }
+
+    func test_setCoverDimToAutomatic_sendsAnExplicitNull() async throws {
+        CoverStubProtocol.respond { _ in (200, ["Content-Type": "application/json"],
+                                          Data(#"[{"id":"\#(Self.accountId)"}]"#.utf8)) }
+
+        try await repository.setCoverDim(nil, accountId: Self.accountId)
+
+        XCTAssertEqual(String(decoding: try onlyRequest().body, as: UTF8.self), #"{"cover_dim":null}"#)
+    }
+
+    func test_setCoverDim_zeroRows_isNotPermitted() async {
+        CoverStubProtocol.respond { _ in (200, ["Content-Type": "application/json"], Data("[]".utf8)) }
+
+        do {
+            try await repository.setCoverDim(10, accountId: Self.accountId)
+            XCTFail("zero updated rows must throw")
+        } catch {
+            XCTAssertEqual(error as? AccountCoverError, .notPermitted)
+        }
+    }
+
     /// RLS hides the row from a viewer: 200 with no rows is "not allowed",
     /// never "saved".
     func test_setCoverPath_zeroRows_isNotPermitted() async {

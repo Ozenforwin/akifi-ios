@@ -244,6 +244,7 @@
 		7B7D530CE41D3234A154F4A8 /* FeatureFlagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAB2B4EE65C625F1796D0F3 /* FeatureFlagRepository.swift */; };
 		7BD52417E54B88F2A9F63BD3 /* QuickEntryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1CC3AEBADD19AE77BFDFDB3 /* QuickEntryEngine.swift */; };
 		7C5F1FEB2E15F248BBBB23FF /* LiabilityRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D975A1C3A9296EB6DF08487 /* LiabilityRepository.swift */; };
+		7C8C065D21F2082726B0C8F1 /* AccountCoverDimTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B12F8BB576C6F94E85A6F3A /* AccountCoverDimTests.swift */; };
 		7CDA976B95470A71B2DF6CAE /* DailyLimitWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108F419604C10E9308F1B9F8 /* DailyLimitWidgetView.swift */; };
 		7D181D6B270AA8383D3654C4 /* PersonalDebtRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = C86C066E9661AD32E0CB55F0 /* PersonalDebtRules.swift */; };
 		7DF2299704B2A55F5A1FB703 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */; };
@@ -745,6 +746,7 @@
 		86D289D284ED6131300A9312 /* DateFormattersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormattersTests.swift; sourceTree = "<group>"; };
 		8AD2CF555036A064DD5E8EA0 /* NetWorthDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthDashboardView.swift; sourceTree = "<group>"; };
 		8AF8EE63CEF3E3AC9EA19D10 /* TransactionFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionFormView.swift; sourceTree = "<group>"; };
+		8B12F8BB576C6F94E85A6F3A /* AccountCoverDimTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCoverDimTests.swift; sourceTree = "<group>"; };
 		8B4670C98B4135C617E41916 /* PDFReportGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReportGeneratorTests.swift; sourceTree = "<group>"; };
 		8D4FDE4B984F267C2D15B094 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8F136560E724B698AAFBBF9A /* SavingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsViewModel.swift; sourceTree = "<group>"; };
@@ -1417,6 +1419,7 @@
 			isa = PBXGroup;
 			children = (
 				420A1FB8A06E22ACCED86479 /* A1EmailAuthLinkTests.swift */,
+				8B12F8BB576C6F94E85A6F3A /* AccountCoverDimTests.swift */,
 				B0634A7DF47E575ADDA2FD53 /* AccountCoverFlowTests.swift */,
 				B4675CB5DE9B574BCEC424AF /* AccountCoverRepositoryTests.swift */,
 				04F8C17DB5AE045F28A863F8 /* AccountCoverStoreTests.swift */,
@@ -1981,6 +1984,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D9CBC817158E09CC517AB91 /* A1EmailAuthLinkTests.swift in Sources */,
+				7C8C065D21F2082726B0C8F1 /* AccountCoverDimTests.swift in Sources */,
 				037F74E16EED11EBA74137A0 /* AccountCoverFlowTests.swift in Sources */,
 				DE00A59284319F4F7517AE0F /* AccountCoverRepositoryTests.swift in Sources */,
 				7754A82C7D65813E847EC063 /* AccountCoverStoreTests.swift in Sources */,
