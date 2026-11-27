@@ -93,7 +93,10 @@ async function handler(req: Request): Promise<Response> {
       return json({ ok: true, sent: 0, message: "No users with delivery channels" });
     }
 
-    // 2. Opt-in settings (default = opted in)
+    // 2. Explicit opt-in only. iOS shows the toggle OFF when there is no
+    //    ai_user_settings row, so treating "no row" as opted in would send
+    //    a digest to people who see it switched off (26 of 29 users had no
+    //    row when the schedule was first added, 2026-11-27).
     const settingsRows = await fetchAllIn<SettingsRow>(
       "ai_user_settings",
       users.map((u) => u.id),
@@ -101,9 +104,9 @@ async function handler(req: Request): Promise<Response> {
       { pk: "user_id" },
     );
     const settingsMap = new Map(settingsRows.map((row) => [row.user_id, row]));
-    const eligibleUsers = users.filter((u) => settingsMap.get(u.id)?.digest_opt_in !== false);
+    const eligibleUsers = users.filter((u) => settingsMap.get(u.id)?.digest_opt_in === true);
     if (eligibleUsers.length === 0) {
-      return json({ ok: true, sent: 0, message: "All users opted out" });
+      return json({ ok: true, sent: 0, message: "Nobody opted in" });
     }
 
     // 3. Each user's own 7-day window in their own time zone.
