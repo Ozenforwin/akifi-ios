@@ -81,6 +81,8 @@ struct CreateAssetInput: Encodable, Sendable {
     let acquired_date: String?
 }
 
+/// Partial update; `notes` / `acquired_date` are double-optional so the
+/// form can clear them (`.some(nil)` → NULL) — see `UpdateLiabilityInput`.
 struct UpdateAssetInput: Encodable, Sendable {
     let name: String?
     let category: String?
@@ -88,6 +90,22 @@ struct UpdateAssetInput: Encodable, Sendable {
     let currency: String?
     let icon: String?
     let color: String?
-    let notes: String?
-    let acquired_date: String?
+    let notes: String??
+    let acquired_date: String??
+
+    enum CodingKeys: String, CodingKey {
+        case name, category, current_value, currency, icon, color, notes, acquired_date
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(name, forKey: .name)
+        try c.encodeIfPresent(category, forKey: .category)
+        try c.encodeIfPresent(current_value, forKey: .current_value)
+        try c.encodeIfPresent(currency, forKey: .currency)
+        try c.encodeIfPresent(icon, forKey: .icon)
+        try c.encodeIfPresent(color, forKey: .color)
+        try c.encodeNullable(notes, forKey: .notes)
+        try c.encodeNullable(acquired_date, forKey: .acquired_date)
+    }
 }

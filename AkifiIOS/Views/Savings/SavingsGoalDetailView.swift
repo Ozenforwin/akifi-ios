@@ -7,8 +7,8 @@ struct SavingsGoalDetailView: View {
     let progress: Double
     let daysRemaining: Int?
     /// (amount kopecks, type, note, counter-account id — see
-    /// `SavingsViewModel.accountLegs`)
-    let onContribute: (Int64, ContributionType, String?, String?) async -> Void
+    /// `SavingsViewModel.accountLegs`). Throws (V7) — the sheet shows it.
+    let onContribute: (Int64, ContributionType, String?, String?) async throws -> Void
 
     @State private var showContribution = false
 

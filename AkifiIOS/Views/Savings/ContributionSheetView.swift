@@ -6,17 +6,25 @@ struct ContributionSheetView: View {
 
     let goal: SavingsGoal
     /// (amount kopecks, type, note, counter-account id — see
-    /// `SavingsViewModel.accountLegs`)
-    let onContribute: (Int64, ContributionType, String?, String?) async -> Void
+    /// `SavingsViewModel.accountLegs`). Throws (V7): a failure shows here
+    /// and the sheet stays open.
+    let onContribute: (Int64, ContributionType, String?, String?) async throws -> Void
 
     @State private var amountText = ""
     @State private var type: ContributionType = .contribution
     @State private var note = ""
     @State private var isSaving = false
+    @State private var saveError: String?
     /// Where a contribution comes from / a withdrawal goes to (M2). nil =
     /// contribution: the money is already on the goal's account;
     /// withdrawal: it leaves that account.
     @State private var counterAccountId: String?
+
+    /// "0,5" is 50 kopecks, not 0 — and 0 is not a contribution (V7).
+    private var parsedAmount: Int64? {
+        guard let kopecks = DecimalInput.kopecks(amountText), kopecks > 0 else { return nil }
+        return kopecks
+    }
 
     /// The account the goal's money lives on.
     private var linkedAccount: Account? {
@@ -99,21 +107,25 @@ struct ContributionSheetView: View {
                     Button(String(localized: "common.done")) {
                         Task { await save() }
                     }
-                    .disabled(amountText.isEmpty || isSaving)
+                    .disabled(parsedAmount == nil || isSaving)
                 }
             }
+            .errorAlert($saveError)
         }
     }
 
     private func save() async {
-        let cleaned = amountText
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        guard let decimal = Decimal(string: cleaned), decimal > 0 else { return }
+        guard !isSaving, let amountCents = parsedAmount else { return }
         isSaving = true
-        let amountCents = decimal.kopecks
+        defer { isSaving = false }
         let noteStr = note.isEmpty ? nil : note
-        await onContribute(amountCents, type, noteStr, counterAccountId)
+        do {
+            try await onContribute(amountCents, type, noteStr, counterAccountId)
+        } catch {
+            HapticManager.error()
+            saveError = error.localizedDescription
+            return
+        }
         dismiss()
     }
 

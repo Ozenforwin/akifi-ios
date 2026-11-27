@@ -24,6 +24,16 @@ enum SavingsStatus {
     }
 }
 
+enum SavingsInputError: LocalizedError, Equatable {
+    case amountNotPositive
+
+    var errorDescription: String? {
+        switch self {
+        case .amountNotPositive: String(localized: "savings.error.amountNotPositive")
+        }
+    }
+}
+
 @Observable @MainActor
 final class SavingsViewModel {
     var goals: [SavingsGoal] = []
@@ -70,7 +80,19 @@ final class SavingsViewModel {
         }
     }
 
-    func createGoal(name: String, icon: String, color: String, targetAmount: Int64, deadline: String?, accountId: String?) async {
+    /// Interest settings of a goal as the form collected them.
+    struct GoalInterest: Equatable, Sendable {
+        /// Percent, 0…100.
+        var rate: Decimal
+        /// "annual" | "monthly".
+        var type: String
+        var compound: Bool
+
+        static let noInterest = GoalInterest(rate: 0, type: "annual", compound: true)
+    }
+
+    /// Throws (V7): the form shows the error and keeps the user's input.
+    func createGoal(name: String, icon: String, color: String, targetAmount: Int64, deadline: String?, accountId: String?, interest: GoalInterest = .noInterest) async throws {
         do {
             let userId = try await repo.currentUserId()
             let input = CreateSavingsGoalInput(
@@ -82,13 +104,16 @@ final class SavingsViewModel {
                 deadline: deadline,
                 account_id: accountId,
                 reminder_enabled: false,
-                priority: goals.count
+                priority: goals.count,
+                interest_rate: min(max(interest.rate, 0), 100),
+                interest_type: interest.type,
+                interest_compound: interest.compound
             )
             let goal = try await repo.create(input)
             goals.insert(goal, at: 0)
             AnalyticsService.logCreateGoal()
         } catch {
-            self.error = error.localizedDescription
+            throw error
         }
     }
 
@@ -98,7 +123,10 @@ final class SavingsViewModel {
     /// - `linkedAccount`: the goal's account — where the goal's money lives.
     /// - `counterAccount`: where a contribution comes FROM / a withdrawal
     ///   goes TO; nil = none (see `accountLegs`).
-    /// - `amount`: kopecks in the linked account's currency.
+    /// - `amount`: kopecks in the linked account's currency, > 0.
+    ///
+    /// Throws (V7): the sheet shows the error and stays open — it used to
+    /// close as if the money had been put aside.
     func addContribution(
         goalId: String,
         amount: Int64,
@@ -107,7 +135,8 @@ final class SavingsViewModel {
         linkedAccount: Account?,
         counterAccount: Account?,
         currencyManager: CurrencyManager?
-    ) async {
+    ) async throws {
+        guard amount > 0 else { throw SavingsInputError.amountNotPositive }
         do {
             // Everything that can fail without a write comes first: a missing
             // rate for a cross-currency counter-account saves nothing.
@@ -186,7 +215,7 @@ final class SavingsViewModel {
             // Reload goal from DB (trigger auto-updates current_amount)
             await load()
         } catch {
-            self.error = error.localizedDescription
+            throw error
         }
     }
 

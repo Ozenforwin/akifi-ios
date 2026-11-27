@@ -18,6 +18,32 @@ import Observation
 /// # Concurrency
 /// `@MainActor` + `@Observable`. All network calls are awaited on the main
 /// actor, matching how `NetWorthViewModel` and `SettlementViewModel` work.
+/// Why a close / maturity didn't run (V1).
+enum DepositCloseError: LocalizedError, Equatable {
+    /// A close of the same deposit is already in flight.
+    case alreadyClosing
+    /// The deposit's contributions didn't load — closing now would pay out
+    /// nothing and mark it closed.
+    case contributionsNotLoaded
+
+    var errorDescription: String? {
+        switch self {
+        case .alreadyClosing: String(localized: "deposit.error.alreadyClosing")
+        case .contributionsNotLoaded: String(localized: "deposit.error.contributionsNotLoaded")
+        }
+    }
+}
+
+/// `TransactionRepository.createOnce` under the `create` name the payout
+/// code calls (see `DepositsViewModel.writePayout`).
+private struct PayoutWriter {
+    let base: TransactionRepository
+
+    func create(_ input: CreateTransactionInput) async throws -> Transaction {
+        try await base.createOnce(input).row
+    }
+}
+
 @MainActor
 @Observable
 final class DepositsViewModel {
@@ -48,32 +74,110 @@ final class DepositsViewModel {
             return
         }
 
-        // Fetch contributions for every deposit in parallel.
-        await withTaskGroup(of: (String, [DepositContribution]?).self) { group in
+        // Fetch contributions for every deposit in parallel. A failed fetch
+        // is remembered: that deposit's numbers are unknown, so it is never
+        // auto-matured (it would be marked "matured" with no payout).
+        var failures: Set<String> = []
+        var firstFailure: String?
+        await withTaskGroup(of: (String, Result<[DepositContribution], any Error>).self) { group in
             for d in deposits {
                 group.addTask { [contributionRepo] in
-                    let contributions = try? await contributionRepo.fetchForDeposit(d.id)
-                    return (d.id, contributions)
+                    do { return (d.id, .success(try await contributionRepo.fetchForDeposit(d.id))) }
+                    catch { return (d.id, .failure(error)) }
                 }
             }
-            for await (depositId, list) in group {
-                if let list { contributionsByDeposit[depositId] = list }
+            for await (depositId, result) in group {
+                switch result {
+                case .success(let list):
+                    contributionsByDeposit[depositId] = list
+                case .failure(let error):
+                    failures.insert(depositId)
+                    firstFailure = firstFailure ?? error.localizedDescription
+                    AppLogger.data.warning("deposit contributions fetch: \(error.localizedDescription)")
+                }
             }
         }
+        contributionLoadFailures = failures
+        if let firstFailure { errorMessage = firstFailure }
 
         // Auto-maturity pass. Iterate over a snapshot; `matureDeposit`
         // mutates `deposits` in place.
         let today = InterestCalculator.defaultCalendar.startOfDay(for: Date())
         let snapshot = deposits
-        for deposit in snapshot where deposit.status == .active {
-            guard let endDateStr = deposit.endDate,
-                  let endDate = Self.parseDate(endDateStr) else {
-                continue
-            }
-            if endDate <= today {
-                await matureDeposit(deposit, dataStore: dataStore)
-            }
+        for deposit in snapshot where Self.shouldAutoMature(
+            deposit,
+            today: today,
+            contributionsLoaded: hasLoadedContributions(deposit.id),
+            isClosing: closingDepositIds.contains(deposit.id)
+        ) {
+            await matureDeposit(deposit, dataStore: dataStore)
         }
+    }
+
+    // MARK: - Close guards (V1)
+
+    /// Deposits whose close / maturity is in flight. The screens disable
+    /// the close actions for them, and a second call is rejected — while
+    /// the 4+ requests of a payout run, "Close early" stayed enabled and a
+    /// second tap (or a pull-to-refresh re-running auto-maturity) wrote a
+    /// second interest row and a second return transfer.
+    private(set) var closingDepositIds: Set<String> = []
+
+    /// Deposits whose contributions failed to load in the last `load()`.
+    private(set) var contributionLoadFailures: Set<String> = []
+
+    func isClosing(_ deposit: Deposit) -> Bool {
+        closingDepositIds.contains(deposit.id)
+    }
+
+    /// Claims the close of `depositId`; false when one is already running.
+    func beginClosing(_ depositId: String) -> Bool {
+        closingDepositIds.insert(depositId).inserted
+    }
+
+    func endClosing(_ depositId: String) {
+        closingDepositIds.remove(depositId)
+    }
+
+    /// Contributions are known for this deposit — loaded, and the last
+    /// load didn't fail for it. Principal and interest of a close are
+    /// computed from them; without them a close would pay out 0.
+    func hasLoadedContributions(_ depositId: String) -> Bool {
+        contributionsByDeposit[depositId] != nil && !contributionLoadFailures.contains(depositId)
+    }
+
+    /// Auto-maturity rule: an active term deposit whose end day has come,
+    /// with its contributions loaded and no close already in flight.
+    nonisolated static func shouldAutoMature(
+        _ deposit: Deposit,
+        today: Date,
+        contributionsLoaded: Bool,
+        isClosing: Bool
+    ) -> Bool {
+        guard deposit.status == .active, contributionsLoaded, !isClosing,
+              let endDateStr = deposit.endDate,
+              let endDate = parseDate(endDateStr) else { return false }
+        return endDate <= today
+    }
+
+    /// Client ids of the payout rows of one deposit. A deposit is closed
+    /// once, so its payout rows are derived from its id: a retry after a
+    /// half-written payout finds the rows the first attempt wrote (23505)
+    /// instead of writing a second interest row or return transfer.
+    struct PayoutIds: Equatable, Sendable {
+        let interest: String
+        let returnOut: String
+        let returnIn: String
+        let transferGroup: String
+    }
+
+    nonisolated static func payoutIds(depositId: String) -> PayoutIds {
+        PayoutIds(
+            interest: DeterministicUUID.make("deposit-payout", depositId, "interest"),
+            returnOut: DeterministicUUID.make("deposit-payout", depositId, "return-out"),
+            returnIn: DeterministicUUID.make("deposit-payout", depositId, "return-in"),
+            transferGroup: DeterministicUUID.make("deposit-payout", depositId, "transfer-group")
+        )
     }
 
     // MARK: - Create
@@ -311,11 +415,26 @@ final class DepositsViewModel {
                 newStatus: .matured,
                 dataStore: dataStore
             )
+        } catch DepositCloseError.alreadyClosing {
+            // Another call is paying this deposit out right now.
         } catch {
             AppLogger.data.warning("auto-mature failed for \(deposit.id): \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
         }
     }
 
+    /// Close / maturity, in an order that can neither pay twice nor mark a
+    /// deposit closed without its payout (V1):
+    /// 1. one close per deposit at a time (`beginClosing`), and only with
+    ///    its contributions loaded;
+    /// 2. the status flips FIRST and conditionally (`closeIfActive`: only
+    ///    an active row changes). No row changed → an earlier tap or
+    ///    another device closed it, nothing is paid;
+    /// 3. the payout rows carry ids derived from the deposit
+    ///    (`payoutIds`), so a retry after a partial failure reuses what the
+    ///    first attempt wrote;
+    /// 4. a payout that fails puts the deposit back to active, and the
+    ///    error reaches the screen, so the user can retry.
     private func closeOrMature(
         _ deposit: Deposit,
         depositAccount: Account,
@@ -323,38 +442,75 @@ final class DepositsViewModel {
         newStatus: DepositStatus,
         dataStore: DataStore
     ) async throws {
+        guard beginClosing(deposit.id) else { throw DepositCloseError.alreadyClosing }
+        defer { endClosing(deposit.id) }
+        guard hasLoadedContributions(deposit.id) else { throw DepositCloseError.contributionsNotLoaded }
+
+        // M1: the return leg is converted deposit → returnTo directly with
+        // real quotes (never the base currency, never 1:1 on a missing
+        // rate). Fetched and checked BEFORE the status flips, so a missing
+        // rate changes nothing and auto-maturity simply retries on the next
+        // load. (Convertibility doesn't depend on the amount.)
+        let rates = await dataStore.currencyManager?.ratesForWrite([depositAccount.currency, returnTo.currency]) ?? [:]
+        _ = try Self.convertLeg(kopecks: 100, from: depositAccount.currency, to: returnTo.currency, rates: rates)
+
+        let closedAtStr = Self.formatDateTime(Date())
+        guard let closed = try await depositRepo.closeIfActive(
+            id: deposit.id,
+            status: newStatus,
+            closedAt: closedAtStr,
+            returnToAccountId: returnTo.id
+        ) else {
+            // Not active any more: show the stored state, pay nothing.
+            if let fresh = try? await depositRepo.fetchAll() { deposits = fresh }
+            return
+        }
+
+        do {
+            try await writePayout(deposit, depositAccount: depositAccount, returnTo: returnTo, rates: rates)
+        } catch {
+            do { try await depositRepo.reopen(id: deposit.id, from: newStatus) }
+            catch { AppLogger.data.error("deposit reopen after failed payout: \(error.localizedDescription)") }
+            await dataStore.loadAll()
+            throw error
+        }
+
+        if let idx = deposits.firstIndex(where: { $0.id == deposit.id }) {
+            deposits[idx] = closed
+        }
+
+        await dataStore.loadAll()
+    }
+
+    /// Interest income + return transfer of a close (step 3 above).
+    private func writePayout(
+        _ deposit: Deposit,
+        depositAccount: Account,
+        returnTo: Account,
+        rates: [String: Double]
+    ) async throws {
         let userId = try await SupabaseManager.shared.currentUserId()
         let contributions = contributionsByDeposit[deposit.id] ?? []
-        let accrued = InterestCalculator.accrueInterest(
+        // Interest runs to the end date, not to the day the app was opened.
+        var accrued = InterestCalculator.accrueInterest(
             contributions: contributions,
             rate: deposit.interestRate,
             frequency: deposit.compoundFrequency,
-            asOf: Date()
+            asOf: deposit.accrualCutoff(now: Date())
         )
         let principal = InterestCalculator.totalPrincipal(contributions)
-        let total = principal + accrued
         let dateStr = Self.formatDate(Date())
-
-        // M1: the return leg in returnTo's currency, converted deposit →
-        // returnTo directly with real quotes (never the base currency, never
-        // 1:1 on a missing rate) — before the first write, so a missing rate
-        // changes nothing and auto-maturity simply retries on the next load.
-        let returnLeg: ConvertedLeg
-        if total > 0 {
-            let rates = await dataStore.currencyManager?.ratesForWrite([depositAccount.currency, returnTo.currency]) ?? [:]
-            returnLeg = try Self.convertLeg(
-                kopecks: total, from: depositAccount.currency, to: returnTo.currency, rates: rates
-            )
-        } else {
-            returnLeg = ConvertedLeg(kopecks: 0, isCrossCurrency: false, depositPerSource: nil)
-        }
+        let ids = Self.payoutIds(depositId: deposit.id)
+        // Writes through `createOnce`: a row a previous attempt already
+        // wrote under its payout id is returned instead of written again.
+        let transactionRepo = PayoutWriter(base: self.transactionRepo)
 
         // Step 1. Interest income transaction on the deposit account
         // (only if accrued > 0). Using income type without category —
         // the category picker has no "interest" option in MVP.
         if accrued > 0 {
             let accruedDecimal = Decimal(accrued) / 100
-            _ = try await transactionRepo.create(CreateTransactionInput(
+            let interest = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: depositAccount.id,
                 amount: accruedDecimal,
@@ -365,8 +521,12 @@ final class DepositsViewModel {
                 description: String(localized: "deposit.transaction.interestEarned"),
                 category_id: nil,
                 merchant_name: depositAccount.name
-            ))
+            ).withClientId(ids.interest))
+            // A retry returns what the first attempt booked — the transfer
+            // below must move exactly that.
+            accrued = interest.amountNative
         }
+        let total = principal + accrued
 
         // Step 2. Transfer pair: deposit → returnTo for principal+accrued.
         // Cross-currency: each leg is written in its OWN account currency
@@ -375,8 +535,13 @@ final class DepositsViewModel {
         // return would under-credit (USD-valued total written as 1000 RUB
         // on a RUB return account instead of ~92 500 ₽).
         if total > 0 {
-            let groupId = UUID().uuidString
+            let groupId = ids.transferGroup
             let totalDecimal = Decimal(total) / 100
+            // M1: deposit → returnTo directly, with the rates checked in
+            // `closeOrMature` before anything was written.
+            let returnLeg = try Self.convertLeg(
+                kopecks: total, from: depositAccount.currency, to: returnTo.currency, rates: rates
+            )
 
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
@@ -390,7 +555,7 @@ final class DepositsViewModel {
                 category_id: nil,
                 merchant_name: depositAccount.name,
                 transfer_group_id: groupId
-            ))
+            ).withClientId(ids.returnOut))
 
             let destAmount = Decimal(returnLeg.kopecks) / 100
             _ = try await transactionRepo.create(CreateTransactionInput(
@@ -405,28 +570,8 @@ final class DepositsViewModel {
                 category_id: nil,
                 merchant_name: depositAccount.name,
                 transfer_group_id: groupId
-            ))
+            ).withClientId(ids.returnIn))
         }
-
-        // Step 3. Update status.
-        let closedAtStr = Self.formatDateTime(Date())
-        try await depositRepo.update(id: deposit.id, UpdateDepositInput(
-            notes: nil,
-            return_to_account_id: returnTo.id,
-            early_close_penalty_rate: nil,
-            status: newStatus.rawValue,
-            closed_at: closedAtStr,
-            end_date: nil
-        ))
-
-        if let idx = deposits.firstIndex(where: { $0.id == deposit.id }) {
-            var updated = deposits[idx]
-            updated.status = newStatus
-            updated.closedAt = closedAtStr
-            deposits[idx] = updated
-        }
-
-        await dataStore.loadAll()
     }
 
     // MARK: - Cross-currency legs (M1)
@@ -491,13 +636,15 @@ final class DepositsViewModel {
 
     /// Live accrued interest (not stored). Call this from UI with `Date()`
     /// as `asOf` to get "now" or with `endDate` to project maturity.
+    /// Never past `Deposit.accrualCutoff` — an overdue deposit stops
+    /// growing on its end date (V1).
     func liveAccruedInterest(for deposit: Deposit, asOf: Date = Date()) -> Int64 {
         let contributions = contributionsByDeposit[deposit.id] ?? []
         return InterestCalculator.accrueInterest(
             contributions: contributions,
             rate: deposit.interestRate,
             frequency: deposit.compoundFrequency,
-            asOf: asOf
+            asOf: deposit.accrualCutoff(now: asOf)
         )
     }
 
@@ -505,12 +652,7 @@ final class DepositsViewModel {
     func liveTotalValue(for deposit: Deposit, asOf: Date = Date()) -> Int64 {
         let contributions = contributionsByDeposit[deposit.id] ?? []
         return InterestCalculator.totalPrincipal(contributions)
-            + InterestCalculator.accrueInterest(
-                contributions: contributions,
-                rate: deposit.interestRate,
-                frequency: deposit.compoundFrequency,
-                asOf: asOf
-            )
+            + liveAccruedInterest(for: deposit, asOf: asOf)
     }
 
     /// Projected total value at the deposit's `endDate`. `nil` if no end date.

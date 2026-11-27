@@ -8,8 +8,10 @@ struct LiabilityFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppViewModel.self) private var appViewModel
 
-    let onSave: (CreateLiabilityInput) async -> Void
-    let onUpdate: ((String, UpdateLiabilityInput) async -> Void)?
+    /// Throwing like `AssetFormView` (V4): a backend reject shows in an
+    /// alert and the form stays open instead of closing on "success".
+    let onSave: (CreateLiabilityInput) async throws -> Void
+    let onUpdate: ((String, UpdateLiabilityInput) async throws -> Void)?
     let editingLiability: Liability?
     let initialCategory: LiabilityCategory?
 
@@ -24,11 +26,12 @@ struct LiabilityFormView: View {
     @State private var endDate: Date = Date().addingTimeInterval(86400 * 365)
     @State private var notes: String = ""
     @State private var isSaving = false
+    @State private var saveError: String?
 
     init(initialCategory: LiabilityCategory? = nil,
          editingLiability: Liability? = nil,
-         onSave: @escaping (CreateLiabilityInput) async -> Void,
-         onUpdate: ((String, UpdateLiabilityInput) async -> Void)? = nil) {
+         onSave: @escaping (CreateLiabilityInput) async throws -> Void,
+         onUpdate: ((String, UpdateLiabilityInput) async throws -> Void)? = nil) {
         self.initialCategory = initialCategory
         self.editingLiability = editingLiability
         self.onSave = onSave
@@ -39,7 +42,7 @@ struct LiabilityFormView: View {
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && (Decimal(string: balanceText.replacingOccurrences(of: ",", with: ".")) ?? 0) > 0
+            && (DecimalInput.parse(balanceText) ?? 0) > 0
     }
 
     var body: some View {
@@ -96,6 +99,7 @@ struct LiabilityFormView: View {
                 }
             }
             .onAppear { prefillForEditing() }
+            .errorAlert($saveError)
         }
     }
 
@@ -124,20 +128,29 @@ struct LiabilityFormView: View {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let editing = editingLiability, let onUpdate {
+            // Clearable fields go as `.some(value)`: a nil value is
+            // written as NULL — the user removed it (V4). A bare
+            // `cond ? nil : x` would type as the OUTER nil and be dropped.
             let update = UpdateLiabilityInput(
                 name: name,
                 category: category.rawValue,
                 current_balance: currentBalance,
-                original_amount: original,
-                interest_rate: rate,
+                original_amount: .some(original),
+                interest_rate: .some(rate),
                 currency: currency.code,
                 icon: nil,
                 color: nil,
-                notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-                monthly_payment: monthly,
-                end_date: endString
+                notes: .some(trimmedNotes.isEmpty ? nil : trimmedNotes),
+                monthly_payment: .some(monthly),
+                end_date: .some(endString)
             )
-            await onUpdate(editing.id, update)
+            do {
+                try await onUpdate(editing.id, update)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         } else {
             let userId = (try? await SupabaseManager.shared.currentUserId()) ?? ""
             let input = CreateLiabilityInput(
@@ -154,7 +167,13 @@ struct LiabilityFormView: View {
                 monthly_payment: monthly,
                 end_date: endString
             )
-            await onSave(input)
+            do {
+                try await onSave(input)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         }
 
         HapticManager.success()
@@ -162,15 +181,7 @@ struct LiabilityFormView: View {
     }
 
     private func parseKopecks(_ text: String) -> Int64 {
-        let cleaned = text
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        guard let decimal = Decimal(string: cleaned) else { return 0 }
-        let kopecks = decimal * 100
-        var rounded = Decimal()
-        var src = kopecks
-        NSDecimalRound(&rounded, &src, 0, .plain)
-        return Int64(truncating: rounded as NSDecimalNumber)
+        DecimalInput.kopecks(text) ?? 0
     }
 
     private func parseOptionalKopecks(_ text: String) -> Int64? {
@@ -183,10 +194,7 @@ struct LiabilityFormView: View {
     /// APR input: "7.5" or "7,5" → 7.5. Clamps to NUMERIC(5,3) range
     /// (−99.999 … 99.999) — anything outside becomes nil.
     private func parseOptionalRate(_ text: String) -> Double? {
-        let cleaned = text
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        guard !cleaned.isEmpty, let value = Double(cleaned) else { return nil }
+        guard let value = DecimalInput.parse(text).map({ NSDecimalNumber(decimal: $0).doubleValue }) else { return nil }
         guard abs(value) < 100 else { return nil }
         return value
     }

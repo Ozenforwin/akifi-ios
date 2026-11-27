@@ -23,8 +23,9 @@ struct InvestmentHoldingFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppViewModel.self) private var appViewModel
 
-    let onSave: (CreateHoldingInput) async -> Void
-    let onUpdate: ((String, UpdateHoldingInput) async -> Void)?
+    /// Throwing (V4): a reject shows in an alert, the form stays open.
+    let onSave: (CreateHoldingInput) async throws -> Void
+    let onUpdate: ((String, UpdateHoldingInput) async throws -> Void)?
     let editingHolding: InvestmentHolding?
     /// Pre-selects the parent Asset. When nil, the picker is shown.
     let initialAssetId: String?
@@ -42,6 +43,7 @@ struct InvestmentHoldingFormView: View {
     @State private var lastPriceDate: Date = Calendar.current.startOfDay(for: Date())
     @State private var notes: String = ""
     @State private var isSaving = false
+    @State private var saveError: String?
 
     /// State of the "Pull current price" button. `idle` is the default,
     /// `loading` while the edge function call is in flight, `failure`
@@ -61,8 +63,8 @@ struct InvestmentHoldingFormView: View {
     init(parentAssets: [Asset],
          initialAssetId: String? = nil,
          editingHolding: InvestmentHolding? = nil,
-         onSave: @escaping (CreateHoldingInput) async -> Void,
-         onUpdate: ((String, UpdateHoldingInput) async -> Void)? = nil) {
+         onSave: @escaping (CreateHoldingInput) async throws -> Void,
+         onUpdate: ((String, UpdateHoldingInput) async throws -> Void)? = nil) {
         self.parentAssets = parentAssets
         self.initialAssetId = initialAssetId
         self.editingHolding = editingHolding
@@ -115,6 +117,7 @@ struct InvestmentHoldingFormView: View {
                 }
             }
             .onAppear { prefill() }
+            .errorAlert($saveError)
         }
     }
 
@@ -345,9 +348,16 @@ struct InvestmentHoldingFormView: View {
                 costBasis: cost,
                 lastPrice: price,
                 lastPriceDate: dateStr,
-                notes: cleanNotes
+                // `.some(nil)` clears a removed note (V4).
+                notes: .some(cleanNotes)
             )
-            await onUpdate(editing.id, update)
+            do {
+                try await onUpdate(editing.id, update)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         } else {
             let userId = (try? await SupabaseManager.shared.currentUserId()) ?? ""
             let input = CreateHoldingInput(
@@ -361,7 +371,13 @@ struct InvestmentHoldingFormView: View {
                 lastPriceDate: dateStr,
                 notes: cleanNotes
             )
-            await onSave(input)
+            do {
+                try await onSave(input)
+            } catch {
+                HapticManager.error()
+                saveError = error.localizedDescription
+                return
+            }
         }
 
         HapticManager.success()
@@ -372,18 +388,11 @@ struct InvestmentHoldingFormView: View {
 
     /// Accepts "1234.56", "1 234,56" — same rules as `AssetFormView`.
     private func parseDecimal(_ text: String) -> Decimal {
-        let cleaned = text
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: cleaned) ?? 0
+        DecimalInput.parse(text) ?? 0
     }
 
     private func parseKopecks(_ text: String) -> Int64 {
-        let value = parseDecimal(text)
-        var product = value * 100
-        var rounded = Decimal()
-        NSDecimalRound(&rounded, &product, 0, .plain)
-        return Int64(truncating: rounded as NSDecimalNumber)
+        DecimalInput.kopecks(text) ?? 0
     }
 
     // MARK: - Prefill

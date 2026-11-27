@@ -49,15 +49,37 @@ final class FinancialNoteRepository: Sendable {
         }
     }
 
+    /// Every note whose title or body contains `query` (case-insensitive),
+    /// newest first — the complete set (ADR-003), not the first 50.
     func search(query: String) async throws -> [FinancialNote] {
-        try await supabase
-            .from("financial_notes")
-            .select()
-            .or("title.ilike.%\(query)%,content.ilike.%\(query)%")
-            .order("created_at", ascending: false)
-            .limit(50)
-            .execute()
-            .value
+        let pattern = Self.ilikeContainsValue(query)
+        return try await SupabasePaging.all("financial_notes") { count in
+            supabase
+                .from("financial_notes")
+                .select(count: count)
+                .or("title.ilike.\(pattern),content.ilike.\(pattern)")
+                .order("created_at", ascending: false)
+        }
+    }
+
+    /// The value of an `ilike` "contains" filter inside PostgREST's `or=(…)`
+    /// syntax, for text the user typed (V6). Unescaped, a comma or a
+    /// parenthesis in the query split or broke the logic tree; `%` / `_`
+    /// were wildcards; PostgREST turns `*` into `%`.
+    /// - LIKE metacharacters `\`, `%`, `_` are escaped with `\`; `*` becomes
+    ///   `_` (any one character — PostgREST offers no literal `*`).
+    /// - The whole pattern is double-quoted, with `\` and `"` escaped,
+    ///   the same quoting as the keyset cursor above.
+    static func ilikeContainsValue(_ query: String) -> String {
+        var like = ""
+        for ch in query {
+            switch ch {
+            case "\\", "%", "_": like += "\\" + String(ch)
+            case "*": like += "_"
+            default: like.append(ch)
+            }
+        }
+        return quoted("%" + like + "%")
     }
 
     func create(_ input: CreateNoteInput) async throws -> FinancialNote {
@@ -126,7 +148,9 @@ struct UpdateNoteInput: Encodable, Sendable {
     let content: String?
     let transaction_id: String??
     let tags: [String]?
-    let mood: String?
+    /// Double-optional like `transaction_id`: a mood the user deselected is
+    /// written as NULL instead of being dropped from the payload (V4).
+    let mood: String??
     let photo_urls: [String]?
     let period_start: String??
     let period_end: String??
@@ -136,7 +160,7 @@ struct UpdateNoteInput: Encodable, Sendable {
         content: String? = nil,
         transaction_id: String?? = nil,
         tags: [String]? = nil,
-        mood: String? = nil,
+        mood: String?? = nil,
         photo_urls: [String]? = nil,
         period_start: String?? = nil,
         period_end: String?? = nil
@@ -165,7 +189,7 @@ struct UpdateNoteInput: Encodable, Sendable {
         try c.encodeIfPresent(title, forKey: .title)
         try c.encodeIfPresent(content, forKey: .content)
         try c.encodeIfPresent(tags, forKey: .tags)
-        try c.encodeIfPresent(mood, forKey: .mood)
+        try c.encodeNullable(mood, forKey: .mood)
         try c.encodeIfPresent(photo_urls, forKey: .photo_urls)
         // Double-optional: .none = omit, .some(nil) = encode JSON null, .some(x) = encode x
         if let tx = transaction_id {

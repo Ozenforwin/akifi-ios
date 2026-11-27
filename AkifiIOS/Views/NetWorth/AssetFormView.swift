@@ -172,6 +172,7 @@ struct AssetFormView: View {
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let editing = editingAsset, let onUpdate {
+            // `.some(nil)` clears a removed note / date (V4).
             let update = UpdateAssetInput(
                 name: name,
                 category: category.rawValue,
@@ -179,8 +180,8 @@ struct AssetFormView: View {
                 currency: currency.code,
                 icon: nil,
                 color: nil,
-                notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-                acquired_date: acquiredString
+                notes: .some(trimmedNotes.isEmpty ? nil : trimmedNotes),
+                acquired_date: .some(acquiredString)
             )
             do {
                 try await onUpdate(editing.id, update)

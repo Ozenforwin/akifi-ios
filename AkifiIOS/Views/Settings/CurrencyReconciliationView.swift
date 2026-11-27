@@ -237,6 +237,16 @@ struct CurrencyReconciliationView: View {
         }
     }
 
+    /// Today's rate `from` → `to` from USD-pivot `rates` for the PREVIEW;
+    /// nil when either side is missing or zero — never a guessed 1.0 (V9).
+    /// The save path converts with fresh write rates (M5).
+    nonisolated static func fallbackRate(from: String, to: String, rates: [String: Double]) -> Decimal? {
+        let src = from.uppercased(), dst = to.uppercased()
+        guard src != dst else { return 1 }
+        guard let fromRate = rates[src], fromRate != 0, fromRate.isFinite,
+              let toRate = rates[dst], toRate != 0, toRate.isFinite else { return nil }
+        return Decimal(toRate) / Decimal(fromRate)
+    }
 }
 
 private struct SuspiciousRow: Identifiable {
@@ -369,12 +379,9 @@ private struct ReconciliationRow: View {
             // Same priority as `applyDecision`: resolved rate > today's
             // rate. The preview number must match what actually gets
             // saved.
-            let rate: Decimal = resolved?.rate ?? {
-                let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
-                let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
-                return fromRate != 0 ? toRate / fromRate : 1
-            }()
-            let converted = amount * rate
+            let rate: Decimal? = resolved?.rate
+                ?? CurrencyReconciliationView.fallbackRate(from: labelCode.code, to: accountCode.code, rates: cm.rates)
+            let converted = rate.map { amount * $0 }
             let provenance = rateProvenance
 
             Button {
@@ -390,7 +397,7 @@ private struct ReconciliationRow: View {
                     Text(TransactionFormView.formatRawAmount(amount, currency: labelCode))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Text("≈ \(TransactionFormView.formatRawAmount(converted, currency: accountCode))")
+                    Text(converted.map { "≈ \(TransactionFormView.formatRawAmount($0, currency: accountCode))" } ?? "≈ —")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                     Text(provenance.label)

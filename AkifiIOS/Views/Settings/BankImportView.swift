@@ -473,15 +473,19 @@ struct BankImportView: View {
         isImporting = true
         error = nil
 
-        let txToImport = selectedIndices.sorted().compactMap { idx -> ParsedTransaction? in
-            guard idx < result.transactions.count else { return nil }
-            return result.transactions[idx]
-        }
+        let selected = selectedIndices.sorted().filter { $0 < result.transactions.count }
+        var imported = 0
+        // Capture each inserted row so we can run subscription auto-match
+        // after the batch lands. Without this, bank-statement auto-debits
+        // (Netflix, Spotify, gym, etc) get persisted but never recorded
+        // against the matching subscription's payment history — the user
+        // sees the expense in the feed but the "История платежей" stays
+        // empty.
+        var insertedTxs: [Transaction] = []
 
         do {
             let txRepo = TransactionRepository()
             let userId = try await txRepo.currentUserId()
-            var imported = 0
 
             // ADR-001: bank statements come pre-denominated in the account's
             // currency (the bank can't send a RUB statement for a USD card),
@@ -493,14 +497,14 @@ struct BankImportView: View {
                 .currency
                 .uppercased()
 
-            // Capture each inserted row so we can run subscription auto-match
-            // after the batch lands. Without this, bank-statement auto-debits
-            // (Netflix, Spotify, gym, etc) get persisted but never recorded
-            // against the matching subscription's payment history — the user
-            // sees the expense in the feed but the "История платежей" stays
-            // empty.
-            var insertedTxs: [Transaction] = []
-            for tx in txToImport {
+            // Every row has an id derived from what it is (V3): when the
+            // network drops at row 120 of 200, the retry finds rows 1…119
+            // already there (23505) instead of inserting them again. Rows
+            // that land are deselected right away, so after a failure the
+            // button counts only what is left.
+            let rowIds = Self.importRowIds(for: result.transactions, accountId: targetAccountId)
+            for idx in selected {
+                let tx = result.transactions[idx]
                 let stored = Self.storedAmount(tx.amount, accountCurrency: targetAccountCurrency)
                 let input = CreateTransactionInput(
                     user_id: userId,
@@ -514,28 +518,61 @@ struct BankImportView: View {
                     category_id: tx.categoryId,
                     merchant_name: tx.merchantName
                 )
-                let created = try await txRepo.create(input)
-                insertedTxs.append(created)
-                imported += 1
+                let (created, inserted) = try await txRepo.createOnce(input.withClientId(rowIds[idx]))
+                // Already there from an earlier attempt: counted and
+                // auto-matched by that attempt, skipped here.
+                if inserted {
+                    insertedTxs.append(created)
+                    imported += 1
+                }
+                selectedIndices.remove(idx)
             }
 
-            await appViewModel.dataStore.loadAll()
-
-            // Run the same hook that `DataStore.addTransaction` calls for
-            // manual rows. Each match inserts a `subscription_payments` row
-            // and advances `last_payment_date` / `next_payment_date` on the
-            // subscription, so the statement run-through behaves like the
-            // user tapped "Mark as paid" on each matching subscription.
-            for tx in insertedTxs {
-                await appViewModel.dataStore.attemptAutoMatch(for: tx)
-            }
+            await finishImport(insertedTxs)
             AnalyticsService.logImportStatement()
             importResult = ImportResult(imported: imported, skipped: result.transactions.count - imported)
         } catch {
             self.error = error.localizedDescription
+            // The rows that landed before the failure are real — show them
+            // (and match them) now, not only after a successful retry.
+            if !insertedTxs.isEmpty { await finishImport(insertedTxs) }
         }
 
         isImporting = false
+    }
+
+    private func finishImport(_ insertedTxs: [Transaction]) async {
+        await appViewModel.dataStore.loadAll()
+
+        // Run the same hook that `DataStore.addTransaction` calls for
+        // manual rows. Each match inserts a `subscription_payments` row
+        // and advances `last_payment_date` / `next_payment_date` on the
+        // subscription, so the statement run-through behaves like the
+        // user tapped "Mark as paid" on each matching subscription.
+        for tx in insertedTxs {
+            await appViewModel.dataStore.attemptAutoMatch(for: tx)
+        }
+    }
+
+    /// Client id of each parsed row: a hash of the target account, the
+    /// day, the amount, the type and the description — plus the row's
+    /// ordinal among identical rows, so two genuine 150 ₽ coffees on one
+    /// day stay two rows. Same statement + same account → same ids on
+    /// every attempt, and on a re-import of the same PDF (V3).
+    nonisolated static func importRowIds(for rows: [ParsedTransaction], accountId: String?) -> [String] {
+        var seen: [[String]: Int] = [:]
+        return rows.map { tx in
+            let key = [
+                accountId ?? "",
+                String(tx.date.prefix(10)),
+                String(describing: tx.amount),
+                tx.type,
+                tx.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            ]
+            let ordinal = seen[key, default: 0]
+            seen[key] = ordinal + 1
+            return DeterministicUUID.make(parts: ["bank-import"] + key + [String(ordinal)])
+        }
     }
 
     /// The statement amount as written to `amount` / `amount_native`, main

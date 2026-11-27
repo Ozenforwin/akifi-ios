@@ -54,17 +54,24 @@ struct SubscriptionMatchBanner: View {
                 Rectangle()
                     .fill(Color.accent.opacity(0.7))
                     .frame(width: geo.size.width * progress, height: 2)
-                    .animation(.linear(duration: duration), value: progress)
             }
             .frame(height: 2)
             .clipShape(RoundedRectangle(cornerRadius: 2))
         }
         .padding(.horizontal, 12)
         .transition(.move(edge: .top).combined(with: .opacity))
-        .task {
-            progress = 0.0
-            try? await Task.sleep(for: .seconds(duration))
-            // If still the same match, dismiss it.
+        // One timer per match (V9). The old `.task` ignored cancellation:
+        // when a second match replaced the first, the first banner's
+        // cancelled sleep returned at once and its `onDismiss` cleared the
+        // SECOND match before its undo window had even started.
+        .task(id: match.id) {
+            progress = 1.0
+            withAnimation(.linear(duration: duration)) { progress = 0.0 }
+            do {
+                try await Task.sleep(for: .seconds(duration))
+            } catch {
+                return
+            }
             onDismiss()
         }
     }

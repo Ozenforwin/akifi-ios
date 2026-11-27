@@ -37,6 +37,33 @@ final class TransactionRepository: Sendable {
         try await SupabaseManager.shared.currentUserId()
     }
 
+    /// One row by id (as RLS shows it), nil when there is none.
+    func fetch(id: String) async throws -> Transaction? {
+        let rows: [Transaction] = try await supabase
+            .from("transactions")
+            .select()
+            .eq("id", value: id)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
+    }
+
+    /// `create`, idempotent on the input's client-generated `id`: when a
+    /// previous attempt already wrote that id (23505), the stored row is
+    /// returned instead of an error. For batches that must be safe to
+    /// retry after a partial failure — deterministic ids
+    /// (`DeterministicUUID`) make the second run skip what the first one
+    /// wrote (V1 deposit payouts, V3 bank import).
+    func createOnce(_ input: CreateTransactionInput) async throws -> (row: Transaction, inserted: Bool) {
+        do {
+            return (try await create(input), true)
+        } catch let error as PostgrestError where error.code == "23505" {
+            guard let id = input.id, let existing = try await fetch(id: id) else { throw error }
+            return (existing, false)
+        }
+    }
+
     /// Creates a transaction. If this is an expense with a different
     /// `payment_source_account_id` than `account_id`, routes through the
     /// `create_expense_with_auto_transfer` RPC — atomic creation of the
