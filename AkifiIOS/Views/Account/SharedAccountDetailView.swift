@@ -76,7 +76,7 @@ struct SharedAccountDetailView: View {
     private var transactionsForAccount: [Transaction] {
         let key = ListKey(
             revision: dataStore.derivationRevision,
-            interval: settlementVM.selectedPeriod.dateInterval()
+            interval: settlementVM.selectedPeriod.transactionInterval()
         )
         return listMemo.value(for: key) {
             Self.settlementRows(dataStore.transactions, accountId: account.id, interval: key.interval)
@@ -399,7 +399,10 @@ struct SharedAccountDetailView: View {
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .opacity(state == .full ? 0.55 : 1.0)
         .contextMenu {
-            quickAction(for: tx, state: state ?? .open, context: context)
+            // M7: no recording on approximate (offline) numbers.
+            if settlementVM.canRecordSettlements {
+                quickAction(for: tx, state: state ?? .open, context: context)
+            }
         }
     }
 
@@ -541,16 +544,16 @@ struct SharedAccountDetailView: View {
 
     /// True when `tx` happened at or before the last cumulative settle, i.e.
     /// its share is already reconciled by a `settlements` row even though no
-    /// per-transaction mark exists for it. Compares two instants (D11): the
-    /// row's timestamp, not the UTC midnight of its day — otherwise an
-    /// expense booked in the evening counted as covered by a settlement
-    /// recorded that morning.
-    static func isCoveredBySettlement(_ tx: Transaction, watermark: Date?) -> Bool {
+    /// per-transaction mark exists for it. Compares the row's time, not the
+    /// UTC midnight of its day (D11) — and in ONE frame (M6): the row's time
+    /// is a local wall clock labelled UTC, `settled_at` a real instant, so
+    /// the watermark is moved onto the wall clock of `timeZone` first.
+    static func isCoveredBySettlement(_ tx: Transaction, watermark: Date?, timeZone: TimeZone = .current) -> Bool {
         guard let watermark else { return false }
-        let instant = TransactionInstant.parse(tx.rawDateTime)
+        let wallClock = TransactionInstant.parse(tx.rawDateTime)
             ?? txDateFormatter.date(from: String(tx.date.prefix(10)))
-        guard let instant else { return false }
-        return instant <= watermark
+        guard let wallClock else { return false }
+        return wallClock <= TransactionInstant.wallClock(of: watermark, in: timeZone)
     }
 
     /// The user who actually funded this auto-transfer expense. The server's
@@ -563,8 +566,10 @@ struct SharedAccountDetailView: View {
         if let serverPayer = settlementVM.serverPayers[tx.id] {
             return serverPayer
         }
+        // Only a MEMBER can be the payer — the server's rule (M10).
         if let src = tx.paymentSourceAccountId,
-           let owner = dataStore.accounts.first(where: { $0.id == src })?.userId {
+           let owner = dataStore.accounts.first(where: { $0.id == src })?.userId,
+           memberWeights.contains(where: { $0.userId == owner }) {
             return owner
         }
         return tx.userId

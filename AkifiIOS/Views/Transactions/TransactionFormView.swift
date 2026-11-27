@@ -20,10 +20,18 @@ struct TransactionFormView: View {
     @State private var errorMessage: String?
     @State private var showCategoryPicker = false
     @State private var showCalculator = true
-    @State private var selectedCurrency: CurrencyCode = .rub
-    /// True once the user manually picked a currency in the form's picker.
-    /// Prevents account-change auto-sync from overriding their explicit choice.
-    @State private var userPickedCurrency = false
+    /// Entry currency + "the user picked it" (M4). Programmatic sync goes
+    /// through `follow` / `load`; only the picker's setter calls
+    /// `userSelected`.
+    @State private var entryCurrency = EntryCurrencyState(.rub)
+    private var selectedCurrency: CurrencyCode { entryCurrency.currency }
+    /// The picker's binding — the one place a choice counts as the user's.
+    private var currencyPickerSelection: Binding<CurrencyCode> {
+        Binding(
+            get: { entryCurrency.currency },
+            set: { entryCurrency.userSelected($0) }
+        )
+    }
 
     // MARK: - Large-expense confirmation state
 
@@ -273,10 +281,10 @@ struct TransactionFormView: View {
                             // unless the user has manually picked a currency.
                             // Without this, a default selectedCurrency=.rub on a
                             // VND account caused 2M VND → 26277 USD save bugs.
-                            if !userPickedCurrency, !isEditing,
-                               let id = newId,
-                               let acc = accounts.first(where: { $0.id == id }) {
-                                selectedCurrency = acc.currencyCode
+                            if !isEditing {
+                                entryCurrency.follow(
+                                    accountCurrency: newId.flatMap { id in accounts.first(where: { $0.id == id }) }?.currencyCode
+                                )
                             }
                         }
                     }
@@ -358,12 +366,6 @@ struct TransactionFormView: View {
                 if newValue != nil {
                     dismissOnboarding()
                 }
-            }
-            .onChange(of: selectedCurrency) { _, _ in
-                // Mark the choice as explicit so onChange(selectedAccountId)
-                // stops overriding it. Only matters for new transactions —
-                // editing flows route through prefillIfEditing.
-                if !isEditing { userPickedCurrency = true }
             }
             .alert(
                 String(localized: "transaction.confirmLargeExpense.title"),
@@ -554,7 +556,7 @@ struct TransactionFormView: View {
         Menu {
             ForEach(currencyPrefs.activeCurrencies) { c in
                 Button {
-                    selectedCurrency = c
+                    currencyPickerSelection.wrappedValue = c
                 } label: {
                     // Short row format — long localized names break menu
                     // layout. Full names live in the searchable sheet below.
@@ -606,10 +608,8 @@ struct TransactionFormView: View {
         .accessibilityLabel(String(localized: "common.currency"))
         .accessibilityValue("\(selectedCurrency.symbol) \(selectedCurrency.localizedName)")
         .sheet(isPresented: $showFullCurrencyPicker) {
-            // `userPickedCurrency` flips automatically via the existing
-            // `.onChange(of: selectedCurrency)` handler in `body`, so
-            // we don't need an `onDismiss` callback here.
-            CurrencyPickerView(selection: $selectedCurrency)
+            // The binding's setter records the user's choice (M4).
+            CurrencyPickerView(selection: currencyPickerSelection)
         }
     }
 
@@ -727,9 +727,9 @@ struct TransactionFormView: View {
             // is selected yet.
             if let accId = selectedAccountId,
                let acc = accounts.first(where: { $0.id == accId }) {
-                selectedCurrency = acc.currencyCode
+                entryCurrency.load(acc.currencyCode)
             } else {
-                selectedCurrency = appViewModel.currencyManager.selectedCurrency
+                entryCurrency.load(appViewModel.currencyManager.selectedCurrency)
             }
             return
         }
@@ -743,13 +743,13 @@ struct TransactionFormView: View {
         if let fc = tx.foreignCurrency,
            let code = Currency(code: fc.uppercased()),
            let fa = tx.foreignAmount {
-            selectedCurrency = code
+            entryCurrency.load(code)
             calculatorState.setValue(fa)
         } else {
             // Account currency — look up from the live accounts list.
             let account = accounts.first(where: { $0.id == tx.accountId })
             let ccyCode = account?.currencyCode ?? appViewModel.currencyManager.dataCurrency
-            selectedCurrency = ccyCode
+            entryCurrency.load(ccyCode)
             calculatorState.setValue(tx.amountNative.displayAmount)
         }
 
@@ -866,6 +866,11 @@ struct TransactionFormView: View {
             return tx
         }()
 
+        // M5: conversions frozen into the row use only real, recent quotes
+        // (network or server `fx_rates`, < 48 h) — never the hard-coded
+        // fallback table an offline start renders with.
+        let rates = await cm.ratesForWrite(writeCurrencyCodes(accountCode: accountCode))
+
         // M3: a cross-currency entry without a rate is refused, never
         // stored 1:1.
         let entry: EntryAmounts
@@ -874,7 +879,7 @@ struct TransactionFormView: View {
                 amount: amountValue,
                 entryCurrency: selectedCurrency.code,
                 accountCurrency: accountCode.code,
-                rates: cm.rates,
+                rates: rates,
                 unchangedOriginal: unchangedOriginal
             )
         } catch {
@@ -943,7 +948,8 @@ struct TransactionFormView: View {
                         currencyLabel: txCurrencyLabel,
                         userId: userId,
                         dateStr: dateStr,
-                        newSource: resolvedNewSource
+                        newSource: resolvedNewSource,
+                        rates: rates
                     )
                 } else {
                     // Route through auto-transfer update RPC only when this is
@@ -992,7 +998,7 @@ struct TransactionFormView: View {
                                     amountInAccountCurrency,
                                     from: accountCode.code,
                                     to: srcCode.code,
-                                    rates: cm.rates
+                                    rates: rates
                                 )
                             }
                             editSourceCurrency = srcCode.code
@@ -1032,7 +1038,8 @@ struct TransactionFormView: View {
                 let source = try sourceLegAmount(
                     sourceId: resolvedPaymentSource,
                     targetCode: accountCode,
-                    amountInAccountCurrency: amountInAccountCurrency
+                    amountInAccountCurrency: amountInAccountCurrency,
+                    rates: rates
                 )
                 let input = CreateTransactionInput(
                     user_id: userId,
@@ -1085,7 +1092,8 @@ struct TransactionFormView: View {
     private func sourceLegAmount(
         sourceId: String?,
         targetCode: CurrencyCode,
-        amountInAccountCurrency: Decimal
+        amountInAccountCurrency: Decimal,
+        rates: [String: Double]
     ) throws -> (amount: Decimal?, currency: String?) {
         guard let srcId = sourceId,
               let src = accounts.first(where: { $0.id == srcId }),
@@ -1096,9 +1104,26 @@ struct TransactionFormView: View {
             amountInAccountCurrency,
             from: targetCode.code,
             to: srcCode.code,
-            rates: appViewModel.currencyManager.rates
+            rates: rates
         )
         return (amount, srcCode.code)
+    }
+
+    /// Currencies a save may have to convert between: the entry, the
+    /// target account and every account an auto-transfer leg may sit on.
+    private func writeCurrencyCodes(accountCode: CurrencyCode) -> [String] {
+        var codes: Set<String> = [selectedCurrency.code, accountCode.code]
+        if let srcId = selectedPaymentSourceId, let src = accounts.first(where: { $0.id == srcId }) {
+            codes.insert(src.currencyCode.code)
+        }
+        if let groupId = editingTransaction?.autoTransferGroupId {
+            for leg in appViewModel.dataStore.transactions where leg.autoTransferGroupId == groupId {
+                if let accId = leg.accountId, let acc = accounts.first(where: { $0.id == accId }) {
+                    codes.insert(acc.currencyCode.code)
+                }
+            }
+        }
+        return Array(codes)
     }
 
     /// Client-side payment-source reassignment when editing an existing
@@ -1114,7 +1139,8 @@ struct TransactionFormView: View {
         currencyLabel: String,
         userId: String,
         dateStr: String,
-        newSource: String?
+        newSource: String?,
+        rates: [String: Double]
     ) async throws {
         // 0. Everything that can fail without touching the server first: a
         //    missing FX rate for the new source leg must not leave the user
@@ -1123,7 +1149,8 @@ struct TransactionFormView: View {
         let source = try sourceLegAmount(
             sourceId: newSource,
             targetCode: targetCode,
-            amountInAccountCurrency: amountInAccountCurrency
+            amountInAccountCurrency: amountInAccountCurrency,
+            rates: rates
         )
 
         // 1. Delete the old row. `DataStore.deleteTransaction` routes

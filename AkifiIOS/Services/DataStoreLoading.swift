@@ -45,6 +45,10 @@ struct DataStoreRemote: Sendable {
     var createTransaction: @Sendable (CreateTransactionInput) async throws -> Transaction
     var updateTransaction: @Sendable (_ id: String, UpdateTransactionInput) async throws -> Void
     var deleteTransaction: @Sendable (_ id: String) async throws -> Void
+    /// Both legs of a manual transfer, one request (Y8).
+    var deleteTransferGroup: @Sendable (_ groupId: String) async throws -> Void = {
+        try await TransactionRepository().deleteTransferGroup(groupId: $0)
+    }
 
     static let live = DataStoreRemote(
         fetchAll: { context in await LiveDataFetch.fetchAll(context) },
@@ -199,44 +203,82 @@ enum LiveDataFetch {
 /// not-yet-synced placeholders survive the fetch overwrite. Pure — runs off
 /// the main actor during a load.
 enum OfflineOverlay {
+    /// `deadLetters` (Y6) are applied first — they are older than anything
+    /// still queued — and their rows are marked `Transaction.unsyncedStatus`
+    /// ("не сохранено") instead of pending: the server refused them, the
+    /// user decides in Settings whether to retry or discard. A refused
+    /// delete leaves the row visible (the server still has it), marked.
     static func apply(
         _ operations: [PendingOperation],
+        deadLetters: [PendingOperation] = [],
         to fetched: [Transaction],
         nowISO: String
     ) -> [Transaction] {
-        guard !operations.isEmpty else { return fetched }
+        guard !operations.isEmpty || !deadLetters.isEmpty else { return fetched }
         var transactions = fetched
+        for op in deadLetters {
+            apply(op, to: &transactions, nowISO: nowISO, unsynced: true)
+        }
         for op in operations {
-            switch op.operation {
-            case .create(let input):
-                // The server row carries the client id (plain INSERT `id`,
-                // RPC `p_id`) — once it is there the placeholder must not be
-                // shown on top of it.
-                guard let clientId = input.id,
-                      !transactions.contains(where: { $0.id == clientId }) else { break }
-                let rows = input.routesToAutoTransferRPC
-                    ? Transaction.placeholderTriplet(for: input, nowISO: nowISO)
-                    : [Transaction.placeholder(for: input, nowISO: nowISO)]
-                transactions.insert(contentsOf: rows, at: 0)
-            case .update(let txId, let input):
-                if let idx = transactions.firstIndex(where: { $0.id == txId }) {
-                    let tx = transactions[idx]
-                    transactions[idx] = tx.applying(input)
-                    if input.useAutoTransferUpdate, let groupId = tx.autoTransferGroupId {
-                        patchAutoTransferLegs(in: &transactions, groupId: groupId, expenseId: txId, input: input)
-                    }
-                }
-            case .delete(let txId):
-                if let idx = transactions.firstIndex(where: { $0.id == txId }) {
-                    if let groupId = transactions[idx].autoTransferGroupId {
-                        transactions.removeAll { $0.autoTransferGroupId == groupId }
-                    } else {
-                        transactions.remove(at: idx)
-                    }
-                }
-            }
+            apply(op, to: &transactions, nowISO: nowISO, unsynced: false)
         }
         return transactions
+    }
+
+    private static func apply(
+        _ op: PendingOperation,
+        to transactions: inout [Transaction],
+        nowISO: String,
+        unsynced: Bool
+    ) {
+        func mark(_ indices: [Int]) {
+            guard unsynced else { return }
+            for i in indices { transactions[i].status = Transaction.unsyncedStatus }
+        }
+        switch op.operation {
+        case .create(let input):
+            // The server row carries the client id (plain INSERT `id`,
+            // RPC `p_id`) — once it is there the placeholder must not be
+            // shown on top of it.
+            guard let clientId = input.id,
+                  !transactions.contains(where: { $0.id == clientId }) else { return }
+            var rows = input.routesToAutoTransferRPC
+                ? Transaction.placeholderTriplet(for: input, nowISO: nowISO)
+                : [Transaction.placeholder(for: input, nowISO: nowISO)]
+            if unsynced {
+                for i in rows.indices { rows[i].status = Transaction.unsyncedStatus }
+            }
+            transactions.insert(contentsOf: rows, at: 0)
+        case .update(let txId, let input):
+            if let idx = transactions.firstIndex(where: { $0.id == txId }) {
+                let tx = transactions[idx]
+                transactions[idx] = tx.applying(input)
+                mark([idx])
+                if input.useAutoTransferUpdate, let groupId = tx.autoTransferGroupId {
+                    patchAutoTransferLegs(in: &transactions, groupId: groupId, expenseId: txId, input: input)
+                    mark(transactions.indices.filter { transactions[$0].autoTransferGroupId == groupId })
+                }
+            }
+        case .delete(let txId):
+            guard let idx = transactions.firstIndex(where: { $0.id == txId }) else { return }
+            let groupId = transactions[idx].autoTransferGroupId
+            if unsynced {
+                mark(transactions.indices.filter {
+                    groupId != nil ? transactions[$0].autoTransferGroupId == groupId : $0 == idx
+                })
+            } else if let groupId {
+                transactions.removeAll { $0.autoTransferGroupId == groupId }
+            } else {
+                transactions.remove(at: idx)
+            }
+        case .deleteTransferGroup(let groupId, _):
+            let isLeg: (Transaction) -> Bool = { $0.isManualTransferLeg(ofGroup: groupId) }
+            if unsynced {
+                mark(transactions.indices.filter { isLeg(transactions[$0]) })
+            } else {
+                transactions.removeAll(where: isLeg)
+            }
+        }
     }
 
     /// Local mirror of `update_expense_with_auto_transfer`: when the main
@@ -339,6 +381,7 @@ struct DataStoreChangeSet: Sendable {
     static func compute(
         fetched: RemoteFetchResult,
         overlay pendingOps: [PendingOperation],
+        deadLetters: [PendingOperation] = [],
         current: DataStoreContent,
         nowISO: String
     ) -> DataStoreChangeSet {
@@ -349,7 +392,9 @@ struct DataStoreChangeSet: Sendable {
         var set = DataStoreChangeSet()
         set.accounts = diff(fetched.accounts, current.accounts)
         set.transactions = diff(
-            fetched.transactions.map { OfflineOverlay.apply(pendingOps, to: $0, nowISO: nowISO) },
+            fetched.transactions.map {
+                OfflineOverlay.apply(pendingOps, deadLetters: deadLetters, to: $0, nowISO: nowISO)
+            },
             current.transactions
         )
         set.categories = diff(fetched.categories, current.categories)

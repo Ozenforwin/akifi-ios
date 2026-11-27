@@ -9,7 +9,7 @@ import Foundation
 /// # Versioning
 /// `schemaVersion` is bumped any time the layout changes in a
 /// backward-incompatible way. Widget providers must tolerate older payloads
-/// by treating unknown versions as stale and rendering the placeholder.
+/// by treating unknown versions as stale and rendering the empty state.
 struct SharedSnapshot: Codable, Sendable, Equatable {
     static let currentSchemaVersion = 1
 
@@ -69,8 +69,17 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
     /// Last day of the primary budget's window, "yyyy-MM-dd".
     var dailyLimitPeriodEnd: String? = nil
 
-    /// A neutral placeholder used by widget previews and cold-start cases
-    /// when the App Group container is empty.
+    /// What a widget shows (Y7): the snapshot the app wrote, or nothing —
+    /// the explicit «Откройте Akifi» state (signed out, fresh install,
+    /// unreadable payload). The sample numbers of `placeholder` are for
+    /// the widget gallery only; on a home screen they read as the user's
+    /// own money («125 000 ₽ на 3 счетах» after a sign-out).
+    static func forDisplay(stored: SharedSnapshot?, isPreview: Bool) -> SharedSnapshot? {
+        stored ?? (isPreview ? placeholder : nil)
+    }
+
+    /// Sample data for the widget gallery (`placeholder(in:)`,
+    /// `context.isPreview`) — never shown in place of real data.
     static let placeholder = SharedSnapshot(
         schemaVersion: currentSchemaVersion,
         lastUpdated: Date(timeIntervalSince1970: 0),

@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // bounded: one row per ISO currency code (~170 < max-rows 1000), not a
+  // bounded-fetch: one row per ISO currency code (~170 < max-rows 1000), not a
   // user-growing list.
   const { data: current, error: readError } = await supabase
     .from("fx_rates")

@@ -62,6 +62,14 @@ struct CompoundCalculatorView: View {
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
+                    .onChange(of: annualRatePercentText) { _, newValue in
+                        // 0–100 % (V2): the projection clamps anyway; the
+                        // field shows the rate actually used.
+                        if let value = DecimalInput.parse(newValue),
+                           value > CompoundProjector.maxAnnualRatePercent {
+                            annualRatePercentText = "\(CompoundProjector.maxAnnualRatePercent)"
+                        }
+                    }
                 Text("%")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -109,7 +117,7 @@ struct CompoundCalculatorView: View {
         CompoundProjector.project(
             principal: parseKopecks(principalText),
             monthlyContribution: parseKopecks(monthlyText),
-            annualReturn: parseDecimal(annualRatePercentText) / 100,
+            annualReturn: CompoundProjector.annualReturn(fromPercent: parseDecimal(annualRatePercentText)),
             years: Int(years)
         )
     }
@@ -231,18 +239,13 @@ struct CompoundCalculatorView: View {
 
     // MARK: - Parsing
 
+    /// Kopecks, saturated to Int64 — a 25-digit "principal" must not wrap
+    /// around (`Int64(truncating:)`) into a negative balance.
     private func parseKopecks(_ text: String) -> Int64 {
-        let value = parseDecimal(text)
-        var product = value * 100
-        var rounded = Decimal()
-        NSDecimalRound(&rounded, &product, 0, .plain)
-        return Int64(truncating: rounded as NSDecimalNumber)
+        CompoundProjector.clampToInt64(parseDecimal(text) * 100)
     }
 
     private func parseDecimal(_ text: String) -> Decimal {
-        let cleaned = text
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: cleaned) ?? 0
+        DecimalInput.parse(text) ?? 0
     }
 }

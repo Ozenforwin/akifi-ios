@@ -209,11 +209,15 @@ enum FIREProjector {
 
     /// Saturating Decimal → Int64 conversion. The FIRE target for an
     /// extreme-spend user could exceed Int64; cap rather than overflow.
-    private static func clampToInt64(_ value: Decimal) -> Int64 {
+    /// NaN (a Decimal overflow) saturates to `Int64.max` — `Int64(NaN)`
+    /// traps (V2).
+    static func clampToInt64(_ value: Decimal) -> Int64 {
+        guard !value.isNaN else { return Int64.max }
         var d = value
         var rounded = Decimal()
         NSDecimalRound(&rounded, &d, 0, .plain)
         let n = NSDecimalNumber(decimal: rounded).doubleValue
+        guard n.isFinite else { return n < 0 ? 0 : Int64.max }
         if n >= Double(Int64.max) { return Int64.max }
         if n <= 0 { return 0 }
         return Int64(n)

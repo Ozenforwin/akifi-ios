@@ -38,16 +38,14 @@ struct DepositContributeSheet: View {
         parseKopecks(amountText)
     }
 
-    private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal)? {
+    /// PREVIEW only (display rates): deposit → source directly (M1). The
+    /// save converts again in `DepositsViewModel.contribute` with write rates.
+    private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal?)? {
         guard let src = sourceAccount else { return nil }
-        let srcCcy = Currency(code: src.currency.uppercased()) ?? .rub
-        guard srcCcy != depositCurrency else { return nil }
-        let depositAmountUnits = Decimal(amountKopecks) / 100
-        let sourceAmountUnits = cm.convertToAccountCurrency(depositAmountUnits, accountCurrency: srcCcy)
-        let sourceKopecks = Int64(truncating: (sourceAmountUnits * 100) as NSDecimalNumber)
-        guard sourceAmountUnits > 0 else { return (sourceKopecks, 0) }
-        let rate = depositAmountUnits / sourceAmountUnits
-        return (sourceKopecks, rate)
+        guard let leg = try? DepositsViewModel.convertLeg(
+            kopecks: amountKopecks, from: depositAccount.currency, to: src.currency, rates: cm.rates
+        ), leg.isCrossCurrency else { return nil }
+        return (leg.kopecks, leg.depositPerSource)
     }
 
     private var isValid: Bool {
@@ -126,20 +124,18 @@ struct DepositContributeSheet: View {
         defer { isSaving = false }
 
         do {
-            let cross = crossCurrencyInfo
             try await viewModel.contribute(
                 to: deposit,
                 depositAccount: depositAccount,
                 amountInDeposit: amountKopecks,
                 sourceAccount: src,
-                sourceAmount: cross?.sourceKopecks,
-                fxRate: cross?.fxRate,
-                dataStore: dataStore
+                dataStore: dataStore,
+                currencyManager: cm
             )
             HapticManager.success()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
     }
 

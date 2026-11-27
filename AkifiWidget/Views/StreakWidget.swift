@@ -8,12 +8,12 @@ import WidgetKit
 /// Progress ring fills `currentStreak / nextMilestone`. Once the user hits
 /// the top milestone (365), the ring is full and subtitle says "Max".
 struct StreakWidgetView: View {
-    let entry: SnapshotEntry
+    let snapshot: SharedSnapshot
     let family: WidgetFamily
 
     private var progress: Double {
-        guard entry.snapshot.nextMilestone > 0 else { return 1.0 }
-        return min(1.0, Double(entry.snapshot.currentStreak) / Double(entry.snapshot.nextMilestone))
+        guard snapshot.nextMilestone > 0 else { return 1.0 }
+        return min(1.0, Double(snapshot.currentStreak) / Double(snapshot.nextMilestone))
     }
 
     var body: some View {
@@ -61,7 +61,7 @@ struct StreakWidgetView: View {
                         )
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 0) {
-                        Text(WidgetFormatters.streakCount(entry.snapshot.currentStreak))
+                        Text(WidgetFormatters.streakCount(snapshot.currentStreak))
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .minimumScaleFactor(0.5)
@@ -77,10 +77,8 @@ struct StreakWidgetView: View {
                     String(localized: "widget.streak.title", defaultValue: "Стрик")
                 )
                 .accessibilityValue(
-                    String(format: String(
-                        localized: "widget.streak.valueA11y",
-                        defaultValue: "%d дней, следующая веха %d"
-                    ), entry.snapshot.currentStreak, entry.snapshot.nextMilestone)
+                    // Plural forms live in Localizable.stringsdict.
+                    String(localized: "widget.streak.valueA11y \(snapshot.currentStreak) \(snapshot.nextMilestone)")
                 )
 
                 Text(String(
@@ -88,7 +86,7 @@ struct StreakWidgetView: View {
                         localized: "widget.streak.nextMilestone",
                         defaultValue: "До %d"
                     ),
-                    entry.snapshot.nextMilestone
+                    snapshot.nextMilestone
                 ))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -110,7 +108,7 @@ struct StreakWidgetView: View {
             VStack(spacing: 0) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 10, weight: .bold))
-                Text(WidgetFormatters.streakCount(entry.snapshot.currentStreak))
+                Text(WidgetFormatters.streakCount(snapshot.currentStreak))
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
@@ -120,7 +118,7 @@ struct StreakWidgetView: View {
             String(format: String(
                 localized: "widget.streak.lockLabel",
                 defaultValue: "Стрик: %d дн."
-            ), entry.snapshot.currentStreak)
+            ), snapshot.currentStreak)
         )
         .widgetURL(URL(string: "akifi://home"))
     }
@@ -160,6 +158,13 @@ private struct FamilyAwareStreakView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        StreakWidgetView(entry: entry, family: family)
+        if let snapshot = entry.snapshot {
+            StreakWidgetView(snapshot: snapshot, family: family)
+        } else {
+            WidgetEmptyStateView(
+                systemImage: "flame.fill",
+                title: LocalizedStringResource("widget.streak.title", defaultValue: "Стрик")
+            )
+        }
     }
 }

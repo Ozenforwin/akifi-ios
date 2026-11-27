@@ -5,12 +5,37 @@ struct ContributionSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
     let goal: SavingsGoal
-    let onContribute: (Int64, ContributionType, String?) async -> Void
+    /// (amount kopecks, type, note, counter-account id — see
+    /// `SavingsViewModel.accountLegs`). Throws (V7): a failure shows here
+    /// and the sheet stays open.
+    let onContribute: (Int64, ContributionType, String?, String?) async throws -> Void
 
     @State private var amountText = ""
     @State private var type: ContributionType = .contribution
     @State private var note = ""
     @State private var isSaving = false
+    @State private var saveError: String?
+    /// Where a contribution comes from / a withdrawal goes to (M2). nil =
+    /// contribution: the money is already on the goal's account;
+    /// withdrawal: it leaves that account.
+    @State private var counterAccountId: String?
+
+    /// "0,5" is 50 kopecks, not 0 — and 0 is not a contribution (V7).
+    private var parsedAmount: Int64? {
+        guard let kopecks = DecimalInput.kopecks(amountText), kopecks > 0 else { return nil }
+        return kopecks
+    }
+
+    /// The account the goal's money lives on.
+    private var linkedAccount: Account? {
+        guard let id = goal.accountId else { return nil }
+        return appViewModel.dataStore.accounts.first { $0.id == id }
+    }
+
+    private var counterCandidates: [Account] {
+        guard let linked = linkedAccount else { return [] }
+        return appViewModel.dataStore.accounts.filter { $0.id != linked.id }
+    }
 
     private var remaining: Int64 {
         max(goal.targetAmount - goal.currentAmount, 0)
@@ -40,6 +65,23 @@ struct ContributionSheetView: View {
                     }
                 }
 
+                if let linked = linkedAccount, !counterCandidates.isEmpty {
+                    Section(type == .withdrawal ? String(localized: "transfer.to") : String(localized: "transfer.from")) {
+                        // One Text per row: menu pickers drop extra children.
+                        Picker(type == .withdrawal ? String(localized: "transfer.to") : String(localized: "transfer.from"),
+                               selection: $counterAccountId) {
+                            Text(type == .withdrawal
+                                 ? String(format: String(localized: "contribution.counter.none.withdrawal"), linked.name)
+                                 : String(format: String(localized: "contribution.counter.none.deposit"), linked.name))
+                                .tag(String?.none)
+                            ForEach(counterCandidates) { acc in
+                                Text("\(acc.icon) \(acc.name)").tag(Optional(acc.id))
+                            }
+                        }
+                        .frame(minHeight: 44)
+                    }
+                }
+
                 Section(String(localized: "contribution.note")) {
                     TextField(String(localized: "contribution.optional"), text: $note)
                 }
@@ -65,18 +107,25 @@ struct ContributionSheetView: View {
                     Button(String(localized: "common.done")) {
                         Task { await save() }
                     }
-                    .disabled(amountText.isEmpty || isSaving)
+                    .disabled(parsedAmount == nil || isSaving)
                 }
             }
+            .errorAlert($saveError)
         }
     }
 
     private func save() async {
+        guard !isSaving, let amountCents = parsedAmount else { return }
         isSaving = true
-        guard let decimal = Decimal(string: amountText) else { return }
-        let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        defer { isSaving = false }
         let noteStr = note.isEmpty ? nil : note
-        await onContribute(amountCents, type, noteStr)
+        do {
+            try await onContribute(amountCents, type, noteStr, counterAccountId)
+        } catch {
+            HapticManager.error()
+            saveError = error.localizedDescription
+            return
+        }
         dismiss()
     }
 

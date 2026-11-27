@@ -41,10 +41,53 @@ enum PDFReportGenerator {
         /// Partners' invisible spending for shared budgets (see
         /// `DataStore.externalSpendByBudget`).
         var externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
+        /// The budgets section (M8): the CURRENT period of each budget, as
+        /// the Budgets tab shows it — `BudgetMetricsStore.resolved`, in the
+        /// budget's own currency. Built with `budgetLines(...)` on the main
+        /// actor; empty → no section.
+        var budgetLines: [BudgetLine] = []
 
         var currencyContext: BudgetMath.CurrencyContext {
             let accountsById = Dictionary(accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             return (accountsById, fxRates, currencyCode.uppercased())
+        }
+    }
+
+    /// One budget row of the PDF.
+    struct BudgetLine: Sendable, Equatable {
+        let name: String
+        /// Minor units of `currency`.
+        let spent: Int64
+        let limit: Int64
+        let utilization: Int
+        /// The budget's own currency — not the report's (a $500 budget
+        /// printed as «320 ₽ / 500 ₽» before, M8).
+        let currency: String
+        /// «19 окт – 17 ноя»: the window the numbers cover.
+        let periodLabel: String
+    }
+
+    /// Rows for `Input.budgetLines` from the same resolved metrics the
+    /// Budgets tab and the widget show. The report's month does not enter:
+    /// a budget is about its current window, and recomputing it over the
+    /// report month's rows printed «0 ₽ / 30 000 ₽» for October while
+    /// 12 000 ₽ were spent.
+    static func budgetLines(
+        budgets: [Budget],
+        resolved: [String: ResolvedBudgetMetrics],
+        currencyContext: BudgetMath.CurrencyContext,
+        periodLabel: (Date, Date) -> String
+    ) -> [BudgetLine] {
+        budgets.filter(\.isActive).compactMap { budget in
+            guard let r = resolved[budget.id] else { return nil }
+            return BudgetLine(
+                name: budget.name,
+                spent: r.metrics.spent,
+                limit: r.metrics.effectiveLimit,
+                utilization: r.metrics.utilization,
+                currency: BudgetMath.budgetCurrency(for: budget, currencyContext: currencyContext),
+                periodLabel: periodLabel(r.metrics.periodStart, r.metrics.periodEnd)
+            )
         }
     }
 
@@ -489,33 +532,27 @@ enum PDFReportGenerator {
         ctx: UIGraphicsPDFRendererContext
     ) -> Cursor {
         var c = cursor
-        let active = input.budgets.filter { $0.isActive }
-        guard !active.isEmpty else { return c }
+        let lines = input.budgetLines
+        guard !lines.isEmpty else { return c }
 
         c = ensureSpace(90, cursor: c, ctx: ctx)
-        drawSectionTitle(String(localized: "pdf.budgets"), at: &c.y)
+        // Not the report's period — say so (M8).
+        drawSectionTitle(String(localized: "pdf.budgets.currentPeriod"), at: &c.y)
 
         let rowFont = UIFont.systemFont(ofSize: 11, weight: .regular)
         let boldFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
+        let secondaryFont = UIFont.systemFont(ofSize: 9, weight: .regular)
 
-        let ctxCurrency = input.currencyContext
-        for budget in active {
-            c = ensureSpace(42, cursor: c, ctx: ctx)
-            let metrics = BudgetMath.compute(
-                budget: budget,
-                transactions: input.transactions,
-                subscriptions: input.subscriptions,
-                categories: input.categories,
-                externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
-                currencyContext: ctxCurrency
-            )
+        for line in lines {
+            c = ensureSpace(54, cursor: c, ctx: ctx)
+            let metrics = (spent: line.spent, effectiveLimit: line.limit, utilization: line.utilization)
 
-            let name = budget.name
+            let name = line.name
             name.draw(at: CGPoint(x: margin, y: c.y),
                       withAttributes: [.font: boldFont, .foregroundColor: primaryText])
 
-            let spent = formatAmount(metrics.spent, currency: input.currencyCode)
-            let limit = formatAmount(metrics.effectiveLimit, currency: input.currencyCode)
+            let spent = formatAmount(metrics.spent, currency: line.currency)
+            let limit = formatAmount(metrics.effectiveLimit, currency: line.currency)
             let spentStr = "\(spent) / \(limit)"
             let spentW = attributedSize(spentStr, font: rowFont).width
             spentStr.draw(
@@ -537,7 +574,12 @@ enum PDFReportGenerator {
                 : (metrics.utilization >= 80 ? .systemOrange : incomeColor)
             barColor.setFill()
             fill.fill()
-            c.y += 18
+            c.y += 10
+            line.periodLabel.draw(
+                at: CGPoint(x: margin, y: c.y),
+                withAttributes: [.font: secondaryFont, .foregroundColor: secondary]
+            )
+            c.y += 16
         }
         c.y += 10
         return c

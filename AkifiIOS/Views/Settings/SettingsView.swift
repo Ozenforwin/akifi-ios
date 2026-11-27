@@ -256,13 +256,13 @@ struct SettingsView: View {
                             Spacer()
                             Button(String(localized: "offline.syncFailed.retry")) {
                                 let dataStore = appViewModel.dataStore
-                                dataStore.offlineQueue.retryDeadLetters()
-                                Task { await dataStore.syncPendingOperations() }
+                                Task { await dataStore.retryUnsyncedOperations() }
                             }
                             .font(.subheadline)
                             .buttonStyle(.borderless)
                             Button(String(localized: "offline.syncFailed.discard"), role: .destructive) {
-                                appViewModel.dataStore.offlineQueue.discardDeadLetters()
+                                let dataStore = appViewModel.dataStore
+                                Task { await dataStore.discardUnsyncedOperations() }
                             }
                             .font(.subheadline)
                             .buttonStyle(.borderless)
@@ -273,8 +273,9 @@ struct SettingsView: View {
                 Section {
                     Button(role: .destructive) {
                         // Sign-out wipes the offline cache including queued
-                        // writes — never silently discard unsynced entries.
-                        if appViewModel.dataStore.offlineQueue.hasPending {
+                        // and refused writes — never silently discard
+                        // unsynced entries (Y6).
+                        if appViewModel.dataStore.offlineQueue.hasUnsynced {
                             showSignOutPendingWarning = true
                         } else {
                             Task { await appViewModel.signOut() }
@@ -302,7 +303,7 @@ struct SettingsView: View {
             } message: {
                 Text(String(
                     format: String(localized: "signout.pendingWarning"),
-                    appViewModel.dataStore.offlineQueue.pendingCount
+                    appViewModel.dataStore.offlineQueue.unsyncedCount
                 ))
             }
             .alert(String(localized: "settings.deleteAccount.title"), isPresented: $showDeleteConfirmation) {
@@ -327,8 +328,8 @@ struct SettingsView: View {
             } message: {
                 Text(String(localized: "settings.deleteAccount.finalWarning"))
             }
-            .alert("Error", isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
-                Button("OK") { deleteError = nil }
+            .alert(String(localized: "common.error"), isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })) {
+                Button(String(localized: "common.ok")) { deleteError = nil }
             } message: {
                 Text(deleteError ?? "")
             }
@@ -696,6 +697,9 @@ struct LanguagePickerView: View {
                 externalSpendByBudget: dataStore.externalSpendByBudget
             )
         )
-        await NotificationManager.scheduleWeeklyDigest(body: body)
+        await NotificationManager.syncWeeklyDigest(
+            body: body,
+            userId: appViewModel.authManager.currentUser?.id.uuidString.lowercased()
+        )
     }
 }

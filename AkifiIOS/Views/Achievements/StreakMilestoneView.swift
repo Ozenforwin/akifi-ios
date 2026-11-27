@@ -98,10 +98,7 @@ struct StreakMilestoneView: View {
                         .padding(.top, 8)
                         .padding(.horizontal, 24)
 
-                    Text(String(
-                        format: String(localized: "streak.milestone.subtitle"),
-                        info.days
-                    ))
+                    Text(String(localized: "streak.milestone.subtitle \(info.days)"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

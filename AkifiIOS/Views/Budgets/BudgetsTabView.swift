@@ -240,7 +240,9 @@ struct BudgetsTabView: View {
             .listStyle(.plain)
             .refreshable {
                 await dataStore.loadAll()
-                await viewModel.loadMetrics(dataStore: dataStore)
+                // An explicit pull always asks the server (Y2): a partner's
+                // spending may have changed nothing this phone can see.
+                await viewModel.loadMetrics(dataStore: dataStore, force: true)
             }
             // No-op when nothing changed since the last fetch; data changes
             // also refresh via SharedSnapshotWriter after every DataStore load.

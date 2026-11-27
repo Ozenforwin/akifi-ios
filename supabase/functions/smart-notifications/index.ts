@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { formatMoney, toDateOnly } from "../_shared/utils.ts";
 import { isCronAuthorized } from "../_shared/auth.ts";
 import { fetchAll } from "../_shared/paging.ts";
+import { selectCandidates } from "./select.ts";
 import { getRubRates } from "../_shared/fx.ts";
 import { tryConvertCurrency } from "../_shared/currency.ts";
 import { localDate, localHour, resolveTimeZone, startOfLocalDayUtc } from "../_shared/timezone.ts";
@@ -229,11 +230,11 @@ async function isInQuietHours(
 // ---------------------------------------------------------------------------
 // Rate limit check — "per day" is the user's local day, not the server's.
 // ---------------------------------------------------------------------------
-async function isRateLimited(
+async function dailyQuotaLeft(
   supabase: SupabaseClient,
   userId: string,
   dailyLimit: number,
-): Promise<boolean> {
+): Promise<number> {
   const todayStart = startOfLocalDayUtc(new Date(), await userTimeZone(supabase, userId));
 
   const { count } = await supabase
@@ -242,7 +243,55 @@ async function isRateLimited(
     .eq("user_id", userId)
     .gte("sent_at", todayStart.toISOString());
 
-  return (count ?? 0) >= dailyLimit;
+  return Math.max(0, (Number(dailyLimit) || 0) - (count ?? 0));
+}
+
+async function isRateLimited(
+  supabase: SupabaseClient,
+  userId: string,
+  dailyLimit: number,
+): Promise<boolean> {
+  return (await dailyQuotaLeft(supabase, userId, dailyLimit)) <= 0;
+}
+
+/// Keys of `candidates` already in notification_log for this user. One
+/// bounded read (a handful of keys per event); on error nothing is assumed
+/// sent — the unique (user_id, notification_key) insert still dedups.
+async function alreadySentKeys(
+  supabase: SupabaseClient,
+  userId: string,
+  candidates: { key: string }[],
+): Promise<Set<string>> {
+  const keys = [...new Set(candidates.map((c) => c.key))];
+  if (keys.length === 0) return new Set();
+  // bounded-fetch: at most one row per candidate key of this event (a handful)
+  const { data, error } = await supabase
+    .from("notification_log")
+    .select("notification_key")
+    .eq("user_id", userId)
+    .in("notification_key", keys);
+  if (error) {
+    console.error("notification_log key lookup failed:", error.code ?? error.message);
+    return new Set();
+  }
+  return new Set((data ?? []).map((r: { notification_key: string }) => r.notification_key));
+}
+
+/// Already-sent keys dropped first, then priority order, then the cap
+/// (per-event cap and the rest of the daily limit). See select.ts.
+async function pickForDelivery<T extends NotificationCandidate>(
+  supabase: SupabaseClient,
+  userId: string,
+  candidates: T[],
+  perEventCap: number,
+  dailyLimit: number,
+): Promise<T[]> {
+  if (candidates.length === 0) return [];
+  const [sent, quota] = await Promise.all([
+    alreadySentKeys(supabase, userId, candidates),
+    dailyQuotaLeft(supabase, userId, dailyLimit),
+  ]);
+  return selectCandidates(candidates, sent, Math.min(perEventCap, quota));
 }
 
 function deepLink(tab: string): string {
@@ -364,6 +413,8 @@ interface BudgetMetricRow {
   utilization: number;
   member_ids: string[];
   alert_thresholds: number[] | null;
+  /// Account currencies without an fx_rates row (their rows were added 1:1).
+  fx_missing?: string[];
 }
 
 interface MemberContext {
@@ -432,7 +483,7 @@ async function fetchBudgetMetrics(
   ctx: MemberContext,
   budgetIds?: string[],
 ): Promise<BudgetMetricRow[]> {
-  // One jsonb value, not a row set — max-rows cannot truncate it (ADR-003).
+  // bounded-fetch: one jsonb value, not a row set — max-rows cannot truncate it (ADR-003)
   const { data, error } = await supabase.rpc("get_budget_metrics", {
     p_today: localDateIn(ctx.tz),
     p_tz: ctx.tz,
@@ -481,6 +532,9 @@ function budgetWarningFor(
   lang: Lang,
 ): NotificationCandidate | null {
   if (!(m.effective_limit > 0)) return null;
+  // N8: without a rate for some account currency the server added those
+  // rows 1:1 (500 000 ₫ as 500 000 ₽) — never alert on such a number.
+  if ((m.fx_missing ?? []).length > 0) return null;
   const thresholds = m.alert_thresholds && m.alert_thresholds.length > 0
     ? m.alert_thresholds
     : [warningPercent, 100];
@@ -555,10 +609,12 @@ async function notifyBudgetPartners(
       if (await isRateLimited(supabase, partnerId, settings.daily_limit)) continue;
 
       const partnerMetrics = await fetchBudgetMetrics(supabase, partnerId, ctx, budgetIds);
-      const candidates = partnerMetrics
+      const all = partnerMetrics
         .map((m) => budgetWarningFor(m, settings.budget_warning_percent ?? 80, ctx.lang))
-        .filter((c): c is NotificationCandidate => c !== null)
-        .slice(0, MAX_BUDGET_ALERTS_PER_MEMBER);
+        .filter((c): c is NotificationCandidate => c !== null);
+      const candidates = await pickForDelivery(
+        supabase, partnerId, all, MAX_BUDGET_ALERTS_PER_MEMBER, settings.daily_limit,
+      );
       if (candidates.length === 0) continue;
 
       const result = await deliverNotifications(supabase, partnerId, ctx.chatId ?? 0, candidates, ctx.lang);
@@ -985,19 +1041,16 @@ async function handleTransactionInsert(
     return json({ ok: true, candidates: 0 });
   }
 
-  // Prioritize and limit notifications to avoid spamming the user.
-  // Priority: budget_warning > large_expense > savings_milestone
-  const PRIORITY: Record<string, number> = {
-    budget_warning: 1,
-    large_expense: 2,
-    weekly_pace: 3,
-    savings_milestone: 4,
-    inactivity: 5,
-  };
+  // Already-sent dropped first, then priority (budget_warning >
+  // large_expense > savings_milestone), then at most 2 per event and never
+  // past the daily limit.
   const MAX_NOTIFICATIONS_PER_EVENT = 2;
-
-  candidates.sort((a, b) => (PRIORITY[a.type] ?? 99) - (PRIORITY[b.type] ?? 99));
-  const limited = candidates.slice(0, MAX_NOTIFICATIONS_PER_EVENT);
+  const limited = await pickForDelivery(
+    supabase, userId, candidates, MAX_NOTIFICATIONS_PER_EVENT, settings.daily_limit,
+  );
+  if (limited.length === 0) {
+    return json({ ok: true, candidates: candidates.length, sent: 0, reason: "already_sent_or_limit" });
+  }
 
   const result = await deliverNotifications(
     supabase,
@@ -1080,12 +1133,12 @@ async function handleCronInactivity(
 async function handleCronWeeklyPace(
   supabase: SupabaseClient,
 ): Promise<Response> {
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id,telegram_chat_id,fcm_token,preferred_language")
-    .or("telegram_chat_id.not.is.null,fcm_token.not.is.null");
-
-  if (profilesError) throw profilesError;
+  // N10: every reachable profile, not the first 1000 (ADR-003).
+  const profiles = await fetchAll<{ id: string; telegram_chat_id: string | number | null; fcm_token: string | null; preferred_language: string | null }>(
+    "profiles(weekly_pace)",
+    () => supabase.from("profiles").select("id,telegram_chat_id,fcm_token,preferred_language", { count: "exact" })
+      .or("telegram_chat_id.not.is.null,fcm_token.not.is.null"),
+  );
 
   const users = (profiles ?? []) as {
     id: string;
@@ -1117,7 +1170,11 @@ async function handleCronWeeklyPace(
     if (await isRateLimited(supabase, user.id, settings.daily_limit)) continue;
 
     const userLang = normalizeLang(user.preferred_language);
-    const paceCandidates = await evaluateWeeklyPace(supabase, user.id, userLang);
+    const paceAll = await evaluateWeeklyPace(supabase, user.id, userLang);
+    // One push per budget can exceed the daily limit; cap by what is left.
+    const paceCandidates = await pickForDelivery(
+      supabase, user.id, paceAll, Number.POSITIVE_INFINITY, settings.daily_limit,
+    );
     if (paceCandidates.length === 0) continue;
 
     const result = await deliverNotifications(supabase, user.id, user.telegram_chat_id ?? 0, paceCandidates, userLang);

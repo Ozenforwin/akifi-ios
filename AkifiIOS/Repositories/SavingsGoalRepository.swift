@@ -85,6 +85,12 @@ struct CreateSavingsGoalInput: Encodable, Sendable {
     let account_id: String?
     let reminder_enabled: Bool
     let priority: Int
+    /// Percent, 0…100 (DB CHECK); 0 = no interest. NOT NULL columns with
+    /// defaults — the form collected them and dropped them (V7).
+    let interest_rate: Decimal
+    /// "annual" | "monthly".
+    let interest_type: String
+    let interest_compound: Bool
 }
 
 struct UpdateSavingsGoalInput: Encodable, Sendable {

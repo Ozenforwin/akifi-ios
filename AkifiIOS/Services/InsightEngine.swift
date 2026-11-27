@@ -81,6 +81,12 @@ enum InsightEngine {
         /// `DataStore.externalSpendByBudget`). `var` with a default so the
         /// memberwise init keeps existing call sites compiling.
         var externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
+        /// Budget metrics as the Budgets tab shows them
+        /// (`BudgetMetricsStore.resolved`, server numbers when available) —
+        /// the budget warning reads these (M8). `nil` → computed locally
+        /// (tests, callers without the store); a budget missing from a
+        /// non-nil map gets no warning rather than a second, different number.
+        var budgetMetrics: [String: BudgetMetrics]? = nil
 
         init(
             transactions: [Transaction],
@@ -93,7 +99,8 @@ enum InsightEngine {
             accountsById: [String: Account] = [:],
             fxRates: [String: Decimal] = [:],
             baseCode: String = "RUB",
-            externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:]
+            externalSpendByBudget: [String: [BudgetMath.ExternalSpendRow]] = [:],
+            budgetMetrics: [String: BudgetMetrics]? = nil
         ) {
             self.transactions = transactions
             self.categories = categories
@@ -106,6 +113,7 @@ enum InsightEngine {
             self.fxRates = fxRates
             self.baseCode = baseCode
             self.externalSpendByBudget = externalSpendByBudget
+            self.budgetMetrics = budgetMetrics
         }
 
         func amountInBase(_ tx: Transaction) -> Int64 {
@@ -244,14 +252,21 @@ enum InsightEngine {
 
         // 5. Budget warning — any budget past 85% utilization with days remaining
         for budget in input.budgets where budget.isActive {
-            let metrics = BudgetMath.compute(
-                budget: budget,
-                transactions: input.transactions,
-                subscriptions: input.subscriptions,
-                categories: input.categories,
-                externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
-                currencyContext: (input.accountsById, input.fxRates, input.baseCode)
-            )
+            let metrics: BudgetMetrics
+            if let resolved = input.budgetMetrics {
+                guard let m = resolved[budget.id] else { continue }
+                metrics = m
+            } else {
+                metrics = BudgetMath.compute(
+                    budget: budget,
+                    transactions: input.transactions,
+                    subscriptions: input.subscriptions,
+                    categories: input.categories,
+                    externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
+                    currencyContext: (input.accountsById, input.fxRates, input.baseCode),
+                    now: input.now
+                )
+            }
             if metrics.utilization >= 85 && metrics.remainingDays > 0 {
                 out.append(Insight(
                     id: "budget-\(budget.id)",

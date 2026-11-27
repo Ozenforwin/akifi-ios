@@ -26,8 +26,23 @@ struct ShareAccountView: View {
         inviteToken.map { String($0.prefix(12)).uppercased() }
     }
 
-    /// True iff we have ≥ 2 members and can meaningfully edit percentages.
-    private var canEditSplits: Bool { members.count >= 2 }
+    /// ≥ 2 members: shares mean something and are shown.
+    private var showsSplits: Bool { members.count >= 2 }
+
+    /// The viewer may change the shares. `account_members` UPDATE is
+    /// owner-only on the server (`is_account_owner`): the editor was shown
+    /// to every member, and an editor's save was a silent 0-row UPDATE
+    /// reported as "saved" (V10). Everyone else sees the shares read-only.
+    private var canEditSplits: Bool {
+        showsSplits && Self.isOwner(viewerId: appViewModel.dataStore.profile?.id, members: members)
+    }
+
+    /// Mirrors the server's `is_account_owner`: the viewer's own membership
+    /// row has role `owner`.
+    nonisolated static func isOwner(viewerId: String?, members: [AccountMember]) -> Bool {
+        guard let viewerId else { return false }
+        return members.contains { $0.userId == viewerId && $0.role == .owner }
+    }
 
     private var totalSplitPercent: Double {
         splitPercents.values.reduce(0, +)
@@ -60,6 +75,8 @@ struct ShareAccountView: View {
 
                                 if canEditSplits {
                                     splitStepper(for: member.userId)
+                                } else if showsSplits {
+                                    splitReadOnly(for: member.userId)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -67,6 +84,10 @@ struct ShareAccountView: View {
 
                         if canEditSplits {
                             splitsSummary
+                        } else if showsSplits {
+                            Text(String(localized: "share.split.ownerOnly"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -266,6 +287,18 @@ struct ShareAccountView: View {
     }
 
     @ViewBuilder
+    private func splitReadOnly(for userId: String) -> some View {
+        HStack {
+            Text(String(localized: "share.split.share"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(Int((splitPercents[userId] ?? 0).rounded()))%")
+                .font(.subheadline.monospacedDigit().weight(.semibold))
+        }
+    }
+
+    @ViewBuilder
     private var splitsSummary: some View {
         let total = Int(totalSplitPercent.rounded())
         let isValid = total != 0 && totalSplitPercent > 0
@@ -334,15 +367,21 @@ struct ShareAccountView: View {
         struct UpdatePayload: Encodable {
             let split_weight: Double
         }
+        struct UpdatedRow: Decodable { let id: String }
         do {
             for m in members {
                 let pct = clean[m.userId] ?? 0
                 // Persist as a 0..100 value; the calculator normalizes it.
-                try await supabase
+                // RLS filters an UPDATE it refuses down to zero rows — no
+                // error — so the returned rows are checked (V10).
+                let updated: [UpdatedRow] = try await supabase
                     .from("account_members")
                     .update(UpdatePayload(split_weight: pct))
                     .eq("id", value: m.id)
+                    .select("id")
                     .execute()
+                    .value
+                guard !updated.isEmpty else { throw SplitSaveError.notApplied }
             }
             splitPercents = clean
             splitSaveOK = true
@@ -356,6 +395,11 @@ struct ShareAccountView: View {
             self.error = error.localizedDescription
             HapticManager.error()
         }
+    }
+
+    private enum SplitSaveError: LocalizedError {
+        case notApplied
+        var errorDescription: String? { String(localized: "share.split.error.notApplied") }
     }
 
     private struct InviteParams: Encodable {
@@ -384,198 +428,5 @@ struct ShareAccountView: View {
         }
 
         isGenerating = false
-    }
-}
-
-// MARK: - Accept Invite View (for receiving user)
-
-struct AcceptInviteView: View {
-    /// What the invite joins. Same UI and error codes for both — only the
-    /// accepting RPC differs.
-    enum InviteKind {
-        case account, budget
-
-        var rpcName: String {
-            switch self {
-            case .account: "accept_account_invite"
-            case .budget: "accept_budget_invite"
-            }
-        }
-    }
-
-    @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var code: String
-    @State private var isAccepting = false
-    @State private var error: String?
-    @State private var success: String?
-    private let autoAccept: Bool
-    private let kind: InviteKind
-
-    private let supabase = SupabaseManager.shared.client
-
-    init(initialCode: String = "", kind: InviteKind = .account) {
-        _code = State(initialValue: initialCode)
-        autoAccept = !initialCode.isEmpty
-        self.kind = kind
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                if isAccepting {
-                    Spacer()
-                    ProgressView()
-                        .scaleEffect(1.3)
-                    Text(String(localized: "invite.joining"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 12)
-                    Spacer()
-                } else if let success {
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.green)
-                    Text(success)
-                        .font(.headline)
-                    Button(String(localized: "common.close")) { dismiss() }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.top, 8)
-                    Spacer()
-                } else if let error {
-                    Spacer()
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.orange)
-                    Text(error)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    manualEntrySection
-                    Spacer()
-                } else {
-                    manualEntrySection
-                }
-            }
-            .navigationTitle(String(localized: "invite.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
-                }
-            }
-            .task {
-                if autoAccept {
-                    await acceptInvite()
-                }
-            }
-        }
-    }
-
-    private var manualEntrySection: some View {
-        VStack(spacing: 12) {
-            Text(String(localized: "invite.pasteHint"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            TextField(String(localized: "invite.codePlaceholder"), text: $code)
-                .font(.system(.body, design: .monospaced))
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .padding(12)
-                .background(Color(.secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal, 16)
-
-            Button {
-                Task { await acceptInvite() }
-            } label: {
-                HStack {
-                    Spacer()
-                    Text(String(localized: "invite.accept"))
-                        .fontWeight(.semibold)
-                    Spacer()
-                }
-                .padding(.vertical, 12)
-                .background(code.count >= 16 ? Color.accent : Color.gray)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .disabled(code.count < 16 || isAccepting)
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-        }
-        .padding(.top, 20)
-    }
-
-    private struct AcceptParams: Encodable {
-        let p_token: String
-    }
-
-    /// Normalized accept-RPC outcome. The account RPC returns `success` as
-    /// a jsonb boolean, the budget RPC as the string "true" — parse both.
-    private struct AcceptOutcome {
-        let success: Bool
-        let errorCode: String?
-    }
-
-    private func callAcceptRPC(_ rpcName: String, token: String) async throws -> AcceptOutcome {
-        // bounded-fetch: the accept RPCs return a single jsonb object, not a row set.
-        let data = try await supabase
-            .rpc(rpcName, params: AcceptParams(p_token: token))
-            .execute()
-            .data
-        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        let success = (json["success"] as? Bool)
-            ?? ((json["success"] as? String) == "true")
-        return AcceptOutcome(success: success, errorCode: json["error"] as? String)
-    }
-
-    private func acceptInvite() async {
-        let cleanCode = code.replacingOccurrences(of: " ", with: "").lowercased()
-        guard cleanCode.count >= 16 else { return }
-
-        isAccepting = true
-        error = nil
-        success = nil
-
-        do {
-            var outcome = try await callAcceptRPC(kind.rpcName, token: cleanCode)
-
-            // The user doesn't know (and shouldn't care) whether a code or
-            // link opens an account or a budget — both share the same
-            // "/invite/*" universal-link path. When the primary kind doesn't
-            // recognize the token, try the other one.
-            if !outcome.success, outcome.errorCode == "invite_not_found" {
-                let other: InviteKind = kind == .account ? .budget : .account
-                let secondTry = try await callAcceptRPC(other.rpcName, token: cleanCode)
-                if secondTry.success || secondTry.errorCode != "invite_not_found" {
-                    outcome = secondTry
-                }
-            }
-
-            if outcome.success {
-                success = String(localized: "invite.success")
-                await appViewModel.dataStore.loadAll()
-                code = ""
-                if autoAccept {
-                    try? await Task.sleep(for: .seconds(1.5))
-                    dismiss()
-                }
-            } else {
-                switch outcome.errorCode ?? "unknown" {
-                case "invite_not_found": error = String(localized: "invite.errorNotFound")
-                case "invite_expired": error = String(localized: "invite.errorExpired")
-                case "already_member": error = String(localized: "invite.errorAlreadyMember")
-                default: error = String(localized: "invite.errorUnknown")
-                }
-            }
-        } catch {
-            self.error = error.localizedDescription
-        }
-
-        isAccepting = false
     }
 }

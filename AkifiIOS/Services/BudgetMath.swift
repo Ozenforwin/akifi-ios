@@ -85,15 +85,16 @@ enum BudgetMath {
         externalSpendRows: [ExternalSpendRow] = [],
         currencyContext: CurrencyContext,
         now: Date = Date(),
-        period overridePeriod: (start: Date, end: Date)? = nil
+        period overridePeriod: (start: Date, end: Date)? = nil,
+        members: Set<String>? = nil
     ) -> BudgetMetrics {
         let period = overridePeriod ?? currentPeriod(for: budget, now: now)
-        let spent = spentAmount(budget: budget, transactions: transactions, period: period, categories: categories, currencyContext: currencyContext)
+        let spent = spentAmount(budget: budget, transactions: transactions, period: period, categories: categories, currencyContext: currencyContext, members: members)
             + externalSpent(rows: externalSpendRows, budget: budget, period: period, currencyContext: currencyContext)
         let carry = rolloverCarry(
             budget: budget, currentPeriod: period, transactions: transactions,
             categories: categories, externalSpendRows: externalSpendRows,
-            currencyContext: currencyContext
+            currencyContext: currencyContext, members: members
         )
         let subCommitted = subscriptionCommitted(
             budget: budget, subscriptions: subscriptions, categories: categories, currencyContext: currencyContext
@@ -247,12 +248,13 @@ enum BudgetMath {
         transactions: [Transaction],
         categories: [Category],
         externalSpendRows: [ExternalSpendRow],
-        currencyContext: CurrencyContext
+        currencyContext: CurrencyContext,
+        members: Set<String>? = nil
     ) -> Int64 {
         guard budget.rolloverEnabled,
               let previous = previousPeriod(for: budget, currentStart: period.start) else { return 0 }
         let prevSpent = spentAmount(budget: budget, transactions: transactions, period: previous,
-                                    categories: categories, currencyContext: currencyContext)
+                                    categories: categories, currencyContext: currencyContext, members: members)
             + externalSpent(rows: externalSpendRows, budget: budget, period: previous,
                             currencyContext: currencyContext)
         return max(0, budget.amount - prevSpent)
@@ -285,12 +287,14 @@ enum BudgetMath {
         transactions: [Transaction],
         period: (start: Date, end: Date),
         categories: [Category] = [],
-        currencyContext: CurrencyContext
+        currencyContext: CurrencyContext,
+        members: Set<String>? = nil
     ) -> Int64 {
         let budgetCurrency = budgetCurrency(for: budget, currencyContext: currencyContext)
 
         return matchingTransactions(
-            budget: budget, transactions: transactions, period: period, categories: categories
+            budget: budget, transactions: transactions, period: period, categories: categories,
+            members: members
         ).reduce(Int64(0)) { acc, tx in
             acc + TransactionMath.amountInBase(
                 tx,
@@ -310,12 +314,13 @@ enum BudgetMath {
         transactions: [Transaction],
         categories: [Category] = [],
         externalSpendRows: [ExternalSpendRow] = [],
-        currencyContext: CurrencyContext
+        currencyContext: CurrencyContext,
+        members: Set<String>? = nil
     ) -> Int64 {
         let start = calendar.startOfDay(for: day)
         let period = (start: start, end: start)
         return spentAmount(budget: budget, transactions: transactions, period: period,
-                           categories: categories, currencyContext: currencyContext)
+                           categories: categories, currencyContext: currencyContext, members: members)
             + externalSpent(rows: externalSpendRows, budget: budget, period: period,
                             currencyContext: currencyContext)
     }
@@ -327,11 +332,19 @@ enum BudgetMath {
     ///
     /// Note the amounts are NOT FX-normalized here: rows keep their own
     /// currency for display, and only the sum needs a common denominator.
+    ///
+    /// `members` (server parity, migration 20261127180000): the budget's
+    /// members' rows count on any account; other people's rows only on an
+    /// account the budget explicitly lists in `account_ids`. A partner who
+    /// shares a card with one member but is not in the budget is not part of
+    /// it. Build it with `memberIds(for:viewerId:budgetMembers:)`; `nil`
+    /// applies no author rule (tests of the other rules).
     static func matchingTransactions(
         budget: Budget,
         transactions: [Transaction],
         period: (start: Date, end: Date),
-        categories: [Category] = []
+        categories: [Category] = [],
+        members: Set<String>? = nil
     ) -> [Transaction] {
         let categoryMatcher = CategoryMatcher(budgetCategoryIds: budget.categoryIds, categories: categories)
         // `Transaction.date` is stored as "yyyy-MM-dd" (truncated on decode),
@@ -353,10 +366,26 @@ enum BudgetMath {
             // budget spanning several accounts must see spending on each.
             if !accountIds.isEmpty {
                 guard let a = tx.accountId, accountIds.contains(a) else { return false }
+            } else if let members, !members.contains(tx.userId.lowercased()) {
+                // No linked accounts: only members' own rows. (With linked
+                // accounts every row on them counts — the guard above.)
+                return false
             }
             return true
         }
         .sorted { $0.date > $1.date }
+    }
+
+    /// Who the budget's spending belongs to, exactly as
+    /// `get_budget_metrics` sees it: the owner, every `budget_members` row —
+    /// and the viewer, who can only see this budget as its owner or a member
+    /// (RLS), so a members list that failed to load never drops their own
+    /// rows. Lowercased ids.
+    static func memberIds(for budget: Budget, viewerId: String?, budgetMembers: [BudgetMember]?) -> Set<String> {
+        var ids: Set<String> = [budget.userId.lowercased()]
+        if let viewerId, !viewerId.isEmpty { ids.insert(viewerId.lowercased()) }
+        for member in budgetMembers ?? [] { ids.insert(member.userId.lowercased()) }
+        return ids
     }
 
     // MARK: - External spend (shared budgets)

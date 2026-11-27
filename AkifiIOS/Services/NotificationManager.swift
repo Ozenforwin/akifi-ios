@@ -320,6 +320,70 @@ final class NotificationManager {
 
     static let weeklyDigestId = "weekly-digest"
 
+    /// Whether this device schedules its own weekly digest (N2) — one
+    /// source per device, the same rule as subscription reminders (D9):
+    /// - never unless the user opted in (`ai_user_settings.digest_opt_in`):
+    ///   the toggle OFF means no digest at all (product decision
+    ///   2026-11-27);
+    /// - never while the user switched notifications off (`enabled`) — the
+    ///   server skips those users too;
+    /// - never while the server sends it here: it does every Monday to
+    ///   opted-in users with a push channel to this device. The local copy
+    ///   was built from the numbers of the last app launch and arrived on
+    ///   top of the server's. The local one remains only for an opted-in
+    ///   user the server cannot reach on this device yet.
+    nonisolated static func shouldScheduleLocalWeeklyDigest(
+        notificationsEnabled: Bool,
+        digestOptIn: Bool,
+        serverPushRegistered: Bool
+    ) -> Bool {
+        notificationsEnabled && digestOptIn && !serverPushRegistered
+    }
+
+    /// Schedules (or cancels) the local weekly digest for `userId` per
+    /// `shouldScheduleLocalWeeklyDigest`, from the freshest settings it can
+    /// get — the server rows when reachable, this user's cached ones else.
+    static func syncWeeklyDigest(body: String, userId: String?) async {
+        guard let userId else {
+            cancelWeeklyDigest()
+            return
+        }
+        let settings = await freshNotificationSettings(userId: userId)
+        let optIn = await freshDigestOptIn(userId: userId)
+        let schedule = shouldScheduleLocalWeeklyDigest(
+            notificationsEnabled: settings?.enabled ?? NotificationSettings.defaults.enabled,
+            digestOptIn: optIn,
+            serverPushRegistered: serverDeliversSubscriptionReminders(userId: userId)
+        )
+        if schedule {
+            await scheduleWeeklyDigest(body: body)
+        } else {
+            cancelWeeklyDigest()
+        }
+    }
+
+    private static func freshNotificationSettings(userId: String) async -> NotificationSettings? {
+        do {
+            let row = try await withTimeout(seconds: 5) { try await NotificationRepository().fetchSettings() }
+            if let row { NotificationPreferencesCache.store(row, userId: userId) }
+            return row ?? NotificationPreferencesCache.settings(userId: userId)
+        } catch {
+            return NotificationPreferencesCache.settings(userId: userId)
+        }
+    }
+
+    private static func freshDigestOptIn(userId: String) async -> Bool {
+        do {
+            let fetched = try await withTimeout(seconds: 5) { try await AiRepository().fetchSettings() }
+            // No row = not opted in (the server's rule too).
+            let optIn = fetched?.digestOptIn ?? false
+            NotificationPreferencesCache.storeDigestOptIn(optIn, userId: userId)
+            return optIn
+        } catch {
+            return NotificationPreferencesCache.digestOptIn(userId: userId)
+        }
+    }
+
     /// Schedule a repeating weekly digest notification for Sunday at 10:00 local time.
     /// The body is provided eagerly — the system shows a static message each week.
     /// For a dynamic body you would need a silent background refresh, which is out
