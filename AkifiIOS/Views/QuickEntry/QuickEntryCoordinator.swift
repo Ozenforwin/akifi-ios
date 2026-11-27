@@ -41,6 +41,10 @@ final class QuickEntryCoordinator {
     @ObservationIgnored var makeSpeech: @MainActor () -> SpeechQuickEntry = { SpeechQuickEntry() }
     /// Submitter seam (tests, the DEBUG UI harness).
     @ObservationIgnored var configureSubmitter: (@MainActor (inout QuickEntrySubmitter) -> Void)?
+    #if DEBUG
+    /// UI harness: drives a just-presented sheet (repeat / save screenshots).
+    @ObservationIgnored var harnessDidPresent: (@MainActor (QuickEntrySheetModel) -> Void)?
+    #endif
 
     init() {
         #if DEBUG
@@ -93,6 +97,9 @@ final class QuickEntryCoordinator {
         let model = QuickEntrySheetModel(context: context, request: request, submitter: submitter, speech: makeSpeech())
         presented?.model.cancelVoice()
         presented = QuickEntryPresentation(request: request, model: model)
+        #if DEBUG
+        harnessDidPresent?(model)
+        #endif
     }
 
     /// The inbox's waiting request, unless another sheet of the shell is up

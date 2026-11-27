@@ -13,9 +13,8 @@ import Foundation
 /// | `empty` | expense mode, nothing typed (the «Повторить» strip shows) |
 /// | `typed` | «кофе 300» typed (Кафе preselected from the history) |
 /// | `voice` | voice mode with a scripted recognizer: «такси 450» heard, still listening |
-///
-/// The repeat and toast screenshots: tap a «Повторить» item / «Сохранить»
-/// with `idb ui tap`.
+/// | `repeat` | the first «Повторить» item applied |
+/// | `toast` | «кофе 300» saved (offline queue) — the «Записано · Отменить» toast |
 enum UIHarnessQuickEntry {
     static var state: String? {
         let arguments = ProcessInfo.processInfo.arguments
@@ -105,8 +104,8 @@ enum UIHarnessQuickEntry {
     /// The request the harness opens with.
     static func request() -> QuickEntryRequest? {
         switch state {
-        case "empty", "repeat", "toast": QuickEntryRequest(mode: .expense, source: .link)
-        case "typed": QuickEntryRequest(mode: .expense, source: .link, text: "кофе 300")
+        case "empty", "repeat": QuickEntryRequest(mode: .expense, source: .link)
+        case "typed", "toast": QuickEntryRequest(mode: .expense, source: .link, text: "кофе 300")
         case "voice": QuickEntryRequest(mode: .voice, source: .link)
         default: nil
         }
@@ -119,6 +118,21 @@ enum UIHarnessQuickEntry {
         coordinator.configureSubmitter = { submitter in
             submitter.userId = { "demo" }
             submitter.rates = { _ in ["USD": 1, "RUB": 92.5, "EUR": 0.92] }
+        }
+        coordinator.harnessDidPresent = { [weak coordinator] model in
+            switch state {
+            case "repeat":
+                if let item = model.repeatCandidates.first { model.applyRepeat(item) }
+            case "toast":
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2))
+                    if case .saved(let saved) = await model.save(confirmingLargeExpense: true) {
+                        coordinator?.didSave(saved)
+                    }
+                }
+            default:
+                break
+            }
         }
         if state == "voice" {
             coordinator.makeSpeech = {

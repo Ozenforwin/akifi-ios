@@ -488,10 +488,14 @@ struct QuickEntrySheet: View {
         if model.startsWithVoice {
             await model.startVoice()
         } else {
-            // The sheet is still animating in; focus a beat later or the
-            // keyboard doesn't come up.
-            try? await Task.sleep(for: .milliseconds(150))
-            isFieldFocused = true
+            // The sheet is still animating in: a focus request during the
+            // presentation can be dropped (seen on a slow device), so ask
+            // again until the field has it — unless voice took over.
+            for delay in [150, 350, 700] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                guard !Task.isCancelled, !isFieldFocused, model.voiceStatus == nil else { return }
+                isFieldFocused = true
+            }
         }
     }
 
