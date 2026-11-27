@@ -73,7 +73,7 @@ struct AccountCoverBackdrop: View {
 }
 
 /// The legibility scrim alone: flat over each text band of the Home card,
-/// easing through the gap between them (`AccountCoverScrim.stops`).
+/// easing from one to the other in the gap (`AccountCoverScrim.stops`).
 struct AccountCoverScrimView: View {
     let tone: AccountCoverTone
     var uniform = false

@@ -408,8 +408,8 @@ struct AccountCoverCropView: View {
                 // Cancel / Done only: no back button, and with it no edge
                 // swipe that would drop the crop mid-pan.
                 .navigationBarBackButtonHidden(true)
-                .toolbarBackground(Color.black, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
+                // The system bar over the black screen (no custom bar
+                // background — liquid-glass.md §2), its items light.
                 .toolbarColorScheme(.dark, for: .navigationBar)
                 .environment(\.colorScheme, .dark)
         }

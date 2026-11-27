@@ -45,15 +45,14 @@ struct AccountCoverImage: Sendable {
 /// SwiftUI composites in gamma-encoded sRGB: a pixel of value v under black
 /// at opacity a becomes v·(1−a).
 struct AccountCoverScrim: Equatable, Sendable {
-    /// Black opacity over the header band, the gap between the bands and
-    /// the balance band.
+    /// Black opacity over the header band and over the balance band (the
+    /// gap between them eases from one to the other — `stops`).
     let top: Double
-    let middle: Double
     let bottom: Double
     /// The even alternative (`AccountCoverScrimView(uniform:)`).
     let uniform: Double
 
-    static let floor = (top: 0.20, middle: 0.05, bottom: 0.30)
+    static let floor = (top: 0.20, bottom: 0.30)
     static let maxOpacity = 0.92
     static let normalContrast = 4.5
     static let increasedContrast = 7.0
@@ -78,23 +77,32 @@ struct AccountCoverScrim: Equatable, Sendable {
         }
         return AccountCoverScrim(
             top: min(max(floor.top, needed(tone.top)), maxOpacity),
-            middle: floor.middle,
             bottom: min(max(floor.bottom, needed(tone.bottom)), maxOpacity),
             uniform: min(max(floor.bottom, needed(tone.overall)), maxOpacity)
         )
     }
 
     /// Gradient stops (location, black opacity), top to bottom: flat over
-    /// each text band, easing through the gap between them.
+    /// each text band and a smoothstep hand-over between them — monotonic,
+    /// so the gap is never lighter than both bands. (A dip to a light
+    /// floor between the bands read as a bright stripe across the photo on
+    /// device, 2026-11-28; the eased ends leave no visible kink either.)
     var stops: [(location: Double, opacity: Double)] {
-        [
-            (0, top),
-            (AccountCoverTone.topBand.upperBound, top),
-            ((AccountCoverTone.topBand.upperBound + AccountCoverTone.bottomBand.lowerBound) / 2, middle),
-            (AccountCoverTone.bottomBand.lowerBound, bottom),
-            (1, bottom),
-        ]
+        let from = AccountCoverTone.topBand.upperBound
+        let to = AccountCoverTone.bottomBand.lowerBound
+        var result: [(location: Double, opacity: Double)] = [(0, top)]
+        for step in 0...Self.handOverSteps {
+            let t = Double(step) / Double(Self.handOverSteps)
+            let eased = t * t * (3 - 2 * t)
+            result.append((from + (to - from) * t, top + (bottom - top) * eased))
+        }
+        result.append((1, bottom))
+        return result
     }
+
+    /// Stops of the hand-over between the bands (enough that the linear
+    /// interpolation between them follows the curve without kinks).
+    static let handOverSteps = 8
 
     // MARK: - Colour math (WCAG 2.x)
 

@@ -54,6 +54,46 @@ final class AccountCoverFlowTests: XCTestCase {
         XCTAssertEqual(Set([a, a, b]).count, 2)
     }
 
+    /// Device feedback 2026-11-28 («полоса выглядит супер странно»): the
+    /// scrim dipped to a light floor between the two text bands — a bright
+    /// stripe across a photo. Between the bands it must go monotonically
+    /// from one band's opacity to the other's, and stay flat over each band.
+    func testTheScrimHasNoLightStripeBetweenTheBands() {
+        let tones = [
+            AccountCoverTone(top: 1, bottom: 1),
+            AccountCoverTone(top: 0.9, bottom: 0.2),
+            AccountCoverTone(top: 0.1, bottom: 0.95),
+            AccountCoverTone(top: 0.02, bottom: 0.02),
+        ]
+        for tone in tones {
+            for increased in [false, true] {
+                let scrim = AccountCoverScrim.make(for: tone, increasedContrast: increased)
+                let stops = scrim.stops
+                XCTAssertEqual(stops.first?.location, 0)
+                XCTAssertEqual(stops.last?.location, 1)
+                XCTAssertEqual(stops.map(\.location), stops.map(\.location).sorted(), "locations ascend")
+                let low = min(scrim.top, scrim.bottom), high = max(scrim.top, scrim.bottom)
+                for stop in stops {
+                    XCTAssertGreaterThanOrEqual(stop.opacity, low - 1e-9, "never lighter than both bands (\(tone))")
+                    XCTAssertLessThanOrEqual(stop.opacity, high + 1e-9)
+                    if AccountCoverTone.topBand.contains(stop.location) {
+                        XCTAssertEqual(stop.opacity, scrim.top, accuracy: 1e-9, "flat over the header")
+                    }
+                    if AccountCoverTone.bottomBand.contains(stop.location) {
+                        XCTAssertEqual(stop.opacity, scrim.bottom, accuracy: 1e-9, "flat over the balance")
+                    }
+                }
+                let opacities = stops.map(\.opacity)
+                let pairs = zip(opacities, opacities.dropFirst())
+                if scrim.bottom >= scrim.top {
+                    XCTAssertTrue(pairs.allSatisfy { $0 <= $1 + 1e-9 }, "monotonic (\(tone))")
+                } else {
+                    XCTAssertTrue(pairs.allSatisfy { $0 + 1e-9 >= $1 }, "monotonic (\(tone))")
+                }
+            }
+        }
+    }
+
     /// A modifier on a `Section` inside a `Form` is applied to every row:
     /// the section must not observe the picker or present anything — that
     /// is `accountCoverFlow(_:account:)`, attached once to the form.
