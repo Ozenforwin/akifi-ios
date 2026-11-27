@@ -3,6 +3,8 @@ import SwiftUI
 struct SpotlightOverlayView: View {
     let manager: SpotlightManager
 
+    private static let tooltipWidth: CGFloat = 300
+
     var body: some View {
         if manager.isActive, let step = manager.currentStep {
             ZStack {
@@ -88,7 +90,9 @@ struct SpotlightOverlayView: View {
             .padding(.top, 4)
         }
         .padding(16)
-        .frame(maxWidth: 320)
+        // The width `tooltipPosition` lays the card out with, so it keeps
+        // its 16 pt margin from the screen edges.
+        .frame(maxWidth: Self.tooltipWidth)
         // A content card over the dimmed screen — solid, no shadow, no
         // glass (overlays stay content, design doc §3).
         .background(
@@ -104,7 +108,7 @@ struct SpotlightOverlayView: View {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
         let tooltipHeight: CGFloat = 140
-        let tooltipWidth: CGFloat = 300
+        let tooltipWidth = Self.tooltipWidth
         let gap: CGFloat = 16
 
         let position: TooltipPosition
