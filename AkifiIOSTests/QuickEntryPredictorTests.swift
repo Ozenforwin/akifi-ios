@@ -121,6 +121,42 @@ final class QuickEntryPredictorTests: XCTestCase {
         XCTAssertEqual(result.map(\.categoryId).prefix(2), ["cat-food", "cat-taxi"])
     }
 
+    func testPartnersSameTextDoesNotBeatACategoryTheUserNamed() {
+        // Device 2026-11-28: «кофе 350» went to «Продукты» because the
+        // partner once filed «Кофе» there on the shared account, although
+        // the user has a «Кофе» category. Here: «такси» / «Такси».
+        let context = QE.context(transactions: [
+            QE.tx("t1", "такси", amount: 50000, category: "cat-food", raw: "2026-11-25T09:00:00", userId: QE.partner),
+        ])
+        let parse = QE.parse("такси 500", vocabulary: context.vocabulary)
+        let result = rank(parse.description, hints: parse.categoryHints, context: context)
+        XCTAssertEqual(result.first?.categoryId, "cat-taxi")
+        XCTAssertEqual(result.first?.reason, .categoryName)
+        XCTAssertGreaterThanOrEqual(result.first!.confidence, QuickEntryPredictor.autoApplyThreshold)
+        XCTAssertEqual(result.dropFirst().first?.categoryId, "cat-food", "the partner's filing stays as a chip")
+        XCTAssertLessThan(result[1].confidence, result[0].confidence)
+    }
+
+    func testOwnSameTextBeatsAPartnersAndTheName() {
+        let context = QE.context(transactions: [
+            QE.tx("t1", "такси", amount: 50000, category: "cat-taxi", raw: "2026-11-26T09:00:00", userId: QE.partner),
+            QE.tx("t2", "такси", amount: 50000, category: "cat-food", raw: "2026-11-20T09:00:00"),
+        ])
+        let parse = QE.parse("такси 500", vocabulary: context.vocabulary)
+        let result = rank(parse.description, hints: parse.categoryHints, context: context)
+        XCTAssertEqual(result.first?.categoryId, "cat-food", "the user's own most recent filing is the correction to learn")
+        XCTAssertEqual(result.first?.reason, .sameText)
+    }
+
+    func testPartnersSameTextStillHelpsWithoutAName() {
+        let context = QE.context(transactions: [
+            QE.tx("t1", "пятёрочка", amount: 50000, category: "cat-food", raw: "2026-11-25T09:00:00", userId: QE.partner),
+        ])
+        let result = rank("пятерочка", context: context)
+        XCTAssertEqual(result.first?.categoryId, "cat-food")
+        XCTAssertEqual(result.first?.reason, .sameText)
+    }
+
     func testSimilarText() {
         let context = QE.context(transactions: [
             QE.tx("t1", "латте с собой", amount: 30000, category: "cat-cafe", raw: "2026-11-20T09:00:00"),

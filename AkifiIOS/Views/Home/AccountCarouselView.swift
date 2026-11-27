@@ -210,6 +210,10 @@ struct AccountCardView: View {
     var onEdit: (() -> Void)?
 
     @ScaledMetric(relativeTo: .title3) private var iconTileSize: CGFloat = 40
+    /// The card keeps the pre-1.6 presence (≈190 pt with padding) — the
+    /// content-hugging card looked like a thin strip (Vladimir,
+    /// 2026-11-28). Grows with Dynamic Type; content can still exceed it.
+    @ScaledMetric(relativeTo: .body) private var contentMinHeight: CGFloat = 158
 
     private var accountColor: Color { Color(hex: account.color) }
     private var fmt: CurrencyManager { appViewModel.currencyManager }
@@ -218,11 +222,15 @@ struct AccountCardView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
+            // Balance at the bottom edge, like a card in Wallet.
+            Spacer(minLength: 0)
+
             VStack(alignment: .leading, spacing: 2) {
                 balanceRow
                 monthFlowRow
             }
         }
+        .frame(minHeight: contentMinHeight, alignment: .topLeading)
         .akifiCard(tint: accountColor)
     }
 

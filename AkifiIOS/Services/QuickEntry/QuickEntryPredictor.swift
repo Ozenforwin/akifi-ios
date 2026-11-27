@@ -63,9 +63,14 @@ struct QuickEntryRepeatItem: Equatable, Sendable, Identifiable {
 /// Pure: same context, text and clock → same answer.
 ///
 /// Ranking, per type (expense and income never mix):
-/// 1. same text — the category of the most recent row with this exact
-///    description or merchant;
-/// 2. category name — a word of the phrase names a category;
+/// 1. same text — the category of the user's most recent row with this
+///    exact description or merchant (a partner's row on a shared account
+///    when the user has none);
+/// 2. category name — a word of the phrase names a category. It goes
+///    first when only a partner's rows carry the same text: «кофе» filed
+///    under «Продукты» by a partner must not beat the user's own «Кофе»
+///    category (device feedback 2026-11-28). The user's own history still
+///    wins over a name — that is how a correction is learned;
 /// 3. similar text — fuzzy word overlap with past descriptions;
 /// 4. frequency — recency-weighted use, boosted at a similar time of day
 ///    and day of week.
@@ -120,29 +125,49 @@ enum QuickEntryPredictor {
         let identity = QuickEntryText.identityKey(text)
         let keys = QuickEntryText.matchKeys(text)
 
-        // 1. Same text.
+        // 2 (computed first). Categories the phrase names, strongest first.
+        var named: [(id: String, confidence: Double)] = []
+        for hint in nameHints where hint.type.rawValue == type.rawValue {
+            guard let id = context.displayCategoryIdById[hint.categoryId], valid.contains(id),
+                  !named.contains(where: { $0.id == id }) else { continue }
+            named.append((id, 0.6 + 0.25 * hint.confidence))
+        }
+
+        // 1. Same text: the user's most recent row, else a partner's.
+        var sameText: [(id: String, confidence: Double)] = []
+        var sameTextIsOwn = false
         if !identity.isEmpty {
             let same = items.filter {
                 ($0.identity == identity || $0.merchantIdentity == identity) && $0.categoryId.map(valid.contains) == true
             }
-            if let latest = same.first, let latestCategory = latest.categoryId {
+            let latestOwn = same.first(where: \.isOwn)
+            sameTextIsOwn = latestOwn != nil
+            if let latest = latestOwn ?? same.first, let latestCategory = latest.categoryId {
                 var byCategory: [String: Double] = [:]
                 for item in same { byCategory[item.categoryId!, default: 0] += weight(item) }
                 let total = byCategory.values.reduce(0, +)
                 let share = total > 0 ? (byCategory[latestCategory] ?? 0) / total : 1
                 let top = 0.7 + 0.25 * share
-                add(latestCategory, top, .sameText)
+                sameText.append((latestCategory, top))
                 for (id, w) in byCategory.sorted(by: { $0.value > $1.value }) where id != latestCategory {
-                    add(id, min(top - 0.01, 0.35 + 0.3 * (total > 0 ? w / total : 0)), .sameText)
+                    sameText.append((id, min(top - 0.01, 0.35 + 0.3 * (total > 0 ? w / total : 0))))
                 }
             }
         }
 
-        // 2. Category name in the phrase.
-        for hint in nameHints where hint.type.rawValue == type.rawValue {
-            if let id = context.displayCategoryIdById[hint.categoryId] {
-                add(id, 0.6 + 0.25 * hint.confidence, .categoryName)
-            }
+        // A named category goes first unless the user's own rows with this
+        // text say otherwise (a partner's filing never overrules the name).
+        let nameFirst: Bool = {
+            guard let topNamed = named.first else { return false }
+            guard let topSame = sameText.first else { return true }
+            return topSame.id != topNamed.id && !sameTextIsOwn
+        }()
+        if nameFirst, let topNamed = named.first {
+            for item in named { add(item.id, item.confidence, .categoryName) }
+            for item in sameText { add(item.id, min(item.confidence, topNamed.confidence - 0.01), .sameText) }
+        } else {
+            for item in sameText { add(item.id, item.confidence, .sameText) }
+            for item in named { add(item.id, item.confidence, .categoryName) }
         }
 
         // 3. Similar text.
