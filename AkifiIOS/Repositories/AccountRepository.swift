@@ -50,7 +50,9 @@ final class AccountRepository: Sendable {
         return accounts
     }
 
-    func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String = "rub", accountType: AccountType = .checking) async throws -> Account {
+    /// `currency` has no default on purpose (M3): a silent "rub" turned the
+    /// onboarding's first account into roubles for a USD user.
+    func create(name: String, icon: String, color: String, initialBalance: Int64, currency: String, accountType: AccountType = .checking) async throws -> Account {
         struct CreateInput: Encodable {
             let user_id: String
             let name: String
