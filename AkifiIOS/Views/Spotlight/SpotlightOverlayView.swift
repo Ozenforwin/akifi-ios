@@ -62,43 +62,38 @@ struct SpotlightOverlayView: View {
                 HStack(spacing: 4) {
                     ForEach(0..<manager.totalSteps, id: \.self) { i in
                         Circle()
-                            .fill(i == manager.currentStepIndex ? Color.accent : Color.gray.opacity(0.4))
+                            .fill(i == manager.currentStepIndex ? Color.accent : Color.secondary.opacity(0.4))
                             .frame(width: 6, height: 6)
                     }
                 }
+                .accessibilityHidden(true)
 
                 Spacer()
 
-                Button {
+                Button(String(localized: "spotlight.skip")) {
                     manager.skip()
-                } label: {
-                    Text(String(localized: "spotlight.skip"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
 
-                Button {
+                Button(manager.currentStepIndex == manager.totalSteps - 1
+                       ? String(localized: "spotlight.done")
+                       : String(localized: "spotlight.next")) {
                     manager.next()
-                } label: {
-                    Text(manager.currentStepIndex == manager.totalSteps - 1
-                         ? String(localized: "spotlight.done")
-                         : String(localized: "spotlight.next"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.accent)
-                        .clipShape(Capsule())
                 }
+                .buttonStyle(.akifiPrimary)
+                .buttonBorderShape(.capsule)
             }
+            .font(.subheadline.weight(.semibold))
             .padding(.top, 4)
         }
         .padding(16)
         .frame(maxWidth: 320)
+        // A content card over the dimmed screen — solid, no shadow, no
+        // glass (overlays stay content, design doc §3).
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
+            Color(.secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
         )
         .position(pos)
     }

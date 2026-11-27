@@ -15,7 +15,6 @@ import SwiftUI
 /// on a legacy row without re-entering the transaction from scratch.
 struct CurrencyReconciliationView: View {
     @Environment(AppViewModel.self) private var appViewModel
-    @Environment(\.dismiss) private var dismiss
 
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -99,66 +98,57 @@ struct CurrencyReconciliationView: View {
         resolvedRates = out
     }
 
+    /// Pushed from Settings: Home's stack provides the bar and the back
+    /// button (the old nested `NavigationStack` and its Done — same as
+    /// Back — are gone).
     var body: some View {
-        NavigationStack {
-            List {
-                if suspiciousRows.isEmpty {
-                    Section {
-                        VStack(spacing: 12) {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.largeTitle)
-                                .foregroundStyle(.green)
-                            Text(String(localized: "currencyReconciliation.empty.title"))
-                                .font(.headline)
-                            Text(String(localized: "currencyReconciliation.empty.subtitle"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                        .listRowBackground(Color.clear)
+        List {
+            if suspiciousRows.isEmpty {
+                Section {
+                    ContentUnavailableView {
+                        Label(String(localized: "currencyReconciliation.empty.title"), systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(Color.income)
+                    } description: {
+                        Text(String(localized: "currencyReconciliation.empty.subtitle"))
                     }
-                } else {
-                    Section {
-                        Text(String(localized: "currencyReconciliation.intro"))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(suspiciousRows) { row in
-                        ReconciliationRow(
-                            row: row,
-                            resolved: resolvedRates[row.transaction.id]
-                        ) { decision in
-                            await applyDecision(row: row, decision: decision)
-                        }
+                    .listRowBackground(Color.clear)
+                }
+            } else {
+                Section {
+                    Text(String(localized: "currencyReconciliation.intro"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(suspiciousRows) { row in
+                    ReconciliationRow(
+                        row: row,
+                        resolved: resolvedRates[row.transaction.id]
+                    ) { decision in
+                        await applyDecision(row: row, decision: decision)
                     }
                 }
+            }
 
-                if let errorMessage {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                    }
+            if let errorMessage {
+                Section {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .font(.footnote)
                 }
             }
-            .navigationTitle(String(localized: "currencyReconciliation.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(String(localized: "common.done")) { dismiss() }
-                }
+        }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
+        .navigationTitle(String(localized: "currencyReconciliation.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .disabled(isLoading)
+        .overlay {
+            if isLoading {
+                ProgressView().controlSize(.large)
             }
-            .disabled(isLoading)
-            .overlay {
-                if isLoading {
-                    ProgressView().controlSize(.large)
-                }
-            }
-            .task {
-                await resolveRates(for: suspiciousRows)
-            }
+        }
+        .task {
+            await resolveRates(for: suspiciousRows)
         }
     }
 
@@ -353,18 +343,13 @@ private struct ReconciliationRow: View {
                     .font(.caption.weight(.semibold))
                 Text(TransactionFormView.formatRawAmount(amount, currency: row.account.currencyCode))
                     .font(.caption2)
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.green.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.green.opacity(0.3), lineWidth: 0.5)
-            )
+            .background(Color.income.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isActing)
@@ -396,24 +381,20 @@ private struct ReconciliationRow: View {
                         .font(.caption.weight(.semibold))
                     Text(TransactionFormView.formatRawAmount(amount, currency: labelCode))
                         .font(.caption2)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                     Text(converted.map { "≈ \(TransactionFormView.formatRawAmount($0, currency: accountCode))" } ?? "≈ —")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                     Text(provenance.label)
                         .font(.caption2)
-                        .foregroundStyle(provenance.isApproximate ? .orange : .secondary)
+                        .foregroundStyle(provenance.isApproximate ? Color.warning : .secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.orange.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.orange.opacity(0.3), lineWidth: 0.5)
-                )
+                .background(Color.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(isActing)

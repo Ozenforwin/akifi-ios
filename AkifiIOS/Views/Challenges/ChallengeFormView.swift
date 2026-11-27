@@ -93,12 +93,15 @@ struct ChallengeFormView: View {
                         }
                         Spacer()
                         if selectedType == type {
-                            Image(systemName: "checkmark.circle.fill")
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
                                 .foregroundStyle(Color.accent)
                         }
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedType == type ? .isSelected : [])
             }
         }
     }
@@ -121,33 +124,19 @@ struct ChallengeFormView: View {
 
     private var categorySection: some View {
         Section(String(localized: "challenges.form.category")) {
-            Menu {
-                ForEach(dataStore.displayCategories.filter { $0.type == .expense }) { cat in
-                    Button {
-                        selectedCategoryId = cat.id
-                    } label: {
-                        Label("\(cat.icon) \(cat.name)", systemImage: selectedCategoryId == cat.id ? "checkmark" : "")
-                    }
+            // System menu picker; one Text per row (menu pickers drop
+            // extra children).
+            Picker(String(localized: "challenges.form.category"), selection: $selectedCategoryId) {
+                if selectedCategoryId == nil {
+                    Text(String(localized: "challenges.form.category.placeholder"))
+                        .tag(String?.none)
                 }
-            } label: {
-                HStack {
-                    Text(selectedCategoryName)
-                        .foregroundStyle(selectedCategoryId == nil ? .secondary : .primary)
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                ForEach(dataStore.displayCategories.filter { $0.type == .expense }) { cat in
+                    Text("\(cat.icon) \(cat.name)").tag(Optional(cat.id))
                 }
             }
+            .pickerStyle(.menu)
         }
-    }
-
-    private var selectedCategoryName: String {
-        if let id = selectedCategoryId,
-           let cat = dataStore.categories.first(where: { $0.id == id }) {
-            return "\(cat.icon) \(cat.name)"
-        }
-        return String(localized: "challenges.form.category.placeholder")
     }
 
     private var durationSection: some View {

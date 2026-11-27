@@ -92,7 +92,7 @@ struct SavingsGoalFormView: View {
                                 .overlay {
                                     if selectedColor == color {
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 10, weight: .bold))
+                                            .font(.caption2.weight(.bold))
                                             .foregroundStyle(.white)
                                     }
                                 }

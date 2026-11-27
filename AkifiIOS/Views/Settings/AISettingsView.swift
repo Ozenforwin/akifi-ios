@@ -20,20 +20,22 @@ struct AISettingsView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(tone.displayName)
-                                    .font(.subheadline)
                                     .foregroundStyle(.primary)
                                 Text(tone.description)
-                                    .font(.caption)
+                                    .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if settings.tone == tone {
-                                Image(systemName: "checkmark.circle.fill")
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.semibold)
                                     .foregroundStyle(Color.accent)
                             }
                         }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(settings.tone == tone ? .isSelected : [])
                 }
             } header: {
                 Text(String(localized: "ai.section.tone"))
@@ -94,6 +96,7 @@ struct AISettingsView: View {
                 Text(String(localized: "ai.quietHoursDescription"))
             }
         }
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "ai.settings.title"))
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
@@ -101,17 +104,17 @@ struct AISettingsView: View {
                 ProgressView()
             }
         }
-        .overlay(alignment: .bottom) {
+        // "Saved" toast: a small glass capsule under the bar (1.6 banners).
+        .overlay(alignment: .top) {
             if showSavedToast {
-                Text(String(localized: "common.saved"))
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(.green.opacity(0.9))
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.bottom, 20)
+                Label(String(localized: "common.saved"), systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.income)
+                    .fixedSize()
+                    .akifiGlassBanner()
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .accessibilityAddTraits(.isStaticText)
             }
         }
         .task { await loadSettings() }

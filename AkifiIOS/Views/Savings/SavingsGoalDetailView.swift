@@ -11,89 +11,84 @@ struct SavingsGoalDetailView: View {
     let onContribute: (Int64, ContributionType, String?, String?) async throws -> Void
 
     @State private var showContribution = false
+    @ScaledMetric(relativeTo: .largeTitle) private var ringSize: CGFloat = 140
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Progress Circle
-                VStack(spacing: 12) {
+        List {
+            // Progress ring + amounts
+            Section {
+                VStack(spacing: 10) {
                     ZStack {
                         Circle()
-                            .stroke(.quaternary, lineWidth: 12)
+                            .stroke(Color(hex: goal.color).opacity(0.2), lineWidth: 12)
                         Circle()
                             .trim(from: 0, to: progress)
-                            .stroke(Color(hex: goal.color).gradient, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                            .stroke(Color(hex: goal.color), style: StrokeStyle(lineWidth: 12, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                             .animation(.spring(duration: 0.8), value: progress)
 
                         VStack(spacing: 4) {
                             Text(goal.icon)
-                                .font(.system(size: 36))
-                            Text("\(Int(progress * 100))%")
-                                .font(.title2.weight(.bold))
+                                .font(.largeTitle)
+                            Text(verbatim: "\(Int(progress * 100))%")
+                                .font(.title2.weight(.semibold))
+                                .monospacedDigit()
                         }
                     }
-                    .frame(width: 140, height: 140)
+                    .frame(width: ringSize, height: ringSize)
+                    .accessibilityHidden(true)
 
                     Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
-                        .font(.title.weight(.bold))
+                        .font(.largeTitle.weight(.semibold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     Text(String(localized: "savings.detail.ofTarget \(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .monospacedDigit()
 
                     if let days = daysRemaining, days > 0 {
                         Text(String(localized: "savings.detail.daysToDeadline \(days)"))
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                            .background(Color(.systemBackground))
-                            .clipShape(Capsule())
                     }
-                }
-                .padding(.top)
 
-                // Action button
-                Button {
-                    showContribution = true
-                } label: {
-                    Label(String(localized: "savings.contribute"), systemImage: "plus.circle.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accent.gradient)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .padding(.horizontal)
-
-                // Contributions history
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(String(localized: "savings.history"))
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    if contributions.isEmpty {
-                        Text(String(localized: "savings.noHistory"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    Button {
+                        showContribution = true
+                    } label: {
+                        Label(String(localized: "savings.contribute"), systemImage: "plus")
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                    } else {
-                        ForEach(contributions) { contribution in
-                            ContributionRowView(
-                                contribution: contribution,
-                                currencyManager: appViewModel.currencyManager
-                            )
-                        }
+                    }
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
+                    .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            }
+
+            // Contributions history
+            Section(String(localized: "savings.history")) {
+                if contributions.isEmpty {
+                    Text(String(localized: "savings.noHistory"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                } else {
+                    ForEach(contributions) { contribution in
+                        ContributionRowView(
+                            contribution: contribution,
+                            currencyManager: appViewModel.currencyManager
+                        )
                     }
                 }
-                .padding()
-                .background(Color(.systemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .padding(.horizontal)
             }
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(goal.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showContribution) {
@@ -109,15 +104,15 @@ struct ContributionRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: contribution.type == .withdrawal ? "arrow.down.circle.fill" : "arrow.up.circle.fill")
-                .foregroundStyle(contribution.type == .withdrawal ? .red : .green)
+                .foregroundStyle(contribution.type == .withdrawal ? Color.expense : Color.income)
                 .font(.title3)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(contribution.type.historyTitle)
-                    .font(.subheadline.weight(.medium))
                 if let note = contribution.note {
                     Text(note)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -127,9 +122,11 @@ struct ContributionRowView: View {
             let sign = contribution.type == .withdrawal ? "-" : "+"
             Text("\(sign)\(currencyManager.formatAmount(contribution.amount.displayAmount))")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(contribution.type == .withdrawal ? .red : .green)
+                .monospacedDigit()
+                .foregroundStyle(contribution.type == .withdrawal ? Color.expense : Color.income)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -11,7 +11,8 @@ struct LevelUpView: View {
     @State private var showParticles = false
     @State private var iconScale: CGFloat = 0.1
     @State private var pointsDisplayed = 0
-    @State private var glowOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var medalSize: CGFloat = 100
 
     private let particles = ["🎉", "🏆", "⭐", "💰", "🎯", "💎", "🔥", "✨", "🥇", "💫", "🌟", "🎊"]
 
@@ -23,19 +24,7 @@ struct LevelUpView: View {
         self.onDismiss = onDismiss
     }
 
-    private var tierGradient: LinearGradient {
-        switch tier {
-        case "gold":
-            return LinearGradient(colors: [Color(hex: "#FBBF24"), Color(hex: "#F59E0B"), Color(hex: "#D97706")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "silver":
-            return LinearGradient(colors: [Color(hex: "#D1D5DB"), Color(hex: "#9CA3AF"), Color(hex: "#6B7280")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "diamond":
-            return LinearGradient(colors: [Color(hex: "#67E8F9"), Color(hex: "#22D3EE"), Color(hex: "#06B6D4")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        default:
-            return LinearGradient(colors: [Color(hex: "#D97706"), Color(hex: "#B45309"), Color(hex: "#92400E")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-    }
-
+    /// Tier colour of the medal — meaning (bronze … diamond), flat.
     private var tierColor: Color {
         switch tier {
         case "gold": return Color(hex: "#FBBF24")
@@ -51,33 +40,26 @@ struct LevelUpView: View {
                 .ignoresSafeArea()
                 .onTapGesture { dismissAnim() }
 
-            // Particles
-            if showParticles {
+            // Particles (skipped with Reduce Motion)
+            if showParticles && !reduceMotion {
                 ForEach(0..<particles.count, id: \.self) { i in
                     EmojiParticle(emoji: particles[i], index: i)
                 }
             }
 
-            // Card
+            // Card — content over a dimmed screen: solid, no glass, no
+            // shadow (design doc §3, celebration overlays).
             if showCard {
                 VStack(spacing: 0) {
                     ZStack {
                         Circle()
-                            .fill(tierColor.opacity(glowOpacity * 0.3))
-                            .frame(width: 160, height: 160)
-                            .blur(radius: 30)
-
-                        ZStack {
-                            Circle()
-                                .fill(tierGradient)
-                                .frame(width: 100, height: 100)
-                                .shadow(color: tierColor.opacity(0.5), radius: 20, x: 0, y: 8)
-
-                            Text(icon)
-                                .font(.system(size: 48))
-                        }
-                        .scaleEffect(iconScale)
+                            .fill(tierColor)
+                        Text(icon)
+                            .font(.largeTitle)
                     }
+                    .frame(width: medalSize, height: medalSize)
+                    .scaleEffect(iconScale)
+                    .accessibilityHidden(true)
 
                     Text(String(localized: "achievement.unlocked"))
                         .font(.caption.weight(.semibold))
@@ -104,21 +86,20 @@ struct LevelUpView: View {
 
                     Button { dismissAnim() } label: {
                         Text(String(localized: "achievement.great"))
-                            .font(.headline)
-                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(tierGradient)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
                     .padding(.top, 24)
                     .padding(.horizontal, 24)
                 }
                 .padding(.vertical, 32)
                 .frame(maxWidth: 320)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .shadow(color: tierColor.opacity(0.3), radius: 30, x: 0, y: 10)
+                .background(
+                    Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                )
+                .padding(.horizontal, 24)
                 .transition(.asymmetric(
                     insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.8)),
                     removal: .opacity.combined(with: .scale(scale: 0.9))
@@ -129,8 +110,11 @@ struct LevelUpView: View {
             HapticManager.success()
 
             withAnimation(.spring(duration: 0.6, bounce: 0.3)) { showCard = true }
-            withAnimation(.spring(duration: 0.8, bounce: 0.4).delay(0.2)) { iconScale = 1.0 }
-            withAnimation(.easeIn(duration: 0.5).delay(0.3)) { glowOpacity = 1.0 }
+            if reduceMotion {
+                iconScale = 1.0
+            } else {
+                withAnimation(.spring(duration: 0.8, bounce: 0.4).delay(0.2)) { iconScale = 1.0 }
+            }
             withAnimation(.spring(duration: 0.5).delay(0.1)) { showParticles = true }
 
             // Count-up
@@ -163,6 +147,7 @@ private struct EmojiParticle: View {
     var body: some View {
         Text(emoji)
             .font(.system(size: CGFloat.random(in: 24...40)))
+            .accessibilityHidden(true)
             .offset(offset)
             .opacity(opacity)
             .rotationEffect(.degrees(rotation))

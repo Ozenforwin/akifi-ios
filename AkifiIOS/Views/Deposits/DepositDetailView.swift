@@ -49,8 +49,9 @@ struct DepositDetailView: View {
                 }
             }
             .padding(16)
-            .padding(.bottom, 120)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle(depositAccount?.name ?? String(localized: "deposit.item.title"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showContributeSheet) {
@@ -81,7 +82,7 @@ struct DepositDetailView: View {
     @ViewBuilder
     private var heroCard: some View {
         let total = viewModel.liveTotalValue(for: deposit)
-        let tint = Color(hex: "#7C3AED")
+        let tint = Color.budget
 
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "deposit.detail.totalTitle"))
@@ -89,7 +90,7 @@ struct DepositDetailView: View {
                 .foregroundStyle(.secondary)
 
             Text(formatAmount(total))
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .minimumScaleFactor(0.55)
@@ -100,34 +101,18 @@ struct DepositDetailView: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(tint.opacity(0.16))
+                    .background(tint.opacity(0.16), in: Capsule())
                     .foregroundStyle(tint)
-                    .clipShape(Capsule())
                 Text(formatRate(deposit.interestRate))
                     .font(.caption.weight(.semibold))
+                    .monospacedDigit()
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color(hex: "#16A34A").opacity(0.16))
-                    .foregroundStyle(Color(hex: "#16A34A"))
-                    .clipShape(Capsule())
+                    .background(Color.income.opacity(0.16), in: Capsule())
+                    .foregroundStyle(Color.income)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [tint.opacity(0.08), tint.opacity(0.18)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(tint.opacity(0.18), lineWidth: 0.5)
-        )
+        .akifiCard()
     }
 
     // MARK: - Breakdown
@@ -146,7 +131,7 @@ struct DepositDetailView: View {
             breakdownBox(
                 title: String(localized: "deposit.detail.accrued"),
                 value: "+\(formatAmount(accrued))",
-                color: Color(hex: "#16A34A")
+                color: Color.income
             )
         }
     }
@@ -155,25 +140,17 @@ struct DepositDetailView: View {
     private func breakdownBox(title: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.subheadline.weight(.bold))
+                .font(.headline)
                 .foregroundStyle(color)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .akifiCard()
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Term progress
@@ -194,7 +171,7 @@ struct DepositDetailView: View {
                     } else {
                         Text(String(localized: "deposit.overdue"))
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.warning)
                     }
                 } else {
                     Text(String(localized: "deposit.openEnded"))
@@ -203,48 +180,23 @@ struct DepositDetailView: View {
                 }
             }
 
-            ZStack {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.primary.opacity(0.08))
-                            .frame(height: 8)
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(hex: "#7C3AED"), Color(hex: "#A78BFA")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: max(0, geo.size.width * progress), height: 8)
-                    }
-                }
-                .frame(height: 8)
-            }
+            ProgressView(value: progress)
+                .tint(Color.budget)
+                .accessibilityLabel(String(localized: "deposit.detail.term"))
 
             if let maturity = projectedMaturity() {
                 HStack {
                     Text(String(localized: "deposit.detail.maturityValue"))
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(formatAmount(maturity))
-                        .font(.caption.weight(.semibold))
+                        .font(.footnote.weight(.semibold))
                         .monospacedDigit()
                 }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .akifiCard()
     }
 
     // MARK: - Conditions
@@ -282,33 +234,25 @@ struct DepositDetailView: View {
             }
 
             Text(String(localized: "deposit.detail.rateImmutable"))
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-        )
+        .akifiCard()
     }
 
     @ViewBuilder
     private func conditionRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.caption.weight(.medium))
+                .font(.subheadline.weight(.medium))
                 .monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Contributions section
@@ -327,16 +271,7 @@ struct DepositDetailView: View {
                     }
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-            )
+            .akifiCard()
         }
     }
 
@@ -345,29 +280,30 @@ struct DepositDetailView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(formatDateDisplay(contrib.contributedAt))
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.medium))
                 if let srcId = contrib.sourceAccountId,
                    let src = dataStore.accounts.first(where: { $0.id == srcId }) {
                     Text(src.name)
-                        .font(.caption2)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+\(formatAmount(contrib.amount))")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(hex: "#16A34A"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.income)
                     .monospacedDigit()
                 if let srcCurr = contrib.sourceCurrency, let srcAmt = contrib.sourceAmount {
                     let srcCode = Currency(code: srcCurr.uppercased()) ?? .rub
                     Text("~ \(formatAmountInCurrency(srcAmt, currency: srcCode))")
-                        .font(.caption2)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Action buttons
@@ -378,32 +314,26 @@ struct DepositDetailView: View {
             Button {
                 showContributeSheet = true
             } label: {
-                Label(String(localized: "deposit.contribute"), systemImage: "plus.circle.fill")
-                    .font(.subheadline.weight(.semibold))
+                Label(String(localized: "deposit.contribute"), systemImage: "plus")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.accent.opacity(0.16))
-                    .foregroundStyle(Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-            Button {
+            .buttonStyle(.akifiPrimary)
+
+            Button(role: .destructive) {
                 showCloseConfirmation = true
             } label: {
                 Group {
                     if viewModel.isClosing(deposit) {
-                        ProgressView().tint(.orange)
+                        ProgressView()
                     } else {
-                        Label(String(localized: "deposit.closeEarly"), systemImage: "xmark.seal.fill")
+                        Label(String(localized: "deposit.closeEarly"), systemImage: "xmark.seal")
                     }
                 }
-                .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.orange.opacity(0.16))
-                .foregroundStyle(.orange)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .buttonStyle(.akifiSecondary)
         }
+        .controlSize(.large)
         // No second close (or top-up) while a payout is being written.
         .disabled(viewModel.isClosing(deposit))
     }

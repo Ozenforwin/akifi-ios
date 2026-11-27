@@ -50,11 +50,13 @@ struct JournalNoteDetailView: View {
                     tagsFlow(tags).padding(.horizontal, 16)
                 }
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 16)
             }
             .padding(.top, 8)
         }
-        .navigationTitle("")
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
+        .navigationTitle(displayType.localizedName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -70,7 +72,8 @@ struct JournalNoteDetailView: View {
                         Label(String(localized: "action.delete"), systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    // The system names this symbol "More" for VoiceOver.
+                    Image(systemName: "ellipsis")
                 }
             }
         }
@@ -183,15 +186,11 @@ struct JournalNoteDetailView: View {
                 }
                 Spacer()
                 Text(tx.date)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     // MARK: - Photos
@@ -362,12 +361,7 @@ struct ReflectionPeriodCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     @ViewBuilder

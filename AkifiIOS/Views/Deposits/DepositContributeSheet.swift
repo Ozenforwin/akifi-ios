@@ -91,7 +91,7 @@ struct DepositContributeSheet: View {
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.red)
                     }
                 }
@@ -99,10 +99,10 @@ struct DepositContributeSheet: View {
             .navigationTitle(String(localized: "deposit.contribute"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "common.save")) {
                         Task { await save() }
                     }
@@ -115,6 +115,8 @@ struct DepositContributeSheet: View {
                 }
             }
         }
+        // Two short sections: half height is enough, drag up for more.
+        .presentationDetents([.medium, .large])
     }
 
     private func save() async {

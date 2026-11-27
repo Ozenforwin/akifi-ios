@@ -1,22 +1,14 @@
 import SwiftUI
 
+/// One achievement in the grid: a round medal tinted with its tier colour
+/// (bronze / silver / gold / diamond carry meaning, so they stay — as flat
+/// colours, no gradients), a progress ring while locked and the name.
 struct AchievementBadgeView: View {
     let achievement: Achievement
     let isUnlocked: Bool
     let progress: Double
 
-    private var tierGradient: LinearGradient {
-        switch achievement.tier {
-        case .bronze:
-            return LinearGradient(colors: [Color(hex: "#D97706"), Color(hex: "#92400E")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .silver:
-            return LinearGradient(colors: [Color(hex: "#D1D5DB"), Color(hex: "#6B7280")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .gold:
-            return LinearGradient(colors: [Color(hex: "#FBBF24"), Color(hex: "#D97706")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case .diamond:
-            return LinearGradient(colors: [Color(hex: "#67E8F9"), Color(hex: "#06B6D4")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-    }
+    @ScaledMetric(relativeTo: .title) private var medalSize: CGFloat = 64
 
     private var tierColor: Color {
         switch achievement.tier {
@@ -33,58 +25,56 @@ struct AchievementBadgeView: View {
                 // Background circle
                 if isUnlocked {
                     Circle()
-                        .fill(tierGradient.opacity(0.15))
-                        .frame(width: 68, height: 68)
+                        .fill(tierColor.opacity(0.15))
                     Circle()
-                        .stroke(tierGradient, lineWidth: 2)
-                        .frame(width: 68, height: 68)
+                        .strokeBorder(tierColor, lineWidth: 2)
                 } else {
                     Circle()
-                        .fill(Color(.systemGray6))
-                        .frame(width: 68, height: 68)
+                        .fill(Color(.tertiarySystemFill))
                 }
 
                 // Icon or lock
                 if isUnlocked {
                     Text(achievement.icon)
-                        .font(.system(size: 30))
+                        .font(.title)
                 } else {
                     Image(systemName: achievement.isSecret ? "questionmark" : "lock.fill")
-                        .font(.title2)
-                        .foregroundStyle(Color(.systemGray3))
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
                 }
 
                 // Progress ring
                 if !isUnlocked && progress > 0 {
                     Circle()
                         .trim(from: 0, to: progress)
-                        .stroke(tierGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: 68, height: 68)
+                        .stroke(tierColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                 }
-
-                // Points badge (top-right)
+            }
+            .frame(width: medalSize, height: medalSize)
+            // Points badge (top-trailing)
+            .overlay(alignment: .topTrailing) {
                 if isUnlocked {
                     Text("\(achievement.points)")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(tierGradient)
-                        .clipShape(Capsule())
-                        .offset(x: 24, y: -28)
+                        .padding(.vertical, 1)
+                        .background(tierColor, in: Capsule())
+                        .offset(x: 6, y: -2)
                 }
             }
 
-            VStack(spacing: 2) {
-                Text(isUnlocked || !achievement.isSecret ? achievement.localizedName : "???")
-                    .font(.caption2.weight(.medium))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .foregroundStyle(isUnlocked ? .primary : .secondary)
-            }
+            Text(isUnlocked || !achievement.isSecret ? achievement.localizedName : "???")
+                .font(.caption.weight(.medium))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .foregroundStyle(isUnlocked ? .primary : .secondary)
         }
-        .frame(width: 95)
-        .opacity(isUnlocked ? 1 : 0.6)
+        .frame(maxWidth: .infinity)
+        .akifiCard(.compact, padding: 10)
+        .opacity(isUnlocked ? 1 : 0.7)
+        .accessibilityElement(children: .combine)
     }
 }

@@ -19,38 +19,24 @@ struct DepositsShortcutCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#A78BFA"), Color(hex: "#7C3AED")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "percent")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+            SettingsIconTile(systemName: "percent", color: Color.budget)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "deposit.title"))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(subtitleText)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
+        .accessibilityElement(children: .combine)
         .task {
             guard !hasLoaded else { return }
             hasLoaded = true

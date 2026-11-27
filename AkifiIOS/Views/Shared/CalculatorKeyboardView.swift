@@ -18,7 +18,7 @@ struct CalculatorKeyboardView: View {
                         .lineLimit(1)
                 }
                 Text(state.displayValue)
-                    .font(.system(size: 32, weight: .medium, design: .rounded).monospacedDigit())
+                    .font(.system(.largeTitle, design: .rounded, weight: .medium).monospacedDigit())
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -77,8 +77,7 @@ struct CalculatorKeyboardView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func calcButton(_ title: String, style: CalcButtonStyle, action: @escaping () -> Void) -> some View {
@@ -87,12 +86,14 @@ struct CalculatorKeyboardView: View {
             action()
         } label: {
             Text(title)
-                .font(.system(size: style == .confirm ? 16 : 20, weight: style.fontWeight, design: .rounded))
+                .font(.system(style == .confirm ? .headline : .title3, design: .rounded, weight: style.fontWeight))
                 .foregroundStyle(style.foregroundColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(style.backgroundColor)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .background(style.backgroundColor, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(CalcButtonPressStyle())
     }
