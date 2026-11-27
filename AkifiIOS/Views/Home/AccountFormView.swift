@@ -20,6 +20,8 @@ struct AccountFormView: View {
     @State private var showShareSheet = false
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    /// The «Обложка» flow — one per form (see `AccountCoverFlow`).
+    @State private var coverFlow = AccountCoverFlow()
 
     private let accountRepo = AccountRepository()
 
@@ -141,7 +143,7 @@ struct AccountFormView: View {
                 // lives in the account's folder). Owner: pick / crop /
                 // remove; members of a shared account: see it.
                 if let acc = editingAccount, AccountCoverPolicy.supportsCover(acc) {
-                    AccountCoverSection(account: acc)
+                    AccountCoverSection(account: acc, flow: coverFlow)
                 }
 
                 // Shared-account management — only for existing accounts.
@@ -218,6 +220,7 @@ struct AccountFormView: View {
                     }
                 }
             }
+            .accountCoverFlow(coverFlow, account: editingAccount)
             .navigationTitle(isEditing ? String(localized: "account.edit") : String(localized: "account.new"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -14,6 +14,7 @@
 		028543D9E00C20F9F5182F7D /* ChallengeProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6DFEEE8D7227448497DDFC /* ChallengeProgressEngine.swift */; };
 		02EA7206C2463E795C1706A0 /* QuickEntryIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6553F5DAA87B17842AE337A /* QuickEntryIntents.swift */; };
 		0345570121348BC01B535E8F /* SavingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F136560E724B698AAFBBF9A /* SavingsViewModel.swift */; };
+		037F74E16EED11EBA74137A0 /* AccountCoverFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0634A7DF47E575ADDA2FD53 /* AccountCoverFlowTests.swift */; };
 		03AE2F2D28E362CDBD3F8A80 /* SharedSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D532321AAF411E4966F3DFF /* SharedSnapshotStore.swift */; };
 		047E52ED7B05D07131A59598 /* CategoriesManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D3F86C311C26A7151BAE83 /* CategoriesManagementView.swift */; };
 		04A6BDF7961FC89DAC1B65AB /* SavingsGoalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */; };
@@ -801,6 +802,7 @@
 		AF0E061C6C28A734527E14ED /* SavingsGoalRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsGoalRepository.swift; sourceTree = "<group>"; };
 		AFCAB87ABE1C431B755A12EE /* RefreshRenderBenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshRenderBenchmarkTests.swift; sourceTree = "<group>"; };
 		AFFC94444E70EF3A40B57FCC /* DebtExclusionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebtExclusionTests.swift; sourceTree = "<group>"; };
+		B0634A7DF47E575ADDA2FD53 /* AccountCoverFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCoverFlowTests.swift; sourceTree = "<group>"; };
 		B0858D93E347AF67244B9936 /* AkifiIOSTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AkifiIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B08F2857D3E8BBB14DB05136 /* AccountSharingIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSharingIndex.swift; sourceTree = "<group>"; };
 		B2170DB29D43AB2718978401 /* SavingsRateCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsRateCalculator.swift; sourceTree = "<group>"; };
@@ -1415,6 +1417,7 @@
 			isa = PBXGroup;
 			children = (
 				420A1FB8A06E22ACCED86479 /* A1EmailAuthLinkTests.swift */,
+				B0634A7DF47E575ADDA2FD53 /* AccountCoverFlowTests.swift */,
 				B4675CB5DE9B574BCEC424AF /* AccountCoverRepositoryTests.swift */,
 				04F8C17DB5AE045F28A863F8 /* AccountCoverStoreTests.swift */,
 				7D3EA6E4BB5F2142C9C5B588 /* AccountCoverTests.swift */,
@@ -1978,6 +1981,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D9CBC817158E09CC517AB91 /* A1EmailAuthLinkTests.swift in Sources */,
+				037F74E16EED11EBA74137A0 /* AccountCoverFlowTests.swift in Sources */,
 				DE00A59284319F4F7517AE0F /* AccountCoverRepositoryTests.swift in Sources */,
 				7754A82C7D65813E847EC063 /* AccountCoverStoreTests.swift in Sources */,
 				2E44469FE37A8E907A210602 /* AccountCoverTests.swift in Sources */,
