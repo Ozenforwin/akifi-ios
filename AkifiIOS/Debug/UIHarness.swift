@@ -20,6 +20,7 @@ import UIKit
 /// | `-AkifiUIHarnessSweep <name>` | Transactions / Assistant / Auth / onboarding screens and sheets (`UIHarnessSweepScreen` in `UIHarnessSweepScreens.swift`) |
 /// | `-AkifiUIHarnessCapture <dir> -AkifiUIHarnessPlan name@look,…` | the app snapshots each planned `UIHarnessSweepScreen` into `<dir>` itself |
 /// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
+/// | `-AkifiUIHarnessCover <screen>` | account covers: homeBright, homeDark, crop, ownerSection, memberSection, shared (`UIHarnessCovers.swift`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -71,6 +72,11 @@ enum UIHarness {
         store.subscriptions = DemoData.subscriptions
         store.rebuildCaches()
         store.currencyContextDidChange()
+        // Account covers (UIHarnessCovers.swift): cover accounts first.
+        if let covered = UIHarnessCovers.accounts {
+            store.allAccounts = covered
+            store.rebuildCaches()
+        }
 
         if UIHarnessQuickEntry.isEnabled {
             store.allAccounts = UIHarnessQuickEntry.accounts
@@ -153,6 +159,9 @@ struct UIHarnessRoot: View {
             if let directory = UIHarnessCapture.directory {
                 // In-app capture of a plan of screens (UIHarnessSweepScreens.swift).
                 UIHarnessCaptureRoot(steps: UIHarnessCapture.plan, directory: directory)
+            } else if let screen = UIHarnessCoverScreen.requested {
+                // Account covers (UIHarnessCovers.swift).
+                UIHarnessCoverScreenView(screen: screen)
             } else if let screen = UIHarnessSweepScreen.requested {
                 // Transactions / Assistant / Auth sweep screens (UIHarnessSweepScreens.swift).
                 UIHarnessSweepScreenView(screen: screen)

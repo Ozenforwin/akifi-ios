@@ -15,6 +15,11 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
     /// decodes as `.unsupported` and never fails the row (contract A8).
     var accountType: AccountType
     let createdAt: String?
+    /// The card's cover photo: an object in the private `account-covers`
+    /// bucket, `<account_id>/<uuid>.jpg` (`AccountCoverPath`). Set only by
+    /// the account's owner; every member sees it. Nil = the tinted card.
+    /// Optional on decode: servers before 20261128100000 don't send it.
+    var coverPath: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -24,6 +29,7 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         case isPrimary = "is_primary"
         case accountType = "account_type"
         case createdAt = "created_at"
+        case coverPath = "cover_path"
     }
 
     init(from decoder: Decoder) throws {
@@ -40,6 +46,9 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         isPrimary = try container.decodeIfPresent(Bool.self, forKey: .isPrimary) ?? false
         accountType = try container.decodeIfPresent(AccountType.self, forKey: .accountType) ?? .checking
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        // Tolerant: a missing column, null or a value of the wrong type
+        // never fails the account row — the card just has no cover.
+        coverPath = (try? container.decodeIfPresent(String.self, forKey: .coverPath)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -55,12 +64,14 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
         try container.encode(isPrimary, forKey: .isPrimary)
         try container.encode(accountType, forKey: .accountType)
         try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(coverPath, forKey: .coverPath)
     }
 
-    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", accountType: AccountType = .checking, createdAt: String? = nil) {
+    init(id: String, userId: String, name: String, icon: String, color: String, initialBalance: Int64, isPrimary: Bool = false, currency: String = "rub", accountType: AccountType = .checking, createdAt: String? = nil, coverPath: String? = nil) {
         self.id = id; self.userId = userId; self.name = name; self.icon = icon
         self.color = color; self.initialBalance = initialBalance; self.isPrimary = isPrimary
         self.currency = currency; self.accountType = accountType; self.createdAt = createdAt
+        self.coverPath = coverPath
     }
 
     var currencyCode: CurrencyCode {

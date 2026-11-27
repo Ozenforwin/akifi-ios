@@ -77,6 +77,8 @@ enum UIHarnessFixtures {
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         else { return Reply(status: 400, headers: json, body: Data("{}".utf8)) }
 
+        // Account cover downloads (UIHarnessCovers.swift).
+        if let cover = UIHarnessCovers.reply(to: request) { return cover }
         let parts = components.path.split(separator: "/").map(String.init)
         guard parts.count >= 3, parts[0] == "rest", parts[1] == "v1" else {
             // Auth, edge functions, storage: no server in the harness.

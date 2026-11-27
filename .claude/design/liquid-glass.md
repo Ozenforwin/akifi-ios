@@ -227,3 +227,37 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   light, white in dark), clipped to a capsule like the others.
 - **Signed-out screens** have no tab view setting the tint (and the app has
   no AccentColor asset), so their roots set `.tint(Color.accent)`.
+
+## 11. Account covers (Vladimir, 2026-11-28)
+- **Who:** the account's OWNER (`accounts.user_id`) sets, re-crops or removes
+  the cover; every member of a shared account sees the same cover and no
+  edit controls (footer says who can change it). Debt accounts have none.
+  Server: `20261128100000_account_covers.sql` (private bucket
+  `account-covers`, `<account_id>/<uuid>.jpg`, owner-only writes, members
+  read; `guard_account_cover`).
+- **Card:** with a cover the Home card's background is the photo
+  (`scaledToFill`, clipped, 20 pt continuous corners — same frame as
+  `.akifiCard`), still content: no glass, no shadow, no hairline. Without
+  one (or until it has loaded / offline with nothing cached) the tinted card
+  of §9. The account colour keeps marking the page dot.
+- **Legibility is computed, not eyeballed:** the photo's brightest spot is
+  measured in the header band and the balance band (`AccountCoverTone`), and
+  the dark scrim gets just enough opacity there for WCAG AA 4.5 : 1 (7 : 1
+  with Increase Contrast) for every colour drawn on it (`AccountCoverScrim`,
+  unit-tested for any brightness). Text and symbols turn white; income /
+  expense use lighter tints of the same hues (#10B981 → #6EE7B7,
+  #F43F5E → #FDA4AF) — the semantic ones fail on a dark scrim. Accessibility text sizes and
+  layouts other than the Home card (shared account header) use one even
+  scrim strong enough for the brightest spot anywhere.
+- **Picker and crop:** «Обложка» section in «Настройки счёта»
+  (`AccountFormView`, existing accounts only): preview, «Выбрать фото»
+  (`PhotosPicker`, images, out of process — no library permission),
+  «Изменить область», «Убрать обложку» (destructive, confirmed). Each applies
+  at once (like «Участники» next to it). The crop screen is a dark
+  full-screen cover with system toolbar Cancel / Done; the photo moves under
+  a card-shaped window (card aspect 1.9 : 1), outside dimmed, the card's text
+  live in the window; pinch + drag, clamped so the window is always filled;
+  VoiceOver: adjustable zoom and four move actions.
+- **Upload:** ≈1200 px wide JPEG (quality 0.8), a new bitmap encoded with no
+  metadata (no EXIF / GPS / camera). Downloads go through the authenticated
+  Storage API — no public or signed URLs anywhere.

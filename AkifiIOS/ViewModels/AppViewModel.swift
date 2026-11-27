@@ -15,6 +15,8 @@ final class AppViewModel {
     /// «Долги» (1.6.0): summary, movements, reminders — shared by Home,
     /// Net Worth and the Debts screens.
     let debts = DebtsStore()
+    /// Account cover photos (1.6.0): cache + the owner's upload / remove.
+    let accountCovers = AccountCoverStore()
 
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     private(set) var hasLoadedData = false
@@ -263,6 +265,7 @@ final class AppViewModel {
         NotificationManager.recordServerPushRegistration(userId: nil)
         journalViewModel.reset()
         debts.reset()
+        accountCovers.reset()
         paymentManager.isPremium = false
         sessionEffects.clearDeviceState()
     }

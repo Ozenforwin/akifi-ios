@@ -621,8 +621,15 @@ final class DepositsViewModel {
     /// Deletes a deposit by deleting the tied account (which cascades).
     /// Transactions stay for audit purposes — user can clean them up
     /// manually if desired.
-    func delete(_ deposit: Deposit, dataStore: DataStore) async {
+    func delete(_ deposit: Deposit, dataStore: DataStore, covers: AccountCoverStore? = nil) async {
         do {
+            // The account's cover first (best effort): once the row is gone
+            // nobody but the service role could remove it.
+            if let covers,
+               let account = dataStore.accounts.first(where: { $0.id == deposit.accountId }),
+               AccountCoverPolicy.canEdit(account, viewerId: dataStore.profile?.id) {
+                await covers.purgeObjects(of: account)
+            }
             try await accountRepo.delete(id: deposit.accountId)
             deposits.removeAll { $0.id == deposit.id }
             contributionsByDeposit.removeValue(forKey: deposit.id)

@@ -184,27 +184,35 @@ struct SharedAccountDetailView: View {
 
     // MARK: - Header
 
+    /// The account's cover (the same photo as its Home card), once loaded.
+    private var coverPath: String? {
+        dataStore.accounts.first { $0.id == account.id }?.coverPath ?? account.coverPath
+    }
+
     @ViewBuilder
     private var header: some View {
         let balance = dataStore.balance(for: account)
         let color = Color(hex: account.color)
         let participants = participantUserIds
+        let cover = appViewModel.accountCovers.image(for: coverPath)
+        let palette: AccountCardPalette = cover == nil ? .tinted(color) : .cover
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(color.opacity(0.14))
+                    .fill(cover == nil ? color.opacity(0.14) : palette.iconTileFill)
                     .frame(width: 52, height: 52)
                     .overlay { Text(account.icon).font(.title2) }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(account.name)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary.opacity(0.7))
+                        .foregroundStyle(cover == nil ? AnyShapeStyle(.primary.opacity(0.7)) : AnyShapeStyle(palette.primary))
                     Text(balance < 0
                          ? "-\(cm.formatAmount(balance.displayAmount))"
                          : cm.formatAmount(balance.displayAmount))
                         .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundStyle(balance < 0 ? Color.expense : .primary)
+                        .foregroundStyle(balance < 0 ? palette.expense : palette.primary)
                         .monospacedDigit()
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
@@ -232,20 +240,30 @@ struct SharedAccountDetailView: View {
             }
         }
         .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
+        .background {
+            if let cover {
+                // The Home card's photo; text spans the whole header here,
+                // so the scrim is even (as strong as its stronger band).
+                AccountCoverBackdrop(cover: cover, uniformScrim: true)
+            } else {
+                shape.fill(
                     LinearGradient(
                         colors: [color.opacity(0.08), color.opacity(0.16)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(color.opacity(0.18), lineWidth: 0.5)
-        )
+            }
+        }
+        .clipShape(shape)
+        .overlay {
+            if cover == nil {
+                shape.stroke(color.opacity(0.18), lineWidth: 0.5)
+            }
+        }
+        .task(id: coverPath) {
+            await appViewModel.accountCovers.load(coverPath)
+        }
     }
 
     @ViewBuilder
