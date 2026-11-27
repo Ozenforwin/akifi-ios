@@ -43,6 +43,25 @@ final class NetWorthViewModel {
         allFetchesSucceeded && dataStore.lastCompleteLoadAt != nil
     }
 
+    /// A stored snapshot's net worth in today's base currency, for the
+    /// history chart (V9). Snapshots keep the currency they were taken in;
+    /// after the user switched the base from ₽ to $ the chart plotted
+    /// 1 000 000 (₽) next to 11 000 ($) — a "99 % drop". Converted at
+    /// today's rates (no historical ones are stored); nil when a rate is
+    /// missing, so the point is left out instead of drawn at 1:1.
+    nonisolated static func chartNetWorth(
+        of snapshot: NetWorthSnapshot,
+        baseCurrency: String,
+        rates: [String: Decimal]
+    ) -> Int64? {
+        let from = snapshot.currency.uppercased()
+        let to = baseCurrency.uppercased()
+        guard from != to else { return snapshot.netWorth }
+        guard let fromRate = rates[from], fromRate != 0,
+              let toRate = rates[to], toRate != 0 else { return nil }
+        return NetWorthCalculator.convert(amount: snapshot.netWorth, from: from, to: to, rates: rates)
+    }
+
     /// Fetches assets + liabilities + snapshots in parallel, recomputes
     /// the breakdown, and (if today's snapshot is missing) automatically
     /// captures it. Failures are non-fatal — the VM surfaces the last
@@ -74,7 +93,12 @@ final class NetWorthViewModel {
         // Auto-capture today's snapshot if we don't have one yet. Skipped
         // silently on failure so a broken write doesn't block the dashboard.
         let today = NetWorthSnapshotRepository.dateFormatter.string(from: Date())
-        let alreadyCapturedToday = snapshots.contains { $0.snapshotDate == today }
+        // Today's row in ANOTHER currency (the base was just switched) is
+        // re-captured in the current one.
+        let alreadyCapturedToday = snapshots.contains {
+            $0.snapshotDate == today
+                && $0.currency.uppercased() == currencyManager.dataCurrency.code.uppercased()
+        }
         if !alreadyCapturedToday,
            Self.canCaptureSnapshot(allFetchesSucceeded: allFetched, dataStore: dataStore),
            let breakdown {
@@ -87,8 +111,13 @@ final class NetWorthViewModel {
                     netWorth: breakdown.netWorth,
                     currency: base
                 )
-                // Prepend the new snapshot so the chart picks it up without a refetch.
-                snapshots.insert(snap, at: 0)
+                // Replace today's row (re-captured in a new currency) or
+                // prepend, so the chart picks it up without a refetch.
+                if let idx = snapshots.firstIndex(where: { $0.snapshotDate == snap.snapshotDate }) {
+                    snapshots[idx] = snap
+                } else {
+                    snapshots.insert(snap, at: 0)
+                }
             } catch {
                 AppLogger.data.warning("snapshot upsert failed: \(error.localizedDescription)")
             }
@@ -159,40 +188,32 @@ final class NetWorthViewModel {
 
     // MARK: - Liability CRUD
 
+    /// `throws` like the asset CRUD (V4): the form shows the error and
+    /// stays open. These used to write `errorMessage`, which no screen
+    /// shows — the form closed with a "success" haptic and the debt never
+    /// appeared.
     func createLiability(_ input: CreateLiabilityInput,
                          dataStore: DataStore,
-                         currencyManager: CurrencyManager) async {
-        do {
-            let liab = try await liabilityRepo.create(input)
-            liabilities.insert(liab, at: 0)
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                         currencyManager: CurrencyManager) async throws {
+        let liab = try await liabilityRepo.create(input)
+        liabilities.insert(liab, at: 0)
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     func updateLiability(id: String, _ input: UpdateLiabilityInput,
                          dataStore: DataStore,
-                         currencyManager: CurrencyManager) async {
-        do {
-            try await liabilityRepo.update(id: id, input)
-            liabilities = try await liabilityRepo.fetchAll()
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                         currencyManager: CurrencyManager) async throws {
+        try await liabilityRepo.update(id: id, input)
+        liabilities = try await liabilityRepo.fetchAll()
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     func deleteLiability(id: String,
                          dataStore: DataStore,
-                         currencyManager: CurrencyManager) async {
-        do {
-            try await liabilityRepo.delete(id: id)
-            liabilities.removeAll { $0.id == id }
-            recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                         currencyManager: CurrencyManager) async throws {
+        try await liabilityRepo.delete(id: id)
+        liabilities.removeAll { $0.id == id }
+        recomputeBreakdown(dataStore: dataStore, currencyManager: currencyManager)
     }
 
     // MARK: - Private helpers

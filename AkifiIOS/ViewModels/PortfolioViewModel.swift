@@ -107,44 +107,35 @@ final class PortfolioViewModel {
     /// `Asset.current_value` server-side; we refetch assets afterwards
     /// to surface the new value in the UI without waiting for the next
     /// dashboard refresh.
+    /// `throws` (V4): the form / list shows the error. They used to write
+    /// `errorMessage`, which no screen shows, and the form closed as if
+    /// the position had been saved.
     func create(_ input: CreateHoldingInput,
-                currencyManager: CurrencyManager) async {
-        do {
-            let created = try await holdingRepo.create(input)
-            holdings.insert(created, at: 0)
-            await refreshParentAsset(id: created.assetId)
-            recomputeSummary(currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                currencyManager: CurrencyManager) async throws {
+        let created = try await holdingRepo.create(input)
+        holdings.insert(created, at: 0)
+        await refreshParentAsset(id: created.assetId)
+        recomputeSummary(currencyManager: currencyManager)
     }
 
     func update(id: String,
                 _ input: UpdateHoldingInput,
-                currencyManager: CurrencyManager) async {
-        do {
-            try await holdingRepo.update(id: id, input)
-            // Refetch the row — PATCH doesn't echo the full record.
-            holdings = try await holdingRepo.fetchAll()
-            if let updated = holdings.first(where: { $0.id == id }) {
-                await refreshParentAsset(id: updated.assetId)
-            }
-            recomputeSummary(currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
+                currencyManager: CurrencyManager) async throws {
+        try await holdingRepo.update(id: id, input)
+        // Refetch the row — PATCH doesn't echo the full record.
+        holdings = try await holdingRepo.fetchAll()
+        if let updated = holdings.first(where: { $0.id == id }) {
+            await refreshParentAsset(id: updated.assetId)
         }
+        recomputeSummary(currencyManager: currencyManager)
     }
 
     func delete(holding: InvestmentHolding,
-                currencyManager: CurrencyManager) async {
-        do {
-            try await holdingRepo.delete(id: holding.id)
-            holdings.removeAll { $0.id == holding.id }
-            await refreshParentAsset(id: holding.assetId)
-            recomputeSummary(currencyManager: currencyManager)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+                currencyManager: CurrencyManager) async throws {
+        try await holdingRepo.delete(id: holding.id)
+        holdings.removeAll { $0.id == holding.id }
+        await refreshParentAsset(id: holding.assetId)
+        recomputeSummary(currencyManager: currencyManager)
     }
 
     /// Refetches a single Asset and replaces it in `assetsForPortfolio`.

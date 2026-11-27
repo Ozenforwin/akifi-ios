@@ -50,8 +50,9 @@ struct JournalTabView: View {
             }
             .searchable(text: $searchText, prompt: String(localized: "journal.search"))
             .onChange(of: searchText) { _, newValue in
-                viewModel.searchText = newValue
-                Task { await viewModel.search() }
+                // Debounced, cancels the previous query, leaves the feed
+                // alone (V6).
+                viewModel.updateSearch(newValue)
             }
             .sheet(isPresented: $showNoteForm) {
                 JournalNoteFormView(viewModel: viewModel, initialType: .note)
@@ -193,10 +194,14 @@ struct JournalTabView: View {
                             }
                         }
 
-                        if viewModel.filteredNotes.count >= 50 {
+                        if viewModel.canLoadMore {
                             ProgressView()
                                 .padding()
-                                .task { await viewModel.loadMore() }
+                                // Re-fires after each page (the id changes),
+                                // so a filter that matches few notes keeps
+                                // paging until the screen fills or the feed
+                                // ends.
+                                .task(id: viewModel.notes.count) { await viewModel.loadMore() }
                         }
                     }
                     .padding(.bottom, 100)

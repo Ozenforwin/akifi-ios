@@ -133,6 +133,25 @@ struct Deposit: Codable, Sendable, Identifiable, Hashable {
     }
 }
 
+extension Deposit {
+
+    /// The instant interest stops accruing (V1): the end date of a term
+    /// deposit — even when nobody opened the app on that day to mature it,
+    /// 1 M ₽ at 16 % that ended on 1 September must not earn ~47 500 ₽ more
+    /// by 1 December — and the close instant of a deposit closed early.
+    /// Otherwise `now`.
+    func accrualCutoff(now: Date = Date()) -> Date {
+        var cutoff = now
+        if let endDate, let end = AppDateFormatters.isoDate.date(from: String(endDate.prefix(10))) {
+            cutoff = min(cutoff, end)
+        }
+        if status != .active, let closedAt, let closed = AppDateFormatters.parseTimestamp(closedAt) {
+            cutoff = min(cutoff, closed)
+        }
+        return cutoff
+    }
+}
+
 /// Compounding schedule. Determines `n` in `A = P(1 + r/n)^(nt)`. Raw values
 /// match the DB CHECK constraint on `deposits.compound_frequency`.
 enum CompoundFrequency: String, Codable, Sendable, CaseIterable, Hashable {

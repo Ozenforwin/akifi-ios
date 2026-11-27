@@ -35,7 +35,7 @@ struct SavingsGoalListView: View {
                                             let accountCurrency = goal.accountId.flatMap { accId in
                                                 appViewModel.dataStore.accounts.first(where: { $0.id == accId })?.currency
                                             }
-                                            await viewModel.addContribution(
+                                            try await viewModel.addContribution(
                                                 goalId: goal.id,
                                                 amount: amount,
                                                 type: type,
@@ -124,10 +124,11 @@ struct SavingsGoalListView: View {
             Text(viewModel.error ?? "")
         }
         .sheet(isPresented: $viewModel.showForm) {
-            SavingsGoalFormView(accounts: dataStore.accounts) { name, icon, color, amount, deadline, accountId in
-                await viewModel.createGoal(
-                    name: name, icon: icon, color: color,
-                    targetAmount: amount, deadline: deadline, accountId: accountId
+            SavingsGoalFormView(accounts: dataStore.accounts) { draft in
+                try await viewModel.createGoal(
+                    name: draft.name, icon: draft.icon, color: draft.color,
+                    targetAmount: draft.targetAmount, deadline: draft.deadline,
+                    accountId: draft.accountId, interest: draft.interest
                 )
             }
         }

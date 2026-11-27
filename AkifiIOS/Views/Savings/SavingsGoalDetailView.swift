@@ -6,7 +6,7 @@ struct SavingsGoalDetailView: View {
     let contributions: [SavingsContribution]
     let progress: Double
     let daysRemaining: Int?
-    let onContribute: (Int64, ContributionType, String?) async -> Void
+    let onContribute: (Int64, ContributionType, String?) async throws -> Void
 
     @State private var showContribution = false
 

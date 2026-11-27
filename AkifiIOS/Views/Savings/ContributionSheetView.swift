@@ -5,12 +5,20 @@ struct ContributionSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
     let goal: SavingsGoal
-    let onContribute: (Int64, ContributionType, String?) async -> Void
+    /// Throws (V7): a failure shows here and the sheet stays open.
+    let onContribute: (Int64, ContributionType, String?) async throws -> Void
 
     @State private var amountText = ""
     @State private var type: ContributionType = .contribution
     @State private var note = ""
     @State private var isSaving = false
+    @State private var saveError: String?
+
+    /// "0,5" is 50 kopecks, not 0 — and 0 is not a contribution (V7).
+    private var parsedAmount: Int64? {
+        guard let kopecks = DecimalInput.kopecks(amountText), kopecks > 0 else { return nil }
+        return kopecks
+    }
 
     private var remaining: Int64 {
         max(goal.targetAmount - goal.currentAmount, 0)
@@ -65,18 +73,25 @@ struct ContributionSheetView: View {
                     Button(String(localized: "common.done")) {
                         Task { await save() }
                     }
-                    .disabled(amountText.isEmpty || isSaving)
+                    .disabled(parsedAmount == nil || isSaving)
                 }
             }
+            .errorAlert($saveError)
         }
     }
 
     private func save() async {
+        guard !isSaving, let amountCents = parsedAmount else { return }
         isSaving = true
-        guard let decimal = Decimal(string: amountText) else { return }
-        let amountCents = Int64(truncating: (decimal * 100) as NSDecimalNumber)
+        defer { isSaving = false }
         let noteStr = note.isEmpty ? nil : note
-        await onContribute(amountCents, type, noteStr)
+        do {
+            try await onContribute(amountCents, type, noteStr)
+        } catch {
+            HapticManager.error()
+            saveError = error.localizedDescription
+            return
+        }
         dismiss()
     }
 

@@ -85,11 +85,12 @@ struct CurrencyReconciliationView: View {
             }
 
             // 2) Historical quote from APILayer.
-            // `tx.date` is the user's local day. ExchangeRateService renders
-            // the Date as a UTC `yyyy-MM-dd` (ISO8601DateFormatter), so the
-            // day goes in as UTC midnight; local midnight in UTC+7 is 17:00
-            // UTC of the PREVIOUS day and fetched yesterday's rate.
-            if let date = AppDateFormatters.utcDate.date(from: String(tx.date.prefix(10))),
+            // `tx.date` is the user's local day, and
+            // `ExchangeRateService.historicalDateKey` now reads the Date in
+            // the device zone too — so the day goes in as LOCAL midnight
+            // (V9). Parsed as UTC midnight it was the previous local day in
+            // every UTC− zone, and fetched yesterday's rate.
+            if let date = Self.quoteDay(forTransactionDate: tx.date),
                let quote = await exchangeService.fetchHistoricalRate(
                     from: label, to: accountCcy, date: date) {
                 out[tx.id] = ResolvedRate(rate: Decimal(quote), source: .historical, date: tx.date)
@@ -193,14 +194,16 @@ struct CurrencyReconciliationView: View {
                 let accountCode = row.account.currencyCode
                 let originalAmount = row.transaction.amountNative.displayAmount
                 let resolved = resolvedRates[row.transaction.id]
-                let rate: Decimal = resolved?.rate ?? {
-                    let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
-                    let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
-                    return fromRate != 0 ? toRate / fromRate : 1
-                }()
-                // Safety: refuse to save a 1:1 conversion between different
-                // currencies — that's what produced the original bug in
-                // the first place.
+                // Safety: refuse to save without a real rate. A missing
+                // quote used to become `?? 1.0` — a made-up rate that slipped
+                // past the 1:1 guard below whenever only ONE side was missing.
+                guard let rate = resolved?.rate
+                        ?? Self.fallbackRate(from: labelCode.code, to: accountCode.code, rates: cm.rates) else {
+                    errorMessage = String(localized: "currencyReconciliation.error.rateMissing")
+                    return
+                }
+                // …and a 1:1 conversion between different currencies —
+                // that's what produced the original bug in the first place.
                 guard !(labelCode != accountCode && rate == 1) else {
                     errorMessage = String(localized: "currencyReconciliation.error.rateMissing")
                     return
@@ -228,12 +231,20 @@ struct CurrencyReconciliationView: View {
         }
     }
 
-    private func convert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
-        guard from != to else { return amount }
-        let fromRate = Decimal(cm.rates[from.code] ?? 1.0)
-        let toRate = Decimal(cm.rates[to.code] ?? 1.0)
-        guard fromRate != 0 else { return amount }
-        return amount / fromRate * toRate
+    /// The local day of a transaction's `yyyy-MM-dd` as the Date the
+    /// historical-quote API keys on (`historicalDateKey`, device zone).
+    nonisolated static func quoteDay(forTransactionDate raw: String) -> Date? {
+        AppDateFormatters.isoDate.date(from: String(raw.prefix(10)))
+    }
+
+    /// Today's rate `from` → `to` from USD-pivot `rates`; nil when either
+    /// side is missing or zero — never a guessed 1.0 (V9).
+    nonisolated static func fallbackRate(from: String, to: String, rates: [String: Double]) -> Decimal? {
+        let src = from.uppercased(), dst = to.uppercased()
+        guard src != dst else { return 1 }
+        guard let fromRate = rates[src], fromRate != 0, fromRate.isFinite,
+              let toRate = rates[dst], toRate != 0, toRate.isFinite else { return nil }
+        return Decimal(toRate) / Decimal(fromRate)
     }
 }
 
@@ -367,12 +378,9 @@ private struct ReconciliationRow: View {
             // Same priority as `applyDecision`: resolved rate > today's
             // rate. The preview number must match what actually gets
             // saved.
-            let rate: Decimal = resolved?.rate ?? {
-                let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
-                let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
-                return fromRate != 0 ? toRate / fromRate : 1
-            }()
-            let converted = amount * rate
+            let rate: Decimal? = resolved?.rate
+                ?? CurrencyReconciliationView.fallbackRate(from: labelCode.code, to: accountCode.code, rates: cm.rates)
+            let converted = rate.map { amount * $0 }
             let provenance = rateProvenance
 
             Button {
@@ -388,7 +396,7 @@ private struct ReconciliationRow: View {
                     Text(TransactionFormView.formatRawAmount(amount, currency: labelCode))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Text("≈ \(TransactionFormView.formatRawAmount(converted, currency: accountCode))")
+                    Text(converted.map { "≈ \(TransactionFormView.formatRawAmount($0, currency: accountCode))" } ?? "≈ —")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                     Text(provenance.label)

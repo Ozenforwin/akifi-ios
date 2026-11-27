@@ -897,7 +897,10 @@ final class DataStore {
 
     /// Clears the pending-match banner (used when the user dismisses or the
     /// timer expires, without undoing).
-    func clearPendingAutoMatch() {
+    /// Clears the pending match — only `id` when given, so an expiring
+    /// banner can't dismiss a newer match (V9).
+    func clearPendingAutoMatch(id: UUID? = nil) {
+        if let id, pendingAutoMatch?.id != id { return }
         pendingAutoMatch = nil
     }
 

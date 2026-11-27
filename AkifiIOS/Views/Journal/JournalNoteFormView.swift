@@ -39,6 +39,13 @@ struct JournalNoteFormView: View {
     @State private var pendingPhotos: [PendingPhoto] = []
     @State private var existingPhotoUrls: [String] = []
     @State private var deletedPhotoUrls: [String] = []
+    /// Id of a NEW note, fixed for the life of the form: photos are stored
+    /// under `{user}/{noteId}/`, and a retry must put them (and the note)
+    /// where the first attempt did.
+    @State private var draftNoteId = UUID().uuidString.lowercased()
+    /// The note was saved — its uploaded photos are referenced and must
+    /// survive the form closing.
+    @State private var didSave = false
 
     // Period (Reflection only)
     @State private var periodStart = Date()
@@ -118,7 +125,10 @@ struct JournalNoteFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "action.cancel")) { dismiss() }
+                    Button(String(localized: "action.cancel")) {
+                        discardUnsavedUploads()
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "action.save")) {
@@ -168,6 +178,10 @@ struct JournalNoteFormView: View {
                 if openTransactionPickerOnAppear && !isEditing {
                     showTransactionPicker = true
                 }
+            }
+            // Swipe-down dismiss: same cleanup as Cancel.
+            .onDisappear {
+                if !didSave { discardUnsavedUploads() }
             }
         }
     }
@@ -712,6 +726,9 @@ struct JournalNoteFormView: View {
                     }
             }
             Button {
+                if let uploaded = photo.uploadedUrl {
+                    Task { await JournalPhotoUploader.delete(publicURL: uploaded) }
+                }
                 withAnimation {
                     pendingPhotos.removeAll { $0.id == photo.id }
                 }
@@ -954,12 +971,18 @@ struct JournalNoteFormView: View {
 
         do {
             let userId = try await SupabaseManager.shared.currentUserId()
-            let noteId = editingNote?.id ?? UUID().uuidString.lowercased()
+            let noteId = editingNote?.id ?? draftNoteId
             let finalContent = composedContent()
 
-            // 1. Upload pending photos first.
+            // 1. Upload pending photos first. A photo a previous (failed)
+            // attempt already uploaded is reused, not uploaded again under
+            // a new name (V5).
             var uploadedUrls: [String] = []
             for idx in pendingPhotos.indices {
+                if let already = pendingPhotos[idx].uploadedUrl {
+                    uploadedUrls.append(already)
+                    continue
+                }
                 pendingPhotos[idx].isUploading = true
                 let photoId = pendingPhotos[idx].id
                 do {
@@ -975,6 +998,7 @@ struct JournalNoteFormView: View {
                         }
                     }
                     uploadedUrls.append(url)
+                    pendingPhotos[idx].uploadedUrl = url
                     pendingPhotos[idx].isUploading = false
                     pendingPhotos[idx].progress = 1
                 } catch {
@@ -1000,7 +1024,8 @@ struct JournalNoteFormView: View {
                     content: finalContent,
                     transactionId: .some(isReflection ? nil : selectedTransactionId),
                     tags: finalTags ?? [],
-                    mood: selectedMood,
+                    // `.some(nil)` clears a deselected mood (V4).
+                    mood: .some(selectedMood),
                     photoUrls: finalPhotoUrls,
                     periodStart: .some(periodStartStr),
                     periodEnd: .some(periodEndStr)
@@ -1025,19 +1050,28 @@ struct JournalNoteFormView: View {
                     noteId: noteId
                 )
             }
+            didSave = true
             dismiss()
         } catch {
             errorText = error.localizedDescription
         }
     }
 
+    /// Photos uploaded by a save that didn't finish: no note references
+    /// them. Leaving the form without saving removes them from storage —
+    /// they used to stay in the bucket for good (V5).
+    private func discardUnsavedUploads() {
+        let orphans = pendingPhotos.compactMap(\.uploadedUrl)
+        guard !orphans.isEmpty else { return }
+        for idx in pendingPhotos.indices { pendingPhotos[idx].uploadedUrl = nil }
+        Task {
+            for url in orphans { await JournalPhotoUploader.delete(publicURL: url) }
+        }
+    }
+
+    /// Thumbnail of `maxEdge` points, rendered at 3× so it stays sharp.
     private func downsample(_ image: UIImage, maxEdge: CGFloat) -> UIImage {
-        let longest = max(image.size.width, image.size.height)
-        guard longest > maxEdge else { return image }
-        let ratio = maxEdge / longest
-        let newSize = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
+        image.downscaled(toMaxEdge: maxEdge * 3)
     }
 }
 
@@ -1091,6 +1125,9 @@ struct PendingPhoto: Identifiable {
     var thumbnail: UIImage?
     var isUploading: Bool = false
     var progress: Double = 0
+    /// Public URL once uploaded — set even when the save then fails, so
+    /// the retry reuses it and Cancel can delete it.
+    var uploadedUrl: String?
 }
 
 struct TypeToggleButton: View {
