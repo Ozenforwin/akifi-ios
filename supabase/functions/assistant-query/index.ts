@@ -37,7 +37,7 @@ import {
 import { timingSafeEqual } from '../_shared/auth.ts';
 import { fetchAll, fetchAllIn } from '../_shared/paging.ts';
 import { getRubRates, toUsdPivot } from '../_shared/fx.ts';
-import { localDate, resolveTimeZone, startOfLocalDayUtc } from '../_shared/timezone.ts';
+import { localDate, resolveTimeZone } from '../_shared/timezone.ts';
 import { createRequestContext, requestContext, runWithRequestContext } from './request-context.ts';
 import { graceEligibleSub, type Jwk, verifyJwtSignature } from './jwt.ts';
 
@@ -597,17 +597,16 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const { count: todayCount, error: countError } = await serviceClient
-      .from('ai_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', startOfLocalDayUtc(new Date(), reqCtx.timeZone).toISOString());
-
-    if (countError && countError.code !== '42P01') {
-      throw new Error(`Failed to count daily quota: ${countError.message}`);
+    // Daily quota: rolling 24 h, taken atomically before any LLM work
+    // (ai_quota_take, migration 20261127190000). The client's time zone no
+    // longer decides the window, and parallel requests can't all pass.
+    const { data: quota, error: quotaError } = await serviceClient
+      .rpc('ai_quota_take', { p_user_id: userId, p_limit: AI_DAILY_LIMIT });
+    if (quotaError) {
+      throw new Error(`Failed to take daily quota: ${quotaError.code ?? 'unknown'}`);
     }
 
-    if ((todayCount ?? 0) >= AI_DAILY_LIMIT) {
+    if ((quota as { allowed?: boolean } | null)?.allowed === false) {
       const limitedResponse = sanitizeAssistantResponse({
         answer: t('dailyLimitAnswer', lang, { n: AI_DAILY_LIMIT }),
         facts: [t('dailyLimitFact', lang)],
@@ -1173,7 +1172,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const cats = await getCategories();
       computed = buildEditTransactionResponse(rawQuery, transactions, cats, classification.llmEntities);
     } else if (intent === 'delete_transaction') {
-      computed = buildDeleteTransactionResponse(rawQuery, transactions, classification.llmEntities);
+      computed = buildDeleteTransactionResponse(rawQuery, transactions, classification.llmEntities, userId);
     } else if (intent === 'edit_budget') {
       computed = await buildEditBudgetResponse(rawQuery, anonClient, classification.llmEntities, userId);
     } else if (intent === 'savings_advice') {
