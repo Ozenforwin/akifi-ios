@@ -1630,3 +1630,21 @@ final class WeeklyDigestSourceTests: XCTestCase {
         XCTAssertFalse(NotificationPreferencesCache.digestOptIn(userId: "user-b", defaults: defaults))
     }
 }
+
+/// Fresh install regression (found in the 1.5.8 smoke test): the SDK throws
+/// `sessionMissing` when nothing was ever stored, and the sign-in screen
+/// showed «Сессия завершилась» to every new user.
+@MainActor
+final class SessionEndedNoticeColdStartTests: XCTestCase {
+    func testFreshInstallDoesNotReportAnEndedSession() {
+        XCTAssertFalse(AuthManager.shouldReportEndedSession(hadStoredSession: false, error: AuthError.sessionMissing))
+    }
+
+    func testDeadStoredSessionIsReported() {
+        XCTAssertTrue(AuthManager.shouldReportEndedSession(hadStoredSession: true, error: AuthError.sessionMissing))
+    }
+
+    func testTransientErrorWithStoredSessionIsNotReported() {
+        XCTAssertFalse(AuthManager.shouldReportEndedSession(hadStoredSession: true, error: URLError(.notConnectedToInternet)))
+    }
+}

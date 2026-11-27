@@ -69,6 +69,12 @@ final class AuthManager {
         }
     }
 
+    /// Cold start: the sign-in screen says «Сессия завершилась» only when a
+    /// stored session existed and the server definitively refused it.
+    nonisolated static func shouldReportEndedSession(hadStoredSession: Bool, error: Error) -> Bool {
+        hadStoredSession && isDefinitivelyExpired(error)
+    }
+
     /// Pure routing rule: an SDK sign-out the user didn't ask for, while
     /// the UI is signed in and the SDK really has no session left (a quick
     /// re-sign-in may already have stored a new one).
@@ -230,6 +236,11 @@ final class AuthManager {
             return
         }
 
+        // Whether a session was stored at all: on a fresh install the SDK
+        // throws `sessionMissing` too, and that is "never signed in", not
+        // "your session ended".
+        let hadStoredSession = supabase.auth.currentSession != nil
+
         do {
             // Capture supabase locally so the @Sendable closure inside
             // withTimeout does not capture @MainActor-isolated self.
@@ -255,7 +266,10 @@ final class AuthManager {
                 currentUser = nil
                 // There was a session and it is dead: say why the sign-in
                 // screen is back.
-                if Self.isDefinitivelyExpired(error) { sessionEndedUnexpectedly = true }
+                sessionEndedUnexpectedly = Self.shouldReportEndedSession(
+                    hadStoredSession: hadStoredSession,
+                    error: error
+                )
             }
         }
         isLoading = false
