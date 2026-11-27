@@ -288,6 +288,7 @@ async function verifyGraceToken(token: string, serviceClient: SupabaseClient): P
   if (user.deleted_at) return null;
   if (user.banned_until && Date.parse(user.banned_until) > Date.now()) return null;
 
+  // bounded-fetch: RPC returns one boolean
   const { data: alive, error: sessionError } = await serviceClient.rpc('auth_session_is_active', {
     p_session_id: claims.session_id,
   });
@@ -601,7 +602,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // (ai_quota_take, migration 20261127190000). The client's time zone no
     // longer decides the window, and parallel requests can't all pass.
     const { data: quota, error: quotaError } = await serviceClient
-      .rpc('ai_quota_take', { p_user_id: userId, p_limit: AI_DAILY_LIMIT });
+      .rpc('ai_quota_take', { p_user_id: userId, p_limit: AI_DAILY_LIMIT }); // bounded-fetch: RPC returns one jsonb
     if (quotaError) {
       throw new Error(`Failed to take daily quota: ${quotaError.code ?? 'unknown'}`);
     }
@@ -795,10 +796,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
     // Load account IDs the user has access to (own + shared accounts).
     // Also remember each account's role so we can mark shared accounts in LLM context.
-    const { data: memberRows } = await anonClient
-      .from('account_members')
-      .select('account_id,role')
-      .eq('user_id', userId);
+    const memberRows = await fetchAll<{ account_id: string; role: 'owner' | 'editor' | 'viewer' }>(
+      'account_members(own)',
+      () => anonClient.from('account_members').select('id,account_id,role', { count: 'exact' }).eq('user_id', userId),
+    );
     const memberRoleByAccount = new Map<string, 'owner' | 'editor' | 'viewer'>();
     for (const row of (memberRows ?? []) as Array<{ account_id: string; role: 'owner' | 'editor' | 'viewer' }>) {
       memberRoleByAccount.set(row.account_id, row.role);
@@ -809,10 +810,11 @@ async function handleRequest(req: Request): Promise<Response> {
     // owned by co-members of shared accounts — each user has their own categories).
     const allMemberUserIds = new Set<string>([userId]);
     if (accessibleAccountIds.length > 0) {
-      const { data: coMemberRows } = await anonClient
-        .from('account_members')
-        .select('user_id')
-        .in('account_id', accessibleAccountIds);
+      const coMemberRows = await fetchAllIn<{ user_id: string }>(
+        'account_members(co)',
+        accessibleAccountIds,
+        (ids) => anonClient.from('account_members').select('id,user_id', { count: 'exact' }).in('account_id', ids),
+      );
       for (const row of (coMemberRows ?? []) as Array<{ user_id: string }>) {
         if (row.user_id) allMemberUserIds.add(row.user_id);
       }
@@ -823,10 +825,11 @@ async function handleRequest(req: Request): Promise<Response> {
     const memberNames: Record<string, string> = {};
     const coMemberIds = Array.from(allMemberUserIds).filter((id) => id !== userId);
     if (coMemberIds.length > 0) {
-      const { data: profileRows } = await anonClient
-        .from('profiles')
-        .select('id,full_name')
-        .in('id', coMemberIds);
+      const profileRows = await fetchAllIn<{ id: string; full_name: string | null }>(
+        'profiles(co)',
+        coMemberIds,
+        (ids) => anonClient.from('profiles').select('id,full_name', { count: 'exact' }).in('id', ids),
+      );
       for (const row of (profileRows ?? []) as Array<{ id: string; full_name: string | null }>) {
         if (row.full_name) memberNames[row.id] = row.full_name;
       }

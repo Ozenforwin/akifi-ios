@@ -121,6 +121,7 @@ async function loadOlderMessages(
   userId: string,
   n: number,
 ): Promise<ConversationMessage[]> {
+  // bounded-fetch: the last `n` messages of one conversation for the summary window
   const { data, error } = await serviceClient
     .from('ai_messages')
     .select('role,content,created_at')

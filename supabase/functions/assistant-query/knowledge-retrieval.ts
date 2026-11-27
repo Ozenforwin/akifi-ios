@@ -18,6 +18,7 @@ export async function retrieveKnowledgeSections(
   limit = 3,
 ): Promise<string> {
   try {
+    // bounded-fetch: top-k (default 3) knowledge sections for the prompt
     let query = client
       .from('coaching_knowledge_sections')
       .select('content,title,topic,subtopic')
@@ -27,6 +28,7 @@ export async function retrieveKnowledgeSections(
 
     // If user stage is known, prefer stage-relevant sections
     if (userStage) {
+      // bounded-fetch: top-k (default 3) knowledge sections for the prompt
       query = client
         .from('coaching_knowledge_sections')
         .select('content,title,topic,subtopic')
@@ -41,6 +43,7 @@ export async function retrieveKnowledgeSections(
     if (error || !data || data.length === 0) {
       // Fallback: try without stage filter
       if (userStage) {
+        // bounded-fetch: top-k (default 3) knowledge sections for the prompt
         const { data: fallbackData } = await client
           .from('coaching_knowledge_sections')
           .select('content,title,topic,subtopic')
