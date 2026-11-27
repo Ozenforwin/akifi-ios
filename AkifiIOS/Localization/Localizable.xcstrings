@@ -1079,6 +1079,29 @@
         }
       }
     },
+    "debts.form.amount.footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The debt is kept in this currency; it can't be changed later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La deuda se lleva en esta moneda; no se puede cambiar después."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Долг будет вестись в этой валюте — потом её не поменять."
+          }
+        }
+      }
+    },
     "debts.form.contact" : {
       "localizations" : {
         "en" : {
@@ -29571,6 +29594,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Поиск"
+          }
+        }
+      }
+    },
+    "server.error.featureNotReady" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This feature isn't enabled on the server yet. Please try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta función aún no está activada en el servidor. Inténtalo más tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта функция ещё не включена на сервере. Попробуйте позже."
           }
         }
       }

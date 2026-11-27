@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		00446D07406B36411CB65761 /* MarkdownBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A6B71036B8CED417D4AA4C8 /* MarkdownBlockView.swift */; };
+		004669720F3CEBE018E8F085 /* ServerNotReadyErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EB493E006D2DB81E65867F /* ServerNotReadyErrorTests.swift */; };
 		00789FDD775C3F29E5553CCB /* AssetListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80A51A5C6EF723ECC90AD32 /* AssetListView.swift */; };
 		00B1E91673A614C185F581C1 /* PortfolioDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4195AEAB432FB6E58C1AC129 /* PortfolioDashboardView.swift */; };
 		028543D9E00C20F9F5182F7D /* ChallengeProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA6DFEEE8D7227448497DDFC /* ChallengeProgressEngine.swift */; };
@@ -765,6 +766,7 @@
 		B3BFF1D29A1C0333F6FE9665 /* AccountCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCarouselView.swift; sourceTree = "<group>"; };
 		B457F9BCEA9A3CB095312EF1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B4DE0EF0D2695DE0D29B4E09 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
+		B4EB493E006D2DB81E65867F /* ServerNotReadyErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerNotReadyErrorTests.swift; sourceTree = "<group>"; };
 		B5996C1FE9FF6DD33E17657A /* DataStore+NativeBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DataStore+NativeBalance.swift"; sourceTree = "<group>"; };
 		B711EFFFED8B57AC012BD9E4 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		B7E166EA48634AAFF5F6084C /* ChallengeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeCardView.swift; sourceTree = "<group>"; };
@@ -1392,6 +1394,7 @@
 				5A3805366489086B7B3EBCFB /* S2InviteConfirmationTests.swift */,
 				3F69F936E961B25928FDD8C4 /* S15AssistantLinkPolicyTests.swift */,
 				FECF33CF299CB5A22E113DEC /* SavingsRateCalculatorTests.swift */,
+				B4EB493E006D2DB81E65867F /* ServerNotReadyErrorTests.swift */,
 				6446F759C5B15E88CB44F621 /* SettlementCalculatorTests.swift */,
 				B347EDD2C7B4CF519C79E85A /* SettlementV2ParityTests.swift */,
 				7864B1747FF086155A46C336 /* SettlementWatermarkTests.swift */,
@@ -1945,6 +1948,7 @@
 				0CE519299FA76297A34DF2F6 /* S15AssistantLinkPolicyTests.swift in Sources */,
 				7B1C075CD7EB2ED4D1EFC588 /* S2InviteConfirmationTests.swift in Sources */,
 				FF04697C565B4B5CF9C18B22 /* SavingsRateCalculatorTests.swift in Sources */,
+				004669720F3CEBE018E8F085 /* ServerNotReadyErrorTests.swift in Sources */,
 				14705FC20298E9BA44B26632 /* SettlementCalculatorTests.swift in Sources */,
 				540BCB9765305031EEBEC9D0 /* SettlementV2ParityTests.swift in Sources */,
 				613291146719C772603D1D32 /* SettlementWatermarkTests.swift in Sources */,

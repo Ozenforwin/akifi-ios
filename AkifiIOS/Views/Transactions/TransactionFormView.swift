@@ -1405,6 +1405,11 @@ enum FormErrorMessage {
             // update_expense_with_auto_transfer: the main row is gone
             // (deleted on the partner's phone meanwhile).
             return String(localized: "tx.error.alreadyDeleted")
+        case "PGRST202", "PGRST205", "42883", "42P01":
+            // The server doesn't have this function / table yet (a feature
+            // whose migration isn't applied) — never show the raw
+            // «Could not find the function … in the schema cache».
+            return String(localized: "server.error.featureNotReady")
         case "23514" where context.localizedCaseInsensitiveContains("currency"):
             // guard_account_owner_currency: the account already has rows.
             return String(localized: "account.currency.locked.hint")

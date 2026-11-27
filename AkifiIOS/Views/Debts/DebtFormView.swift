@@ -12,9 +12,10 @@ struct DebtFormSheet: View {
     }
 }
 
-/// Person + details form. Creating also offers the first movement («Я
-/// дал» / «Я взял») so one sheet records "lent Маша 3 000 ₽" (contract
-/// §A5: `create_debt`, then the first transfer).
+/// «Дал в долг» / «Взял в долг» for a new person — кому, сколько, с какого
+/// счёта, срок — in one sheet (contract §A5: `create_debt`, then the first
+/// transfer); or editing a debt's details. A new debt always starts with
+/// money and is kept in the amount's currency.
 struct DebtForm: View {
     enum Mode {
         /// `initial`: preselected first movement (quick add «Дал/Взял в долг»).
@@ -57,12 +58,34 @@ struct DebtForm: View {
 
     private var isValid: Bool {
         guard (1...120).contains(trimmedName.count), contact.count <= 200, note.count <= 2000 else { return false }
-        if firstAction != nil && !amountText.isEmpty { return amount != nil && realAccountId != nil }
+        // A debt always starts with money: «Я дал» / «Я взял» и сумма.
+        if isCreate { return amount != nil && realAccountId != nil }
         return true
     }
 
+    private var action: DebtAction { firstAction ?? .lend }
+
     var body: some View {
         Form {
+            if isCreate {
+                // «Я дал» / «Я взял», кому, сколько, с какого счёта — one
+                // sheet. The person is created on save; the debt is kept in
+                // the amount's currency (no separate currency choice, no
+                // «без суммы» — device feedback 2026-11-28).
+                Section {
+                    Picker(String(localized: "debts.form.first"), selection: Binding(
+                        get: { action },
+                        set: { firstAction = $0 }
+                    )) {
+                        Text(String(localized: "debts.form.first.lend")).tag(DebtAction.lend)
+                        Text(String(localized: "debts.form.first.borrow")).tag(DebtAction.borrow)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .disabled(createdAccount != nil)
+                }
+            }
+
             Section {
                 TextField(String(localized: "debts.form.name"), text: $name)
                     .textContentType(.name)
@@ -72,20 +95,8 @@ struct DebtForm: View {
                     .textContentType(.telephoneNumber)
             }
 
-            // With a first movement the currency is picked next to its
-            // amount (like every other money form); without one, here.
-            if isCreate && firstAction == nil {
-                Section {
-                    HStack {
-                        Text(String(localized: "common.currency"))
-                        Spacer()
-                        ActiveCurrencyPicker(selection: $currency)
-                    }
-                    .frame(minHeight: 44)
-                    .disabled(createdAccount != nil)
-                } footer: {
-                    Text(String(localized: "debts.form.currency.footer"))
-                }
+            if isCreate {
+                moneySection
             }
 
             Section {
@@ -105,10 +116,6 @@ struct DebtForm: View {
                     .lineLimit(2...6)
             }
 
-            if isCreate {
-                firstMovementSection
-            }
-
             if let errorMessage {
                 Section {
                     Text(errorMessage)
@@ -117,7 +124,7 @@ struct DebtForm: View {
                 }
             }
         }
-        .navigationTitle(isCreate ? String(localized: "debts.addPerson") : String(localized: "debts.editDetails"))
+        .navigationTitle(isCreate ? action.title : String(localized: "debts.editDetails"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -134,37 +141,29 @@ struct DebtForm: View {
     }
 
     @ViewBuilder
-    private var firstMovementSection: some View {
+    private var moneySection: some View {
         Section {
-            Picker(String(localized: "debts.form.first"), selection: $firstAction) {
-                Text(String(localized: "debts.form.first.none")).tag(nil as DebtAction?)
-                Text(String(localized: "debts.form.first.lend")).tag(DebtAction.lend as DebtAction?)
-                Text(String(localized: "debts.form.first.borrow")).tag(DebtAction.borrow as DebtAction?)
+            HStack {
+                TextField(String(localized: "debts.amount.placeholder"), text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .font(.title3.monospacedDigit())
+                ActiveCurrencyPicker(selection: $currency)
+                    .disabled(createdAccount != nil)
             }
-            .pickerStyle(.segmented)
-            if firstAction != nil {
-                HStack {
-                    TextField(String(localized: "debts.amount.placeholder"), text: $amountText)
-                        .keyboardType(.decimalPad)
-                        .font(.title3.monospacedDigit())
-                    ActiveCurrencyPicker(selection: $currency)
-                        .disabled(createdAccount != nil)
+            Picker(action == .lend ? String(localized: "debts.account.from") : String(localized: "debts.account.to"),
+                   selection: $realAccountId) {
+                ForEach(dataStore.accounts) { acc in
+                    Text("\(acc.icon) \(acc.name)").tag(acc.id as String?)
                 }
-                Picker(firstAction == .lend ? String(localized: "debts.account.from") : String(localized: "debts.account.to"),
-                       selection: $realAccountId) {
-                    ForEach(dataStore.accounts) { acc in
-                        Text("\(acc.icon) \(acc.name)").tag(acc.id as String?)
-                    }
-                }
-                .pickerStyle(.menu)
             }
+            .pickerStyle(.menu)
         } header: {
-            Text(String(localized: "debts.form.first.header"))
+            Text(String(localized: "common.amount"))
         } footer: {
             if createdAccount != nil {
                 Text(String(localized: "debts.form.retryMovement"))
-            } else if firstAction != nil {
-                Text(String(localized: "debts.form.currency.footer"))
+            } else {
+                Text(String(localized: "debts.form.amount.footer"))
             }
         }
     }
@@ -175,7 +174,7 @@ struct DebtForm: View {
         realAccountId = (dataStore.accounts.first(where: \.isPrimary) ?? dataStore.accounts.first)?.id
         switch mode {
         case .create(let initial):
-            firstAction = initial
+            firstAction = initial ?? .lend
             currency = cm.dataCurrency
             nameFocused = true
         case .edit(let entry):
@@ -221,7 +220,7 @@ struct DebtForm: View {
                     )
                     createdAccount = account
                 }
-                if let action = firstAction, let amount,
+                if let amount,
                    let real = dataStore.accounts.first(where: { $0.id == realAccountId }) {
                     try await debts.record(
                         action, amount: amount, entryCurrency: currency, debtAccount: account,
