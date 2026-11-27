@@ -76,7 +76,9 @@ enum UIHarnessQuickEntry {
         add(1, "Такси", 450, "qe-cat-taxi", hourOffset: -1)
         add(1, "Пятёрочка", 1_240, "qe-cat-food", account: "qe-acc-cash", hourOffset: 3)
         add(2, "Кофе", 300, "qe-cat-cafe")
-        add(3, "Кино", 990, "qe-cat-fun", hourOffset: 5)
+        // No row three days ago: a 7-day streak would put the streak
+        // celebration over the saved-toast screenshot.
+        add(9, "Кино", 990, "qe-cat-fun", hourOffset: 5)
         add(4, "Аптека", 650, "qe-cat-health")
         add(5, "Кофе", 300, "qe-cat-cafe")
         add(6, "Такси", 520, "qe-cat-taxi", hourOffset: 2)
@@ -126,8 +128,13 @@ enum UIHarnessQuickEntry {
             case "toast":
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(2))
-                    if case .saved(let saved) = await model.save(confirmingLargeExpense: true) {
-                        coordinator?.didSave(saved)
+                    guard case .saved(let saved) = await model.save(confirmingLargeExpense: true) else { return }
+                    coordinator?.didSave(saved)
+                    // Keep the toast up for slow screenshot tools: re-post
+                    // it before its 5 s timer closes it.
+                    for _ in 0..<20 {
+                        try? await Task.sleep(for: .seconds(3))
+                        coordinator?.didSave(QuickEntrySaved(transaction: saved.transaction, label: saved.label, method: saved.method))
                     }
                 }
             default:
