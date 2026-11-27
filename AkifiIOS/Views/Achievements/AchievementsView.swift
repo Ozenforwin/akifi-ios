@@ -33,26 +33,19 @@ struct AchievementsView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(categories, id: \.1) { cat, label in
-                            Button {
+                            FilterChip(title: label, isSelected: viewModel.selectedCategory == cat) {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     viewModel.selectedCategory = cat
                                 }
-                            } label: {
-                                Text(label)
-                                    .font(.subheadline.weight(.medium))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background(viewModel.selectedCategory == cat ? Color.accent : Color(.systemGray6))
-                                    .foregroundStyle(viewModel.selectedCategory == cat ? .white : .primary)
-                                    .clipShape(Capsule())
                             }
-                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal)
                 }
+                .padding(.horizontal, -16)
 
                 // Achievement grid
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
                     ForEach(viewModel.filteredAchievements) { achievement in
                         AchievementBadgeView(
                             achievement: achievement,
@@ -61,12 +54,14 @@ struct AchievementsView: View {
                         )
                     }
                 }
-
-                Color.clear.frame(height: 120)
             }
             .padding(.horizontal)
+            .padding(.top, 8)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "achievements.title"))
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.load()
         }
@@ -79,35 +74,23 @@ struct AchievementsView: View {
 
     private var skillTreeCard: some View {
         HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accent, Color.aiGradientStart],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "tree.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+            SettingsIconTile(systemName: "tree.fill", color: .green)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "skills.entry.title"))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.body.weight(.semibold))
                 Text(String(localized: "skills.entry.subtitle"))
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .akifiCard()
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Level Card
@@ -125,14 +108,9 @@ struct AchievementsView: View {
                         .tracking(2)
 
                     Text("\(info.level)")
-                        .font(.system(size: 48, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.accent, Color.aiGradientStart],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.accent)
                 }
 
                 Spacer()
@@ -167,42 +145,22 @@ struct AchievementsView: View {
 
             // Progress bar
             VStack(spacing: 4) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(.systemGray5))
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.accent, Color.aiGradientStart],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: geo.size.width * info.progress)
-                    }
-                }
-                .frame(height: 10)
+                ProgressView(value: min(max(info.progress, 0), 1))
+                    .tint(Color.accent)
 
                 HStack {
                     Text("\(info.currentXP) XP")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .monospacedDigit()
                     Spacer()
                     Text("\(info.nextLevelXP) XP")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.accent.opacity(0.2), lineWidth: 1)
-        )
+        .akifiCard()
     }
 }

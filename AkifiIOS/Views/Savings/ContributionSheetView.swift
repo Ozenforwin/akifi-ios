@@ -146,14 +146,19 @@ struct QuickAmountChip: View {
             VStack(spacing: 2) {
                 Text(label)
                     .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Text(appViewModel.currencyManager.formatAmount(amount.displayAmount))
                     .font(.caption.weight(.medium))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        // Several buttons share one form row; an explicit style (not the
+        // row-wide default) keeps each tap to its own button.
+        .buttonStyle(.bordered)
+        .tint(.secondary)
+        .foregroundStyle(.primary)
     }
 }

@@ -66,8 +66,10 @@ struct BankImportView: View {
             Spacer()
 
             Image(systemName: "doc.text.fill")
-                .font(.system(size: 56))
+                .font(.largeTitle)
+                .imageScale(.large)
                 .foregroundStyle(Color.accent)
+                .accessibilityHidden(true)
 
             Text(String(localized: "import.instruction"))
                 .font(.headline)
@@ -97,23 +99,22 @@ struct BankImportView: View {
                 showFilePicker = true
             } label: {
                 Label(String(localized: "import.selectPDF"), systemImage: "doc.badge.plus")
-                    .font(.headline)
-                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
             }
+            .buttonStyle(.akifiPrimary)
+            .controlSize(.large)
             .padding(.horizontal)
 
             if let error {
                 Text(error)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.red)
                     .padding(.horizontal)
             }
         }
-        .padding(.bottom, 120)
+        // The floating «+» hovers over this screen when it is pushed from
+        // Settings: keep the button clear of it.
+        .padding(.bottom, AkifiChrome.floatingButtonClearance)
     }
 
     // MARK: - Parsing Progress
@@ -122,7 +123,7 @@ struct BankImportView: View {
         VStack(spacing: 20) {
             Spacer()
             ProgressView()
-                .scaleEffect(1.5)
+                .controlSize(.large)
             Text(String(localized: "import.parsing"))
                 .font(.headline)
             Text(String(localized: "import.parsingDetail"))
@@ -159,6 +160,7 @@ struct BankImportView: View {
                                 .foregroundStyle(.secondary)
                             Text("+\(appViewModel.currencyManager.formatAmount(result.totalIncome))")
                                 .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
                                 .foregroundStyle(Color.income)
                         }
                         VStack(alignment: .leading) {
@@ -167,6 +169,7 @@ struct BankImportView: View {
                                 .foregroundStyle(.secondary)
                             Text("-\(appViewModel.currencyManager.formatAmount(result.totalExpense))")
                                 .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
                                 .foregroundStyle(Color.expense)
                         }
                     }
@@ -202,7 +205,8 @@ struct BankImportView: View {
                         selectedIndices.removeAll()
                     }
                 }
-                .font(.subheadline)
+                // Two buttons in one row: borderless keeps their taps apart.
+                .buttonStyle(.borderless)
             }
 
             // Transactions
@@ -234,28 +238,17 @@ struct BankImportView: View {
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(tx.type == "income" ? "+\(formatTxAmount(tx.amount))" : "-\(formatTxAmount(tx.amount))")
                                     .font(.subheadline.weight(.semibold))
+                                    .monospacedDigit()
                                     .foregroundStyle(tx.type == "income" ? Color.income : Color.expense)
 
                                 if tx.isDuplicate {
-                                    Text(String(localized: "import.duplicate"))
-                                        .font(.system(size: 9, weight: .medium))
-                                        .foregroundStyle(.orange)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.12))
-                                        .clipShape(Capsule())
+                                    duplicateBadge(String(localized: "import.duplicate"))
                                 } else if autoTransferDupIndices.contains(index) {
                                     // Narrower match set than `isDuplicate`:
                                     // specifically "already backed by an auto-
                                     // transfer" so the user understands why
                                     // the row is unselected by default.
-                                    Text(String(localized: "import.duplicate.badge"))
-                                        .font(.system(size: 9, weight: .medium))
-                                        .foregroundStyle(.orange)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.12))
-                                        .clipShape(Capsule())
+                                    duplicateBadge(String(localized: "import.duplicate.badge"))
                                 }
                             }
                         }
@@ -269,25 +262,31 @@ struct BankImportView: View {
                 Button {
                     Task { await importSelected(result) }
                 } label: {
-                    HStack {
-                        Spacer()
+                    Group {
                         if isImporting {
                             ProgressView()
                         } else {
                             Text(String(localized: "import.importCount.\(selectedIndices.count)"))
                                 .font(.headline)
                         }
-                        Spacer()
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
                 }
                 .disabled(selectedIndices.isEmpty || isImporting)
             }
-
-            Color.clear.frame(height: 100)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
+    }
+
+    private func duplicateBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(Color.warning)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.warning.opacity(0.12), in: Capsule())
     }
 
     // MARK: - Success
@@ -297,8 +296,10 @@ struct BankImportView: View {
             Spacer()
 
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
+                .font(.largeTitle)
+                .imageScale(.large)
+                .foregroundStyle(Color.income)
+                .accessibilityHidden(true)
 
             Text(String(localized: "import.success"))
                 .font(.title2.weight(.bold))
@@ -319,15 +320,12 @@ struct BankImportView: View {
                 dismiss()
             } label: {
                 Text(String(localized: "common.done"))
-                    .font(.headline)
-                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
             }
+            .buttonStyle(.akifiPrimary)
+            .controlSize(.large)
             .padding(.horizontal)
-            .padding(.bottom, 120)
+            .padding(.bottom, AkifiChrome.floatingButtonClearance)
         }
     }
 

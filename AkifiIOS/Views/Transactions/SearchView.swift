@@ -49,7 +49,7 @@ struct SearchView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
             }
         }

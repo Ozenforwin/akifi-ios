@@ -9,35 +9,35 @@ struct ChallengesListView: View {
     private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                if vm.challenges.isEmpty && !vm.isLoading {
+        List {
+            if vm.challenges.isEmpty && !vm.isLoading {
+                Section {
                     emptyState
-                } else {
-                    if !vm.activeChallenges.isEmpty {
-                        section(
-                            title: String(localized: "challenges.active"),
-                            items: vm.activeChallenges
-                        )
-                    }
-                    if !vm.completedChallenges.isEmpty {
-                        section(
-                            title: String(localized: "challenges.completed"),
-                            items: vm.completedChallenges
-                        )
-                    }
-                    if !vm.abandonedChallenges.isEmpty {
-                        section(
-                            title: String(localized: "challenges.abandoned"),
-                            items: vm.abandonedChallenges
-                        )
-                    }
+                        .listRowBackground(Color.clear)
                 }
-                Color.clear.frame(height: 60)
+            } else {
+                if !vm.activeChallenges.isEmpty {
+                    section(
+                        title: String(localized: "challenges.active"),
+                        items: vm.activeChallenges
+                    )
+                }
+                if !vm.completedChallenges.isEmpty {
+                    section(
+                        title: String(localized: "challenges.completed"),
+                        items: vm.completedChallenges
+                    )
+                }
+                if !vm.abandonedChallenges.isEmpty {
+                    section(
+                        title: String(localized: "challenges.abandoned"),
+                        items: vm.abandonedChallenges
+                    )
+                }
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "challenges.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -88,21 +88,14 @@ struct ChallengesListView: View {
     // MARK: - Section
 
     private func section(title: String, items: [SavingsChallenge]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(1)
-            VStack(spacing: 10) {
-                ForEach(items) { ch in
-                    Button {
-                        selectedChallenge = ch
-                    } label: {
-                        ChallengeCardView(challenge: ch)
-                    }
-                    .buttonStyle(.plain)
+        Section(title) {
+            ForEach(items) { ch in
+                Button {
+                    selectedChallenge = ch
+                } label: {
+                    ChallengeCardView(challenge: ch)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -110,29 +103,13 @@ struct ChallengesListView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 14) {
-            Text("🎯").font(.system(size: 52))
-            Text(String(localized: "challenges.empty.title"))
-                .font(.headline)
-            Text(String(localized: "challenges.empty.subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Button {
-                showForm = true
-            } label: {
-                Label(String(localized: "challenges.addNew"), systemImage: "plus.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
-            }
-            .padding(.top, 4)
+        EmptyStateView(
+            title: String(localized: "challenges.empty.title"),
+            systemImage: "flag.checkered",
+            description: String(localized: "challenges.empty.subtitle"),
+            actionTitle: String(localized: "challenges.addNew")
+        ) {
+            showForm = true
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 80)
     }
 }

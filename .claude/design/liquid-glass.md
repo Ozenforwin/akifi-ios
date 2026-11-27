@@ -193,7 +193,21 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
 - **Toast** «Записано: … · Отменить» = `.akifiGlassBanner` in the top banner
   stack (same place as the other banners), 5 s (12 s with VoiceOver).
 
-## 9. Decisions from the screen sweep — Transactions / Assistant / Auth
+## 9. Decisions from device testing (Vladimir, 2026-11-28)
+- **Account cards keep their colour.** The plain white card lost which
+  account is which. Home's account cards use `.akifiCard(tint: accountColor)`:
+  a light diagonal wash (10 % → 22 %) and a 0.5 pt hairline in the account's
+  colour, no shadow, still content (not glass). Other cards stay neutral.
+- **Quick entry keeps the keyboard up.** The window-wide tap-to-hide-keyboard
+  gesture skips UIKit controls, never delays touch-ups, and is suspended
+  while quick entry is on screen (`KeyboardTapDismiss`). The type control
+  (Расход · Доход · Перевод) is full-width content, not a toolbar item.
+- **No wrapping chip rows above a bottom bar.** Chip rows scroll sideways;
+  bottom call-to-action bars use `akifiSafeAreaBar` so content never shows
+  through them.
+- **Currency is chosen next to the amount** (quick entry chip, debt forms).
+
+## 10. Decisions from the screen sweep — Transactions / Assistant / Auth
 - **Search inside a tab:** `.searchable` + `.akifiSearchToolbarMinimize()`
   — on iOS 26 a search button in the top toolbar that expands into the glass
   field. A bottom-bar field (`DefaultToolbarItem(kind: .search,

@@ -73,8 +73,10 @@ struct ReceiptScannerView: View {
             Spacer()
 
             Image(systemName: "doc.text.viewfinder")
-                .font(.system(size: 64))
+                .font(.largeTitle)
+                .imageScale(.large)
                 .foregroundStyle(Color.accent)
+                .accessibilityHidden(true)
 
             Text(String(localized: "receipt.instruction"))
                 .font(.headline)
@@ -93,29 +95,22 @@ struct ReceiptScannerView: View {
                     openCamera()
                 } label: {
                     Label(String(localized: "receipt.takePhoto"), systemImage: "camera.fill")
-                        .font(.headline)
-                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
+                .buttonStyle(.akifiPrimary)
 
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
                     Label(String(localized: "receipt.fromGallery"), systemImage: "photo.on.rectangle")
-                        .font(.headline)
-                        .foregroundStyle(Color.accent)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accent.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
+                .buttonStyle(.akifiSecondary)
             }
+            .controlSize(.large)
             .padding(.horizontal)
 
             if let error {
                 Text(error)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.red)
                     .padding(.horizontal)
             }
@@ -133,11 +128,10 @@ struct ReceiptScannerView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(radius: 4)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             ProgressView()
-                .scaleEffect(1.5)
+                .controlSize(.large)
             Text(String(localized: "receipt.analyzing"))
                 .font(.headline)
             Text(String(localized: "receipt.analyzingDetail"))
@@ -161,7 +155,8 @@ struct ReceiptScannerView: View {
                 HStack {
                     TextField("0", text: $editAmount)
                         .keyboardType(.decimalPad)
-                        .font(.title2.weight(.bold))
+                        .font(.title2.weight(.semibold))
+                        .monospacedDigit()
                     ActiveCurrencyPicker(selection: $editCurrency)
                     if let conf = result.confidence {
                         Text("\(Int(conf * 100))%")
@@ -209,16 +204,15 @@ struct ReceiptScannerView: View {
                 Button {
                     Task { await finalizeReceipt(result) }
                 } label: {
-                    HStack {
-                        Spacer()
+                    Group {
                         if isFinalizing {
                             ProgressView()
                         } else {
                             Text(String(localized: "receipt.saveTransaction"))
                                 .font(.headline)
                         }
-                        Spacer()
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
                 }
                 .disabled(isFinalizing || editAmount.isEmpty)

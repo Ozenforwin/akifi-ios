@@ -6,9 +6,10 @@ import SwiftUI
 /// investable assets, expected return) without making the screen
 /// itself heavy with copy.
 ///
-/// Visual: a `.tertiary`-tinted SF symbol that doesn't fight the
-/// label it sits next to. The sheet itself uses `.medium` detent —
-/// enough room for one paragraph and a "Got it" dismiss button.
+/// Visual: a `.secondary`-tinted SF symbol that doesn't fight the
+/// label it sits next to; its hit area is padded to 44 pt without
+/// changing the row's layout. The sheet uses the `.medium` detent —
+/// enough room for one paragraph and a "Got it" button.
 ///
 /// All copy comes from `Localizable.xcstrings` so ru/en/es follow
 /// the rest of the app.
@@ -23,8 +24,12 @@ struct InfoTooltipButton: View {
             isPresented = true
         } label: {
             Image(systemName: "info.circle")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                // 44 pt hit target, layout unchanged.
+                .padding(14)
+                .contentShape(Rectangle())
+                .padding(-14)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(String(localized: titleKey)))
@@ -41,42 +46,35 @@ private struct InfoSheet: View {
     @Binding var isPresented: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(String(localized: titleKey))
-                    .font(.title3.weight(.bold))
-                Spacer()
-                Button {
-                    isPresented = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-            }
-
+        NavigationStack {
             ScrollView {
                 Text(String(localized: bodyKey))
                     .font(.body)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
             }
-
-            Button {
-                isPresented = false
-            } label: {
-                Text(String(localized: "common.gotIt"))
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .safeAreaInset(edge: .bottom) {
+                Button {
+                    isPresented = false
+                } label: {
+                    Text(String(localized: "common.gotIt"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.akifiPrimary)
+                .controlSize(.large)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
             }
-            .buttonStyle(.plain)
+            .navigationTitle(String(localized: titleKey))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    SheetCloseButton { isPresented = false }
+                }
+            }
         }
-        .padding(20)
     }
 }

@@ -101,7 +101,7 @@ struct AssistantView: View {
             .toolbar {
                 if showsCloseButton {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(String(localized: "common.close")) { dismiss() }
+                        SheetCloseButton { dismiss() }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -585,7 +585,7 @@ struct ConversationListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
             }
             .task {

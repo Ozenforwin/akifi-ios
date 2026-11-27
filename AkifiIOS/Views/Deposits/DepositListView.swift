@@ -79,21 +79,19 @@ struct DepositListView: View {
                     }
                 }
             }
-
-            Color.clear.frame(height: 100)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
         }
         .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "deposit.title"))
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showForm = true
                 } label: {
-                    Image(systemName: "plus.circle.fill")
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel(String(localized: "deposit.form.title"))
             }
         }
         .task {
@@ -151,8 +149,6 @@ struct DepositListView: View {
         } label: {
             row(for: deposit)
         }
-        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-        .listRowBackground(Color.clear)
     }
 
     @ViewBuilder
@@ -173,39 +169,15 @@ struct DepositListView: View {
         )
     }
 
-    @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "percent")
-                .font(.system(size: 42, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color(hex: "#A78BFA"), Color(hex: "#7C3AED")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Text(String(localized: "deposit.empty.title"))
-                .font(.headline)
-            Text(String(localized: "deposit.empty.subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button {
-                showForm = true
-            } label: {
-                Text(String(localized: "deposit.empty.cta"))
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.accent.opacity(0.16))
-                    .foregroundStyle(Color.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
+        EmptyStateView(
+            title: String(localized: "deposit.empty.title"),
+            systemImage: "percent",
+            description: String(localized: "deposit.empty.subtitle"),
+            actionTitle: String(localized: "deposit.empty.cta")
+        ) {
+            showForm = true
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .padding(.horizontal, 20)
     }
 
     private func closeEarly(_ deposit: Deposit) async {

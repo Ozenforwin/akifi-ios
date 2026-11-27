@@ -45,7 +45,7 @@ struct SubscriptionPaymentsHistoryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.close")) { dismiss() }
+                    SheetCloseButton { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {

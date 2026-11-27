@@ -30,7 +30,8 @@ struct JournalNoteCardView: View {
     // MARK: - Standard card (Variant A & C) — Note
     //
     // Per spec R2.7: no leading Rectangle, plain VStack, TypePill as type
-    // differentiator, shadow matches TransactionRowView.
+    // differentiator. 1.6: the standard content card (`.akifiCard()`), no
+    // shadow — reflections are told apart by the pill, not a tinted fill.
 
     private var standardCard: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -60,14 +61,7 @@ struct JournalNoteCardView: View {
                 tagChipRow(tags)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(cardBackground)
-        )
-        .shadow(color: .primary.opacity(0.06), radius: 6, x: 0, y: 2)
+        .akifiCard()
     }
 
     // MARK: - Reflection card — structured summary preview (Journal v2 R2.1 + P1.9)
@@ -124,14 +118,7 @@ struct JournalNoteCardView: View {
                 tagChipRow(tags)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(cardBackground)
-        )
-        .shadow(color: .primary.opacity(0.06), radius: 6, x: 0, y: 2)
+        .akifiCard()
     }
 
     private func summaryStat(icon: String, text: String, tint: Color) -> some View {
@@ -171,21 +158,10 @@ struct JournalNoteCardView: View {
                     tagChipRow(tags)
                 }
             }
-            .padding(12)
+            .padding(16)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(cardBackground)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: .primary.opacity(0.06), radius: 6, x: 0, y: 2)
-    }
-
-    private var cardBackground: Color {
-        isReflection
-            ? Color.budget.opacity(0.05)
-            : Color(.secondarySystemGroupedBackground)
+        .akifiCard(padding: 0)
+        .clipShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
     }
 
     private func photoThumbnailStrip(_ urls: [String]) -> some View {
@@ -215,15 +191,7 @@ struct JournalNoteCardView: View {
             }
         }
         .frame(height: 140)
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 12,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: 12,
-                style: .continuous
-            )
-        )
+        .accessibilityHidden(true)
     }
 
     private func photoImage(_ urlString: String, width: CGFloat, height: CGFloat) -> some View {

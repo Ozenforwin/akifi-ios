@@ -101,8 +101,8 @@ struct TransactionDetailView: View {
             .navigationTitle(String(localized: "transaction.details"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.done")) { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    SheetCloseButton { dismiss() }
                 }
             }
             .alert(

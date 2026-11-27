@@ -27,8 +27,9 @@ struct CompoundCalculatorView: View {
                 contributionsCard
             }
             .padding(16)
-            .padding(.bottom, 120)
         }
+        .background(Color(.systemGroupedBackground))
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "compound.title"))
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -86,11 +87,7 @@ struct CompoundCalculatorView: View {
                 Slider(value: $years, in: 1...40, step: 1)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     @ViewBuilder
@@ -130,32 +127,17 @@ struct CompoundCalculatorView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
             Text(cm.formatAmount(r.finalValue.displayAmount))
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .minimumScaleFactor(0.55)
                 .lineLimit(1)
             Text(String(format: String(localized: "compound.summary.afterFormat"),
                         Int(years)))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.accent.opacity(0.08), Color.accent.opacity(0.16)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.accent.opacity(0.18), lineWidth: 0.5)
-        )
+        .akifiCard()
     }
 
     // MARK: - Chart
@@ -172,13 +154,7 @@ struct CompoundCalculatorView: View {
                     y: .value("value", Double(point.value) / 100.0)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color.accent.opacity(0.30), Color.accent.opacity(0.05)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .foregroundStyle(Color.accent.opacity(0.15))
                 LineMark(
                     x: .value("year", point.year),
                     y: .value("value", Double(point.value) / 100.0)
@@ -199,11 +175,7 @@ struct CompoundCalculatorView: View {
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     // MARK: - Contributions vs growth
@@ -218,11 +190,7 @@ struct CompoundCalculatorView: View {
             row(label: String(localized: "compound.interest"),
                 value: r.totalInterest, accent: true)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .akifiCard()
     }
 
     @ViewBuilder
@@ -233,7 +201,7 @@ struct CompoundCalculatorView: View {
             Text(cm.formatAmount(value.displayAmount))
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(accent ? Color(hex: "#16A34A") : .primary)
+                .foregroundStyle(accent ? Color.income : .primary)
         }
     }
 

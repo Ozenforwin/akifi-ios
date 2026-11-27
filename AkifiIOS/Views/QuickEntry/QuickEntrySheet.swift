@@ -49,6 +49,9 @@ struct QuickEntrySheet: View {
                     }
                     categoryRow
                     accountAndDateRow
+                    if model.showsRepeatStrip {
+                        repeatStrip
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
@@ -56,7 +59,9 @@ struct QuickEntrySheet: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.never)
-            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+            // A real bar (scroll-edge effect on iOS 26, bar material
+            // before): content scrolling under it never shows through.
+            .akifiSafeAreaBar(edge: .bottom, spacing: 0) { bottomBar }
             .navigationTitle(String(localized: "transaction.newTransaction"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
@@ -349,27 +354,19 @@ struct QuickEntrySheet: View {
 
     // MARK: - Account and date
 
+    /// Account · currency · date on one line; it scrolls sideways when it
+    /// doesn't fit (narrow phones, large text) instead of wrapping.
     private var accountAndDateRow: some View {
-        ViewThatFits(in: .horizontal) {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 accountMenu
                 currencyMenu
                 dateMenu
-                Spacer(minLength: 0)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    accountMenu
-                    currencyMenu
-                }
-                dateMenu
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                accountMenu
-                currencyMenu
-                dateMenu
-            }
+            .padding(.horizontal, 20)
         }
+        .padding(.horizontal, -20)
+        .scrollClipDisabled()
     }
 
     // MARK: - Currency
@@ -493,9 +490,6 @@ struct QuickEntrySheet: View {
 
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if model.showsRepeatStrip {
-                repeatStrip
-            }
             if let error = model.errorMessage {
                 Text(error)
                     .font(.footnote)
