@@ -51,7 +51,7 @@ extension DataStore {
         DerivationRevision(
             token: txGenerationToken,
             transactions: ArrayIdentity(transactions),
-            accounts: ArrayIdentity(accounts)
+            accounts: ArrayIdentity(allAccounts)
         )
     }
 }

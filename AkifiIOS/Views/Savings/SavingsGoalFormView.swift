@@ -56,7 +56,7 @@ struct SavingsGoalFormView: View {
     private var isEditing: Bool { editingGoal != nil }
 
     init(accounts: [Account], editingGoal: SavingsGoal? = nil, onSave: @escaping (GoalDraft) async throws -> Void) {
-        self.accounts = accounts
+        self.accounts = accounts.moneyAccounts
         self.editingGoal = editingGoal
         self.onSave = onSave
     }

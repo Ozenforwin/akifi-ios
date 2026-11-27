@@ -70,7 +70,7 @@ final class PerfDerivationTests: XCTestCase {
         cm.selectedCurrency = .rub
         cm.rates = ["USD": 1, "RUB": 100, "THB": 35]
         store.currencyManager = cm
-        store.accounts = [
+        store.allAccounts = [
             Account(id: "acc-rub", userId: Self.me, name: "RUB", icon: "💳", color: "#000000", initialBalance: 0, currency: "rub"),
             Account(id: "acc-usd", userId: Self.me, name: "USD", icon: "💵", color: "#000000", initialBalance: 0, currency: "usd"),
             Account(id: "acc-thb", userId: Self.me, name: "THB", icon: "🇹🇭", color: "#000000", initialBalance: 0, currency: "thb"),

@@ -156,8 +156,7 @@ struct TransactionRowView: View {
 
     private var resolvedAccount: Account? {
         if let account { return account }
-        guard let accId = transaction.accountId else { return nil }
-        return dataStore.accounts.first { $0.id == accId }
+        return dataStore.account(withId: transaction.accountId)
     }
 
     /// Name of the personal source account for auto-transferred expenses,
@@ -166,7 +165,7 @@ struct TransactionRowView: View {
     private var paymentSourceName: String? {
         guard let sourceId = transaction.paymentSourceAccountId,
               sourceId != transaction.accountId,
-              let source = dataStore.accounts.first(where: { $0.id == sourceId }) else {
+              let source = dataStore.account(withId: sourceId) else {
             return nil
         }
         return source.name
@@ -193,7 +192,7 @@ struct TransactionRowView: View {
         // linear search of every transaction per row).
         if let pair = dataStore.derivedCache.transactionIndex(for: dataStore).transferPartner(of: transaction),
            let pairAccountId = pair.accountId,
-           let pairAccount = dataStore.accounts.first(where: { $0.id == pairAccountId }) {
+           let pairAccount = dataStore.account(withId: pairAccountId) {
             // Both sides available. Direction comes from the row's type —
             // legs are stored positive as expense/income; only a legacy
             // `.transfer` row carries it in the sign (M9).

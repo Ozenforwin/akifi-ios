@@ -13,7 +13,7 @@ final class ReportsViewModelTransfersTests: XCTestCase {
         cm.selectedCurrency = .rub
         cm.rates = ["USD": 1.0, "RUB": 100.0]
         store.currencyManager = cm
-        store.accounts = [
+        store.allAccounts = [
             makeAccount(id: "acc-a", name: "Карта"),
             makeAccount(id: "acc-b", name: "Наличные")
         ]

@@ -12,6 +12,9 @@ final class AppViewModel {
     /// Shared Journal view-model — survives tab switches so the Journal list
     /// and tag index are not reloaded on every return to the tab.
     let journalViewModel = JournalViewModel()
+    /// «Долги» (1.6.0): summary, movements, reminders — shared by Home,
+    /// Net Worth and the Debts screens.
+    let debts = DebtsStore()
 
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     private(set) var hasLoadedData = false
@@ -253,6 +256,7 @@ final class AppViewModel {
         BudgetMetricsStore.shared.reset()
         NotificationManager.recordServerPushRegistration(userId: nil)
         journalViewModel.reset()
+        debts.reset()
         paymentManager.isPremium = false
         sessionEffects.clearDeviceState()
     }
