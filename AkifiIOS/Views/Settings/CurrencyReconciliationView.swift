@@ -29,7 +29,7 @@ struct CurrencyReconciliationView: View {
 
     private var suspiciousRows: [SuspiciousRow] {
         let accounts = Dictionary(
-            uniqueKeysWithValues: appViewModel.dataStore.accounts.map { ($0.id, $0) }
+            uniqueKeysWithValues: appViewModel.dataStore.allAccounts.map { ($0.id, $0) }
         )
         return appViewModel.dataStore.transactions.compactMap { tx in
             guard let accId = tx.accountId,
@@ -54,7 +54,7 @@ struct CurrencyReconciliationView: View {
     ///      with an "approximate" warning badge.)
     private func resolveRates(for rows: [SuspiciousRow]) async {
         let accountsById = Dictionary(
-            uniqueKeysWithValues: appViewModel.dataStore.accounts.map { ($0.id, $0) }
+            uniqueKeysWithValues: appViewModel.dataStore.allAccounts.map { ($0.id, $0) }
         )
         var out: [String: ResolvedRate] = [:]
         for row in rows {

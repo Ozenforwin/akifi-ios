@@ -292,7 +292,7 @@ struct ReflectionPeriodCard: View {
             transactions: dataStore.transactions,
             categories: dataStore.categories,
             currencyManager: currencyManager,
-            accounts: dataStore.accounts
+            accounts: dataStore.allAccounts  // id → currency lookups
         )
     }
 

@@ -88,6 +88,12 @@ final class SettlementViewModel {
     /// `true` when `balances` came from `get_account_settlement` (identical
     /// for every member); `false` when we fell back to the local calculator.
     var isServerComputed = false
+    /// What each member owes the account for personal spending from its own
+    /// money (settlement v2 `personal_debts`; local fallback offline).
+    var personalDebts: [SettlementCalculator.PersonalDebt] = []
+    /// Members of the account as last loaded (roles drive who may mark
+    /// someone else's expense personal).
+    var members: [AccountMember] = []
 
     /// How far the card's numbers can be trusted (M7).
     enum Reliability: Equatable, Sendable {
@@ -180,6 +186,7 @@ final class SettlementViewModel {
             AppLogger.data.debug("settlement members load: \(error.localizedDescription)")
         }
 
+        self.members = members
         let memberUserIds: [String]
         let memberWeights: [String: Decimal]
         if !members.isEmpty {
@@ -254,11 +261,18 @@ final class SettlementViewModel {
             baseCurrency: baseCurrency
         )
 
+        let localPersonal = SettlementCalculator.personalDebts(
+            sharedAccountId: sharedAccountId,
+            transactions: dataStore.transactions,
+            memberUserIds: memberUserIds
+        )
+
         var serverOK = false
         do {
             let server = try await serverFetch
             balances = server.memberBalances
             serverPayers = server.payers
+            personalDebts = Self.personalDebts(server: server, local: localPersonal)
             isServerComputed = true
             serverOK = true
             // Compare only when the local side had everything the server
@@ -282,6 +296,7 @@ final class SettlementViewModel {
             AppLogger.data.error("get_account_settlement failed, using local fallback: \(error.localizedDescription)")
             balances = local
             serverPayers = [:]
+            personalDebts = localPersonal
             isServerComputed = false
         }
         reliability = Self.reliability(
@@ -291,6 +306,27 @@ final class SettlementViewModel {
         suggestions = Self.suggestions(from: balances, reliability: reliability)
 
         isLoading = false
+    }
+
+    /// Server `personal_debts` (v2). A v1 server has no marks at all, so its
+    /// missing key means "none" — but the local rows may already carry
+    /// marks written through a v2 path; then the local numbers are shown.
+    nonisolated static func personalDebts(
+        server: ServerSettlement,
+        local: [SettlementCalculator.PersonalDebt]
+    ) -> [SettlementCalculator.PersonalDebt] {
+        guard server.version >= 2 else { return local }
+        return server.personalDebts.map {
+            SettlementCalculator.PersonalDebt(
+                userId: $0.userId, expenses: $0.expenses, repaid: $0.repaid, isMember: $0.isMember
+            )
+        }
+    }
+
+    /// The current user's own entry, when they owe the account something.
+    func myPersonalDebt(userId: String?) -> SettlementCalculator.PersonalDebt? {
+        guard let userId else { return nil }
+        return personalDebts.first { $0.userId.lowercased() == userId.lowercased() && $0.owed > 0 }
     }
 
     // MARK: - Mismatch event dedupe (M10)

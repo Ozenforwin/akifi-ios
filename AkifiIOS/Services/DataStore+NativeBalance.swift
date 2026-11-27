@@ -116,7 +116,7 @@ extension DataStore {
     /// auto-transfer triplet.
     func canModifyAutoTransfer(_ tx: Transaction) -> Bool {
         AutoTransferPermission.canModify(
-            tx, currentUserId: profile?.id, accounts: accounts, transactions: transactions
+            tx, currentUserId: profile?.id, accounts: allAccounts, transactions: transactions
         )
     }
 }

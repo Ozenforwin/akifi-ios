@@ -9,9 +9,10 @@ struct Account: Codable, Identifiable, Sendable, Hashable {
     var initialBalance: Int64
     var isPrimary: Bool
     var currency: String
-    /// Classifier for checking/savings/cash/deposit/investment. Defaults to
-    /// `.checking` on decode when the column is missing (backward compat for
-    /// pre-migration cached rows).
+    /// Classifier for checking/savings/cash/deposit/investment/debt.
+    /// Defaults to `.checking` on decode when the column is missing
+    /// (backward compat for pre-migration cached rows); an unknown value
+    /// decodes as `.unsupported` and never fails the row (contract A8).
     var accountType: AccountType
     let createdAt: String?
 

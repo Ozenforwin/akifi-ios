@@ -60,7 +60,7 @@ enum UIHarness {
             telegramUserId: nil, telegramChatId: nil, telegramLinkedAt: nil,
             updatedAt: nil
         )
-        store.accounts = DemoData.accounts
+        store.allAccounts = DemoData.accounts
         store.categories = DemoData.categories
         store.transactions = (DemoData.transactions + extraTransactions())
             .sorted { $0.date > $1.date }

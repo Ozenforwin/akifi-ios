@@ -103,7 +103,7 @@ final class RefreshRenderBenchmarkTests: XCTestCase {
                                             currency: ccy, billingPeriod: .monthly, startDate: start,
                                             nextPaymentDate: next))
         }
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.categories = categories
         store.transactions = txs
         store.budgets = budgets
@@ -151,7 +151,7 @@ final class RefreshRenderBenchmarkTests: XCTestCase {
 
             // Old write pattern: every collection reassigned (equal values),
             // every derived cache rewritten.
-            store.accounts = store.accounts
+            store.allAccounts = store.allAccounts
             store.transactions = store.transactions
             store.categories = store.categories
             store.budgets = store.budgets
@@ -162,7 +162,7 @@ final class RefreshRenderBenchmarkTests: XCTestCase {
 
             // Current loadAll() against a server returning what's on screen.
             var same = RemoteFetchResult()
-            same.accounts = store.accounts
+            same.accounts = store.allAccounts
             same.transactions = store.transactions
             same.categories = store.categories
             same.budgets = store.budgets

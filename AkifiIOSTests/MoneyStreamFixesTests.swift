@@ -73,7 +73,7 @@ final class NativeBalanceTests: XCTestCase {
         cm.selectedCurrency = .rub
         cm.rates = Fx.rates
         store.currencyManager = cm
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.transactions = transactions
         store.rebuildCaches()
         return store
