@@ -130,16 +130,27 @@ struct LoginView: View {
                 .padding(.horizontal, 24)
 
                 // MARK: - Legal links
-                HStack(spacing: 4) {
-                    Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.pro/privacy")!)
-                    Text("&")
-                    Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.pro/terms")!)
+                // One line when it fits, stacked at large text sizes.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) {
+                        privacyLink
+                        Text("&")
+                        termsLink
+                    }
+                    VStack(spacing: 8) {
+                        privacyLink
+                        termsLink
+                    }
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
                 .padding(.top, 8)
                 .padding(.bottom, 16)
             }
+            // Taller than the screen at large Dynamic Type: scroll.
+            .fitsOrScrolls()
             .sheet(isPresented: $showMigration) {
                 MigrationCodeView()
             }
@@ -151,6 +162,14 @@ struct LoginView: View {
         // Signed out there is no tab view setting the app tint (and no
         // AccentColor asset) — buttons, links and the sheets use the accent.
         .tint(Color.accent)
+    }
+
+    private var privacyLink: some View {
+        Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.pro/privacy")!)
+    }
+
+    private var termsLink: some View {
+        Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.pro/terms")!)
     }
 
     // MARK: - Apple Sign In

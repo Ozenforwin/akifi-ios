@@ -17,6 +17,7 @@ import UIKit
 /// | `-AkifiUIHarnessBanners` | show the data-issue and auto-match banners |
 /// | `-AkifiUIHarnessGallery` | design-system gallery instead of the tabs |
 /// | `-AkifiUIHarnessScreen <name>` | one screen / sheet with fixtures (`UIHarnessScreen` in UIHarnessScreens.swift) |
+/// | `-AkifiUIHarnessCapture <dir> -AkifiUIHarnessPlan name@look,…` | the app snapshots each planned screen into `<dir>` itself |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -138,7 +139,10 @@ struct UIHarnessRoot: View {
 
     var body: some View {
         Group {
-            if let screen = UIHarnessScreen.requested {
+            if let directory = UIHarnessCapture.directory {
+                // In-app capture of a plan of screens (UIHarnessScreens.swift).
+                UIHarnessCaptureRoot(steps: UIHarnessCapture.plan, directory: directory)
+            } else if let screen = UIHarnessScreen.requested {
                 // Single screens of the 1.6 sweep (UIHarnessScreens.swift).
                 UIHarnessScreenView(screen: screen)
             } else if UIHarness.showsGallery {

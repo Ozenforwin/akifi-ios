@@ -9,14 +9,29 @@ struct TransactionRowView: View {
     var onDelete: (() -> Void)?
 
     /// Category tile and creator badge grow with Dynamic Type.
-    @ScaledMetric(relativeTo: .title3) private var iconSize: CGFloat = 44
+    @ScaledMetric(relativeTo: .title3) private var scaledIconSize: CGFloat = 44
     @ScaledMetric(relativeTo: .caption2) private var badgeSize: CGFloat = 18
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Accessibility text sizes stack the row's lines (title over amount,
+    /// date over account) instead of squeezing them side by side.
+    private var stacksLines: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    /// The tile stops growing at accessibility sizes, leaving the width to
+    /// the text.
+    private var iconSize: CGFloat { stacksLines ? min(scaledIconSize, 56) : scaledIconSize }
+
+    private var lineLayout: AnyLayout {
+        stacksLines
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 6))
+    }
 
     private var isTransfer: Bool { transaction.type == .transfer || transaction.transferGroupId != nil }
     private var dataStore: DataStore { appViewModel.dataStore }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: stacksLines ? .top : .center, spacing: 12) {
             // Category icon with creator badge
             ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -38,12 +53,14 @@ struct TransactionRowView: View {
             // Content
             VStack(alignment: .leading, spacing: 3) {
                 // Row 1: Category name + amount
-                HStack(alignment: .firstTextBaseline) {
+                lineLayout {
                     Text(titleText)
                         .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+                        .lineLimit(stacksLines ? 3 : 1)
 
-                    Spacer()
+                    if !stacksLines {
+                        Spacer()
+                    }
 
                     Text(formattedAmount)
                         .font(.subheadline.weight(.semibold))
@@ -52,7 +69,7 @@ struct TransactionRowView: View {
                 }
 
                 // Row 2: Date + account badge
-                HStack(spacing: 6) {
+                lineLayout {
                     Text(formattedDate)
                         .font(.caption)
                         .foregroundStyle(.secondary)

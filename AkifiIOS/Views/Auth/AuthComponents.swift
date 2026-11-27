@@ -232,6 +232,31 @@ struct AuthButton: View {
     }
 }
 
+// MARK: - Fits or scrolls
+
+/// Full-screen layouts spaced with `Spacer`s (login, onboarding steps): at
+/// regular text sizes the content fills the screen as designed; when large
+/// Dynamic Type makes it taller than the screen it scrolls instead of being
+/// cut off at both ends.
+struct FitsOrScrolls: ViewModifier {
+    func body(content: Content) -> some View {
+        GeometryReader { proxy in
+            ScrollView {
+                content
+                    .frame(minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+}
+
+extension View {
+    /// See `FitsOrScrolls`.
+    func fitsOrScrolls() -> some View {
+        modifier(FitsOrScrolls())
+    }
+}
+
 // MARK: - ErrorToastView
 
 struct ErrorToastView: View {

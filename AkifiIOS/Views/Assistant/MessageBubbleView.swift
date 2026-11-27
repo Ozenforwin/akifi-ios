@@ -190,23 +190,30 @@ struct MessageBubbleView: View {
 
     // MARK: - Recommended Actions
 
+    /// Navigation suggestions: glass capsules in a row, stacked when they
+    /// don't fit (no sideways scrolling inside the answer card).
     private func recommendedActions(_ recommended: [RecommendedAction]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
-                ForEach(recommended) { rec in
-                    Button {
-                        onRecommendedAction?(rec)
-                    } label: {
-                        Label(rec.label, systemImage: "arrow.right.circle")
-                            .font(.subheadline)
-                            .lineLimit(1)
-                    }
-                    .buttonStyle(.akifiSecondary)
-                    .buttonBorderShape(.capsule)
-                }
+                recommendedButtons(recommended)
             }
-            // Room for the glass capsules' edge highlight.
-            .padding(.vertical, 2)
+            VStack(alignment: .leading, spacing: 8) {
+                recommendedButtons(recommended)
+            }
+        }
+    }
+
+    private func recommendedButtons(_ recommended: [RecommendedAction]) -> some View {
+        ForEach(recommended) { rec in
+            Button {
+                onRecommendedAction?(rec)
+            } label: {
+                Label(rec.label, systemImage: "arrow.right.circle")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.akifiSecondary)
+            .buttonBorderShape(.capsule)
         }
     }
 

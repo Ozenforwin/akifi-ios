@@ -170,3 +170,25 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   don't cross `TabView` / toolbar hosting). The Assistant step is gone (no
   public API for a tab item's frame); any step whose target isn't on screen
   after 1.2 s is skipped. The tour never starts over the Assistant tab.
+
+## 8. Decisions from the screen sweep — Transactions / Assistant / Auth
+- **Search inside a tab:** `.searchable` + `.akifiSearchToolbarMinimize()`
+  — on iOS 26 a search button in the top toolbar that expands into the glass
+  field. A bottom-bar field (`DefaultToolbarItem(kind: .search,
+  placement: .bottomBar)`) is not shown inside a `TabView` tab, and the tab
+  bar's search role belongs to the Assistant. Suggestions/history go in
+  `.searchSuggestions`; the query narrows the list on top of the filters.
+- **Bottom controls over scrolling content** (chat composer, confirm
+  buttons of consent/invite/action sheets): `.akifiBottomBar { … }` —
+  `safeAreaBar` on 26 (scroll-edge effect, no opaque bar), the classic
+  `.bar` inset before.
+- **Chat:** the composer is one glass capsule (22 pt corners = capsule at
+  one line) with the send/voice button inside; follow-ups and message
+  actions are `.akifiSecondary` capsules; answers are `.akifiCard()`; user
+  bubbles solid accent. Tab root → large title.
+- **Auth fields:** no coloured borders — error = red icon + message,
+  valid = green check; buttons `.akifiPrimary`/`.akifiSecondary`,
+  `.controlSize(.large)`. Sign in with Apple stays Apple's control (black in
+  light, white in dark), clipped to a capsule like the others.
+- **Signed-out screens** have no tab view setting the tint (and the app has
+  no AccentColor asset), so their roots set `.tint(Color.accent)`.

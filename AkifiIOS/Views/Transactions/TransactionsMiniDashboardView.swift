@@ -70,6 +70,9 @@ struct TransactionsMiniDashboardView: View {
                 }
             }
             .chartLegend(.hidden)
+            // Six month labels must fit one row; the chart's own labels
+            // stop growing at XXL (the rest of the card keeps scaling).
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             .frame(height: 120)
 
             Button(action: onOpenReports) {

@@ -18,25 +18,33 @@ struct OnboardingView: View {
             .accessibilityHidden(true)
 
             TabView(selection: $currentStep) {
+                // Each step scrolls when large Dynamic Type makes it taller
+                // than the screen.
                 WelcomeStepView { currentStep = 1 }
+                    .fitsOrScrolls()
                     .tag(0)
 
                 CurrencyStepView { currentStep = 2 }
+                    .fitsOrScrolls()
                     .tag(1)
 
                 AccountStepView { currentStep = 3 }
+                    .fitsOrScrolls()
                     .tag(2)
 
                 FeaturesStepView { currentStep = 4 }
+                    .fitsOrScrolls()
                     .tag(3)
 
                 NotificationsStepView { currentStep = 5 }
+                    .fitsOrScrolls()
                     .tag(4)
 
                 CompletionStepView {
                     UserDefaults.standard.set(true, forKey: "onboarding_completed")
                     appViewModel.hasCompletedOnboarding = true
                 }
+                    .fitsOrScrolls()
                     .tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
