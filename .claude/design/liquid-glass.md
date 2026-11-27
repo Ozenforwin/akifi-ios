@@ -249,8 +249,32 @@ Fallback mapping (iOS 18–25), provided by `Glass.swift`:
   sheet, never saves. A small widget also carries a `widgetURL` fallback
   («Расход») for systems that don't route a `Link` there.
 - **Dynamic Type:** text styles, capped at `.xxLarge` (small) / `.xLarge`
-  (medium, buttons) so layouts never clip; numbers scale down
+  (medium, large, buttons) so layouts never clip; numbers scale down
   (`minimumScaleFactor`) instead of wrapping.
+- **«Счёт» arrows (Vladimir, 2026-11-28):** «‹ ›» on small / medium only
+  (Lock Screen keeps its layout), hidden with one account. Interactive
+  `Button(intent: AccountWidgetStepIntent)` — runs in the extension, never
+  opens the app — stores the shown account in the App Group defaults under
+  «configured account @ family»; two widgets of one family with the same
+  configured account move together (no per-instance id in WidgetKit).
+  Steps of removed / re-configured widgets are pruned via
+  `WidgetCenter.currentConfigurations()`. Arrows: 26 pt `tertiarySystemFill`
+  circles, tap area 32 × 32 (small) / 40 × 32 (medium) — the header row
+  can't grow without crowding the balance or the quick buttons. Small: top
+  right, the badges move next to the name. Medium: header row, right. Page
+  indicator between the arrows: dots (shown one wide, in the account
+  colour) up to 7 accounts when they fit, else «3/9».
+- **Switch animation:** the account content (`.id(account.id)`) slides in
+  from the arrow's side, the old one fades in place
+  (`.asymmetric(insertion: .move(edge:) + .opacity, removal: .opacity)`).
+  Verified on the 26.5 Home Screen: a symmetric `.push` moves the outgoing
+  view the wrong way after a change of direction (it keeps the previous
+  render's edge), and `.push` inside `.asymmetric` is played mirrored.
+- **«Все счета»:** neutral background; medium = 2 × 2 grid, large = «Всего
+  на счетах» + 8 rows; «+N ещё» opens Home. Rows are content, each a `Link`
+  to `akifi://account?id=` (Home selects that account). Balances in each
+  account's own currency, the total is the snapshot's base-currency total
+  (the «Баланс» widget's number); any hidden balance hides the total too.
 
 ## 12. Account covers (Vladimir, 2026-11-28)
 - **Who:** the account's OWNER (`accounts.user_id`) sets, re-crops or removes

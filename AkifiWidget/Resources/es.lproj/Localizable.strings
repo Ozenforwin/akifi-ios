@@ -69,3 +69,20 @@
 "widget.account.description" = "Saldo de una cuenta y registro rápido";
 "widget.quickAdd.displayName" = "Registro rápido";
 "widget.quickAdd.description" = "Gasto, ingreso o por voz con un toque";
+
+/* «Счёт» arrows and «Все счета» widget (1.6.0) */
+"widget.account.next" = "Cuenta siguiente";
+"widget.account.previous" = "Cuenta anterior";
+"widget.account.page.label" = "Cuenta";
+"widget.account.page.value" = "%1$@, %2$lld de %3$lld";
+"widget.account.step.title" = "Cambiar de cuenta";
+"widget.account.step.description" = "Muestra la cuenta siguiente o anterior en el widget";
+"widget.account.step.widgetKey" = "Widget";
+"widget.account.step.configuredAccount" = "Cuenta del widget";
+"widget.account.step.forward" = "Adelante";
+"widget.accounts.total" = "Saldo total";
+"widget.accounts.more" = "+%lld más";
+"widget.accounts.more.hint" = "Todas las cuentas en Akifi";
+"widget.accounts.open.hint" = "Abre la cuenta en Akifi";
+"widget.accounts.displayName" = "Todas las cuentas";
+"widget.accounts.description" = "Saldos de todas tus cuentas";

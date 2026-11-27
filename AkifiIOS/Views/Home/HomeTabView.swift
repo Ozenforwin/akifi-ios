@@ -213,6 +213,35 @@ struct HomeTabView: View {
             .onChange(of: dataStore.accounts.map(\.id)) { _, _ in
                 currentAccountContext.accountId = selectedAccount?.id
             }
+            // A widget opened this account (akifi://account?id=): select it
+            // once the accounts are in — also on a cold start, when the
+            // link came before the data.
+            .onChange(of: pendingAccountTrigger, initial: true) { _, _ in
+                applyPendingAccount()
+            }
+        }
+    }
+
+    // MARK: - Account from a widget
+
+    private struct PendingAccountTrigger: Equatable {
+        let id: String?
+        let accountIds: [String]
+        let isLoading: Bool
+    }
+
+    private var pendingAccountTrigger: PendingAccountTrigger {
+        PendingAccountTrigger(
+            id: appViewModel.pendingHomeAccountId,
+            accountIds: dataStore.accounts.map(\.id),
+            isLoading: dataStore.isLoading
+        )
+    }
+
+    private func applyPendingAccount() {
+        guard let id = appViewModel.pendingHomeAccountId else { return }
+        if viewModel.applyPendingAccount(id, accounts: dataStore.accounts, isLoading: dataStore.isLoading) {
+            appViewModel.pendingHomeAccountId = nil
         }
     }
 

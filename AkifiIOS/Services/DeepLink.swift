@@ -10,6 +10,10 @@ import Foundation
 enum DeepLink: Equatable {
     /// Widget targets: akifi://home | budgets | transactions | analytics
     case tab(AppTab)
+    /// akifi://account?id=<uuid> — «Счёт» / «Все счета» widgets: Home with
+    /// that account selected in the carousel. `id` is a lowercased UUID; a
+    /// missing or malformed id opens Home (`.tab(.home)`).
+    case account(id: String)
     /// akifi://invite/<code> · https://akifi.pro/invite/<code>
     case accountInvite(code: String)
     /// akifi://budget-invite/<code> · https://akifi.pro/budget-invite/<code>
@@ -31,6 +35,7 @@ enum DeepLink: Equatable {
             case "budgets": return .tab(.budgets)
             case "transactions": return .tab(.transactions)
             case "analytics": return .tab(.analytics)
+            case .some(AccountWidgetLinks.accountHost): return accountLink(url)
             case "auth-callback": return .authCallback(url)
             case "budget-invite": return inviteCode(url).map { .budgetInvite(code: $0) }
             case "invite": return inviteCode(url).map { .accountInvite(code: $0) }
@@ -48,6 +53,19 @@ enum DeepLink: Equatable {
             }
         }
         return nil
+    }
+
+    /// UUID ids only (every account id is one), lowercased like DB ids.
+    /// The first `id` wins over an appended duplicate.
+    private static func accountLink(_ url: URL) -> DeepLink {
+        let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == AccountWidgetLinks.accountIdQueryItem }?
+            .value
+        guard let raw, let uuid = UUID(uuidString: raw.trimmingCharacters(in: .whitespaces)) else {
+            return .tab(.home)
+        }
+        return .account(id: uuid.uuidString.lowercased())
     }
 
     private static func inviteCode(_ url: URL) -> String? {

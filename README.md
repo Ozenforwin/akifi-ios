@@ -378,7 +378,7 @@ AkifiIOS/
 
 ```
 AkifiWidget/
-├── AkifiWidget.swift                 # WidgetBundle: Account, QuickAdd, Balance, DailyLimit, Streak, DaySummary + Control Center control
+├── AkifiWidget.swift                 # WidgetBundle: Account, AllAccounts, QuickAdd, Balance, DailyLimit, Streak, DaySummary + Control Center control
 ├── Providers/                        # Timeline providers over SharedSnapshot
 ├── Views/                            # Widget declarations (AccountWidget = AppIntentConfiguration) and the older views
 └── Shared/WidgetFormatters.swift     # Formatting without linking app services
@@ -386,8 +386,9 @@ AkifiWidget/
 
 `AkifiIOS/Shared/Widget/` компилируется в оба таргета: snapshot-модель и store,
 `QuickEntryLaunchLink` (единый builder/parser `akifi://quick-add`), `AkifiWidgetKind`,
-конфигурация «Счёт» (`AccountWidgetIntent` / entity / query) и views новых виджетов —
-тесты рендерят их в PNG (`WidgetScreenshotTests`).
+конфигурация «Счёт» (`AccountWidgetIntent` / entity / query), стрелки «Счёт»
+(`AccountWidgetCarousel`, `AccountWidgetStepIntent`, `AccountWidgetOverrideStore`) и views
+новых виджетов — тесты рендерят их в PNG (`WidgetScreenshotTests`).
 
 ## Основные функции
 
@@ -492,7 +493,8 @@ DB layer:
 - **Summary карточки** — доходы/расходы за текущий месяц
 
 ### iOS Виджеты
-- **«Счёт» (AccountWidget, 1.6.0)** — один счёт на выбор (по умолчанию основной): иконка, название, баланс в валюте счёта, доход/расход за месяц; medium — кнопки «Расход», «Доход», «Голосом» открывают быстрый ввод на этом счёте; Lock Screen — rectangular и inline. Скрытый на Главной баланс — «••••»
+- **«Счёт» (AccountWidget, 1.6.0)** — один счёт на выбор (по умолчанию основной): иконка, название, баланс в валюте счёта, доход/расход за месяц; medium — кнопки «Расход», «Доход», «Голосом» открывают быстрый ввод на этом счёте; Lock Screen — rectangular и inline. Скрытый на Главной баланс — «••••». Small/medium: стрелки «‹ ›» переключают счёт прямо на экране «Домой», не открывая приложение (`AccountWidgetStepIntent` в extension → шаг в App Group defaults по ключу «настроенный счёт + размер» → провайдер, `AccountWidgetCarousel`), точки (≤ 7) или «3/9». Тап по виджету — Главная на этом счёте (`akifi://account?id=`)
+- **«Все счета» (AllAccountsWidget, 1.6.0)** — medium: до 4 счетов сеткой 2 × 2; large: «Всего на счетах» (базовая валюта, то же число, что у «Баланса») + до 8 строк; больше — «+N ещё» (открывает Главную). Баланс каждого счёта в его валюте; скрытый баланс — «••••», и тогда итог тоже «••••». Тап по счёту — Главная на нём
 - **«Быстрая запись» (QuickAddWidget, 1.6.0)** — «Расход», «Доход», микрофон; medium — до 3 «Повторить»; Lock Screen «+». Только открывает лист быстрого ввода, ничего не сохраняет сам
 - **BalanceWidget** — общий баланс и количество счетов
 - **DailyLimitWidget** — safe-to-spend today, потрачено сегодня и цветовой utilization ring
