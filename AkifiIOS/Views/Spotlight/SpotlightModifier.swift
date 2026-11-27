@@ -1,34 +1,47 @@
 import SwiftUI
 
-// MARK: - PreferenceKey for collecting element frames
-
-struct SpotlightFramePreferenceKey: PreferenceKey {
-    nonisolated(unsafe) static var defaultValue: [SpotlightTarget: CGRect] = [:]
-
-    static func reduce(value: inout [SpotlightTarget: CGRect], nextValue: () -> [SpotlightTarget: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
 // MARK: - View Modifier
 
 extension View {
-    /// Mark this view as a spotlight target. The view's frame in global coordinates
-    /// will be collected via PreferenceKey for the spotlight overlay.
+    /// Marks this view as a spotlight target. Its frame in global (window)
+    /// coordinates is reported to the `SpotlightManager` in the environment.
+    ///
+    /// Frames go through the environment rather than a `PreferenceKey`:
+    /// since 1.6 targets live inside system `TabView` tabs and navigation-bar
+    /// toolbar items, which are hosted separately and don't pass preferences
+    /// up to `MainTabView`. A target that disappears (its tab is switched
+    /// away, the row is removed) withdraws its frame, so a step never points
+    /// at a stale position.
     @ViewBuilder
     func spotlight(_ target: SpotlightTarget?) -> some View {
         if let target {
-            self.overlay(
-                GeometryReader { geo in
-                    Color.clear
-                        .preference(
-                            key: SpotlightFramePreferenceKey.self,
-                            value: [target: geo.frame(in: .global)]
-                        )
-                }
-            )
+            modifier(SpotlightAnchor(target: target))
         } else {
             self
+        }
+    }
+}
+
+private struct SpotlightAnchor: ViewModifier {
+    @Environment(SpotlightManager.self) private var manager: SpotlightManager?
+    let target: SpotlightTarget
+    /// Identifies this anchor, so a disappearing old copy of a view can't
+    /// withdraw the frame its replacement has just reported.
+    @State private var owner = UUID()
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            GeometryReader { geo in
+                let frame = geo.frame(in: .global)
+                Color.clear
+                    .onAppear { manager?.report(target, frame: frame, owner: owner) }
+                    .onChange(of: frame) { _, newFrame in
+                        manager?.report(target, frame: newFrame, owner: owner)
+                    }
+                    .onDisappear { manager?.withdraw(target, owner: owner) }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 }

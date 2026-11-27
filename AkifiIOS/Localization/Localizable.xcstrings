@@ -13436,19 +13436,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap to quickly add, hold for menu"
+            "value" : "Tap to choose what to add, hold to pick a category"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toque para añadir rápido, mantenga para menú"
+            "value" : "Toque para elegir qué añadir, mantenga para elegir categoría"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нажмите для быстрого добавления, удерживайте для меню"
+            "value" : "Нажмите, чтобы выбрать тип операции, удерживайте — быстрый выбор категории"
           }
         }
       }
@@ -31560,19 +31560,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap for quick add. Long press for type selection"
+            "value" : "Tap to add an expense, income, transfer or receipt. Long press to pick a category"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toca para agregar. Mantén para elegir tipo"
+            "value" : "Toca para agregar gasto, ingreso, transferencia o recibo. Mantén para elegir categoría"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Нажмите для быстрого добавления. Зажмите для выбора типа"
+            "value" : "Нажмите, чтобы добавить расход, доход, перевод или чек. Зажмите — быстрый выбор категории"
           }
         }
       }

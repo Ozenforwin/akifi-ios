@@ -10,12 +10,8 @@ struct AkifiApp: App {
     @State private var appViewModel = AppViewModel()
 
     init() {
-        // Navigation bar: transparent when at top, opaque when scrolled
-        let navAppearance = UINavigationBarAppearance()
-        navAppearance.configureWithTransparentBackground()
-        UINavigationBar.appearance().standardAppearance = navAppearance
-        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
-        UINavigationBar.appearance().compactAppearance = navAppearance
+        // No global UINavigationBarAppearance (1.6): system bars adopt
+        // Liquid Glass on iOS 26 and the standard look before.
 
         // Dismiss keyboard on scroll/tap in all scrollable views
         UIScrollView.appearance().keyboardDismissMode = .interactiveWithAccessory
@@ -23,10 +19,16 @@ struct AkifiApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(appViewModel)
-                .preferredColorScheme(appViewModel.themeManager.selectedScheme)
-                .onAppear { installTapToDismissKeyboard() }
+            #if DEBUG
+            if UIHarness.isEnabled {
+                UIHarnessRoot()
+                    .onAppear { installTapToDismissKeyboard() }
+            } else {
+                appContent
+            }
+            #else
+            appContent
+            #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
@@ -48,6 +50,13 @@ struct AkifiApp: App {
                 break
             }
         }
+    }
+
+    private var appContent: some View {
+        ContentView()
+            .environment(appViewModel)
+            .preferredColorScheme(appViewModel.themeManager.selectedScheme)
+            .onAppear { installTapToDismissKeyboard() }
     }
 
     private func installTapToDismissKeyboard() {
