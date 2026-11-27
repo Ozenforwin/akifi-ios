@@ -160,8 +160,9 @@ struct NotificationSettingsView: View {
                     if settings.budgetWarnings {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(String(localized: "notifications.thresholdLabel") + " \(settings.budgetWarningPercent)%")
-                                .font(.caption)
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
+                                .monospacedDigit()
                             Slider(
                                 value: Binding(
                                     get: { Double(model.settings.budgetWarningPercent) },
@@ -170,7 +171,7 @@ struct NotificationSettingsView: View {
                                 in: 50...100,
                                 step: 5
                             )
-                            .tint(.orange)
+                            .tint(Color.warning)
                         }
                     }
                     Toggle(String(localized: "notifications.weeklyPace"), isOn: model.binding(\.weeklyPace))
@@ -188,7 +189,7 @@ struct NotificationSettingsView: View {
 
                         if settings.largeExpenseThreshold == 0 {
                             Text(String(localized: "notifications.autoThresholdDesc"))
-                                .font(.caption)
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -207,13 +208,11 @@ struct NotificationSettingsView: View {
                     Text(String(localized: "subscriptions.autoMatch.settingFooter"))
                 }
             }
-
-            Color.clear.frame(height: 100)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
         }
         .disabled(!model.isLoaded && !model.hasLocalValue)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "settings.notifications"))
+        .navigationBarTitleDisplayMode(.inline)
         .task { await model.load() }
         .onDisappear {
             let model = self.model

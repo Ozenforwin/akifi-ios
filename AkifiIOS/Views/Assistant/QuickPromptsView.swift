@@ -63,23 +63,24 @@ struct QuickPromptsView: View {
                             .font(.subheadline)
                             .foregroundStyle(Color.accent)
                             .frame(width: 24)
+                            .accessibilityHidden(true)
                         Text(display)
                             .font(.subheadline)
                             .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
+                    // Content rows (1.6): compact cards, no material/shadow.
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .akifiCard(.compact, padding: 0)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 24)
     }
 }

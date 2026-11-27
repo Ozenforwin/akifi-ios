@@ -38,7 +38,8 @@ struct BudgetFormView: View {
 
     init(categories: [Category], accounts: [Account], editingBudget: Budget? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
-        self.accounts = accounts
+        // A budget can't track a debt account (`debt_account_not_linkable`).
+        self.accounts = accounts.moneyAccounts
         self.editingBudget = editingBudget
         self.onSave = onSave
     }
@@ -88,8 +89,10 @@ struct BudgetFormView: View {
                                         .foregroundStyle(Color.accent)
                                 }
                             }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(budgetType == type ? .isSelected : [])
                     }
                 }
 
@@ -164,21 +167,26 @@ struct BudgetFormView: View {
                                     VStack(spacing: 6) {
                                         Text(category.icon)
                                             .font(.title3)
+                                            .accessibilityHidden(true)
                                         Text(category.name)
-                                            .font(.system(size: 11, weight: .medium))
+                                            .font(.caption2.weight(.medium))
                                             .lineLimit(2)
                                             .multilineTextAlignment(.center)
                                     }
                                     .frame(maxWidth: .infinity, minHeight: 56)
                                     .padding(.vertical, 10)
-                                    .background(isSelected ? Color.accent.opacity(0.15) : Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .background(
+                                        isSelected ? Color.accent.opacity(0.15) : Color(.tertiarySystemFill),
+                                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    )
+                                    // Selection outline: state, not decoration.
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isSelected ? Color.accent : .clear, lineWidth: 1.5)
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .strokeBorder(isSelected ? Color.accent : .clear, lineWidth: 1.5)
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityAddTraits(isSelected ? .isSelected : [])
                             }
                         }
                     }

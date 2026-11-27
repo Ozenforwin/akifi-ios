@@ -1,6 +1,21 @@
 import SwiftUI
 import Supabase
 
+/// Values a NEW transaction form opens with — the quick-entry draft behind
+/// «Подробнее». Editing an existing row ignores it.
+struct TransactionFormPrefill: Equatable, Sendable {
+    var type: TransactionType
+    /// Main units of `currencyCode` (or of the account currency).
+    var amount: Decimal?
+    /// Set only when the entry currency differs from the account's (the
+    /// phrase said «€20»); the form keeps it as the user's pick.
+    var currencyCode: String?
+    var accountId: String?
+    var categoryId: String?
+    var date: Date
+    var description: String
+}
+
 struct TransactionFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppViewModel.self) private var appViewModel
@@ -60,6 +75,11 @@ struct TransactionFormView: View {
     /// Keyed by `paymentSource.onboardingSeen.<accountId>` in UserDefaults.
     @State private var onboardingDismissedAccounts: Set<String> = []
 
+    // Personal spending on a shared account (1.6.0, contract §B3).
+    @State private var personalDebtOn = false
+    /// nil = me.
+    @State private var personalDebtMemberId: String?
+
     /// Sheet escape hatch for "All currencies…" — separate from the
     /// inline `Menu` because the menu's items can't push a sheet directly.
     @State private var showFullCurrencyPicker = false
@@ -68,9 +88,33 @@ struct TransactionFormView: View {
 
     private var isEditing: Bool { editingTransaction != nil }
 
+    /// Entry currency from a `TransactionFormPrefill` (see there).
+    private var prefillCurrency: CurrencyCode?
+
+    /// A new transaction prefilled with `prefill` (quick entry «Подробнее»).
+    init(categories: [Category], accounts: [Account], prefill: TransactionFormPrefill, onSave: @escaping () async -> Void) {
+        self.init(
+            categories: categories,
+            accounts: accounts,
+            defaultType: prefill.type,
+            defaultCategoryId: prefill.categoryId,
+            defaultAccountId: prefill.accountId,
+            onSave: onSave
+        )
+        _description = State(initialValue: prefill.description)
+        _date = State(initialValue: prefill.date)
+        if let amount = prefill.amount, amount > 0 {
+            let calculator = CalculatorState()
+            calculator.setValue(amount)
+            _calculatorState = State(initialValue: calculator)
+        }
+        prefillCurrency = prefill.currencyCode.flatMap(CurrencyCode.init(code:))
+    }
+
     init(categories: [Category], accounts: [Account], editingTransaction: Transaction? = nil, defaultType: TransactionType? = nil, defaultCategoryId: String? = nil, defaultAccountId: String? = nil, onSave: @escaping () async -> Void) {
         self.categories = categories
-        self.accounts = accounts
+        // Money accounts only, whatever the caller passed (contract §A7).
+        self.accounts = accounts.moneyAccounts
         self.editingTransaction = editingTransaction
         self.onSave = onSave
         if let defaultType, editingTransaction == nil {
@@ -223,6 +267,42 @@ struct TransactionFormView: View {
         String(localized: "tx.paymentSource.self")
     }
 
+    // MARK: - Personal spending (contract §B2/§B3)
+
+    /// Parties of the target account I may mark: everyone for an owner /
+    /// editor, only me otherwise.
+    private var personalParties: [PersonalDebtRules.Party] {
+        guard let acc = selectedAccount, let me = currentUserId else { return [] }
+        let members = appViewModel.dataStore.accountMembership.members(of: acc.id, viewerId: me) ?? []
+        let role = PersonalDebtRules.role(of: me, account: acc, members: members)
+        return PersonalDebtRules.selectableParties(me: me, myRole: role, account: acc, members: members)
+    }
+
+    /// The toggle shows on expenses of a shared account — never on a
+    /// transfer leg (the mark lives on the main expense only).
+    private var shouldShowPersonalSpending: Bool {
+        guard selectedType == .expense, targetIsShared, currentUserId != nil else { return false }
+        if let tx = editingTransaction,
+           !PersonalDebtRules.isMarkableExpense(type: tx.type, transferGroupId: tx.transferGroupId) {
+            return false
+        }
+        return true
+    }
+
+    /// `personal_debt_user_id` to write (nil = not personal).
+    private var resolvedPersonalMark: String? {
+        guard shouldShowPersonalSpending, let me = currentUserId else { return nil }
+        // An untouched existing mark is kept as is, even for a member the
+        // membership snapshot doesn't list yet.
+        if personalDebtOn, let stored = editingTransaction?.personalDebtUserId,
+           personalDebtMemberId?.lowercased() == stored.lowercased() {
+            return stored
+        }
+        return PersonalDebtRules.resolvedMark(
+            enabled: personalDebtOn, chosen: personalDebtMemberId, me: me, selectable: personalParties
+        )
+    }
+
     // MARK: - View
 
     /// The edited row is an auto-transfer the OTHER member paid from their
@@ -296,6 +376,17 @@ struct TransactionFormView: View {
 
                 if shouldShowPaymentSource {
                     paymentSourceSection
+                }
+
+                if shouldShowPersonalSpending, let me = currentUserId {
+                    PersonalSpendingSection(
+                        isOn: $personalDebtOn,
+                        memberId: $personalDebtMemberId,
+                        me: me,
+                        parties: personalParties,
+                        paidFromSharedMoney: resolvedPaymentSource() == nil,
+                        nameFor: { appViewModel.dataStore.profilesMap[$0]?.fullName ?? String(localized: "personalDebt.member.unknown") }
+                    )
                 }
 
                 Section(String(localized: "common.category")) {
@@ -720,6 +811,12 @@ struct TransactionFormView: View {
 
     private func prefillIfEditing() {
         guard let tx = editingTransaction else {
+            // Quick entry named another currency («€20»): keep it, as if
+            // picked by hand (it then survives account switches).
+            if let prefillCurrency {
+                entryCurrency.userSelected(prefillCurrency)
+                return
+            }
             // New transaction: prefer the currency of the pre-selected account
             // (e.g. when opened from a specific account screen) so the user
             // doesn't accidentally enter a VND amount as RUB on a VND account.
@@ -758,6 +855,8 @@ struct TransactionFormView: View {
         selectedCategoryId = tx.categoryId
         selectedAccountId = tx.accountId
         selectedPaymentSourceId = tx.paymentSourceAccountId
+        personalDebtOn = tx.personalDebtUserId != nil
+        personalDebtMemberId = tx.personalDebtUserId
         // D8: keep the stored time — see `TransactionFormDates`.
         if let txDate = TransactionFormDates.parse(rawDateTime: tx.rawDateTime, fallbackDate: tx.date) {
             date = txDate
@@ -1023,7 +1122,10 @@ struct TransactionFormView: View {
                         // must clear foreign_*, not silently leave them.
                         replaceCurrencyFields: true,
                         source_amount: editSourceAmount,
-                        source_currency: editSourceCurrency
+                        source_currency: editSourceCurrency,
+                        personal_debt_user_id: resolvedPersonalMark,
+                        // Only a changed mark is sent (contract §B3 PATCH).
+                        updatesPersonalDebt: PersonalDebtRules.updatesMark(old: tx.personalDebtUserId, new: resolvedPersonalMark)
                     )
                     try await appViewModel.dataStore.updateTransaction(id: tx.id, input)
                 }
@@ -1057,7 +1159,8 @@ struct TransactionFormView: View {
                     merchant_name: nil,
                     payment_source_account_id: resolvedPaymentSource,
                     source_amount: source.amount,
-                    source_currency: source.currency
+                    source_currency: source.currency,
+                    personal_debt_user_id: resolvedPersonalMark
                 )
                 _ = try await appViewModel.dataStore.addTransaction(input)
                 // No auto-upsert of payment-source defaults — managed
@@ -1183,7 +1286,8 @@ struct TransactionFormView: View {
             merchant_name: nil,
             payment_source_account_id: newSource,
             source_amount: source.amount,
-            source_currency: source.currency
+            source_currency: source.currency,
+            personal_debt_user_id: resolvedPersonalMark
         )
         _ = try await dataStore.addTransaction(input)
         // Saved-default management lives in Settings only — see the
@@ -1301,6 +1405,11 @@ enum FormErrorMessage {
             // update_expense_with_auto_transfer: the main row is gone
             // (deleted on the partner's phone meanwhile).
             return String(localized: "tx.error.alreadyDeleted")
+        case "PGRST202", "PGRST205", "42883", "42P01":
+            // The server doesn't have this function / table yet (a feature
+            // whose migration isn't applied) — never show the raw
+            // «Could not find the function … in the schema cache».
+            return String(localized: "server.error.featureNotReady")
         case "23514" where context.localizedCaseInsensitiveContains("currency"):
             // guard_account_owner_currency: the account already has rows.
             return String(localized: "account.currency.locked.hint")

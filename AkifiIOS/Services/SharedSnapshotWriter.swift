@@ -5,13 +5,13 @@ import WidgetKit
 /// App Group snapshot.
 ///
 /// Computes a lightweight summary (balance / daily limit / streak / today
-/// income+expense+net / net worth) on the main actor, serializes it into
-/// the shared container, and asks WidgetKit to reload all timelines.
+/// income+expense+net / per-account balances / «Повторить» items) on the
+/// main actor, serializes it into the shared container, and asks WidgetKit
+/// to reload the widgets whose data changed.
 ///
-/// Called from:
-///   - `DataStore.loadAll()` after the initial full fetch,
-///   - `DataStore.addTransaction`, `updateTransaction`, `deleteTransaction`
-///     after rebuilding caches.
+/// Called from the data store's debounced `writeWidgetSnapshot()` (every
+/// load and mutation, the Home eye toggle), its background flush, and
+/// `BudgetMetricsStore` when server budget numbers arrive.
 ///
 /// Widgets NEVER hit the network directly — this writer is the only path
 /// from server state into the widget UI.
@@ -26,9 +26,15 @@ enum SharedSnapshotWriter {
         currencyManager: CurrencyManager
     ) {
         let snapshot = buildSnapshot(dataStore: dataStore, currencyManager: currencyManager)
+        let previous = SharedSnapshotStore.load()
         do {
             try SharedSnapshotStore.save(snapshot)
-            WidgetCenter.shared.reloadAllTimelines()
+            // Only the kinds whose slice moved: a budget refresh must not
+            // spend the account widgets' reload budget, and an unchanged
+            // write (a refresh that brought nothing new) reloads nothing.
+            for kind in kindsToReload(from: previous, to: snapshot).sorted() {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            }
         } catch {
             AppLogger.data.warning("SharedSnapshot save failed: \(error.localizedDescription)")
         }
@@ -40,9 +46,14 @@ enum SharedSnapshotWriter {
 
     // MARK: - Build
 
-    private static func buildSnapshot(
+    /// Internal (not private) so tests can check what the widget gets.
+    /// `now` and `hiddenBalanceIds` are seams for tests; production reads
+    /// the clock and the Home card's eye toggles.
+    static func buildSnapshot(
         dataStore: DataStore,
-        currencyManager: CurrencyManager
+        currencyManager: CurrencyManager,
+        now: Date = Date(),
+        hiddenBalanceIds: Set<String>? = nil
     ) -> SharedSnapshot {
         let baseCurrency = currencyManager.dataCurrency
         let baseCode = baseCurrency.code
@@ -68,11 +79,13 @@ enum SharedSnapshotWriter {
         // on USD-accounts. Source-of-truth is the account.currency now.
         // `uniquingKeysWith`: a shared account can arrive twice (own +
         // member join); `uniqueKeysWithValues` crashed the app on that.
+        // Currency lookup over every account (a write-off on a debt account is
+        // real spending); the balance total above reads money accounts only.
         let accountCurrencyById: [String: String] = Dictionary(
-            dataStore.accounts.map { ($0.id, $0.currency) },
+            dataStore.allAccounts.map { ($0.id, $0.currency) },
             uniquingKeysWith: { first, _ in first }
         )
-        let now = Date()
+        // `now` is the parameter (tests pin the day and the month).
         let todayStr = SharedSnapshot.dayKey(for: now)
         var todayIncome: Int64 = 0
         var todayExpense: Int64 = 0
@@ -149,7 +162,176 @@ enum SharedSnapshotWriter {
         snapshot.dayKey = todayStr
         snapshot.dailyLimitLeftover = dailyLimitLeftover
         snapshot.dailyLimitPeriodEnd = dailyLimitPeriodEnd
+
+        // ── «Счёт» widget (v2) ──
+        let monthKey = DataStore.monthKey(for: now, calendar: SharedSnapshot.dayCalendar)
+        snapshot.monthKey = monthKey
+        snapshot.accounts = accountItems(
+            dataStore: dataStore,
+            monthKey: monthKey,
+            hiddenIds: hiddenBalanceIds ?? HiddenBalances.ids()
+        )
+        // ── «Быстрая запись» widget (v2) ──
+        snapshot.repeatItems = repeatItems(dataStore: dataStore, currencyManager: currencyManager)
         return snapshot
+    }
+
+    // MARK: - Accounts
+
+    /// One item per MONEY account (`dataStore.accounts`: a «Долги» account
+    /// is a person, not money — contract §A7), in the carousel's order, a
+    /// duplicate id (a shared account delivered twice) once. Amounts stay in
+    /// the account's own currency (ADR-001): the balance is the app's
+    /// `nativeBalance(for:)`, the month flow the native twin of the
+    /// carousel's month chips.
+    static func accountItems(
+        dataStore: DataStore,
+        monthKey: String,
+        hiddenIds: Set<String>
+    ) -> [SharedSnapshot.AccountItem] {
+        let flows = NativeBalance.monthFlows(monthKey: monthKey, transactions: dataStore.transactions)
+        let userId = dataStore.profile?.id
+        var seen: Set<String> = []
+        var items: [SharedSnapshot.AccountItem] = []
+        for account in dataStore.accounts where seen.insert(account.id).inserted {
+            let code = account.currency.uppercased()
+            let currency = Currency(code: code) ?? Currency(unchecked: code)
+            let flow = flows[account.id]
+            items.append(SharedSnapshot.AccountItem(
+                id: account.id,
+                name: account.name,
+                icon: account.icon,
+                colorHex: account.color,
+                currencyCode: currency.code,
+                currencySymbol: currency.symbol,
+                currencyDecimals: currency.decimals,
+                balance: dataStore.nativeBalance(for: account),
+                monthIncome: flow?.income ?? 0,
+                monthExpense: flow?.expense ?? 0,
+                isPrimary: account.isPrimary,
+                isShared: AccountSharingIndex.isShared(account, dataStore: dataStore, currentUserId: userId),
+                isBalanceHidden: hiddenIds.contains(account.id)
+            ))
+        }
+        return items
+    }
+
+    // MARK: - «Повторить»
+
+    /// How many «Повторить» items the medium widget shows.
+    static let repeatItemLimit = 3
+    /// Newest own income / expense rows the ranking looks at. The items are
+    /// the most recent distinct entries (`QuickEntryPredictor`), so a window
+    /// gives the same answer as the whole history while keeping a snapshot
+    /// write cheap with years of rows (the text keys are built per row).
+    static let repeatHistoryWindow = 400
+
+    /// The top `repeatItemLimit` candidates of the quick-entry sheet's
+    /// «Повторить» strip, as display data + the link that opens the sheet
+    /// prefilled with each (the sheet saves, the widget never does).
+    static func repeatItems(dataStore: DataStore, currencyManager: CurrencyManager) -> [SharedSnapshot.RepeatItem] {
+        let userId = dataStore.profile?.id
+        let rows = dataStore.transactions
+            .filter { !$0.isTransfer && ($0.type == .expense || $0.type == .income) && (userId == nil || $0.userId == userId) }
+            .sorted { a, b in
+                let da = String(a.rawDateTime.prefix(19)), db = String(b.rawDateTime.prefix(19))
+                if da != db { return da > db }
+                return (a.createdAt ?? "") > (b.createdAt ?? "")
+            }
+            .prefix(repeatHistoryWindow)
+        let context = QuickEntryContext(
+            accounts: dataStore.accounts,
+            categories: dataStore.categories,
+            displayCategories: dataStore.displayCategories,
+            transactions: Array(rows),
+            currentUserId: userId,
+            fallbackCurrency: currencyManager.dataCurrency.code
+        )
+        return QuickEntryPredictor.repeatCandidates(context: context, type: nil, limit: repeatItemLimit)
+            .map { repeatItem($0, context: context) }
+    }
+
+    static func repeatItem(_ item: QuickEntryRepeatItem, context: QuickEntryContext) -> SharedSnapshot.RepeatItem {
+        let category = context.displayCategory(item.categoryId)
+        let description = item.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title: String = {
+            if !description.isEmpty { return description }
+            if let category { return category.name }
+            return item.type == .income ? String(localized: "common.income") : String(localized: "common.expense")
+        }()
+        let isForeign = item.currencyCode.uppercased() != item.accountCurrency.uppercased()
+        let link = QuickEntryLaunchLink(
+            mode: item.type == .income ? .income : .expense,
+            source: .widget,
+            amount: item.amount,
+            currency: isForeign ? item.currencyCode : nil,
+            categoryId: item.categoryId,
+            accountId: item.accountId,
+            note: description.isEmpty ? nil : description
+        )
+        let currency = Currency(code: item.currencyCode) ?? Currency(unchecked: item.currencyCode)
+        return SharedSnapshot.RepeatItem(
+            id: item.id,
+            isIncome: item.type == .income,
+            title: title,
+            icon: category?.icon,
+            amountText: TransactionFormView.formatRawAmount(item.amount, currency: currency),
+            accountName: context.account(item.accountId)?.name,
+            url: link.url.absoluteString
+        )
+    }
+
+    // MARK: - Reloads
+
+    /// The widget kinds whose slice of the snapshot differs between `old`
+    /// (what the widgets last read) and `new`. No previous snapshot or a
+    /// layout change → every kind. `lastUpdated` alone never reloads.
+    nonisolated static func kindsToReload(from old: SharedSnapshot?, to new: SharedSnapshot) -> Set<String> {
+        guard let old, old.schemaVersion == new.schemaVersion else { return AkifiWidgetKind.all }
+        var kinds: Set<String> = []
+        let currencyChanged = old.baseCurrency != new.baseCurrency
+            || old.baseCurrencySymbol != new.baseCurrencySymbol
+            || old.baseCurrencyDecimals != new.baseCurrencyDecimals
+        if currencyChanged || old.totalBalance != new.totalBalance || old.accountCount != new.accountCount {
+            kinds.insert(AkifiWidgetKind.balance)
+        }
+        if currencyChanged || old.dailyLimit != new.dailyLimit || old.dailyLimitBudgetName != new.dailyLimitBudgetName
+            || old.dailySpentToday != new.dailySpentToday || old.dailyLimitUtilization != new.dailyLimitUtilization
+            || old.dailyLimitLeftover != new.dailyLimitLeftover || old.dailyLimitPeriodEnd != new.dailyLimitPeriodEnd
+            || old.dayKey != new.dayKey {
+            kinds.insert(AkifiWidgetKind.dailyLimit)
+        }
+        if old.currentStreak != new.currentStreak || old.nextMilestone != new.nextMilestone {
+            kinds.insert(AkifiWidgetKind.streak)
+        }
+        if currencyChanged || old.todayIncome != new.todayIncome || old.todayExpense != new.todayExpense
+            || old.todayNet != new.todayNet || old.dayKey != new.dayKey {
+            kinds.insert(AkifiWidgetKind.daySummary)
+        }
+        if old.accounts != new.accounts || old.monthKey != new.monthKey {
+            kinds.insert(AkifiWidgetKind.account)
+        }
+        if old.repeatItems != new.repeatItems {
+            kinds.insert(AkifiWidgetKind.quickAdd)
+        }
+        // «Все счета» lists balances and the base-currency total; the month
+        // in / out it doesn't show never reloads it.
+        if currencyChanged || old.totalBalance != new.totalBalance
+            || listedAccounts(old.accounts) != listedAccounts(new.accounts) {
+            kinds.insert(AkifiWidgetKind.accounts)
+        }
+        return kinds
+    }
+
+    /// The accounts as «Все счета» shows them: everything but the month
+    /// flow (a field added to `AccountItem` later counts by default).
+    nonisolated private static func listedAccounts(_ accounts: [SharedSnapshot.AccountItem]?) -> [SharedSnapshot.AccountItem]? {
+        accounts?.map { item in
+            var item = item
+            item.monthIncome = 0
+            item.monthExpense = 0
+            return item
+        }
     }
 
     // MARK: - Helpers

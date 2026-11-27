@@ -136,10 +136,7 @@ final class FIREViewModel {
         self.breakdown = breakdown
 
         let baseCode = currencyManager.dataCurrency.code
-        let accountsById = Dictionary(
-            dataStore.accounts.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        let accountsById = dataStore.currencyContext.accountsById
         let fxRates: [String: Decimal] = currencyManager.rates.reduce(into: [:]) { acc, pair in
             acc[pair.key] = Decimal(pair.value)
         }

@@ -14,19 +14,18 @@ struct BetaFeaturesView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "flask.fill")
-                            .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        SettingsIconTile(systemName: "flask.fill", color: .orange)
                         Text(String(localized: "settings.beta.introTitle"))
                             .font(.headline)
                     }
                     Text(String(localized: "settings.beta.introBody"))
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
+                .accessibilityElement(children: .combine)
             }
 
             Section(header: Text(String(localized: "settings.beta.section.netWorth"))) {
@@ -147,7 +146,10 @@ struct BetaFeaturesView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "settings.beta.title"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

@@ -1,37 +1,19 @@
 import SwiftUI
 
-// MARK: - App Tab
-
-enum AppTab: Int, CaseIterable {
-    case home = 0
-    case transactions = 1
-    case analytics = 2
-    case journal = 3
-    case budgets = 4
-
-    var screenName: String {
-        switch self {
-        case .home: "Home"
-        case .transactions: "Transactions"
-        case .analytics: "Analytics"
-        case .journal: "Journal"
-        case .budgets: "Budgets"
-        }
-    }
-}
-
 enum SheetDestination: Identifiable {
-    case expense(categoryId: String? = nil, accountId: String? = nil)
-    case income(categoryId: String? = nil, accountId: String? = nil)
+    /// The full form, prefilled — quick entry's «Подробнее».
+    case transactionForm(TransactionFormPrefill)
     case transfer
     case receipt
+    /// «Дал в долг» / «Взял в долг» from the «+» menu.
+    case debt(DebtAction)
 
     var id: String {
         switch self {
-        case .expense: "expense"
-        case .income: "income"
+        case .transactionForm: "transactionForm"
         case .transfer: "transfer"
         case .receipt: "receipt"
+        case .debt(let action): "debt.\(action.rawValue)"
         }
     }
 }
@@ -157,17 +139,35 @@ struct ContentView: View {
 
 // MARK: - MainTabView
 
+/// The signed-in shell (1.6): system `TabView` (Liquid Glass on iOS 26) with
+/// Главная · Операции · Аналитика · Бюджеты and the Assistant as the
+/// separate trailing round tab, the floating «+», top banners and the
+/// app-wide overlays (achievements, streaks, spotlight tour).
+///
+/// Tab lifetime: the system `TabView` builds a tab on its first selection
+/// and keeps it — state, scroll position and navigation stack survive
+/// switches (what the pre-1.6 opacity keep-alive stack did by hand).
 struct MainTabView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @AppStorage("hapticEnabled") private var hapticEnabled = true
     @State private var selectedTab: AppTab = .home
-    @State private var showAssistant = false
     @State private var assistantVM = AssistantViewModel()
     @State private var activeSheet: SheetDestination?
-    @State private var fabSelectedCategoryId: String?
+    /// The quick-entry sheet, its undo toast and the «Подробнее» hand-over.
+    @State private var quickEntry = QuickEntryCoordinator()
     @State private var unlockedAchievement: Achievement?
     @State private var pendingStreakMilestone: StreakTracker.MilestoneInfo?
     @State private var spotlightManager = SpotlightManager()
     @State private var pendingInvite: PendingInvite?
+    /// Top edge of the tab bar in global coordinates, per tab — the «+»
+    /// floats just above it. Per tab because a hidden tab may re-lay out
+    /// without the bar's inset and report the screen bottom; only the
+    /// selected tab's value is used.
+    @State private var tabBarTops: [AppTab: CGFloat] = [:]
+    @State private var isKeyboardVisible = false
+    /// The tour was due while the Assistant tab was open — it starts when
+    /// the user leaves the chat instead of pulling them out of it.
+    @State private var spotlightStartPending = false
 
     private struct PendingInvite: Identifiable {
         let code: String
@@ -182,55 +182,44 @@ struct MainTabView: View {
     @State private var currentAccountContext = CurrentAccountContext()
     /// Debounced offline-queue sync fired when connectivity returns.
     @State private var reconnectSyncTask: Task<Void, Never>?
-    /// Tabs the user has visited at least once. Visited tabs stay alive
-    /// (hidden, not destroyed) so their panel caches, scroll positions and
-    /// navigation stacks survive switches — recreating Analytics from
-    /// scratch on every switch was a visible 1-2 s freeze.
-    @State private var visitedTabs: Set<AppTab> = [.home]
+
+    /// Gap between the top of the tab bar and the bottom of the «+».
+    private static let addButtonGap: CGFloat = 12
+
+    /// The `TabView`'s selection. Its setter runs for taps on the tab bar
+    /// only — programmatic switches (deep links, push taps, spotlight, the
+    /// assistant) assign `selectedTab` directly — so the tap haptic doesn't
+    /// fire for them. Screen logging lives in `onChange(of: selectedTab)`:
+    /// one point covers taps AND programmatic switches, and re-tapping the
+    /// active tab emits no duplicate screen event.
+    private var tabSelection: Binding<AppTab> {
+        Binding(
+            get: { selectedTab },
+            set: { newTab in
+                if newTab != selectedTab, hapticEnabled {
+                    if newTab == .assistant { HapticManager.medium() } else { HapticManager.light() }
+                }
+                selectedTab = newTab
+            }
+        )
+    }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Content area — lazily-populated keep-alive stack. A tab is
-            // built on first visit and then merely hidden; @Observable
-            // invalidations keep hidden tabs' caches warm in the background
-            // (cheap: every panel is memoized), so returning is instant.
-            ZStack {
-                ForEach(AppTab.allCases, id: \.self) { tab in
-                    if visitedTabs.contains(tab) {
-                        tabContent(for: tab)
-                            .opacity(selectedTab == tab ? 1 : 0)
-                            .allowsHitTesting(selectedTab == tab)
-                            .accessibilityHidden(selectedTab != tab)
-                    }
+        ZStack {
+            tabView
+
+            // «+» — above the tab bar, trailing. Hidden on the Assistant tab
+            // and while a keyboard is up.
+            GeometryReader { root in
+                FABView(
+                    bottomInset: addButtonBottomInset(rootFrame: root.frame(in: .global)),
+                    trailingInset: AkifiChrome.floatingButtonTrailingInset,
+                    isButtonVisible: AppTab.showsAddButton(on: selectedTab, keyboardVisible: isKeyboardVisible)
+                ) { action in
+                    handleFABAction(action)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Custom opaque tab bar (replaces system TabView to avoid iOS 26 liquid glass)
-            CustomTabBar(selectedTab: $selectedTab, onAITap: openAssistant)
-
-            // FAB
-            FABView { action in
-                // Only forward the contextual account on tabs where it makes
-                // sense (Home carousel + pushed shared-account screens). On
-                // Analytics / Budgets / etc. there's no "current account",
-                // so we leave the form's Account picker empty.
-                let contextualAccountId: String? = selectedTab == .home
-                    ? currentAccountContext.accountId
-                    : nil
-                switch action {
-                case .income(let categoryId):
-                    fabSelectedCategoryId = categoryId
-                    activeSheet = .income(categoryId: categoryId, accountId: contextualAccountId)
-                case .expense(let categoryId):
-                    fabSelectedCategoryId = categoryId
-                    activeSheet = .expense(categoryId: categoryId, accountId: contextualAccountId)
-                case .transfer:
-                    activeSheet = .transfer
-                case .receipt:
-                    activeSheet = .receipt
-                }
-            }
+            .ignoresSafeArea(edges: .bottom)
 
             // Achievement overlay
             if let achievement = unlockedAchievement {
@@ -254,89 +243,53 @@ struct MainTabView: View {
                 .zIndex(4)
             }
 
-            // Offline indicator
-            if !NetworkMonitor.shared.isConnected {
-                let pendingCount = appViewModel.dataStore.offlineQueue.pendingCount
-                VStack {
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Image(systemName: "wifi.slash")
-                            .font(.caption)
-                        Text(
-                            pendingCount > 0
-                                ? String(format: String(localized: "status.offline.pending"), pendingCount)
-                                : String(localized: "status.offline")
-                        )
-                        .font(.caption.weight(.medium))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.orange))
-                    .padding(.bottom, 100)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeInOut, value: NetworkMonitor.shared.isConnected)
-                .zIndex(3)
-            }
-
-            // Top banners (non-modal, below overlays): data problems (Y7) and
-            // the subscription auto-match undo. Stacked, never overlapping.
-            let dataIssue = appViewModel.dataStore.issue
-            let match = appViewModel.dataStore.pendingAutoMatch
-            if dataIssue != nil || match != nil {
-                VStack(spacing: 8) {
-                    if let dataIssue {
-                        DataIssueBanner(
-                            issue: dataIssue,
-                            onRetry: {
-                                let dataStore = appViewModel.dataStore
-                                switch dataIssue.kind {
-                                case .load: return { Task { await dataStore.loadAll() } }
-                                case .unsynced: return { Task { await dataStore.retryUnsyncedOperations() } }
-                                case .mutation: return nil
-                                }
-                            }(),
-                            onDismiss: { appViewModel.dataStore.dismissIssue() }
-                        )
-                        .id(dataIssue.id)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                    if let match {
-                        SubscriptionMatchBanner(
-                            match: match,
-                            onUndo: {
-                                Task { await appViewModel.dataStore.undoAutoMatch() }
-                            },
-                            onDismiss: {
-                                appViewModel.dataStore.clearPendingAutoMatch(id: match.id)
-                            }
-                        )
-                        .id(match.id)
-                    }
-                    Spacer()
-                }
-                .padding(.top, 8)
+            // Top banners (non-modal, below overlays): offline state, data
+            // problems (Y7) and the subscription auto-match undo. Small glass
+            // capsules, stacked, never overlapping.
+            topBanners
                 .zIndex(2)
-                .animation(.easeInOut(duration: 0.25), value: match)
-                .animation(.easeInOut(duration: 0.25), value: dataIssue)
-            }
 
             // Spotlight onboarding overlay (must be LAST — above everything)
             SpotlightOverlayView(manager: spotlightManager)
+                .zIndex(5)
         }
         .environment(currentAccountContext)
-        .onPreferenceChange(SpotlightFramePreferenceKey.self) { newFrames in
-            Task { @MainActor in spotlightManager.frames = newFrames }
-        }
-        .onChange(of: spotlightManager.currentStepIndex) { _, _ in
+        .environment(spotlightManager)
+        // Each step shows on its own tab (also the first one: the tour may
+        // start while another tab is open).
+        .onChange(of: spotlightStepKey) { _, _ in
             if let tab = spotlightManager.requiredTab, tab != selectedTab {
                 withAnimation(.easeInOut(duration: 0.3)) { selectedTab = tab }
             }
         }
-        .onChange(of: selectedTab) { _, newTab in
-            visitedTabs.insert(newTab)
+        // No step may point at nothing: once the step's tab had time to
+        // appear, a step whose target isn't on screen is skipped.
+        .task(id: spotlightStepKey) {
+            guard spotlightManager.isActive else { return }
+            try? await Task.sleep(for: SpotlightManager.anchorGracePeriod)
+            guard !Task.isCancelled else { return }
+            spotlightManager.skipStepIfUnanchored()
+        }
+        .onChange(of: selectedTab) { oldTab, newTab in
+            let shown = newTab.resolvedForTabBar
+            if shown != newTab {
+                selectedTab = shown
+                return
+            }
+            if newTab == .assistant {
+                assistantVM.dataStore = appViewModel.dataStore
+            }
             AnalyticsService.logScreen(newTab.screenName)
+            if oldTab == .assistant, spotlightStartPending {
+                spotlightStartPending = false
+                startSpotlight(after: .seconds(0.5))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
         }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
             // Drain the offline queue as soon as connectivity returns.
@@ -357,10 +310,14 @@ struct MainTabView: View {
             }
         }
         .task {
+            // The assistant's request carries the client context (balances
+            // in account currency, FX rates, display currency, language)
+            // built from the data store — attach it before the Assistant tab
+            // can be opened.
+            assistantVM.dataStore = appViewModel.dataStore
             // Defer spotlight for new users — show it after first transaction
             if !appViewModel.dataStore.transactions.isEmpty {
-                try? await Task.sleep(for: .seconds(1.0))
-                spotlightManager.start()
+                startSpotlight(after: .seconds(1.0))
             }
         }
         .background {
@@ -369,57 +326,28 @@ struct MainTabView: View {
             // struct of every kept-alive tab (P2).
             TransactionCountObserver { newCount in
                 if newCount > 0 {
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(1.0))
-                        spotlightManager.start()
-                    }
+                    startSpotlight(after: .seconds(1.0))
                     // Streak milestone check (piggy-backs on transaction change).
                     checkStreakMilestone()
                 }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .pushNotificationTapped)) { notification in
-            if let tabName = notification.userInfo?["tab"] as? String {
-                withAnimation {
-                    switch tabName {
-                    case "home": selectedTab = .home
-                    case "transactions": selectedTab = .transactions
-                    case "budget", "budgets": selectedTab = .budgets
-                    case "analytics": selectedTab = .analytics
-                    default: break
-                    }
-                }
-            }
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .fullScreenCover(isPresented: $showAssistant) {
-            AssistantView(viewModel: assistantVM) { target in
-                handleNavigationTarget(target)
+            if let tabName = notification.userInfo?["tab"] as? String,
+               let tab = AppTab(pushTarget: tabName) {
+                withAnimation { selectedTab = tab }
             }
         }
         .sheet(item: $activeSheet) { sheet in
             Group {
                 switch sheet {
-                case .expense(let categoryId, let accountId):
+                case .transactionForm(let prefill):
                     TransactionFormView(
                         categories: appViewModel.dataStore.displayCategories,
                         accounts: appViewModel.dataStore.accounts,
-                        defaultCategoryId: categoryId,
-                        defaultAccountId: accountId
+                        prefill: prefill
                     ) {
                         await appViewModel.dataStore.loadAll()
-                        fabSelectedCategoryId = nil
-                    }
-                case .income(let categoryId, let accountId):
-                    TransactionFormView(
-                        categories: appViewModel.dataStore.displayCategories,
-                        accounts: appViewModel.dataStore.accounts,
-                        defaultType: .income,
-                        defaultCategoryId: categoryId,
-                        defaultAccountId: accountId
-                    ) {
-                        await appViewModel.dataStore.loadAll()
-                        fabSelectedCategoryId = nil
                     }
                 case .transfer:
                     TransferFormView(accounts: appViewModel.dataStore.accounts) {
@@ -429,8 +357,37 @@ struct MainTabView: View {
                     ReceiptScannerView {
                         await appViewModel.dataStore.loadAll()
                     }
+                case .debt(let action):
+                    DebtQuickActionSheet(action: action)
                 }
             }
+        }
+        // Quick entry: «+», the inbox (links, quick actions, Control Center,
+        // Siri), the assistant. «Подробнее» opens the form once the sheet
+        // is gone (two sheets can't be up at once).
+        .sheet(item: $quickEntry.presented, onDismiss: {
+            if let prefill = quickEntry.takePendingDetails() {
+                activeSheet = .transactionForm(prefill)
+            } else if quickEntry.takePendingTransfer() {
+                activeSheet = .transfer
+            } else {
+                presentInboxRequestIfAny()
+            }
+        }) { presentation in
+            QuickEntrySheet(
+                model: presentation.model,
+                onClose: { quickEntry.presented = nil },
+                onSaved: { quickEntry.didSave($0) },
+                onDetails: { quickEntry.openDetails() },
+                onTransfer: { quickEntry.openTransfer() }
+            )
+        }
+        .onChange(of: QuickEntryInbox.shared.pending?.id, initial: true) { _, _ in
+            presentInboxRequestIfAny()
+        }
+        // A request that waited for another sheet goes when it closes.
+        .onChange(of: activeSheet == nil && pendingInvite == nil) { _, free in
+            if free { presentInboxRequestIfAny() }
         }
         .task { await checkNewAchievements() }
         // URLs arrive in ContentView (`AppViewModel.open`); widget taps and
@@ -443,6 +400,11 @@ struct MainTabView: View {
             case .tab(let tab):
                 withAnimation { selectedTab = tab }
                 AnalyticsService.logEvent("widget_tap", params: ["target": tab.screenName.lowercased()])
+            case .account(let id):
+                // Home selects it in the carousel once its accounts are in.
+                appViewModel.pendingHomeAccountId = id
+                withAnimation { selectedTab = .home }
+                AnalyticsService.logEvent("widget_tap", params: ["target": "account"])
             case .accountInvite(let code):
                 pendingInvite = PendingInvite(code: code, kind: .account)
             case .budgetInvite(let code):
@@ -458,40 +420,178 @@ struct MainTabView: View {
         }
     }
 
+    // MARK: - Tabs
+
+    private var tabView: some View {
+        TabView(selection: tabSelection) {
+            Tab(AppTab.home.title, systemImage: AppTab.home.systemImage, value: AppTab.home) {
+                HomeTabView()
+                    .background(TabBarTopReader { reportTabBarTop($0, from: .home) })
+            }
+            Tab(AppTab.transactions.title, systemImage: AppTab.transactions.systemImage, value: AppTab.transactions) {
+                TransactionsTabView()
+                    .background(TabBarTopReader { reportTabBarTop($0, from: .transactions) })
+            }
+            Tab(AppTab.analytics.title, systemImage: AppTab.analytics.systemImage, value: AppTab.analytics) {
+                AnalyticsTabView()
+                    .background(TabBarTopReader { reportTabBarTop($0, from: .analytics) })
+            }
+            Tab(AppTab.budgets.title, systemImage: AppTab.budgets.systemImage, value: AppTab.budgets) {
+                BudgetsTabView()
+                    .background(TabBarTopReader { reportTabBarTop($0, from: .budgets) })
+            }
+            Tab(AppTab.assistant.title, systemImage: AppTab.assistant.systemImage, value: AppTab.assistant, role: .search) {
+                AssistantView(viewModel: assistantVM, showsCloseButton: false) { target in
+                    handleNavigationTarget(target)
+                }
+            }
+        }
+        .akifiTabBarMinimizeOnScroll()
+        .tint(Color.accent)
+    }
+
+    private func reportTabBarTop(_ top: CGFloat, from tab: AppTab) {
+        if tabBarTops[tab] != top { tabBarTops[tab] = top }
+    }
+
+    /// Bottom inset of the «+» from the screen's bottom edge.
+    private func addButtonBottomInset(rootFrame: CGRect) -> CGFloat {
+        AkifiChrome.floatingButtonBottomInset(
+            tabBarTop: tabBarTops[selectedTab],
+            screenMaxY: rootFrame.maxY,
+            gap: Self.addButtonGap
+        )
+    }
+
+    // MARK: - Top banners
+
     @ViewBuilder
-    private func tabContent(for tab: AppTab) -> some View {
-        switch tab {
-        case .home: HomeTabView()
-        case .transactions: TransactionsTabView()
-        case .analytics: AnalyticsTabView()
-        case .journal: JournalTabView()
-        case .budgets: BudgetsTabView()
+    private var topBanners: some View {
+        let isOffline = !NetworkMonitor.shared.isConnected
+        let dataIssue = appViewModel.dataStore.issue
+        let match = appViewModel.dataStore.pendingAutoMatch
+        let saved = quickEntry.toast
+        if isOffline || dataIssue != nil || match != nil || saved != nil {
+            VStack(spacing: 8) {
+                if let saved {
+                    QuickEntrySavedToast(
+                        saved: saved,
+                        onUndo: {
+                            let dataStore = appViewModel.dataStore
+                            Task { await quickEntry.undo(saved, dataStore: dataStore) }
+                        },
+                        onDismiss: { quickEntry.dismissToast(id: saved.id) }
+                    )
+                    .id(saved.id)
+                }
+                if isOffline {
+                    OfflineBanner(pendingCount: appViewModel.dataStore.offlineQueue.pendingCount)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if let dataIssue {
+                    DataIssueBanner(
+                        issue: dataIssue,
+                        onRetry: {
+                            let dataStore = appViewModel.dataStore
+                            switch dataIssue.kind {
+                            case .load: return { Task { await dataStore.loadAll() } }
+                            case .unsynced: return { Task { await dataStore.retryUnsyncedOperations() } }
+                            case .mutation: return nil
+                            }
+                        }(),
+                        onDismiss: { appViewModel.dataStore.dismissIssue() }
+                    )
+                    .id(dataIssue.id)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                if let match {
+                    SubscriptionMatchBanner(
+                        match: match,
+                        onUndo: {
+                            Task { await appViewModel.dataStore.undoAutoMatch() }
+                        },
+                        onDismiss: {
+                            appViewModel.dataStore.clearPendingAutoMatch(id: match.id)
+                        }
+                    )
+                    .id(match.id)
+                }
+                Spacer()
+            }
+            // Below the navigation bar's control row: a banner must never
+            // cover the toolbar buttons (profile, currency, filters).
+            .padding(.top, AkifiChrome.bannerTopInset)
+            .animation(.easeInOut(duration: 0.25), value: match)
+            .animation(.easeInOut(duration: 0.25), value: saved)
+            .animation(.easeInOut(duration: 0.25), value: dataIssue)
+            .animation(.easeInOut, value: isOffline)
         }
     }
 
-    /// The assistant's request carries the client context (balances in
-    /// account currency, FX rates, display currency, language) built from
-    /// the data store — which was never attached, so every request went
-    /// out without it.
-    private func openAssistant() {
-        assistantVM.dataStore = appViewModel.dataStore
-        showAssistant = true
+    // MARK: - Actions
+
+    private var spotlightStepKey: SpotlightStepKey {
+        SpotlightStepKey(isActive: spotlightManager.isActive, index: spotlightManager.currentStepIndex)
+    }
+
+    /// Starts the onboarding tour after `delay` (no-op once completed). Not
+    /// over the Assistant tab: a first transaction added from the chat
+    /// would otherwise yank the user to Home mid-conversation.
+    private func startSpotlight(after delay: Duration) {
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            guard selectedTab != .assistant else {
+                spotlightStartPending = true
+                return
+            }
+            spotlightManager.start()
+        }
+    }
+
+    private func handleFABAction(_ action: FABAction) {
+        // The contextual account (Home carousel, pushed account screen)
+        // only counts where it is a real choice — see
+        // `QuickEntryCoordinator.pinnedAccountId`.
+        let route = QuickEntryCoordinator.route(
+            action,
+            selectedTab: selectedTab,
+            contextAccountId: currentAccountContext.accountId,
+            accounts: appViewModel.dataStore.accounts
+        )
+        switch route {
+        case .quickEntry(let mode, let categoryId, let accountId):
+            presentQuickEntry(QuickEntryRequest(mode: mode, source: .addButton, categoryId: categoryId, accountId: accountId))
+        case .transfer:
+            activeSheet = .transfer
+        case .receipt:
+            activeSheet = .receipt
+        case .debt(let debtAction):
+            activeSheet = .debt(debtAction)
+        }
+    }
+
+    private func presentQuickEntry(_ request: QuickEntryRequest) {
+        quickEntry.present(request, dataStore: appViewModel.dataStore, currencyManager: appViewModel.currencyManager)
+    }
+
+    /// Takes the waiting `QuickEntryInbox` request (Siri, a link, a Home
+    /// screen quick action, Control Center) unless another sheet is up.
+    private func presentInboxRequestIfAny() {
+        let otherSheet = activeSheet != nil || pendingInvite != nil
+        guard let request = quickEntry.takeInboxRequest(from: QuickEntryInbox.shared, otherSheetPresented: otherSheet) else { return }
+        presentQuickEntry(request)
     }
 
     private func handleNavigationTarget(_ target: NavigationTarget) {
-        switch target {
-        case .transactions:
-            selectedTab = .transactions
-        case .budgets:
-            selectedTab = .budgets
-        case .savings:
-            selectedTab = .budgets
-        case .journal:
-            break
+        switch AssistantRoute(target) {
+        case .selectTab(let tab):
+            selectedTab = tab
         case .addExpense:
-            activeSheet = .expense(categoryId: nil)
+            presentQuickEntry(QuickEntryRequest(mode: .expense, source: .assistant))
         case .addIncome:
-            activeSheet = .income(categoryId: nil)
+            presentQuickEntry(QuickEntryRequest(mode: .income, source: .assistant))
+        case .none:
+            break
         }
     }
 
@@ -528,12 +628,69 @@ struct MainTabView: View {
     }
 }
 
+/// `task(id:)` key of the spotlight anchor check.
+private struct SpotlightStepKey: Equatable {
+    let isActive: Bool
+    let index: Int
+}
+
+/// Reports where the tab bar begins, in global coordinates: a reader laid
+/// out in a tab's safe area ends exactly at the top of the tab bar (bar and
+/// home indicator are the bottom inset). Measured on iOS 26.5: frame
+/// maxY 791 on an 874 pt screen with an 83 pt tab bar region.
+///
+/// Use `frame.maxY` alone — the proxy's `safeAreaInsets` still report the
+/// bar although the frame already excludes it. The keyboard is ignored: the
+/// «+» hides while it is up and must come back to the same place.
+private struct TabBarTopReader: View {
+    let onChange: (CGFloat) -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            let top = geo.frame(in: .global).maxY
+            Color.clear
+                .onAppear { onChange(top) }
+                .onChange(of: top) { _, newTop in onChange(newTop) }
+        }
+        .ignoresSafeArea(.keyboard)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Offline banner
+
+/// Glass capsule shown while the device is offline, with the number of
+/// writes waiting to sync.
+struct OfflineBanner: View {
+    let pendingCount: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.warning)
+                .accessibilityHidden(true)
+            Text(
+                pendingCount > 0
+                    ? String(format: String(localized: "status.offline.pending"), pendingCount)
+                    : String(localized: "status.offline")
+            )
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.primary)
+        }
+        .akifiGlassBanner()
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Data issue banner (Y7)
 
 /// Small top banner for `DataStore.issue`: a refresh that only partly
 /// succeeded (cached values are showing) or a user action that failed.
 /// Auto-dismisses; a load problem offers "Повторить".
-private struct DataIssueBanner: View {
+struct DataIssueBanner: View {
     let issue: DataStore.Issue
     let onRetry: (() -> Void)?
     let onDismiss: () -> Void
@@ -542,7 +699,7 @@ private struct DataIssueBanner: View {
         HStack(spacing: 10) {
             Image(systemName: issue.kind == .load ? "exclamationmark.arrow.triangle.2.circlepath" : "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.warning)
                 .accessibilityHidden(true)
             Text(issue.message)
                 .font(.footnote.weight(.medium))
@@ -563,19 +720,14 @@ private struct DataIssueBanner: View {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "common.close"))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
-        )
-        .padding(.horizontal, 16)
+        // The 44 pt close button sets the height and the trailing spacing.
+        .akifiGlassBanner(contentInsets: EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 4))
         .accessibilityElement(children: .combine)
         .task(id: issue.id) {
             // Refused writes stay until the user acts on them (Y6).
@@ -600,84 +752,5 @@ private struct TransactionCountObserver: View {
             .onChange(of: appViewModel.dataStore.transactions.count) { _, newCount in
                 onChange(newCount)
             }
-    }
-}
-
-// MARK: - Custom Tab Bar (opaque, no liquid glass)
-
-private struct CustomTabBar: View {
-    @Binding var selectedTab: AppTab
-    @AppStorage("hapticEnabled") private var hapticEnabled = true
-    var onAITap: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                tabButton("house.fill", String(localized: "tab.home"), .home)
-                tabButton("arrow.left.arrow.right", String(localized: "tab.transactions"), .transactions)
-
-                // Center AI button
-                Button {
-                    if hapticEnabled { HapticManager.medium() }
-                    onAITap()
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.aiGradientStart, .aiGradientEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 48, height: 48)
-                            .shadow(color: Color.aiGradientStart.opacity(0.2), radius: 8, x: 0, y: 4)
-
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
-                    .offset(y: -20)
-                    .spotlight(.aiButton)
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-                .accessibilityLabel(String(localized: "tab.assistant"))
-
-                tabButton("chart.bar.fill", String(localized: "tab.analytics"), .analytics)
-                tabButton("wallet.bifold.fill", String(localized: "tab.budgets"), .budgets)
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 14)
-            .padding(.bottom, 24)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: -4)
-                .ignoresSafeArea(edges: .bottom)
-        )
-    }
-
-    private func tabButton(_ icon: String, _ label: String, _ tab: AppTab) -> some View {
-        Button {
-            if hapticEnabled { HapticManager.light() }
-            // Screen logging lives in MainTabView's onChange(selectedTab):
-            // one point covers taps AND programmatic switches (deep links,
-            // spotlight, push taps), and re-tapping the active tab no
-            // longer emits duplicate screen events.
-            selectedTab = tab
-        } label: {
-            VStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 22))
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .foregroundStyle(selectedTab == tab ? Color.accent : Color(.secondaryLabel))
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 44)
-        }
-        .buttonStyle(.plain)
     }
 }

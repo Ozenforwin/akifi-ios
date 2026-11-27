@@ -18,7 +18,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 1.5.8
+    MARKETING_VERSION: 1.6.0
     VERSIONING_SYSTEM: apple-generic
     DEVELOPMENT_TEAM: 8GPVB9MQ58
     CODE_SIGN_STYLE: Automatic
@@ -72,9 +72,25 @@ targets:
         UILaunchScreen: {}
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
-        NSMicrophoneUsageDescription: Akifi uses your microphone for voice messages with the AI financial assistant
+        NSMicrophoneUsageDescription: Akifi uses the microphone to add transactions by voice and for voice messages to the AI financial assistant
         NSPhotoLibraryUsageDescription: Akifi needs access to your photos to set a profile picture or scan receipts
         NSCameraUsageDescription: Akifi uses the camera to scan receipts and automatically create transactions
+        NSSpeechRecognitionUsageDescription: Akifi recognizes your speech to add transactions by voice. When your iPhone supports it, recognition runs on the device
+        # Siri hears the Russian name too («Добавь расход в Акифи»).
+        INAlternativeAppNames:
+          - INAlternativeAppName: Акифи
+        # Home-screen quick actions. Titles are InfoPlist.xcstrings keys
+        # (ru source text); routed by AkifiIOS/Intents/QuickEntryQuickActions.swift.
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: ru.akifi.app.quickEntry.expense
+            UIApplicationShortcutItemTitle: Расход
+            UIApplicationShortcutItemIconSymbolName: minus.circle
+          - UIApplicationShortcutItemType: ru.akifi.app.quickEntry.income
+            UIApplicationShortcutItemTitle: Доход
+            UIApplicationShortcutItemIconSymbolName: plus.circle
+          - UIApplicationShortcutItemType: ru.akifi.app.quickEntry.voice
+            UIApplicationShortcutItemTitle: Голосом
+            UIApplicationShortcutItemIconSymbolName: mic
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

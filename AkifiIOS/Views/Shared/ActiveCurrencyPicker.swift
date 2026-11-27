@@ -28,6 +28,9 @@ import SwiftUI
 /// list. Adding to active is a deliberate Settings action.
 struct ActiveCurrencyPicker: View {
     @Binding var selection: Currency
+    /// Listed first even when not active (a debt's and the paying
+    /// account's currencies).
+    var pinned: [Currency] = []
 
     /// Standalone state for the sheet — bound to a `@State` so SwiftUI
     /// re-evaluates when `selection` is mutated by the sheet's picker.
@@ -39,10 +42,23 @@ struct ActiveCurrencyPicker: View {
     /// reads inside `body` register a dependency automatically.
     private let prefs = UserCurrencyPreferences.shared
 
+    init(selection: Binding<Currency>, pinned: [Currency] = []) {
+        self._selection = selection
+        self.pinned = pinned
+    }
+
+    private var choices: [Currency] {
+        var out: [Currency] = []
+        for currency in pinned + prefs.activeCurrencies where !out.contains(currency) {
+            out.append(currency)
+        }
+        return out
+    }
+
     var body: some View {
         Menu {
             // Active currencies — fast, one-tap.
-            ForEach(prefs.activeCurrencies) { c in
+            ForEach(choices) { c in
                 Button {
                     selection = c
                 } label: {

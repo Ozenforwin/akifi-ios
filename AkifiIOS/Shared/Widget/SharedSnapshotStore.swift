@@ -28,25 +28,34 @@ enum SharedSnapshotStore {
         guard let url = snapshotURL else {
             throw SharedSnapshotError.containerUnavailable
         }
-        let data = try jsonEncoder.encode(snapshot)
-        try data.write(to: url, options: .atomic)
+        try encode(snapshot).write(to: url, options: .atomic)
     }
 
     /// Loads the most recent snapshot, or `nil` if the file is missing,
-    /// corrupt, or was written by a newer/older schema version the
-    /// current code cannot parse.
+    /// corrupt, or was written by a schema version the current code cannot
+    /// read.
     static func load() -> SharedSnapshot? {
         guard let url = snapshotURL else { return nil }
         guard let data = try? Data(contentsOf: url) else { return nil }
+        return decode(data)
+    }
+
+    /// The snapshot in `data`, or nil. Strict version window: anything
+    /// outside `oldestReadableSchemaVersion...currentSchemaVersion` (a newer
+    /// app's layout after a downgrade, a bogus number) is stale, and the
+    /// widget shows its «Откройте Akifi» state instead of garbled data.
+    /// Older readable layouts decode with their missing sections nil.
+    static func decode(_ data: Data) -> SharedSnapshot? {
         guard let snapshot = try? jsonDecoder.decode(SharedSnapshot.self, from: data) else {
             return nil
         }
-        // Strict version check: any mismatch → treat as stale and let the
-        // widget show its "Open app" placeholder instead of garbled data.
-        guard snapshot.schemaVersion == SharedSnapshot.currentSchemaVersion else {
-            return nil
-        }
+        let readable = SharedSnapshot.oldestReadableSchemaVersion...SharedSnapshot.currentSchemaVersion
+        guard readable.contains(snapshot.schemaVersion) else { return nil }
         return snapshot
+    }
+
+    static func encode(_ snapshot: SharedSnapshot) throws -> Data {
+        try jsonEncoder.encode(snapshot)
     }
 
     /// Deletes the snapshot file. Useful for debugging and logout flows.

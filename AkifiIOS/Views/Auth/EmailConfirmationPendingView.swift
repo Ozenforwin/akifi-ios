@@ -19,17 +19,19 @@ struct EmailConfirmationPendingView: View {
     @State private var isResending = false
     @State private var errorMessage: String?
     @State private var notice: String?
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 56
 
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 12) {
                 Image(systemName: "envelope.badge")
-                    .font(.system(size: 56))
-                    .foregroundStyle(Color.accent.gradient)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(Color.accent)
                     .accessibilityHidden(true)
 
                 Text(String(localized: "auth.checkInbox"))
                     .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
 
                 Text(String(localized: "auth.signUp.confirmSent \(email)"))
                     .font(.subheadline)
@@ -53,11 +55,9 @@ struct EmailConfirmationPendingView: View {
                         Label(String(localized: "auth.openEmailApp"), systemImage: "envelope.open")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
                     }
-                    .background(Color.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
                 }
 
                 Button {
@@ -77,6 +77,7 @@ struct EmailConfirmationPendingView: View {
                     .font(.subheadline.weight(.medium))
                     .frame(maxWidth: .infinity, minHeight: 44)
                 }
+                .buttonStyle(.borderless)
                 .disabled(resendCountdown > 0 || isResending)
 
                 if let notice {
@@ -87,10 +88,12 @@ struct EmailConfirmationPendingView: View {
 
                 Button(String(localized: "auth.signUp.alreadyConfirmed"), action: onSignIn)
                     .font(.subheadline)
+                    .buttonStyle(.borderless)
                     .frame(minHeight: 44)
 
                 Button(String(localized: "auth.signUp.changeEmail"), action: onChangeEmail)
                     .font(.subheadline)
+                    .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
                     .frame(minHeight: 44)
             }

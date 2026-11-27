@@ -1,79 +1,71 @@
 import SwiftUI
 
+/// One savings goal as a list row: icon, name, deadline, progress ring
+/// and amounts. Lives inside an inset-grouped `List` — the row supplies
+/// the background, so the view itself has none (content, not a card).
 struct SavingsGoalCardView: View {
     @Environment(AppViewModel.self) private var appViewModel
     let goal: SavingsGoal
     let progress: Double
     let daysRemaining: Int?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(goal.icon)
-                    .font(.title2)
-                    .frame(width: 40, height: 40)
-                    .background(Color(hex: goal.color).opacity(0.15))
-                    .clipShape(Circle())
+    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 44
 
-                VStack(alignment: .leading, spacing: 2) {
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .stroke(Color(hex: goal.color).opacity(0.2), lineWidth: 5)
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(Color(hex: goal.color), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text(goal.icon)
+                    .font(.title3)
+            }
+            .frame(width: ringSize, height: ringSize)
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
                     Text(goal.name)
                         .font(.headline)
-                    if let days = daysRemaining {
-                        Text(days > 0 ? String(localized: "budget.daysRemaining.\(days)") : String(localized: "savings.expired"))
-                            .font(.caption)
-                            .foregroundStyle(days > 0 ? Color.secondary : Color.red)
+                        .lineLimit(1)
+                    if goal.status == .completed {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(Color.income)
+                            .accessibilityLabel(String(localized: "savings.completed"))
                     }
                 }
-                Spacer()
 
-                if goal.status == .completed {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                        .font(.title2)
+                Text(String(localized: "savings.detail.ofTarget \(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if let days = daysRemaining {
+                    Text(days > 0 ? String(localized: "budget.daysRemaining.\(days)") : String(localized: "savings.expired"))
+                        .font(.footnote)
+                        .foregroundStyle(days > 0 ? Color.secondary : Color.expense)
                 }
             }
 
-            // Progress ring + amounts
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .stroke(.quaternary, lineWidth: 6)
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(Color(hex: goal.color).gradient, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption2.weight(.bold))
-                }
-                .frame(width: 50, height: 50)
+            Spacer(minLength: 8)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
-                            .font(.subheadline.weight(.semibold))
-                        Text(String(localized: "common.of"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(appViewModel.currencyManager.formatAmount(goal.targetAmount.displayAmount))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(.quaternary)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(hex: goal.color).gradient)
-                                .frame(width: geo.size.width * progress)
-                        }
-                    }
-                    .frame(height: 6)
-                }
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(appViewModel.currencyManager.formatAmount(goal.currentAmount.displayAmount))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                Text(verbatim: "\(Int(progress * 100))%")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
     }
 }

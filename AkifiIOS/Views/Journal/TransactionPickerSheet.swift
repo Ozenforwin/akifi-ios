@@ -60,7 +60,6 @@ struct TransactionPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private var list: some View {
@@ -89,7 +88,7 @@ struct TransactionPickerSheet: View {
                     .fill((tx.type == .income ? Color.income : Color.expense).opacity(0.12))
                     .frame(width: 32, height: 32)
                 Image(systemName: tx.type == .income ? "arrow.down" : "arrow.up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(tx.type == .income ? Color.income : Color.expense)
             }
 
@@ -130,7 +129,7 @@ struct TransactionPickerSheet: View {
 
     private func accountName(for tx: Transaction) -> String? {
         guard let id = tx.accountId,
-              let account = dataStore.accounts.first(where: { $0.id == id }) else { return nil }
+              let account = dataStore.account(withId: id) else { return nil }
         return account.name
     }
 
@@ -143,16 +142,9 @@ struct TransactionPickerSheet: View {
     }
 
     private var empty: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-            Text(String(localized: "journal.linker.empty"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        ContentUnavailableView(
+            String(localized: "journal.linker.empty"),
+            systemImage: "magnifyingglass"
+        )
     }
 }

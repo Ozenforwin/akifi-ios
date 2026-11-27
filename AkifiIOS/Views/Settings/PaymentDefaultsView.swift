@@ -34,9 +34,10 @@ struct PaymentDefaultsView: View {
         List {
             Section {
                 Text(String(localized: "settings.paymentDefaults.hint"))
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             }
 
             if sharedAccounts.isEmpty {
@@ -76,12 +77,15 @@ struct PaymentDefaultsView: View {
             if let err = viewModel.errorMessage {
                 Section {
                     Text(err)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.red)
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "settings.paymentDefaults"))
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.load()
         }

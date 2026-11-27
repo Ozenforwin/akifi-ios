@@ -43,6 +43,26 @@ enum NativeBalance {
         account.initialBalance + net(accountId: account.id, transactions: transactions)
     }
 
+    /// Income / expense per account in the month `monthKey` ("yyyy-MM"),
+    /// kopecks of EACH account's own currency — never summed across
+    /// accounts. The same buckets as the carousel's base-currency
+    /// `currentMonthFlow` (`DataStore.rebuildCaches()`): legacy `.transfer`
+    /// rows and every leg of a transfer group (moves between own accounts,
+    /// debt movements, auto-transfer legs) are not cashflow, and the month
+    /// is the one of `tx.date` (the user's local day).
+    static func monthFlows(monthKey: String, transactions: [Transaction]) -> [String: (income: Int64, expense: Int64)] {
+        var perAccount: [String: (income: Int64, expense: Int64)] = [:]
+        for tx in transactions where tx.type != .transfer && tx.transferGroupId == nil && tx.date.prefix(7) == monthKey {
+            guard let accountId = tx.accountId else { continue }
+            switch tx.type {
+            case .income: perAccount[accountId, default: (0, 0)].income += tx.amountNative
+            case .expense: perAccount[accountId, default: (0, 0)].expense += tx.amountNative
+            case .transfer: break
+            }
+        }
+        return perAccount
+    }
+
     /// The `initial_balance` (kopecks) that makes the account show
     /// `desiredBalance`, given its rows. `accounts.initial_balance` is a
     /// bigint of WHOLE units, so the result is rounded half away from zero
@@ -116,7 +136,7 @@ extension DataStore {
     /// auto-transfer triplet.
     func canModifyAutoTransfer(_ tx: Transaction) -> Bool {
         AutoTransferPermission.canModify(
-            tx, currentUserId: profile?.id, accounts: accounts, transactions: transactions
+            tx, currentUserId: profile?.id, accounts: allAccounts, transactions: transactions
         )
     }
 }

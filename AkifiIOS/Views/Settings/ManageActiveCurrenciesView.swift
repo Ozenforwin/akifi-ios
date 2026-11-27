@@ -61,7 +61,7 @@ struct ManageActiveCurrenciesView: View {
         List {
             Section {
                 Text(String(localized: "settings.activeCurrencies.subtitle"))
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
@@ -84,6 +84,7 @@ struct ManageActiveCurrenciesView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),

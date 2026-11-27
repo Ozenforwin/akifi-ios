@@ -7,11 +7,20 @@ import Foundation
 /// target and the widget extension target (see `project.yml`).
 ///
 /// # Versioning
-/// `schemaVersion` is bumped any time the layout changes in a
-/// backward-incompatible way. Widget providers must tolerate older payloads
-/// by treating unknown versions as stale and rendering the empty state.
+/// `schemaVersion` is bumped whenever the layout changes. The store reads
+/// `oldestReadableSchemaVersion...currentSchemaVersion`; anything else
+/// (a newer app's payload after a downgrade, garbage) is treated as stale and
+/// every widget renders its empty state — never a crash, never made-up data.
+///
+/// - v1: totals, daily limit, streak, today.
+/// - v2 (1.6.0): per-account data (`accounts`, `monthKey`) for the «Счёт»
+///   widget and «Повторить» items (`repeatItems`) for «Быстрая запись».
+///   Additive and optional, so a v1 file left from 1.5.x still decodes: the
+///   old widgets keep their numbers and the new ones show «Откройте Akifi»
+///   until the app writes v2.
 struct SharedSnapshot: Codable, Sendable, Equatable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
+    static let oldestReadableSchemaVersion = 1
 
     let schemaVersion: Int
     let lastUpdated: Date
@@ -32,10 +41,10 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
     /// Safe-to-spend-today as returned by `BudgetMath.safeToSpendDaily`
     /// for the active primary budget, in base-currency kopecks.
     /// `nil` when the user has no active budget.
-    let dailyLimit: Int64?
+    var dailyLimit: Int64?
     let dailyLimitBudgetName: String?
     /// Already spent today against that same budget, base-currency kopecks.
-    let dailySpentToday: Int64
+    var dailySpentToday: Int64
     /// Utilization 0–999 (see `BudgetMath.computeProgress`). Widget uses it
     /// to colour the ring (green / amber / red) without re-running math.
     let dailyLimitUtilization: Int
@@ -47,10 +56,10 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
     let nextMilestone: Int
 
     // MARK: Day Summary widget
-    let todayIncome: Int64
-    let todayExpense: Int64
+    var todayIncome: Int64
+    var todayExpense: Int64
     /// income - expense for today.
-    let todayNet: Int64
+    var todayNet: Int64
 
     // MARK: Bonus
     /// Optional net worth for a future NetWorth widget. `nil` when the
@@ -68,6 +77,60 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
     var dailyLimitLeftover: Int64? = nil
     /// Last day of the primary budget's window, "yyyy-MM-dd".
     var dailyLimitPeriodEnd: String? = nil
+
+    // MARK: Accounts (v2) — optional, so v1 payloads still decode.
+    /// The user's MONEY accounts (`DataStore.accounts` — never a «Долги»
+    /// account), in the app's order. nil = a v1 payload without account
+    /// data; [] = signed in without accounts.
+    var accounts: [AccountItem]? = nil
+    /// "yyyy-MM" (device zone, Gregorian) the accounts' month income /
+    /// expense belong to. nil = unknown (gallery sample) → never rolled over.
+    var monthKey: String? = nil
+    /// Top «Повторить» items (`QuickEntryPredictor.repeatCandidates`) for
+    /// the «Быстрая запись» widget. nil in v1 payloads.
+    var repeatItems: [RepeatItem]? = nil
+
+    /// One money account as the «Счёт» widget shows it. Every amount is in
+    /// THIS account's own currency (ADR-001: `amount_native`), minor units
+    /// ×100 like the rest of the app — never converted.
+    struct AccountItem: Codable, Sendable, Equatable, Identifiable {
+        let id: String
+        let name: String
+        /// Emoji of the icon tile.
+        let icon: String
+        /// The account colour as stored ("#3B82F6").
+        let colorHex: String
+        let currencyCode: String
+        let currencySymbol: String
+        /// Fraction digits to show (0 for RUB, 2 for USD).
+        let currencyDecimals: Int
+        /// `DataStore.nativeBalance(for:)`.
+        let balance: Int64
+        /// This month's income / expense on the account (transfers and debt
+        /// movements excluded), same currency as `balance`.
+        var monthIncome: Int64
+        var monthExpense: Int64
+        let isPrimary: Bool
+        let isShared: Bool
+        /// The eye toggle on the Home card: the widget shows «••••».
+        let isBalanceHidden: Bool
+    }
+
+    /// One «Повторить» entry: display data and the quick-add link that
+    /// opens the sheet prefilled with it (it never saves by itself).
+    struct RepeatItem: Codable, Sendable, Equatable, Identifiable {
+        let id: String
+        let isIncome: Bool
+        /// Description, else the category's name, else the type.
+        let title: String
+        /// Category emoji.
+        let icon: String?
+        /// «300 ₽» in the entry currency, formatted by the app.
+        let amountText: String
+        let accountName: String?
+        /// `akifi://quick-add?…` built by `QuickEntryLaunchLink`.
+        let url: String
+    }
 
     /// What a widget shows (Y7): the snapshot the app wrote, or nothing —
     /// the explicit «Откройте Akifi» state (signed out, fresh install,
@@ -97,7 +160,31 @@ struct SharedSnapshot: Codable, Sendable, Equatable {
         todayIncome: 5_000_00,
         todayExpense: 1_250_00,
         todayNet: 3_750_00,
-        netWorth: 325_000_00
+        netWorth: 325_000_00,
+        accounts: [
+            AccountItem(
+                id: "00000000-0000-4000-8000-000000000001",
+                name: String(localized: "widget.sample.account", defaultValue: "Карта"),
+                icon: "💳", colorHex: "#3B82F6",
+                currencyCode: "RUB", currencySymbol: "₽", currencyDecimals: 0,
+                balance: 84_250_00, monthIncome: 120_000_00, monthExpense: 46_380_00,
+                isPrimary: true, isShared: false, isBalanceHidden: false
+            )
+        ],
+        repeatItems: [
+            RepeatItem(id: "sample-1", isIncome: false,
+                       title: String(localized: "widget.sample.coffee", defaultValue: "Кофе"),
+                       icon: "☕️", amountText: "250 ₽", accountName: nil,
+                       url: "akifi://quick-add?mode=expense&source=widget"),
+            RepeatItem(id: "sample-2", isIncome: false,
+                       title: String(localized: "widget.sample.groceries", defaultValue: "Продукты"),
+                       icon: "🛒", amountText: "1 840 ₽", accountName: nil,
+                       url: "akifi://quick-add?mode=expense&source=widget"),
+            RepeatItem(id: "sample-3", isIncome: false,
+                       title: String(localized: "widget.sample.taxi", defaultValue: "Такси"),
+                       icon: "🚕", amountText: "420 ₽", accountName: nil,
+                       url: "akifi://quick-add?mode=expense&source=widget")
+        ]
     )
 }
 
@@ -121,7 +208,10 @@ extension SharedSnapshot {
     /// "today" fields only while it runs, so after midnight they belong to
     /// yesterday: income / expense / net / spent-today drop to zero, and the
     /// daily allowance is the stored leftover re-spread over the days now
-    /// left in the budget window (today included). Same day → unchanged.
+    /// left in the budget window (today included). In a new month the
+    /// accounts' month income / expense drop to zero the same way. Every
+    /// other field (balances, «Повторить», …) is kept as written. Same day →
+    /// unchanged.
     func rolledOver(to date: Date, calendar: Calendar = SharedSnapshot.dayCalendar) -> SharedSnapshot {
         let today = Self.dayKey(for: date, calendar: calendar)
         guard today != effectiveDayKey else { return self }
@@ -133,28 +223,25 @@ extension SharedSnapshot {
             if days > 0 { limit = max(0, leftover / Int64(days)) }
         }
 
-        var copy = SharedSnapshot(
-            schemaVersion: schemaVersion,
-            lastUpdated: lastUpdated,
-            baseCurrency: baseCurrency,
-            baseCurrencySymbol: baseCurrencySymbol,
-            baseCurrencyDecimals: baseCurrencyDecimals,
-            totalBalance: totalBalance,
-            accountCount: accountCount,
-            dailyLimit: limit,
-            dailyLimitBudgetName: dailyLimitBudgetName,
-            dailySpentToday: 0,
-            dailyLimitUtilization: dailyLimitUtilization,
-            currentStreak: currentStreak,
-            nextMilestone: nextMilestone,
-            todayIncome: 0,
-            todayExpense: 0,
-            todayNet: 0,
-            netWorth: netWorth
-        )
+        // A copy, so fields added later survive the rollover by default.
+        var copy = self
+        copy.dailyLimit = limit
+        copy.dailySpentToday = 0
+        copy.todayIncome = 0
+        copy.todayExpense = 0
+        copy.todayNet = 0
         copy.dayKey = today
-        copy.dailyLimitLeftover = dailyLimitLeftover
-        copy.dailyLimitPeriodEnd = dailyLimitPeriodEnd
+
+        let month = String(today.prefix(7))
+        if let stored = monthKey, stored != month {
+            copy.accounts = accounts?.map { item in
+                var item = item
+                item.monthIncome = 0
+                item.monthExpense = 0
+                return item
+            }
+            copy.monthKey = month
+        }
         return copy
     }
 

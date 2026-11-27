@@ -12,6 +12,11 @@ final class AppViewModel {
     /// Shared Journal view-model — survives tab switches so the Journal list
     /// and tag index are not reloaded on every return to the tab.
     let journalViewModel = JournalViewModel()
+    /// «Долги» (1.6.0): summary, movements, reminders — shared by Home,
+    /// Net Worth and the Debts screens.
+    let debts = DebtsStore()
+    /// Account cover photos (1.6.0): cache + the owner's upload / remove.
+    let accountCovers = AccountCoverStore()
 
     var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_completed")
     private(set) var hasLoadedData = false
@@ -50,6 +55,8 @@ final class AppViewModel {
                 },
                 clearDeviceState: {
                     SharedSnapshotStore.clear()
+                    // «Счёт» arrow steps point at the previous user's accounts.
+                    AccountWidgetOverrideStore.clear()
                     WidgetCenter.shared.reloadAllTimelines()
                     let center = UNUserNotificationCenter.current()
                     center.removeAllPendingNotificationRequests()
@@ -78,6 +85,9 @@ final class AppViewModel {
         self.dataStore.onSessionMissing = { [weak self] in
             self?.authManager.sessionVanished()
         }
+        // Siri / Shortcuts write through this instance's data store, never
+        // a second one (see QuickEntryHost).
+        QuickEntryHost.shared.attach(self)
     }
 
     // MARK: - Incoming URLs
@@ -88,13 +98,22 @@ final class AppViewModel {
     /// behind the confirmation screen (S2).
     var pendingDeepLink: DeepLink?
 
+    /// The account a widget asked Home to show (`akifi://account?id=`).
+    /// `MainTabView` sets it when it takes the link and switches to Home;
+    /// `HomeTabView` selects the account in the carousel once its accounts
+    /// contain it and clears it — or clears it without selecting anything
+    /// when no money account has that id (deleted, a debt, someone else's).
+    var pendingHomeAccountId: String?
+
     /// Single entry point for every URL the app is opened with.
     func open(_ url: URL) {
+        // akifi://quick-add?… waits in QuickEntryInbox for the signed-in UI.
+        if QuickEntryInbox.shared.open(url) { return }
         guard let link = DeepLink.parse(url) else { return }
         switch link {
         case .authCallback(let callback):
             Task { await authManager.handleAuthCallback(callback) }
-        case .tab, .accountInvite, .budgetInvite:
+        case .tab, .account, .accountInvite, .budgetInvite:
             pendingDeepLink = link
         }
     }
@@ -243,6 +262,8 @@ final class AppViewModel {
     func resetForSignOut(preserveQueue: Bool = false) {
         hasLoadedData = false
         pendingDeepLink = nil
+        pendingHomeAccountId = nil
+        QuickEntryInbox.shared.reset()
         // In-flight work of the previous user finishes on its own; the data
         // store discards its results (session epoch). The next sign-in
         // starts fresh instead of joining it.
@@ -253,6 +274,8 @@ final class AppViewModel {
         BudgetMetricsStore.shared.reset()
         NotificationManager.recordServerPushRegistration(userId: nil)
         journalViewModel.reset()
+        debts.reset()
+        accountCovers.reset()
         paymentManager.isPremium = false
         sessionEffects.clearDeviceState()
     }

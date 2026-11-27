@@ -77,6 +77,8 @@ struct EmailAuthView: View {
                     form
                 }
             }
+            // Fields are content cards on the grouped background (1.6).
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(confirmationEmail == nil ? mode.title : String(localized: "auth.signUp"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -110,12 +112,13 @@ struct EmailAuthView: View {
     private var form: some View {
                 VStack(spacing: 24) {
                     // Mode picker
-                    Picker("", selection: $mode) {
+                    Picker(String(localized: "auth.signIn"), selection: $mode) {
                         ForEach(AuthMode.allCases, id: \.self) { m in
                             Text(m.title).tag(m)
                         }
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
 
                     // Email field
                     AuthTextField(
@@ -174,7 +177,8 @@ struct EmailAuthView: View {
                                 showForgotPassword = true
                             }
                             .font(.subheadline)
-                            .foregroundStyle(Color.accent)
+                            .buttonStyle(.borderless)
+                            .frame(minHeight: 44)
                         }
                     }
 
@@ -204,6 +208,7 @@ struct EmailAuthView: View {
                                 }
                             }
                             .font(.subheadline.weight(.medium))
+                            .buttonStyle(.borderless)
                             .frame(minHeight: 44)
                             .disabled(isResendingConfirmation)
                         }

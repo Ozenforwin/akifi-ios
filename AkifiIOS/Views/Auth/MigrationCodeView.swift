@@ -6,17 +6,21 @@ struct MigrationCodeView: View {
     @State private var code = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 50
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 50))
+                        .font(.system(size: iconSize))
                         .foregroundStyle(Color.accent)
+                        .accessibilityHidden(true)
 
                     Text(String(localized: "migration.title"))
                         .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text(String(localized: "migration.instructions"))
                         .font(.subheadline)
@@ -31,39 +35,39 @@ struct MigrationCodeView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(Color(.systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .padding(.horizontal, 40)
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.red)
                 }
 
                 Button {
                     Task { await migrate() }
                 } label: {
-                    if isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    } else {
+                    ZStack {
                         Text(String(localized: "migration.linkAccount"))
                             .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
+                            .opacity(isLoading ? 0 : 1)
+                        if isLoading {
+                            ProgressView()
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .background(Color.accent)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .buttonStyle(.akifiPrimary)
+                .controlSize(.large)
                 .disabled(code.count < 6 || isLoading)
                 .padding(.horizontal, 24)
 
                 Spacer()
             }
             .padding(.top, 40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The field is a content card on the grouped background (1.6).
+            .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -41,6 +41,12 @@ struct NetWorthDashboardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
                 breakdownCard
+                NavigationLink {
+                    DebtsListView()
+                } label: {
+                    DebtsSummaryCard()
+                }
+                .buttonStyle(.plain)
                 fireTeaserCard
                 historySection
                 assetsSection
@@ -52,10 +58,19 @@ struct NetWorthDashboardView: View {
         .navigationTitle(String(localized: "netWorth.title"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            await appViewModel.debts.refresh(dataStore: dataStore)
+            viewModel.debtEntries = appViewModel.debts.entries(dataStore: dataStore)
             await viewModel.load(dataStore: dataStore, currencyManager: cm)
         }
         .refreshable {
+            await appViewModel.debts.refresh(dataStore: dataStore)
+            viewModel.debtEntries = appViewModel.debts.entries(dataStore: dataStore)
             await viewModel.load(dataStore: dataStore, currencyManager: cm)
+        }
+        // Owed-to-me / I-owe move the assets and liabilities (contract §A7.6).
+        .onChange(of: appViewModel.debts.entries(dataStore: dataStore)) { _, entries in
+            viewModel.debtEntries = entries
+            viewModel.recomputeBreakdown(dataStore: dataStore, currencyManager: cm)
         }
         .sheet(isPresented: $showAssetForm) {
             AssetFormView(

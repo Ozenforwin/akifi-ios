@@ -52,11 +52,9 @@ struct ExportView: View {
             }
 
             Section {
-                HStack {
-                    Text(String(localized: "export.transactionsToExport"))
-                    Spacer()
+                LabeledContent(String(localized: "export.transactionsToExport")) {
                     Text("\(filteredTransactions.count)")
-                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
 
@@ -64,20 +62,21 @@ struct ExportView: View {
                 Button {
                     exportCSV()
                 } label: {
-                    HStack {
-                        Spacer()
+                    Group {
                         if isExporting {
                             ProgressView()
                         } else {
                             Label(String(localized: "export.exportCSV"), systemImage: "square.and.arrow.up")
                         }
-                        Spacer()
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .disabled(filteredTransactions.isEmpty || isExporting)
             }
         }
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "settings.export"))
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showShareSheet) {
             if let url = exportURL {
                 ShareSheet(activityItems: [url])
@@ -91,7 +90,7 @@ struct ExportView: View {
         let csv = CSVExporter.export(
             transactions: filteredTransactions,
             categories: dataStore.categories,
-            accounts: dataStore.accounts
+            accounts: dataStore.allAccounts  // names every row's account, debts included
         )
 
         let fileName = "akifi_export_\(AppDateFormatters.isoDate.string(from: Date())).csv"

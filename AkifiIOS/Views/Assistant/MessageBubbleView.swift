@@ -41,8 +41,7 @@ struct MessageBubbleView: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.accent.gradient)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .background(Color.accent, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 
@@ -96,13 +95,11 @@ struct MessageBubbleView: View {
             // Feedback
             if !isUser, message.requestId != nil {
                 feedbackRow
-                    .padding(.top, 10)
+                    .padding(.top, 6)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        // The answer is content: a regular card on the grouped background.
+        .akifiCard()
     }
 
     // MARK: - Facts
@@ -121,7 +118,7 @@ struct MessageBubbleView: View {
                     } label: {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: selectedBudgetIndices.contains(index) ? "checkmark.square.fill" : "square")
-                                .font(.system(size: 18))
+                                .font(.body)
                                 .foregroundStyle(selectedBudgetIndices.contains(index) ? Color.accent : Color.gray)
                             Text(fact)
                                 .font(.subheadline)
@@ -131,6 +128,7 @@ struct MessageBubbleView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedBudgetIndices.contains(index) ? .isSelected : [])
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("\u{2022}")
@@ -160,32 +158,31 @@ struct MessageBubbleView: View {
 
     // MARK: - Action Buttons
 
+    /// Executable actions: full-width glass capsules (system bordered
+    /// capsules before iOS 26) in the accent colour.
     private func actionButtons(_ actions: [AssistantAction]) -> some View {
         VStack(spacing: 8) {
             ForEach(actions) { action in
                 Button {
                     onAction?(action)
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.subheadline)
+                    Label {
                         if action.type == .smartBudgetCreate {
                             let count = selectedBudgetIndices.count
                             Text(String(localized: "assistant.createBudgets \(count)"))
-                                .font(.subheadline.weight(.semibold))
                         } else {
                             Text(action.label)
-                                .font(.subheadline.weight(.semibold))
                         }
+                    } icon: {
+                        Image(systemName: "play.circle.fill")
                     }
-                    .foregroundStyle(Color.accent)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .background(Color.accent.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.akifiSecondary)
+                .buttonBorderShape(.capsule)
+                .controlSize(.large)
+                .tint(Color.accent)
                 .disabled(action.type == .smartBudgetCreate && selectedBudgetIndices.isEmpty)
             }
         }
@@ -193,27 +190,30 @@ struct MessageBubbleView: View {
 
     // MARK: - Recommended Actions
 
+    /// Navigation suggestions: glass capsules in a row, stacked when they
+    /// don't fit (no sideways scrolling inside the answer card).
     private func recommendedActions(_ recommended: [RecommendedAction]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
-                ForEach(recommended) { rec in
-                    Button {
-                        onRecommendedAction?(rec)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.right.circle")
-                                .font(.system(size: 12))
-                            Text(rec.label)
-                                .font(.subheadline)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color(.tertiarySystemBackground))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
+                recommendedButtons(recommended)
             }
+            VStack(alignment: .leading, spacing: 8) {
+                recommendedButtons(recommended)
+            }
+        }
+    }
+
+    private func recommendedButtons(_ recommended: [RecommendedAction]) -> some View {
+        ForEach(recommended) { rec in
+            Button {
+                onRecommendedAction?(rec)
+            } label: {
+                Label(rec.label, systemImage: "arrow.right.circle")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.akifiSecondary)
+            .buttonBorderShape(.capsule)
         }
     }
 
@@ -243,23 +243,29 @@ struct MessageBubbleView: View {
                     .foregroundStyle(.secondary)
             }
         } else {
-            HStack(spacing: 16) {
+            HStack(spacing: 4) {
                 Button { onThumbsUp?() } label: {
                     Image(systemName: "hand.thumbsup")
-                        .font(.system(size: 16))
+                        .font(.body)
                         .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "feedback.helpful"))
 
                 Button { onThumbsDown?() } label: {
                     Image(systemName: "hand.thumbsdown")
-                        .font(.system(size: 16))
+                        .font(.body)
                         .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "feedback.notHelpful"))
             }
+            // 44 pt targets; keep the first symbol's visual edge on the text edge.
+            .padding(.leading, -12)
         }
     }
 

@@ -50,19 +50,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi uses your microphone for voice messages with the AI financial assistant"
+            "value" : "Akifi uses the microphone to add transactions by voice and for voice messages to the AI financial assistant"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi usa el micrófono para los mensajes de voz al asistente financiero con IA"
+            "value" : "Akifi usa el micrófono para añadir operaciones por voz y para los mensajes de voz al asistente financiero con IA"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akifi использует микрофон для голосовых сообщений финансовому ИИ-ассистенту"
+            "value" : "Akifi использует микрофон, чтобы добавлять операции голосом и отправлять голосовые сообщения финансовому ИИ-ассистенту"
           }
         }
       }
@@ -85,6 +85,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Akifi нужен доступ к фото, чтобы поставить фото профиля, прикрепить снимки к заметкам или распознать чек"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akifi recognizes your speech to add transactions by voice. When your iPhone supports it, recognition runs on the device"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akifi reconoce tu voz para añadir operaciones hablando. Si tu iPhone lo admite, el reconocimiento se hace en el dispositivo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akifi распознаёт вашу речь, чтобы добавлять операции голосом. Если iPhone это поддерживает, распознавание идёт на устройстве"
+          }
+        }
+      }
+    },
+    "Голосом" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By voice"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por voz"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Голосом"
+          }
+        }
+      }
+    },
+    "Доход" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingreso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доход"
+          }
+        }
+      }
+    },
+    "Расход" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expense"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gasto"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расход"
           }
         }
       }

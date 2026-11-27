@@ -5,6 +5,10 @@ import AuthenticationServices
 
 struct LoginView: View {
     @Environment(AppViewModel.self) private var appViewModel
+    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .largeTitle) private var logoSize: CGFloat = 64
+    /// Apple's button is a fixed-height control; scale it with the text.
+    @ScaledMetric(relativeTo: .body) private var appleButtonHeight: CGFloat = 50
     @State private var showMigration = false
     @State private var showEmailAuth = false
     @State private var errorMessage: String?
@@ -19,12 +23,15 @@ struct LoginView: View {
                 // MARK: - Branding
                 VStack(spacing: 16) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 64, weight: .medium))
-                        .foregroundStyle(Color.accent.gradient)
+                        .font(.system(size: logoSize, weight: .medium))
+                        .foregroundStyle(Color.accent)
+                        .accessibilityHidden(true)
 
                     VStack(spacing: 6) {
                         Text("Akifi")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(.largeTitle.weight(.bold))
+                            .fontDesign(.rounded)
+                            .accessibilityAddTraits(.isHeader)
 
                         Text(String(localized: "auth.subtitle"))
                             .font(.subheadline)
@@ -59,7 +66,9 @@ struct LoginView: View {
 
                 // MARK: - Auth Buttons
                 VStack(spacing: 12) {
-                    // Sign in with Apple
+                    // Sign in with Apple — Apple's own button: black on a
+                    // light background, white on a dark one (HIG); only
+                    // the corner radius follows the other buttons.
                     SignInWithAppleButton(.signIn) { request in
                         let nonce = String.randomNonce()
                         currentNonce = nonce
@@ -68,84 +77,80 @@ struct LoginView: View {
                     } onCompletion: { result in
                         Task { await handleAppleSignIn(result) }
                     }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(.separator), lineWidth: 0.5)
-                    )
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    // The style is read once; rebuild on appearance changes.
+                    .id(colorScheme)
+                    .frame(height: appleButtonHeight)
+                    .clipShape(Capsule())
 
                     // Continue with Google
                     Button {
                         Task { await handleGoogleSignIn() }
                     } label: {
                         HStack(spacing: 8) {
-                            Image("GoogleLogo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
+                            if isGoogleLoading {
+                                ProgressView()
+                            } else {
+                                Image("GoogleLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 20, height: 20)
+                                    .accessibilityHidden(true)
+                            }
                             Text(String(localized: "auth.continueGoogle"))
                                 .font(.headline)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
                     }
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .foregroundStyle(.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(.separator), lineWidth: 0.5)
-                    )
+                    .buttonStyle(.akifiSecondary)
+                    .controlSize(.large)
+                    .tint(.primary)
                     .disabled(isGoogleLoading)
-                    .overlay {
-                        if isGoogleLoading {
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(.ultraThinMaterial)
-                            ProgressView()
-                        }
-                    }
 
                     // Continue with Email
                     Button {
                         showEmailAuth = true
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "envelope.fill")
-                            Text(String(localized: "auth.continueEmail"))
-                                .font(.headline)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        Label(String(localized: "auth.continueEmail"), systemImage: "envelope.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
                     }
-                    .background(Color.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
 
                     // Telegram migration link
-                    Button {
+                    Button(String(localized: "auth.telegramCode")) {
                         showMigration = true
-                    } label: {
-                        Text(String(localized: "auth.telegramCode"))
-                            .font(.subheadline)
-                            .foregroundStyle(Color.accent)
                     }
-                    .padding(.top, 4)
+                    .font(.subheadline)
+                    .buttonStyle(.borderless)
+                    .frame(minHeight: 44)
                 }
+                .buttonBorderShape(.capsule)
                 .padding(.horizontal, 24)
 
                 // MARK: - Legal links
-                HStack(spacing: 4) {
-                    Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.pro/privacy")!)
-                    Text("&")
-                    Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.pro/terms")!)
+                // One line when it fits, stacked at large text sizes.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) {
+                        privacyLink
+                        Text("&")
+                        termsLink
+                    }
+                    VStack(spacing: 8) {
+                        privacyLink
+                        termsLink
+                    }
                 }
-                .font(.caption2)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
             }
+            // Taller than the screen at large Dynamic Type: scroll.
+            .fitsOrScrolls()
             .sheet(isPresented: $showMigration) {
                 MigrationCodeView()
             }
@@ -154,6 +159,17 @@ struct LoginView: View {
             }
             .errorToast($errorMessage)
         }
+        // Signed out there is no tab view setting the app tint (and no
+        // AccentColor asset) — buttons, links and the sheets use the accent.
+        .tint(Color.accent)
+    }
+
+    private var privacyLink: some View {
+        Link(String(localized: "auth.privacyPolicy"), destination: URL(string: "https://akifi.pro/privacy")!)
+    }
+
+    private var termsLink: some View {
+        Link(String(localized: "auth.termsOfService"), destination: URL(string: "https://akifi.pro/terms")!)
     }
 
     // MARK: - Apple Sign In
@@ -240,10 +256,7 @@ private struct SessionEndedNotice: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.warning.opacity(0.12))
-        )
+        .background(Color.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -258,6 +271,7 @@ private struct AuthFeatureRow: View {
                 .font(.title3)
                 .foregroundStyle(Color.accent)
                 .frame(width: 28)
+                .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

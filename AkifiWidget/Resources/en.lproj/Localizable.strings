@@ -30,3 +30,59 @@
 /* Empty state — no snapshot (signed out, fresh install) */
 "widget.empty.title" = "Open Akifi";
 "widget.empty.subtitle" = "Sign in to see your data here";
+
+/* Quick entry control (Control Center) and its intent */
+"quickEntry.mode.type" = "Quick entry";
+"quickEntry.mode.expense" = "Expense";
+"quickEntry.mode.income" = "Income";
+"quickEntry.mode.voice" = "By voice";
+"quickEntry.intent.open.title" = "Open quick entry";
+"quickEntry.intent.open.description" = "Opens Akifi straight into entering a transaction";
+"quickEntry.intent.open.mode" = "Mode";
+"control.quickEntry.label" = "Expense";
+"control.quickEntry.displayName" = "Quick expense";
+"control.quickEntry.description" = "Opens Akifi straight into entering an expense";
+
+/* «Счёт» and «Быстрая запись» widgets (1.6.0) */
+"widget.sample.account" = "Card";
+"widget.sample.coffee" = "Coffee";
+"widget.sample.groceries" = "Groceries";
+"widget.sample.taxi" = "Taxi";
+"widget.account.entity" = "Account";
+"widget.account.intent.title" = "Account";
+"widget.account.intent.description" = "Which account the widget shows";
+"widget.account.intent.account" = "Account";
+"widget.account.noAccounts.title" = "No accounts";
+"widget.account.noAccounts.subtitle" = "Add an account in Akifi";
+"widget.account.shared" = "Shared";
+"widget.account.primary" = "Primary";
+"widget.account.monthIncome" = "Income this month";
+"widget.account.monthExpense" = "Spent this month";
+"widget.account.balance" = "Balance";
+"widget.account.balanceHidden" = "Balance hidden";
+"widget.account.button.hint" = "Quick entry on %@";
+"widget.quickAdd.repeat" = "Repeat";
+"widget.quickAdd.repeat.empty" = "Your frequent entries will show up here";
+"widget.quickAdd.repeat.a11y" = "Repeat: %@";
+"widget.quickAdd.new" = "New entry";
+"widget.account.displayName" = "Account";
+"widget.account.description" = "An account's balance and quick entry";
+"widget.quickAdd.displayName" = "Quick entry";
+"widget.quickAdd.description" = "Expense, income or voice in one tap";
+
+/* «Счёт» arrows and «Все счета» widget (1.6.0) */
+"widget.account.next" = "Next account";
+"widget.account.previous" = "Previous account";
+"widget.account.page.label" = "Account";
+"widget.account.page.value" = "%1$@, %2$lld of %3$lld";
+"widget.account.step.title" = "Switch account";
+"widget.account.step.description" = "Shows the next or previous account in the widget";
+"widget.account.step.widgetKey" = "Widget";
+"widget.account.step.configuredAccount" = "Widget account";
+"widget.account.step.forward" = "Forward";
+"widget.accounts.total" = "Total balance";
+"widget.accounts.more" = "+%lld more";
+"widget.accounts.more.hint" = "All accounts in Akifi";
+"widget.accounts.open.hint" = "Opens the account in Akifi";
+"widget.accounts.displayName" = "All accounts";
+"widget.accounts.description" = "Balances of all your accounts";

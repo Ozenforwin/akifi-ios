@@ -153,7 +153,17 @@ AkifiIOS/
 │   ├── SubscriptionDateEngine.swift  # Расчёт дат подписок (billing period, next payment)
 │   ├── SubscriptionMatcher.swift     # Авто-сопоставление транзакций с подписками
 │   ├── JournalPhotoUploader.swift    # Загрузка фото в Supabase Storage (resize, JPEG)
-│   └── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
+│   ├── AppDelegate.swift             # Firebase init, Google Sign-In, FCM
+│   └── QuickEntry/                   # 1.6.0 быстрый ввод — движок (pure, тесты QuickEntry*Tests)
+│       ├── QuickEntryParser.swift    # «кофе 300», «+5000 подарок», «две тысячи пятьсот», даты, счёт, валюта (ru/en/es)
+│       ├── QuickEntryPredictor.swift # Категория из истории (тот же текст → имя → похожий → частота) + «повторить»
+│       ├── QuickEntryDefaults.swift  # Счёт по умолчанию (последний для типа, не вклад), дата, валюта счёта
+│       ├── QuickEntryEngine.swift    # Фраза + режим + ручные правки → QuickEntryDraft
+│       ├── QuickEntrySubmitter.swift # Единственный путь записи (DataStore.addTransaction, ADR-001)
+│       ├── QuickEntryInbox.swift     # akifi://quick-add, quick actions, Siri → ожидающий запрос для UI
+│       └── SpeechQuickEntry.swift    # SFSpeechRecognizer on-device, автостоп по тишине, seams для тестов
+│
+├── Intents/                          # App Intents: Siri / Shortcuts (AddExpense/AddIncome/Voice), quick actions
 │
 ├── Repositories/                     # Data access (все Sendable)
 │   ├── TransactionRepository.swift   # CRUD + RPC роутинг для auto-transfer триплетов
@@ -286,10 +296,13 @@ AkifiIOS/
 │   ├── Subscriptions/
 │   │   ├── SubscriptionFormView.swift # Создание/редактирование подписки
 │   │   └── SubscriptionPaymentsHistoryView.swift # История платежей
+│   ├── QuickEntry/                    # 1.6.0 быстрый ввод — шторка поверх «+» (тесты QuickEntrySheetTests)
+│   │   ├── QuickEntrySheet.swift      # Поле «сумма + слова», чипы категорий/счёта/даты, «Повторить», голос, «Сохранить»
+│   │   ├── QuickEntrySheetModel.swift # Состояние шторки: фраза + overrides → QuickEntryEngine.draft, сохранение через QuickEntrySubmitter
+│   │   ├── QuickEntryCoordinator.swift # Роутинг «+», QuickEntryInbox, тост «Записано · Отменить», «Подробнее» → форма
+│   │   └── QuickEntrySavedToast.swift # Стеклянный тост с отменой
 │   ├── Shared/
-│   │   ├── FAB/
-│   │   │   └── CategorySheetView.swift # Grid/list выбор категорий
-│   │   ├── FABView.swift              # Плавающая кнопка + arc menu + wheel
+│   │   ├── FABView.swift              # «+»: тап — быстрый ввод, удержание — меню (доход, расход, перевод, чек, долги)
 │   │   ├── FilterHeaderView.swift     # Переиспользуемые filter chips
 │   │   ├── SwipeableRow.swift         # Swipe-to-action строки
 │   │   ├── CachedAsyncImage.swift     # Image cache (NSCache + disk, 50 MB)
@@ -365,11 +378,17 @@ AkifiIOS/
 
 ```
 AkifiWidget/
-├── AkifiWidget.swift                 # WidgetBundle: Balance, DailyLimit, Streak, DaySummary
+├── AkifiWidget.swift                 # WidgetBundle: Account, AllAccounts, QuickAdd, Balance, DailyLimit, Streak, DaySummary + Control Center control
 ├── Providers/                        # Timeline providers over SharedSnapshot
-├── Views/                            # Widget views
+├── Views/                            # Widget declarations (AccountWidget = AppIntentConfiguration) and the older views
 └── Shared/WidgetFormatters.swift     # Formatting without linking app services
 ```
+
+`AkifiIOS/Shared/Widget/` компилируется в оба таргета: snapshot-модель и store,
+`QuickEntryLaunchLink` (единый builder/parser `akifi://quick-add`), `AkifiWidgetKind`,
+конфигурация «Счёт» (`AccountWidgetIntent` / entity / query), стрелки «Счёт»
+(`AccountWidgetCarousel`, `AccountWidgetStepIntent`, `AccountWidgetOverrideStore`) и views
+новых виджетов — тесты рендерят их в PNG (`WidgetScreenshotTests`).
 
 ## Основные функции
 
@@ -474,11 +493,14 @@ DB layer:
 - **Summary карточки** — доходы/расходы за текущий месяц
 
 ### iOS Виджеты
+- **«Счёт» (AccountWidget, 1.6.0)** — один счёт на выбор (по умолчанию основной): иконка, название, баланс в валюте счёта, доход/расход за месяц; medium — кнопки «Расход», «Доход», «Голосом» открывают быстрый ввод на этом счёте; Lock Screen — rectangular и inline. Скрытый на Главной баланс — «••••». Small/medium: стрелки «‹ ›» переключают счёт прямо на экране «Домой», не открывая приложение (`AccountWidgetStepIntent` в extension → шаг в App Group defaults по ключу «настроенный счёт + размер» → провайдер, `AccountWidgetCarousel`), точки (≤ 7) или «3/9». Тап по виджету — Главная на этом счёте (`akifi://account?id=`)
+- **«Все счета» (AllAccountsWidget, 1.6.0)** — medium: до 4 счетов сеткой 2 × 2; large: «Всего на счетах» (базовая валюта, то же число, что у «Баланса») + до 8 строк; больше — «+N ещё» (открывает Главную). Баланс каждого счёта в его валюте; скрытый баланс — «••••», и тогда итог тоже «••••». Тап по счёту — Главная на нём
+- **«Быстрая запись» (QuickAddWidget, 1.6.0)** — «Расход», «Доход», микрофон; medium — до 3 «Повторить»; Lock Screen «+». Только открывает лист быстрого ввода, ничего не сохраняет сам
 - **BalanceWidget** — общий баланс и количество счетов
 - **DailyLimitWidget** — safe-to-spend today, потрачено сегодня и цветовой utilization ring
 - **StreakWidget** — home-screen и accessory варианты с текущим streak и next milestone
 - **DaySummaryWidget** — доход/расход/net за день
-- **SharedSnapshot** — виджеты читают JSON из App Group `group.ru.akifi.app`; сеть и Supabase SDK в extension не линкуются
+- **SharedSnapshot** — виджеты читают JSON из App Group `group.ru.akifi.app`; сеть и Supabase SDK в extension не линкуются. Schema v2 (1.6.0) добавила `accounts` / `monthKey` / `repeatItems` (опционально — файл v1 читается, новые виджеты показывают «Откройте Akifi»); приложение перезагружает только те kinds, чьи данные изменились (`SharedSnapshotWriter.kindsToReload`)
 
 ### Отчёты
 - **Donut chart** по категориям с иконками на линиях
@@ -604,6 +626,7 @@ DB layer:
 ### Storage Buckets
 - `avatars` — аватары пользователей (public)
 - `journal-photos` — фото журнала (public, 5MB limit, JPEG/PNG/HEIC/WebP, RLS по user_id)
+- `account-covers` — обложки счетов (private, 2MB, JPEG; `<account_id>/<uuid>.jpg`; читают владелец и участники счёта, пишет только владелец; `accounts.cover_path`, миграция 20261128100000). Клиент: `AccountCoverRepository` / `AccountCoverStore` (кэш в памяти и на диске по имени объекта, скачивание только через authenticated Storage API, без signed URL)
 
 ### Edge Functions
 
@@ -687,7 +710,7 @@ open AkifiIOS.xcodeproj
 - **Стек-карточки** — peek-эффект за активной карточкой
 - **Emoji конфетти** — particle system для celebration popup
 - **Скруглённый таббар** — 24pt radius, тень, 44pt touch targets
-- **FAB** — floating action button с arc menu (long press) и wheel/grid/list (tap)
+- **FAB** — «+»: тап открывает быстрый ввод (сумма → категория = готово), удержание — стеклянное меню (доход, расход, перевод, чек, «Дал/Взял в долг»)
 - **TypePill** — inline capsule для типов записей (Note/Reflection)
 - **CachedAsyncImage** — двухуровневый кэш (NSCache + disk SHA256)
 

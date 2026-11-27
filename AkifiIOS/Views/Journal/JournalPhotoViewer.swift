@@ -29,14 +29,18 @@ struct JournalPhotoViewer: View {
             VStack {
                 HStack {
                     Spacer()
+                    // Floating control over the photo: a glass circle.
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.9))
-                            .shadow(radius: 4)
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .akifiGlass(in: Circle(), interactive: true)
                     }
+                    .buttonStyle(.plain)
+                    .environment(\.colorScheme, .dark)
                     .accessibilityLabel(Text(String(localized: "action.close")))
                 }
                 .padding(20)

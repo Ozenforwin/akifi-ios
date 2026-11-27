@@ -197,37 +197,35 @@ struct JournalNoteFormView: View {
 
     // MARK: - Type Toggle
 
+    /// Note / Reflection as a system segmented control. The binding's
+    /// setter runs only for the user's choice, so the default period is
+    /// set exactly when the old toggle buttons set it — never when an
+    /// edited note is loaded into the form.
     private var typeToggle: some View {
-        HStack(spacing: 4) {
-            TypeToggleButton(
-                title: JournalDisplayType.note.localizedName,
-                icon: JournalDisplayType.note.icon,
-                isSelected: displayType == .note
-            ) {
-                withAnimation(.easeInOut(duration: 0.15)) { displayType = .note }
-            }
-            TypeToggleButton(
-                title: JournalDisplayType.reflection.localizedName,
-                icon: JournalDisplayType.reflection.icon,
-                isSelected: displayType == .reflection
-            ) {
-                withAnimation(.easeInOut(duration: 0.15)) { displayType = .reflection }
-                if !hasPeriod {
-                    // Default to current month
-                    let cal = Calendar.current
-                    if let start = cal.dateInterval(of: .month, for: Date())?.start {
-                        periodStart = start
-                        periodEnd = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? Date()
-                        hasPeriod = true
+        Picker(
+            String(localized: "common.type"),
+            selection: Binding(
+                get: { displayType },
+                set: { newValue in
+                    withAnimation(.easeInOut(duration: 0.15)) { displayType = newValue }
+                    if newValue == .reflection && !hasPeriod {
+                        // Default to current month
+                        let cal = Calendar.current
+                        if let start = cal.dateInterval(of: .month, for: Date())?.start {
+                            periodStart = start
+                            periodEnd = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? Date()
+                            hasPeriod = true
+                        }
                     }
                 }
+            )
+        ) {
+            ForEach([JournalDisplayType.note, .reflection], id: \.self) { type in
+                Text(type.localizedName).tag(type)
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.tertiarySystemFill))
-        )
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     // MARK: - Content Area (Note)
@@ -306,7 +304,7 @@ struct JournalNoteFormView: View {
             transactions: appViewModel.dataStore.transactions,
             categories: appViewModel.dataStore.categories,
             currencyManager: appViewModel.currencyManager,
-            accountsById: Dictionary(appViewModel.dataStore.accounts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            accountsById: appViewModel.dataStore.currencyContext.accountsById
         )
 
         return VStack(alignment: .leading, spacing: 10) {
@@ -1128,33 +1126,6 @@ struct PendingPhoto: Identifiable {
     /// Public URL once uploaded — set even when the save then fails, so
     /// the retry reuses it and Cancel can delete it.
     var uploadedUrl: String?
-}
-
-struct TypeToggleButton: View {
-    let title: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.footnote)
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 36)
-            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? Color(.systemBackground) : Color.clear)
-                    .shadow(color: isSelected ? Color.black.opacity(0.08) : .clear, radius: 2, x: 0, y: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 struct MoodButton: View {

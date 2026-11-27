@@ -184,7 +184,7 @@ final class SignOutResetTests: XCTestCase {
 
     private func seed(_ app: AppViewModel) async throws {
         let store = app.dataStore
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         store.transactions = [Fixture.tx("t-1")]
         store.budgetMembersByBudget = ["b-1": [BudgetMember(id: "m", budgetId: "b-1", userId: "user-a", role: .owner)]]
         store.rebuildCaches()
@@ -510,7 +510,7 @@ final class DataStoreSyncTests: XCTestCase {
     func test_deletingPlaceholderLeg_cancelsTheQueuedTriplet() async throws {
         let script = RemoteScript(results: [RemoteFetchResult()])
         let store = Fixture.onlineStore(persistence: persistence, script: script, online: false)
-        store.accounts = [Fixture.account("acc-shared"), Fixture.account("acc-personal")]
+        store.allAccounts = [Fixture.account("acc-shared"), Fixture.account("acc-personal")]
         store.rebuildCaches()
         let expense = try await store.addTransaction(Fixture.createInput(account: "acc-shared", amount: 3_000, paymentSource: "acc-personal"))
         let outLeg = try XCTUnwrap(store.transactions.first { $0.id == "\(expense.id)-out" })
@@ -544,7 +544,7 @@ final class DataStoreSyncTests: XCTestCase {
             await directUpdates.add("update")
         }
         store.offlineQueue.replayOperation = { _ in throw URLError(.notConnectedToInternet) }
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         store.rebuildCaches()
         let tx = try await store.addTransaction(Fixture.createInput())
 
@@ -610,7 +610,7 @@ final class DataStoreSyncTests: XCTestCase {
     func test_loadAll_sessionLostMidFlight_discardsResult() async {
         let script = RemoteScript(results: [Fixture.result(accounts: [], transactions: [])])
         let store = Fixture.onlineStore(persistence: persistence, script: script)
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         store.transactions = [Fixture.tx("t-1")]
         store.localSessionPresent = { false }
 
@@ -654,7 +654,7 @@ final class DataStoreSyncTests: XCTestCase {
         let fresh = Fixture.result(accounts: [Fixture.account("acc-1")], transactions: [Fixture.tx("y"), Fixture.tx("a")])
         let script = RemoteScript(results: [stale, fresh], gates: [0: gate])
         let store = Fixture.onlineStore(persistence: persistence, script: script)
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         store.transactions = [Fixture.tx("a")]
         store.rebuildCaches()
         store.remote.createTransaction = { _ in Fixture.tx("y") }
@@ -681,7 +681,7 @@ final class DataStoreSyncTests: XCTestCase {
         let txs = [Fixture.tx("a"), Fixture.tx("b")]
         let script = RemoteScript(results: [Fixture.result(accounts: accounts, transactions: txs)])
         let store = Fixture.onlineStore(persistence: persistence, script: script)
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.transactions = txs
         store.categories = []
         store.rebuildCaches()
@@ -707,7 +707,7 @@ final class DataStoreSyncTests: XCTestCase {
 
     func test_rebuildCaches_withoutChange_keepsRevisionAndCategories() {
         let store = DataStore(cache: persistence)
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         store.transactions = [Fixture.tx("a")]
         store.categories = [AkifiIOS.Category(id: "c", userId: "u1", accountId: nil, name: "Еда", icon: "🍔",
                                               color: "#000", type: .expense, isActive: true, createdAt: nil)]
@@ -785,7 +785,7 @@ final class DataStoreSyncTests: XCTestCase {
 
     func test_assistantContext_excludesTransferLegs() {
         let store = DataStore(cache: persistence)
-        store.accounts = [Fixture.account("acc-shared"), Fixture.account("acc-personal")]
+        store.allAccounts = [Fixture.account("acc-shared"), Fixture.account("acc-personal")]
         store.transactions = [
             Fixture.tx("exp", account: "acc-shared", amount: 3_000_00, autoTransferGroup: "g"),
             Fixture.tx("out", account: "acc-personal", amount: 3_000_00, transferGroup: "g", autoTransferGroup: "g"),
@@ -893,7 +893,7 @@ final class SessionEndRoutingTests: XCTestCase {
     func test_Y1_unrequestedSignedOut_showsSignIn_keepsQueueForTheSameUser() async throws {
         let (app, persistence, _) = makeApp()
         let store = app.dataStore
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         _ = try await store.addTransaction(Fixture.createInput())  // offline → queued
         XCTAssertEqual(store.offlineQueue.pendingCount, 1)
 
@@ -1147,7 +1147,7 @@ final class ReplayCorrectnessTests: XCTestCase {
         let store = Fixture.onlineStore(persistence: persistence, script: RemoteScript(results: [RemoteFetchResult()]))
         store.remote.createTransaction = { _ in throw URLError(.networkConnectionLost) }
         store.offlineQueue.replayOperation = { _ in throw URLError(.notConnectedToInternet) }
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
 
         let tx = try await store.addTransaction(Fixture.createInput(amount: 1_500))
         XCTAssertEqual(store.offlineQueue.pendingOperations.first?.mayExistOnServer, true)
@@ -1223,7 +1223,7 @@ final class ReplayCorrectnessTests: XCTestCase {
     func test_Y6_refusedCreate_staysVisibleAsUnsynced_raisesBanner_countsForSignOut() async throws {
         let script = RemoteScript(results: [Fixture.result(accounts: [Fixture.account("acc-1")], transactions: [])])
         let store = Fixture.onlineStore(persistence: persistence, script: script, online: false)
-        store.accounts = [Fixture.account("acc-1")]
+        store.allAccounts = [Fixture.account("acc-1")]
         let queued = try await store.addTransaction(Fixture.createInput())
         let clock = TestClock()
         store.offlineQueue.now = { clock.now }
@@ -1268,7 +1268,7 @@ final class ReplayCorrectnessTests: XCTestCase {
         let calls = Recorder()
         store.remote.deleteTransferGroup = { group in await calls.add("group:\(group)") }
         store.remote.deleteTransaction = { id in await calls.add("row:\(id)") }
-        store.accounts = [Fixture.account("acc-1"), Fixture.account("acc-2")]
+        store.allAccounts = [Fixture.account("acc-1"), Fixture.account("acc-2")]
         store.transactions = [
             leg("out", account: "acc-1", type: .expense, group: "g-1"),
             leg("in", account: "acc-2", type: .income, group: "g-1"),
@@ -1286,7 +1286,7 @@ final class ReplayCorrectnessTests: XCTestCase {
 
     func test_Y8_offlineDeleteOfAnUnsyncedTransfer_cancelsBothCreates() async throws {
         let store = Fixture.onlineStore(persistence: persistence, script: RemoteScript(results: [RemoteFetchResult()]), online: false)
-        store.accounts = [Fixture.account("acc-1"), Fixture.account("acc-2")]
+        store.allAccounts = [Fixture.account("acc-1"), Fixture.account("acc-2")]
         let out = try await store.addTransaction(transferInput(account: "acc-1", type: "expense", group: "G-1"))
         _ = try await store.addTransaction(transferInput(account: "acc-2", type: "income", group: "G-1"))
         XCTAssertEqual(store.offlineQueue.pendingCount, 2)

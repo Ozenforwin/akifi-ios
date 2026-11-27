@@ -35,18 +35,54 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Акифи</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Akifi uses the camera to scan receipts and automatically create transactions</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Akifi uses your microphone for voice messages with the AI financial assistant</string>
+	<string>Akifi uses the microphone to add transactions by voice and for voice messages to the AI financial assistant</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Akifi needs access to your photos to set a profile picture or scan receipts</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Akifi recognizes your speech to add transactions by voice. When your iPhone supports it, recognition runs on the device</string>
 	<key>SupabaseAnonKey</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>minus.circle</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Расход</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>ru.akifi.app.quickEntry.expense</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>plus.circle</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Доход</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>ru.akifi.app.quickEntry.income</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Голосом</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>ru.akifi.app.quickEntry.voice</string>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

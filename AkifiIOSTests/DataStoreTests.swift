@@ -82,7 +82,7 @@ final class DataStoreTests: XCTestCase {
         cm.selectedCurrency = baseCurrency
         cm.rates = rates
         store.currencyManager = cm
-        store.accounts = accounts
+        store.allAccounts = accounts
         store.transactions = transactions
         store.rebuildCaches()
         return store
@@ -163,7 +163,7 @@ final class DataStoreTests: XCTestCase {
         cm.dataCurrency = .rub
         cm.rates = rates
         store.currencyManager = cm
-        store.accounts = [dup1, dup2]
+        store.allAccounts = [dup1, dup2]
 
         // The bug: `Dictionary(uniqueKeysWithValues:)` traps on duplicates.
         // The fix uses `uniquingKeysWith` and keeps the first occurrence.

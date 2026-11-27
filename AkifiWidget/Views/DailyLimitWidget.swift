@@ -118,7 +118,7 @@ struct DailyLimitWidgetView: View {
 // MARK: - Widget declaration
 
 struct DailyLimitWidget: Widget {
-    let kind = "ru.akifi.widget.dailyLimit"
+    let kind = AkifiWidgetKind.dailyLimit
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyLimitProvider()) { entry in

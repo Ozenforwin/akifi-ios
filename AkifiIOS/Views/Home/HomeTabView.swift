@@ -58,8 +58,8 @@ struct HomeTabView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    // 0. Header
-                    AppHeaderView(showProfile: $showProfile)
+                    // 0. Header — the navigation bar (title + currency and
+                    //    profile toolbar items, see `HomeTabToolbar`).
 
                     // 1. Account Carousel
                     accountSection
@@ -70,6 +70,11 @@ struct HomeTabView: View {
                             SharedAccountShortcutCard(account: acc)
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    // 1c. «Долги» — people, never part of the account totals.
+                    if !isNewUser {
+                        DebtsHomeEntry()
                     }
 
                     // 2. Streak
@@ -109,9 +114,12 @@ struct HomeTabView: View {
                     transactionsSection
                 }
                 .padding(.horizontal)
-                .padding(.top, 12)
-                .padding(.bottom, 120)
+                .padding(.top, 4)
             }
+            // The system insets content for the tab bar; this is only the
+            // room the floating «+» needs so the last row can scroll clear.
+            .contentMargins(.bottom, AkifiChrome.floatingButtonClearance, for: .scrollContent)
+            .background(Color(.systemGroupedBackground))
             .refreshable {
                 await dataStore.loadAll()
                 await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id, force: true)
@@ -129,7 +137,11 @@ struct HomeTabView: View {
                 Task { await dataStore.accountMembership.refresh(viewerId: dataStore.profile?.id) }
             }
             .animation(.easeOut(duration: 0.4), value: isNewUser)
-            .navigationBarHidden(true)
+            .navigationTitle(String(localized: "tab.home"))
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                HomeTabToolbar { showProfile = true }
+            }
             .navigationDestination(isPresented: $showProfile) {
                 SettingsView()
             }
@@ -201,6 +213,35 @@ struct HomeTabView: View {
             .onChange(of: dataStore.accounts.map(\.id)) { _, _ in
                 currentAccountContext.accountId = selectedAccount?.id
             }
+            // A widget opened this account (akifi://account?id=): select it
+            // once the accounts are in — also on a cold start, when the
+            // link came before the data.
+            .onChange(of: pendingAccountTrigger, initial: true) { _, _ in
+                applyPendingAccount()
+            }
+        }
+    }
+
+    // MARK: - Account from a widget
+
+    private struct PendingAccountTrigger: Equatable {
+        let id: String?
+        let accountIds: [String]
+        let isLoading: Bool
+    }
+
+    private var pendingAccountTrigger: PendingAccountTrigger {
+        PendingAccountTrigger(
+            id: appViewModel.pendingHomeAccountId,
+            accountIds: dataStore.accounts.map(\.id),
+            isLoading: dataStore.isLoading
+        )
+    }
+
+    private func applyPendingAccount() {
+        guard let id = appViewModel.pendingHomeAccountId else { return }
+        if viewModel.applyPendingAccount(id, accounts: dataStore.accounts, isLoading: dataStore.isLoading) {
+            appViewModel.pendingHomeAccountId = nil
         }
     }
 
@@ -223,16 +264,16 @@ struct HomeTabView: View {
                 buttonTitle: String(localized: "home.addAccount")
             ) { showAddAccount = true }
         } else if dataStore.accounts.isEmpty {
+            // Empty state: the one place a full-width primary button belongs.
             Button {
                 showAddAccount = true
             } label: {
-                Label(String(localized: "home.addAccount"), systemImage: "plus.circle.fill")
+                Label(String(localized: "home.addAccount"), systemImage: "plus")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(.background)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .buttonStyle(.akifiPrimary)
+            .controlSize(.large)
         } else {
             AccountCarouselView(
                 accounts: dataStore.accounts,
@@ -306,66 +347,24 @@ struct HomeTabView: View {
     }
 }
 
-// MARK: - Reports Shortcut Card
-
-private struct ReportsShortcutCard: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accent, Color.accent.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "chart.pie.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "home.reports.title"))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(String(localized: "home.reports.subtitle"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
 // MARK: - Shared Account Shortcut Card
 
+/// Row-like card under the carousel that opens the shared account's detail
+/// (settlement). Content, not glass; the account colour tints the icon
+/// tile only.
 private struct SharedAccountShortcutCard: View {
     let account: Account
 
+    @ScaledMetric(relativeTo: .body) private var iconTileSize: CGFloat = 36
+
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: account.color), Color(hex: account.color).opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+        HStack(spacing: 12) {
+            Image(systemName: "person.2.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(hex: account.color))
+                .frame(width: iconTileSize, height: iconTileSize)
+                .background(Color(hex: account.color).opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "sharedAccount.openDetail"))
                     .font(.subheadline.weight(.semibold))
@@ -374,165 +373,13 @@ private struct SharedAccountShortcutCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
+            Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
-// MARK: - Challenges Shortcut Card
-
-private struct ChallengesShortcutCard: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#F59E0B"), Color(hex: "#EF4444")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "challenges.title"))
-                    .font(.subheadline.weight(.semibold))
-                Text(String(localized: "challenges.home.subtitle"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
-// MARK: - Net Worth Shortcut Card
-
-// MARK: - Journal Shortcut Card
-
-private struct JournalShortcutView: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    private let gradient = LinearGradient(
-        colors: [Color.aiGradientStart, Color.aiGradientEnd],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    var body: some View {
-        HStack(spacing: 16) {
-            // Icon container
-            ZStack {
-                Circle()
-                    .fill(gradient)
-                    .frame(width: 52, height: 52)
-                    .shadow(color: Color.aiGradientStart.opacity(0.45), radius: 8, x: 0, y: 4)
-
-                Image(systemName: "book.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-
-            // Text block
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(String(localized: "home.journal"))
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-
-                    // BETA badge — outlined capsule with gradient stroke
-                    Text("BETA")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.aiGradientStart, Color.aiGradientEnd],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [Color.aiGradientStart, Color.aiGradientEnd],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                }
-
-                Text(String(localized: "home.journal.subtitle"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            // Navigation hint
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color.aiGradientStart, Color.aiGradientEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .padding(8)
-                .background(
-                    Circle()
-                        .fill(Color.aiGradientStart.opacity(colorScheme == .dark ? 0.20 : 0.10))
-                )
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(minHeight: 76)
-        .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.aiGradientStart.opacity(colorScheme == .dark ? 0.50 : 0.30),
-                                    Color.aiGradientEnd.opacity(colorScheme == .dark ? 0.35 : 0.18)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(
-                    color: Color.aiGradientStart.opacity(colorScheme == .dark ? 0.18 : 0.12),
-                    radius: 12,
-                    x: 0,
-                    y: 6
-                )
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .akifiCard()
+        .contentShape(RoundedRectangle(cornerRadius: CardStyle.Size.regular.cornerRadius, style: .continuous))
     }
 }

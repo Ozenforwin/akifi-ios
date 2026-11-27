@@ -13,6 +13,7 @@ struct ProfileEditView: View {
     @State private var isUploadingAvatar = false
     @State private var error: String?
     @State private var selectedPhoto: PhotosPickerItem?
+    @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 96
 
     private let profileRepo = ProfileRepository()
 
@@ -22,41 +23,35 @@ struct ProfileEditView: View {
             Section {
                 VStack(spacing: 12) {
                     ZStack {
-                        Circle()
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 2)
-                            .frame(width: 100, height: 100)
-
                         if let avatarUrl, let url = URL(string: avatarUrl) {
                             CachedAsyncImage(url: url) {
                                 avatarPlaceholder
                             }
-                            .frame(width: 94, height: 94)
-                            .clipShape(Circle())
                         } else {
                             avatarPlaceholder
                         }
 
                         if isUploadingAvatar {
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .frame(width: 94, height: 94)
+                            Color.black.opacity(0.35)
                             ProgressView()
+                                .tint(.white)
                         }
                     }
+                    .frame(width: avatarSize, height: avatarSize)
+                    .clipShape(Circle())
 
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         Text(String(localized: "profile.changePhoto"))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.accent)
+                            .font(.subheadline.weight(.semibold))
                     }
+                    .buttonStyle(.borderless)
 
                     if avatarUrl != nil {
-                        Button(role: .destructive) {
+                        Button(String(localized: "profile.deletePhoto"), role: .destructive) {
                             avatarUrl = nil
-                        } label: {
-                            Text(String(localized: "profile.deletePhoto"))
-                                .font(.caption)
                         }
+                        .font(.subheadline)
+                        .buttonStyle(.borderless)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -84,11 +79,13 @@ struct ProfileEditView: View {
                 Section {
                     Text(error)
                         .foregroundStyle(.red)
-                        .font(.caption)
+                        .font(.footnote)
                 }
             }
         }
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "settings.profile"))
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(String(localized: "common.save")) {
@@ -106,14 +103,11 @@ struct ProfileEditView: View {
     }
 
     private var avatarPlaceholder: some View {
-        Circle()
-            .fill(Color(.systemGray5))
-            .frame(width: 94, height: 94)
-            .overlay {
-                Image(systemName: "person.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(.secondary)
-            }
+        Image(systemName: "person.crop.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.secondary)
     }
 
     private func loadProfile() async {

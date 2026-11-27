@@ -64,49 +64,50 @@ struct CategoriesManagementView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Segment control
-            Picker("", selection: $selectedTab) {
-                Text(String(localized: "common.expenses")).tag(CategoryType.expense)
-                Text(String(localized: "common.incomes")).tag(CategoryType.income)
+        List {
+            // Expense / income switch scrolls with the list (no sticky
+            // header under the bar).
+            Section {
+                Picker(String(localized: "common.type"), selection: $selectedTab) {
+                    Text(String(localized: "common.expenses")).tag(CategoryType.expense)
+                    Text(String(localized: "common.incomes")).tag(CategoryType.income)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
 
-            List {
+            Section {
                 ForEach(visibleCategories) { cat in
                     categoryRow(cat)
                 }
+            } footer: {
+                Text(verbatim: "\(activeCount)/\(maxActive)")
+                    .monospacedDigit()
+            }
 
-                if !hiddenCategories.isEmpty {
-                    Section(String(localized: "categories.hidden")) {
-                        ForEach(hiddenCategories) { cat in
-                            categoryRow(cat)
-                        }
+            if !hiddenCategories.isEmpty {
+                Section(String(localized: "categories.hidden")) {
+                    ForEach(hiddenCategories) { cat in
+                        categoryRow(cat)
                     }
                 }
-
-                Color.clear.frame(height: 100)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
             }
         }
+        .listStyle(.insetGrouped)
+        .akifiFloatingButtonClearance()
         .navigationTitle(String(localized: "budgets.categories"))
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 8) {
-                    Text("\(activeCount)/\(maxActive)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Button {
-                        showAddCategory = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .disabled(activeCount >= maxActive)
+                Button {
+                    showAddCategory = true
+                } label: {
+                    Image(systemName: "plus")
                 }
+                .disabled(activeCount >= maxActive)
+                .accessibilityLabel(String(localized: "categories.new"))
             }
         }
         .task {
@@ -161,17 +162,16 @@ struct CategoriesManagementView: View {
     private func categoryRow(_ cat: Category) -> some View {
         HStack(spacing: 12) {
             Text(cat.icon)
-                .font(.title2)
+                .font(.title3)
                 .frame(width: 40, height: 40)
-                .background(Color(hex: cat.color).opacity(0.15))
-                .clipShape(Circle())
+                .background(Color(hex: cat.color).opacity(0.15), in: Circle())
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(cat.name)
-                    .font(.subheadline.weight(.medium))
                 let count = txCountByCategory[cat.id] ?? 0
                 Text("\(count) \(String(localized: "categories.transactions"))")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 

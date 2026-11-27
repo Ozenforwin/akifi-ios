@@ -57,6 +57,7 @@ struct CashflowTrendView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(String(localized: "analytics.cashflowTrend"))
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if trendData.allSatisfy({ $0.income == 0 && $0.expense == 0 }) {
                 ContentUnavailableView(String(localized: "common.noData"), systemImage: "chart.line.uptrend.xyaxis")
@@ -83,14 +84,7 @@ struct CashflowTrendView: View {
                 .padding(.top, 4)
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .akifiCard()
     }
 
     private func trendChart(_ trendData: [TrendPoint], selectedPoint: TrendPoint?) -> some View {
@@ -168,17 +162,19 @@ struct CashflowTrendView: View {
             // Points are already in display currency — format without a
             // second conversion (`formatAmount` would convert again).
             Text("+\(appViewModel.currencyManager.formatInCurrency(point.income, currency: appViewModel.currencyManager.selectedCurrency))")
-                .font(.caption.weight(.bold))
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
                 .foregroundStyle(Color.income)
 
             Text("-\(appViewModel.currencyManager.formatInCurrency(point.expense, currency: appViewModel.currencyManager.selectedCurrency))")
-                .font(.caption.weight(.bold))
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
                 .foregroundStyle(Color.expense)
         }
         .padding(10)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+        // Callout inside the card: one step up the grouped palette, no
+        // material, no shadow.
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func legendItem(color: Color, label: String) -> some View {

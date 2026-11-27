@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Per-widget blur overlay for new users (like Telegram Mini App premium pattern).
-/// Shows mock content with a light blur, gradient fade, and a CTA button.
+/// Shows mock content with a light blur, a fade into the screen background
+/// (so the call to action stays legible) and a CTA button.
 struct DemoBlurOverlay: ViewModifier {
     let hint: String
     let buttonTitle: String
@@ -11,24 +12,18 @@ struct DemoBlurOverlay: ViewModifier {
         content
             .blur(radius: 3)
             .allowsHitTesting(false)
+            .accessibilityHidden(true)
             .overlay(alignment: .bottom) {
                 VStack(spacing: 8) {
                     Button(action: action) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                            Text(buttonTitle)
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.accent)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
+                        Label(buttonTitle, systemImage: "plus")
+                            .font(.subheadline.weight(.semibold))
                     }
+                    .buttonStyle(.akifiPrimary)
+                    .buttonBorderShape(.capsule)
 
                     Text(hint)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -36,11 +31,13 @@ struct DemoBlurOverlay: ViewModifier {
                 .padding(.top, 40)
                 .frame(maxWidth: .infinity)
                 .background(
+                    // Legibility fade into the grouped screen background,
+                    // not decoration.
                     LinearGradient(
                         colors: [
-                            Color(.systemBackground).opacity(0),
-                            Color(.systemBackground).opacity(0.6),
-                            Color(.systemBackground).opacity(0.95),
+                            Color(.systemGroupedBackground).opacity(0),
+                            Color(.systemGroupedBackground).opacity(0.6),
+                            Color(.systemGroupedBackground).opacity(0.95),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
