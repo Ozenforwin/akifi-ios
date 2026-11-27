@@ -108,6 +108,13 @@ workflows:
         script: |
           python3 Scripts/test-lints.py
 
+      - name: Lint localization catalog
+        # R6: a key used in code but missing from Localizable.xcstrings (or
+        # lacking ru/en/es) renders as the raw key on screen. Also checks the
+        # widget strings and the permission prompts (InfoPlist.xcstrings).
+        script: |
+          python3 Scripts/check-localization.py
+
       - name: Edge function tests (Deno)
         # R1: server logic (paging, FX, schedules, auth, digests) was never
         # exercised in CI. Blocking: every directory with *.test.ts is run
