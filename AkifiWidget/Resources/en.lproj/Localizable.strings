@@ -42,3 +42,30 @@
 "control.quickEntry.label" = "Expense";
 "control.quickEntry.displayName" = "Quick expense";
 "control.quickEntry.description" = "Opens Akifi straight into entering an expense";
+
+/* «Счёт» and «Быстрая запись» widgets (1.6.0) */
+"widget.sample.account" = "Card";
+"widget.sample.coffee" = "Coffee";
+"widget.sample.groceries" = "Groceries";
+"widget.sample.taxi" = "Taxi";
+"widget.account.entity" = "Account";
+"widget.account.intent.title" = "Account";
+"widget.account.intent.description" = "Which account the widget shows";
+"widget.account.intent.account" = "Account";
+"widget.account.noAccounts.title" = "No accounts";
+"widget.account.noAccounts.subtitle" = "Add an account in Akifi";
+"widget.account.shared" = "Shared";
+"widget.account.primary" = "Primary";
+"widget.account.monthIncome" = "Income this month";
+"widget.account.monthExpense" = "Spent this month";
+"widget.account.balance" = "Balance";
+"widget.account.balanceHidden" = "Balance hidden";
+"widget.account.button.hint" = "Quick entry on %@";
+"widget.quickAdd.repeat" = "Repeat";
+"widget.quickAdd.repeat.empty" = "Your frequent entries will show up here";
+"widget.quickAdd.repeat.a11y" = "Repeat: %@";
+"widget.quickAdd.new" = "New entry";
+"widget.account.displayName" = "Account";
+"widget.account.description" = "An account's balance and quick entry";
+"widget.quickAdd.displayName" = "Quick entry";
+"widget.quickAdd.description" = "Expense, income or voice in one tap";

@@ -227,6 +227,9 @@ final class DataStore {
     /// snapshots are written only on top of fresh data (Y8).
     @ObservationIgnored private(set) var lastCompleteLoadAt: Date?
     @ObservationIgnored private var widgetSnapshotTask: Task<Void, Never>?
+    /// The Home card's eye toggles, as the last widget snapshot saw them.
+    @ObservationIgnored private var widgetHiddenBalanceIds: Set<String> = HiddenBalances.ids()
+    @ObservationIgnored private var hiddenBalancesObserver: NotificationObservation?
 
     init(cache: PersistenceManager = .shared) {
         self.cache = cache
@@ -234,6 +237,18 @@ final class DataStore {
         offlineQueue.onDeadLettered = { [weak self] ops in
             self?.handleDeadLettered(ops)
         }
+        // Hiding a balance on the Home card is a defaults write, not a data
+        // change: the «Счёт» widget learns it here (same debounce).
+        hiddenBalancesObserver = NotificationObservation(name: UserDefaults.didChangeNotification) { [weak self] in
+            self?.hiddenBalancesMayHaveChanged()
+        }
+    }
+
+    private func hiddenBalancesMayHaveChanged() {
+        let ids = HiddenBalances.ids()
+        guard ids != widgetHiddenBalanceIds else { return }
+        widgetHiddenBalanceIds = ids
+        writeWidgetSnapshot()
     }
 
     // MARK: - Auto-match settings key

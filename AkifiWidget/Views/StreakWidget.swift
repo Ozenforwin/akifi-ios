@@ -127,7 +127,7 @@ struct StreakWidgetView: View {
 // MARK: - Widget declaration
 
 struct StreakWidget: Widget {
-    let kind = "ru.akifi.widget.streak"
+    let kind = AkifiWidgetKind.streak
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StreakProvider()) { entry in

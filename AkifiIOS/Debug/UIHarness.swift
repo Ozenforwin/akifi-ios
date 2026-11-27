@@ -20,6 +20,7 @@ import UIKit
 /// | `-AkifiUIHarnessSweep <name>` | Transactions / Assistant / Auth / onboarding screens and sheets (`UIHarnessSweepScreen` in `UIHarnessSweepScreens.swift`) |
 /// | `-AkifiUIHarnessCapture <dir> -AkifiUIHarnessPlan name@look,…` | the app snapshots each planned `UIHarnessSweepScreen` into `<dir>` itself |
 /// | `-AkifiUIHarnessQuickEntry <state>` | quick-entry sheet with a Russian fixture: empty, typed, voice (`UIHarnessQuickEntry`) |
+/// | `-AkifiUIHarnessWidgets` | UUID-id accounts + «Повторить» history written into the App Group snapshot, for the real widgets (`UIHarnessWidgets`) |
 /// | `-spotlight_completed YES` / `NO` | hide / start the onboarding tour (UserDefaults argument domain) |
 enum UIHarness {
     private static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -78,6 +79,9 @@ enum UIHarness {
             if let request = UIHarnessQuickEntry.request() {
                 QuickEntryInbox.shared.submit(request)
             }
+        }
+        if UIHarnessWidgets.isEnabled {
+            UIHarnessWidgets.install(in: store, currencyManager: app.currencyManager)
         }
         if showsBanners {
             store.reportIssue(.load, message: String(localized: "sync.error.partialLoad"))
@@ -165,6 +169,11 @@ struct UIHarnessRoot: View {
             }
         }
         .environment(app)
+        // Same routing as `ContentView`: widget / quick-add links can be
+        // tried on the fixture (`xcrun simctl openurl <id> akifi://…`).
+        .onOpenURL { url in
+            app.open(url)
+        }
         .task {
             guard let offset = UIHarness.scrollOffset else { return }
             try? await Task.sleep(for: .seconds(2))

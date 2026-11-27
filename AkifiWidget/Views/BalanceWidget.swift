@@ -64,7 +64,7 @@ struct BalanceWidgetView: View {
 // MARK: - Widget declaration
 
 struct BalanceWidget: Widget {
-    let kind = "ru.akifi.widget.balance"
+    let kind = AkifiWidgetKind.balance
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BalanceProvider()) { entry in

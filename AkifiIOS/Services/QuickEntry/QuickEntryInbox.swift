@@ -1,14 +1,11 @@
 import Foundation
 import Observation
 
-/// A request to open the quick-entry sheet — from a link, a Home-screen
-/// quick action, the Control Center button or Siri handing over to the app.
+/// A request to open the quick-entry sheet — from a link, a widget, a
+/// Home-screen quick action, the Control Center button or Siri handing over
+/// to the app.
 struct QuickEntryRequest: Equatable, Sendable, Identifiable {
-    enum Source: String, Equatable, Sendable {
-        case link, quickAction, control, siri, shortcut
-        /// Inside the app: the «+» button and the assistant's «add» actions.
-        case addButton, assistant
-    }
+    typealias Source = QuickEntryLaunchSource
 
     let id: UUID
     var mode: QuickEntryLaunchMode
@@ -16,6 +13,8 @@ struct QuickEntryRequest: Equatable, Sendable, Identifiable {
     /// Phrase to prefill («кофе 300») — goes through the parser.
     var text: String?
     var amount: Decimal?
+    /// Currency of `amount` when it isn't the account's (ISO, uppercase).
+    var currencyCode: String?
     var categoryId: String?
     var accountId: String?
     var note: String?
@@ -27,6 +26,7 @@ struct QuickEntryRequest: Equatable, Sendable, Identifiable {
         source: Source,
         text: String? = nil,
         amount: Decimal? = nil,
+        currencyCode: String? = nil,
         categoryId: String? = nil,
         accountId: String? = nil,
         note: String? = nil,
@@ -37,6 +37,7 @@ struct QuickEntryRequest: Equatable, Sendable, Identifiable {
         self.source = source
         self.text = text
         self.amount = amount
+        self.currencyCode = currencyCode
         self.categoryId = categoryId
         self.accountId = accountId
         self.note = note
@@ -51,76 +52,55 @@ struct QuickEntryRequest: Equatable, Sendable, Identifiable {
 
     var startsWithVoice: Bool { mode == .voice }
 
-    /// Seed for `QuickEntryEngine.draft(text:mode:overrides:…)`.
+    /// Seed for `QuickEntryEngine.draft(text:mode:overrides:…)`. The
+    /// account is a preselection the engine honours only when it is one of
+    /// the user's money accounts — an unknown, deleted, debt or someone
+    /// else's id falls back to the usual default account.
     var overrides: QuickEntryOverrides {
         QuickEntryOverrides(
             amount: amount,
+            currencyCode: currencyCode,
             accountId: accountId,
             category: categoryId.map { .category($0) } ?? .automatic,
             description: note
         )
     }
+
+    /// The link that opens this request (the shared builder).
+    var link: QuickEntryLaunchLink {
+        QuickEntryLaunchLink(
+            mode: mode, source: source, text: text, amount: amount, currency: currencyCode,
+            categoryId: categoryId, accountId: accountId, note: note
+        )
+    }
 }
 
-/// Parsing and building of `akifi://quick-add` links (see
-/// `QuickEntryLaunchURL`).
+/// `akifi://quick-add` links on the app side: the shared
+/// `QuickEntryLaunchLink` builder / parser, plus what only the app can
+/// check (a currency code the catalog knows) and the quick-action types.
 enum QuickEntryLink {
     /// Longest phrase / note a link may carry.
-    static let maxTextLength = 200
+    static let maxTextLength = QuickEntryLaunchLink.maxTextLength
 
     static func url(for request: QuickEntryRequest) -> URL {
-        typealias Q = QuickEntryLaunchURL.Query
-        var extra: [URLQueryItem] = []
-        if let text = request.text, !text.isEmpty { extra.append(URLQueryItem(name: Q.text, value: text)) }
-        if let amount = request.amount {
-            extra.append(URLQueryItem(name: Q.amount, value: NSDecimalNumber(decimal: amount).description(withLocale: Locale(identifier: "en_US_POSIX"))))
-        }
-        if let id = request.categoryId { extra.append(URLQueryItem(name: Q.category, value: id)) }
-        if let id = request.accountId { extra.append(URLQueryItem(name: Q.account, value: id)) }
-        if let note = request.note, !note.isEmpty { extra.append(URLQueryItem(name: Q.note, value: note)) }
-        return QuickEntryLaunchURL.make(mode: request.mode, source: request.source.rawValue, extra: extra)
+        request.link.url
     }
 
     /// The request in `url`, or nil when it isn't a quick-add link.
     /// Unknown / malformed values are dropped, never guessed.
     static func parse(_ url: URL, now: Date = Date()) -> QuickEntryRequest? {
-        guard url.scheme?.lowercased() == QuickEntryLaunchURL.scheme,
-              url.host?.lowercased() == QuickEntryLaunchURL.host,
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        typealias Q = QuickEntryLaunchURL.Query
-        var values: [String: String] = [:]
-        for item in components.queryItems ?? [] where values[item.name] == nil {
-            if let value = item.value { values[item.name] = value }
-        }
-        let mode = values[Q.mode].flatMap { QuickEntryLaunchMode(rawValue: $0.lowercased()) } ?? .expense
-        let source = values[Q.source].flatMap { QuickEntryRequest.Source(rawValue: $0) } ?? .link
-        let amount = values[Q.amount]
-            .flatMap { Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX")) }
-            .flatMap { $0 > 0 && $0 < 1_000_000_000_000 ? $0 : nil }
+        guard let link = QuickEntryLaunchLink(url: url) else { return nil }
         return QuickEntryRequest(
-            mode: mode,
-            source: source,
-            text: cleaned(values[Q.text]),
-            amount: amount,
-            categoryId: identifier(values[Q.category]),
-            accountId: identifier(values[Q.account]),
-            note: cleaned(values[Q.note]),
+            mode: link.mode,
+            source: link.source,
+            text: link.text,
+            amount: link.amount,
+            currencyCode: link.currency.flatMap { Currency(code: $0)?.code },
+            categoryId: link.categoryId,
+            accountId: link.accountId,
+            note: link.note,
             createdAt: now
         )
-    }
-
-    private static func cleaned(_ s: String?) -> String? {
-        guard let s else { return nil }
-        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
-            .filter { !$0.isNewline && $0.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) } }
-        guard !trimmed.isEmpty else { return nil }
-        return String(trimmed.prefix(maxTextLength))
-    }
-
-    /// Row ids are UUIDs; anything else is ignored.
-    private static func identifier(_ s: String?) -> String? {
-        guard let s, let uuid = UUID(uuidString: s) else { return nil }
-        return uuid.uuidString.lowercased()
     }
 
     // MARK: - Home-screen quick actions
@@ -131,17 +111,25 @@ enum QuickEntryLink {
         shortcutTypePrefix + mode.rawValue
     }
 
-    static func request(forShortcutType type: String, now: Date = Date()) -> QuickEntryRequest? {
+    /// The link a quick action stands for — the same builder the widgets
+    /// and Control Center use.
+    static func link(forShortcutType type: String) -> QuickEntryLaunchLink? {
         guard type.hasPrefix(shortcutTypePrefix),
               let mode = QuickEntryLaunchMode(rawValue: String(type.dropFirst(shortcutTypePrefix.count))) else { return nil }
-        return QuickEntryRequest(mode: mode, source: .quickAction, createdAt: now)
+        return QuickEntryLaunchLink(mode: mode, source: .quickAction)
+    }
+
+    static func request(forShortcutType type: String, now: Date = Date()) -> QuickEntryRequest? {
+        link(forShortcutType: type).flatMap { parse($0.url, now: now) }
     }
 }
 
 /// Where quick-entry requests wait for the signed-in UI.
 ///
-/// Producers: `AppViewModel.open(_:)` (links), the quick-action scene
-/// delegate, Siri / Shortcuts handing over to the app.
+/// Producers: `AppViewModel.open(_:)` (links — also every widget tap and
+/// the Control Center button), the quick-action scene delegate, Siri /
+/// Shortcuts handing over to the app. A cold start from a widget lands here
+/// too: the URL arrives before the signed-in UI exists and waits.
 /// Consumer (the 1.6.0 UI stream): `MainTabView` observes `pending` and
 /// presents the quick-entry sheet:
 ///

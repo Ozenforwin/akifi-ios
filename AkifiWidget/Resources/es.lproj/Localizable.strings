@@ -42,3 +42,30 @@
 "control.quickEntry.label" = "Gasto";
 "control.quickEntry.displayName" = "Gasto rápido";
 "control.quickEntry.description" = "Abre Akifi directamente en la entrada de un gasto";
+
+/* «Счёт» and «Быстрая запись» widgets (1.6.0) */
+"widget.sample.account" = "Tarjeta";
+"widget.sample.coffee" = "Café";
+"widget.sample.groceries" = "Supermercado";
+"widget.sample.taxi" = "Taxi";
+"widget.account.entity" = "Cuenta";
+"widget.account.intent.title" = "Cuenta";
+"widget.account.intent.description" = "Qué cuenta muestra el widget";
+"widget.account.intent.account" = "Cuenta";
+"widget.account.noAccounts.title" = "Sin cuentas";
+"widget.account.noAccounts.subtitle" = "Añade una cuenta en Akifi";
+"widget.account.shared" = "Compartida";
+"widget.account.primary" = "Principal";
+"widget.account.monthIncome" = "Ingresos del mes";
+"widget.account.monthExpense" = "Gastos del mes";
+"widget.account.balance" = "Saldo";
+"widget.account.balanceHidden" = "Saldo oculto";
+"widget.account.button.hint" = "Registro rápido en %@";
+"widget.quickAdd.repeat" = "Repetir";
+"widget.quickAdd.repeat.empty" = "Aquí aparecerán tus registros frecuentes";
+"widget.quickAdd.repeat.a11y" = "Repetir: %@";
+"widget.quickAdd.new" = "Nuevo registro";
+"widget.account.displayName" = "Cuenta";
+"widget.account.description" = "Saldo de una cuenta y registro rápido";
+"widget.quickAdd.displayName" = "Registro rápido";
+"widget.quickAdd.description" = "Gasto, ingreso o por voz con un toque";
