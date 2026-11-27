@@ -196,6 +196,26 @@ extension Transaction {
         autoTransferGroupId != nil && transferGroupId != nil
     }
 
+    /// True when the row takes money OUT of its account — the same sign
+    /// rule as `NativeBalance.signedAmount`: an expense leg (stored
+    /// positive) goes out, an income leg comes in, and only a legacy
+    /// single-row `.transfer` carries its direction in the sign. Reading
+    /// the sign of a positive expense leg showed «Карта → Наличные» as
+    /// «Наличные → Карта» (M9).
+    var movesMoneyOut: Bool {
+        switch type {
+        case .expense: return true
+        case .income: return false
+        case .transfer: return amountNative < 0
+        }
+    }
+
+    /// A legacy one-row transfer (`type = transfer`, no `transfer_group_id`):
+    /// the counter-account was never recorded. Edited in place (M15).
+    var isLegacySingleRowTransfer: Bool {
+        type == .transfer && transferGroupId == nil
+    }
+
     /// True when the user entered the transaction in a currency different
     /// from the account currency; drives the "500 000 VND ≈ 1 900 ₽" UI.
     var hasForeignCurrency: Bool {

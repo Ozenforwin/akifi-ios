@@ -37,11 +37,17 @@ struct BudgetTransactionsSheet: View {
             ? (start: metrics.periodStart, end: metrics.periodEnd)
             : BudgetMath.currentPeriod(for: budget)
         self.period = period
+        // The server's author rule — the list must be the rows the total sums.
+        let members = BudgetMath.memberIds(
+            for: budget, viewerId: dataStore.profile?.id,
+            budgetMembers: dataStore.budgetMembersByBudget[budget.id]
+        )
         transactions = BudgetMath.matchingTransactions(
             budget: budget,
             transactions: dataStore.transactions,
             period: period,
-            categories: dataStore.categories
+            categories: dataStore.categories,
+            members: members
         )
         // A shared budget also counts a partner's expenses paid from
         // accounts this user can't see (RLS). They are part of
@@ -51,7 +57,7 @@ struct BudgetTransactionsSheet: View {
             let ctx = BudgetMetricsResolver.serverRatesContext(dataStore.currencyContext, server: server)
             let listed = BudgetMath.spentAmount(
                 budget: budget, transactions: dataStore.transactions, period: period,
-                categories: dataStore.categories, currencyContext: ctx
+                categories: dataStore.categories, currencyContext: ctx, members: members
             )
             externalSpent = max(0, metrics.spent - listed)
         } else {

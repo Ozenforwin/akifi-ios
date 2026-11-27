@@ -251,18 +251,37 @@ enum SettlementCalculator {
         // Peer visible → owner of the peer's account (via
         // `personalAccountsByUser`). Peer hidden, or its account unknown →
         // the leg's creator: the RPC writes all three legs as the paying user.
+        //
+        // Same rule as the server's `get_account_settlement` (M10): the peer
+        // must sit on ANOTHER account and its owner must be a MEMBER of this
+        // one; among several such peers the newest (`created_at` desc, then
+        // id) wins. The owner of any visible card used to be credited — a
+        // card shared with me by someone outside «Семейный» took A's
+        // contribution offline.
+        let members = Set(memberUserIds)
         let legsByTransferGroup = Dictionary(
             grouping: transactions.filter { $0.transferGroupId != nil },
             by: { $0.transferGroupId ?? "" }
         )
+        func memberOwner(of accountId: String) -> String? {
+            personalAccountsByUser.first { user, accounts in
+                members.contains(user) && accounts.contains(accountId)
+            }?.key
+        }
         func payer(of leg: Transaction) -> String {
-            guard let groupId = leg.transferGroupId,
-                  let peer = legsByTransferGroup[groupId]?.first(where: { $0.id != leg.id }),
-                  let peerAccountId = peer.accountId
-            else { return leg.userId }
-            return personalAccountsByUser.first { _, accounts in
-                accounts.contains(peerAccountId)
-            }?.key ?? leg.userId
+            guard let groupId = leg.transferGroupId else { return leg.userId }
+            let peers = (legsByTransferGroup[groupId] ?? [])
+                .filter { $0.id != leg.id && $0.accountId != nil && $0.accountId != sharedAccountId }
+                .sorted { a, b in
+                    let ca = a.createdAt ?? "", cb = b.createdAt ?? ""
+                    return ca != cb ? ca > cb : a.id < b.id
+                }
+            for peer in peers {
+                if let accountId = peer.accountId, let owner = memberOwner(of: accountId) {
+                    return owner
+                }
+            }
+            return leg.userId
         }
 
         for row in autoTransferLegsOnShared {

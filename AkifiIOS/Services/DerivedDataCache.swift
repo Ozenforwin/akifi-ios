@@ -204,8 +204,22 @@ struct TransactionIndex {
 /// `Transaction.date` is only the UTC calendar day; comparing its midnight
 /// with an instant (a settlement's `settled_at`) made an evening expense look
 /// older than a settlement recorded that morning (D11).
+///
+/// Frame of reference (M6): the forms write the author's LOCAL wall clock
+/// with no offset and the server stores it labelled UTC, so `parse` returns
+/// "wall-clock time read as UTC" — NOT the real instant. Compare it only
+/// with other wall-clock values; move a real instant (`settled_at`,
+/// `Date()`) into this frame with `wallClock(of:in:)` first. In Moscow a
+/// 19:00 expense and a 21:00 settlement used to compare as 19:00Z > 18:00Z
+/// ("ожидает расчёта" for a row the settlement already covered).
 enum TransactionInstant {
-    private static var wallClock: DateFormatter { AppDateFormatters.utcDateTime }
+    /// A real instant as the wall clock in `timeZone` shows it, labelled UTC
+    /// — the frame `parse` returns.
+    static func wallClock(of instant: Date, in timeZone: TimeZone = .current) -> Date {
+        instant.addingTimeInterval(TimeInterval(timeZone.secondsFromGMT(for: instant)))
+    }
+
+    private static var wallClockFormatter: DateFormatter { AppDateFormatters.utcDateTime }
 
     private static var dayOnly: DateFormatter { AppDateFormatters.utcDate }
 
@@ -224,7 +238,7 @@ enum TransactionInstant {
         if s[10] == UInt8(ascii: " ") {
             head = String(head.prefix(10)) + "T" + String(head.dropFirst(11))
         }
-        guard var date = wallClock.date(from: head) else { return nil }
+        guard var date = wallClockFormatter.date(from: head) else { return nil }
 
         var i = 19
         if i < s.count, s[i] == UInt8(ascii: ".") {

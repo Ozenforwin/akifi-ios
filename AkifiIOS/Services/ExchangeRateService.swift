@@ -1,48 +1,105 @@
 import Foundation
+import Supabase
 
 struct ExchangeRateResponse: Codable, Sendable {
     let result: String
     let rates: [String: Double]
 }
 
-/// APILayer Exchange Rates Data API response shape (historical + latest).
-/// Uses `success`/`rates` (not `result`/`rates`) so a separate type.
-struct APILayerRateResponse: Codable, Sendable {
-    let success: Bool
-    let base: String
-    let date: String?
-    let rates: [String: Double]
-    let historical: Bool?
+/// A USD-pivoted FX table (`rates[X]` = units of X per 1 USD) together with
+/// WHEN each quote was obtained from a real source.
+///
+/// Display may use any rate — a stale or hard-coded one beats rendering a
+/// USD balance 1:1 as roubles. A WRITE may not (M5): a rate frozen into
+/// `amount_native` stays wrong forever, and the old offline path stored
+/// 100 USD on a RUB account at the April fallback 92.5 instead of 82.57
+/// (+993 ₽ for good). `writableRates` keeps only codes quoted by the
+/// network or the server `fx_rates` table within `maxWriteAge`; the
+/// hard-coded fallback table carries no quote time and is never writable.
+struct FXRateSnapshot: Sendable, Equatable {
+    /// Everything we have, for display.
+    var rates: [String: Double]
+    /// Code → when that quote came from the network / server. Codes without
+    /// an entry (fallback table) are display-only.
+    var quotedAt: [String: Date]
+
+    static let empty = FXRateSnapshot(rates: [:], quotedAt: [:])
+
+    /// Oldest quote a write may freeze into `amount_native`.
+    static let maxWriteAge: TimeInterval = 48 * 3600
+
+    /// The subset of `rates` a write may use at `now`.
+    func writableRates(now: Date = Date()) -> [String: Double] {
+        var out: [String: Double] = [:]
+        for (code, rate) in rates where rate > 0 && rate.isFinite {
+            guard let at = quotedAt[code] else { continue }
+            let age = now.timeIntervalSince(at)
+            // A quote "from the future" (clock skew) counts as fresh.
+            if age <= Self.maxWriteAge { out[code] = rate }
+        }
+        return out
+    }
+
+    /// Rows of `public.fx_rates` (code, per_usd, updated_at). Each code is
+    /// stamped with its own `updated_at` — a row the refresh job skipped
+    /// ages out on its own.
+    static func fromServer(_ rows: [ServerFXRateRow]) -> FXRateSnapshot {
+        var rates: [String: Double] = [:]
+        var quotedAt: [String: Date] = [:]
+        for row in rows {
+            let code = row.code.uppercased()
+            guard row.perUsd > 0, row.perUsd.isFinite else { continue }
+            rates[code] = row.perUsd
+            if let at = AppDateFormatters.parseTimestamp(row.updatedAt) {
+                quotedAt[code] = at
+            }
+        }
+        return FXRateSnapshot(rates: rates, quotedAt: quotedAt)
+    }
+
+    /// A full network table, every code quoted at `at`.
+    static func fromNetwork(_ rates: [String: Double], at: Date) -> FXRateSnapshot {
+        FXRateSnapshot(rates: rates, quotedAt: rates.mapValues { _ in at })
+    }
+
+    /// Hard-coded table: display only.
+    static func fallback(_ rates: [String: Double]) -> FXRateSnapshot {
+        FXRateSnapshot(rates: rates, quotedAt: [:])
+    }
+}
+
+/// One row of `public.fx_rates`.
+struct ServerFXRateRow: Decodable, Sendable, Identifiable {
+    let code: String
+    let perUsd: Double
+    let updatedAt: String
+
+    var id: String { code }
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case perUsd = "per_usd"
+        case updatedAt = "updated_at"
+    }
 }
 
 actor ExchangeRateService {
     private let cacheKey = "cached_exchange_rates"
     private let cacheTimestampKey = "exchange_rates_timestamp"
+    /// Per-code quote times of the cached table (seconds since 1970). A
+    /// cache written before this key existed came from a network fetch at
+    /// `cacheTimestampKey`, which is used for every code then.
+    private let cacheQuotedAtKey = "cached_exchange_rates_quoted_at"
     private let cacheDuration: TimeInterval = 3600 // 1 hour
     private let historicalCacheKey = "cached_historical_exchange_rates"
 
-    /// APILayer API key (Pro plan — 100 000 requests/month). Lives in
-    /// Config/*.xcconfig via `EXCHANGE_RATE_API_KEY` so it is not
-    /// committed. For local Debug builds Info.plist surfaces it.
-    /// Used for historical rates in Phase 6 Reconciliation UI — never
-    /// for the latest-rates hot path (that stays on free open.er-api.com
-    /// so expiring the paid key doesn't break core app functionality).
-    private var apiLayerKey: String? {
-        let raw = Bundle.main.object(forInfoDictionaryKey: "EXCHANGE_RATE_API_KEY") as? String
-        guard let raw, !raw.isEmpty else { return nil }
-        return raw
-    }
-
-    /// Hard-coded fallback rates against USD (1 USD = X currency).
-    /// Used when the public FX API is unreachable AND the on-disk cache is
-    /// empty. Approximate rates as of 2026-04 — they only matter as a last
-    /// resort; the API refreshes hourly via fetchRates().
+    /// Hard-coded fallback rates against USD (1 USD = X currency), shown
+    /// when the public FX API, the server table and the on-disk cache are
+    /// all unavailable. DISPLAY ONLY: `FXRateSnapshot.fallback` gives them
+    /// no quote time, so no write ever converts with them (M5).
     ///
-    /// A code missing here is NOT coerced to 1.0 on the write path any
-    /// more: `TransactionMath.convertForStorage` refuses the save with
-    /// "no exchange rate" (M3 — 100 USD on a KZT account used to be stored
-    /// as 100 ₸). Display paths still fall back to face value. Extend this
-    /// table only for currencies users actually hold; never add 1:1 guesses.
+    /// Display paths fall back to face value for a code missing here.
+    /// Never add 1:1 guesses.
     private let fallbackRates: [String: Double] = [
         "USD": 1.0,
         "RUB": 92.5,
@@ -55,22 +112,39 @@ actor ExchangeRateService {
         "IDR": 16_300
     ]
 
-    func fetchRates(base: String = "USD") async -> [String: Double] {
+    func fetchRates(base: String = "USD") async -> FXRateSnapshot {
         // Check cache first
-        if let cached = loadCachedRates(), !isCacheExpired() {
+        if let cached = loadCachedSnapshot(), !isCacheExpired() {
             return cached
         }
 
-        // Offline: an expired cache still beats no rates at all — missing
-        // rates make USD balances render 1:1 as base currency. Skip the
-        // network attempts and their retry sleeps entirely.
+        // Offline: an expired cache still beats no rates at all for display
+        // (missing rates make USD balances render 1:1 as base currency);
+        // its quote times keep writes honest. Skip the network attempts and
+        // their retry sleeps entirely.
         if await !NetworkMonitor.shared.isConnected {
-            return loadCachedRates() ?? fallbackRates
+            return loadCachedSnapshot() ?? .fallback(fallbackRates)
         }
 
-        // Fetch from API
+        if let network = await fetchNetworkRates(base: base) {
+            saveCachedSnapshot(network)
+            return network
+        }
+
+        // The public API is down but our backend may not be: its fx_rates
+        // table (refreshed hourly by `refresh-fx-rates`) is a real quote.
+        if let server = await fetchServerRates() {
+            let merged = merge(server, over: loadCachedSnapshot())
+            saveCachedSnapshot(merged)
+            return merged
+        }
+
+        return loadCachedSnapshot() ?? .fallback(fallbackRates)
+    }
+
+    private func fetchNetworkRates(base: String) async -> FXRateSnapshot? {
         let urlString = "https://open.er-api.com/v6/latest/\(base)"
-        guard let url = URL(string: urlString) else { return fallbackRates }
+        guard let url = URL(string: urlString) else { return nil }
 
         // Retry with exponential backoff (2 attempts max)
         for attempt in 0..<2 {
@@ -84,30 +158,71 @@ actor ExchangeRateService {
 
                 let decoded = try JSONDecoder().decode(ExchangeRateResponse.self, from: data)
                 if decoded.result == "success" {
-                    saveCachedRates(decoded.rates)
-                    return decoded.rates
+                    return .fromNetwork(decoded.rates, at: Date())
                 }
             } catch {
                 if attempt == 1 { break }
             }
         }
-
-        return loadCachedRates() ?? fallbackRates
+        return nil
     }
 
-    private func loadCachedRates() -> [String: Double]? {
+    /// `public.fx_rates` — readable by any signed-in user. Nil when signed
+    /// out, offline or the read fails.
+    private func fetchServerRates() async -> FXRateSnapshot? {
+        let client = SupabaseManager.shared.client
+        do {
+            let rows: [ServerFXRateRow] = try await SupabasePaging.all("fx_rates", tiebreak: ["code"]) { count in
+                client
+                    .from("fx_rates")
+                    .select("code, per_usd, updated_at", count: count)
+            }
+            guard !rows.isEmpty else { return nil }
+            return .fromServer(rows)
+        } catch {
+            AppLogger.data.debug("fx_rates read failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// `top` wins per code; codes only `bottom` has keep their own quote time.
+    private func merge(_ top: FXRateSnapshot, over bottom: FXRateSnapshot?) -> FXRateSnapshot {
+        guard var out = bottom else { return top }
+        for (code, rate) in top.rates {
+            out.rates[code] = rate
+            out.quotedAt[code] = top.quotedAt[code]
+        }
+        return out
+    }
+
+    private func loadCachedSnapshot() -> FXRateSnapshot? {
         guard let data = UserDefaults.standard.data(forKey: cacheKey),
               let rates = try? JSONDecoder().decode([String: Double].self, from: data) else {
             return nil
         }
-        return rates
+        if let quotedData = UserDefaults.standard.data(forKey: cacheQuotedAtKey),
+           let stamps = try? JSONDecoder().decode([String: Double].self, from: quotedData) {
+            return FXRateSnapshot(
+                rates: rates,
+                quotedAt: stamps.mapValues { Date(timeIntervalSince1970: $0) }
+            )
+        }
+        // Pre-M5 cache: only ever written after a successful network fetch.
+        let timestamp = UserDefaults.standard.double(forKey: cacheTimestampKey)
+        guard timestamp > 0 else { return .fallback(rates) }
+        return .fromNetwork(rates, at: Date(timeIntervalSince1970: timestamp))
     }
 
-    private func saveCachedRates(_ rates: [String: Double]) {
-        if let data = try? JSONEncoder().encode(rates) {
-            UserDefaults.standard.set(data, forKey: cacheKey)
-            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: cacheTimestampKey)
+    private func saveCachedSnapshot(_ snapshot: FXRateSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot.rates),
+              let stamps = try? JSONEncoder().encode(snapshot.quotedAt.mapValues(\.timeIntervalSince1970)) else {
+            return
         }
+        // Same slot and shape as before — AppViewModel reads it for the
+        // instant start (display only).
+        UserDefaults.standard.set(data, forKey: cacheKey)
+        UserDefaults.standard.set(stamps, forKey: cacheQuotedAtKey)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: cacheTimestampKey)
     }
 
     private func isCacheExpired() -> Bool {
@@ -116,44 +231,45 @@ actor ExchangeRateService {
         return Date().timeIntervalSince1970 - timestamp > cacheDuration
     }
 
-    // MARK: - Historical rates (APILayer)
+    // MARK: - Historical rates (edge function `fx-historical`)
 
-    /// Fetch the historical rate `from → to` for a specific date. Cached
-    /// permanently per `(from, to, date)` — historical rates never change.
-    /// Returns `nil` on API key missing / network error; the caller should
-    /// surface an "approximate rate" warning and let the user opt in
-    /// (Phase 6 Reconciliation UI).
-    ///
-    /// Endpoint: `https://api.apilayer.com/exchangerates_data/{YYYY-MM-DD}`
-    /// Auth: `apikey: <EXCHANGE_RATE_API_KEY>` header.
+    /// Fetch the historical rate `from → to` for the user's calendar day
+    /// `date` (local midnight). See `fetchHistoricalRate(from:to:day:)`.
     func fetchHistoricalRate(from: String, to: String, date: Date) async -> Double? {
-        let dateStr = Self.historicalDateKey(for: date)
-        let cacheKey = "\(from.uppercased())-\(to.uppercased())-\(dateStr)"
+        await fetchHistoricalRate(from: from, to: to, day: Self.historicalDateKey(for: date))
+    }
+
+    /// Historical rate `from → to` (units of `to` per 1 `from`) on `day`
+    /// ("YYYY-MM-DD"). Cached permanently per `(from, to, day)` —
+    /// historical quotes never change. `nil` when unavailable (offline,
+    /// signed out, any 4xx/5xx); the caller surfaces an "approximate rate"
+    /// warning (Phase 6 Reconciliation UI).
+    ///
+    /// S4: the paid APILayer key used to ship in every IPA (Info.plist). The
+    /// `fx-historical` edge function now holds it as a secret and caches
+    /// answers server-side; the app only sends the user's session.
+    func fetchHistoricalRate(from: String, to: String, day: String) async -> Double? {
+        let src = from.uppercased()
+        let dst = to.uppercased()
+        let dayKey = String(day.prefix(10))
+        let cacheKey = "\(src)-\(dst)-\(dayKey)"
 
         // Persistent cache: historical quotes never change.
         if let cached = loadHistoricalCache()[cacheKey] {
             return cached
         }
+        if src == dst { return 1 }
 
-        guard let key = apiLayerKey else { return nil }
-
-        let urlString = "https://api.apilayer.com/exchangerates_data/\(dateStr)?base=\(from.uppercased())&symbols=\(to.uppercased())"
-        guard let url = URL(string: urlString) else { return nil }
-
-        var request = URLRequest(url: url)
-        request.setValue(key, forHTTPHeaderField: "apikey")
-
+        struct Response: Decodable { let rate: Double }
+        let body: [String: String] = ["from": src, "to": dst, "date": dayKey]
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                return nil
-            }
-            let decoded = try JSONDecoder().decode(APILayerRateResponse.self, from: data)
-            guard decoded.success, let rate = decoded.rates[to.uppercased()] else {
-                return nil
-            }
-            saveHistoricalCache(key: cacheKey, rate: rate)
-            return rate
+            let response: Response = try await SupabaseManager.shared.client.functions.invoke(
+                "fx-historical",
+                options: .init(body: body)
+            )
+            guard response.rate > 0, response.rate.isFinite else { return nil }
+            saveHistoricalCache(key: cacheKey, rate: response.rate)
+            return response.rate
         } catch {
             return nil
         }

@@ -67,6 +67,12 @@ enum BudgetMetricsResolver {
         var currencyContext: BudgetMath.CurrencyContext
         var generation: UInt64
         var now: Date
+        /// `BudgetMath.memberIds` per budget — the server's author rule
+        /// (members' rows, others' only on linked accounts). A budget
+        /// missing here gets no author rule (tests of other rules).
+        var memberIdsByBudget: [String: Set<String>] = [:]
+
+        func members(of budget: Budget) -> Set<String>? { memberIdsByBudget[budget.id] }
     }
 
     struct Mismatch: Equatable {
@@ -100,12 +106,13 @@ enum BudgetMetricsResolver {
                 categories: input.categories,
                 externalSpendRows: external,
                 currencyContext: input.currencyContext,
-                now: input.now
+                now: input.now,
+                members: input.members(of: budget)
             )
             let spentToday = BudgetMath.spentOnDay(
                 input.now, budget: budget, transactions: input.transactions,
                 categories: input.categories, externalSpendRows: external,
-                currencyContext: input.currencyContext
+                currencyContext: input.currencyContext, members: input.members(of: budget)
             )
             out[budget.id] = ResolvedBudgetMetrics(
                 budget: budget, metrics: metrics, source: .local,
@@ -141,7 +148,7 @@ enum BudgetMetricsResolver {
         let ctx = serverRatesContext(input.currencyContext, server: s)
         let ownNow = BudgetMath.spentAmount(
             budget: budget, transactions: input.transactions, period: period,
-            categories: input.categories, currencyContext: ctx
+            categories: input.categories, currencyContext: ctx, members: input.members(of: budget)
         )
         let spent = max(0, s.spent + (ownNow - baseline.ownSpent))
         let metrics = BudgetMath.assemble(
@@ -153,7 +160,8 @@ enum BudgetMetricsResolver {
         if snapshot.day == today {
             let ownTodayNow = BudgetMath.spentAmount(
                 budget: budget, transactions: input.transactions,
-                period: (todayStart, todayStart), categories: input.categories, currencyContext: ctx
+                period: (todayStart, todayStart), categories: input.categories, currencyContext: ctx,
+                members: input.members(of: budget)
             )
             spentToday = max(0, s.spentToday + (ownTodayNow - baseline.ownSpentToday))
         } else {
@@ -161,7 +169,7 @@ enum BudgetMetricsResolver {
                 input.now, budget: budget, transactions: input.transactions,
                 categories: input.categories,
                 externalSpendRows: input.externalSpendByBudget[budget.id] ?? [],
-                currencyContext: ctx
+                currencyContext: ctx, members: input.members(of: budget)
             )
         }
         return ResolvedBudgetMetrics(
@@ -177,12 +185,12 @@ enum BudgetMetricsResolver {
         let ctx = serverRatesContext(input.currencyContext, server: s)
         let own = BudgetMath.spentAmount(
             budget: budget, transactions: input.transactions, period: period,
-            categories: input.categories, currencyContext: ctx
+            categories: input.categories, currencyContext: ctx, members: input.members(of: budget)
         )
         let todayStart = BudgetMath.calendar.startOfDay(for: input.now)
         let ownToday = BudgetMath.spentAmount(
             budget: budget, transactions: input.transactions, period: (todayStart, todayStart),
-            categories: input.categories, currencyContext: ctx
+            categories: input.categories, currencyContext: ctx, members: input.members(of: budget)
         )
         return .init(definition: definitionKey(budget), ownSpent: own, ownSpentToday: ownToday)
     }
@@ -203,7 +211,7 @@ enum BudgetMetricsResolver {
         let ctx = serverRatesContext(input.currencyContext, server: s)
         let localSpent = BudgetMath.spentAmount(
             budget: budget, transactions: input.transactions, period: period,
-            categories: input.categories, currencyContext: ctx
+            categories: input.categories, currencyContext: ctx, members: input.members(of: budget)
         ) + BudgetMath.externalSpent(
             rows: input.externalSpendByBudget[budget.id] ?? [], budget: budget,
             period: period, currencyContext: ctx
@@ -302,6 +310,19 @@ final class BudgetMetricsStore {
 
     // MARK: - Reading
 
+    /// The server's author rule for every budget (`BudgetMath.memberIds`).
+    static func memberIds(
+        budgets: [Budget],
+        viewerId: String?,
+        members: [String: [BudgetMember]]
+    ) -> [String: Set<String>] {
+        var out: [String: Set<String>] = [:]
+        for budget in budgets {
+            out[budget.id] = BudgetMath.memberIds(for: budget, viewerId: viewerId, budgetMembers: members[budget.id])
+        }
+        return out
+    }
+
     /// Metrics for every budget in `dataStore.budgets`, memoized on the data
     /// generation, the server snapshot and the day. Safe to call from `body`
     /// (only @ObservationIgnored state is written).
@@ -324,7 +345,9 @@ final class BudgetMetricsStore {
             subscriptions: Self.hash(subscriptions.map { "\($0.id)|\($0.amount)|\($0.status.rawValue)|\($0.currency ?? "")|\($0.billingPeriod.rawValue)|\($0.categoryId ?? "")" }),
             categories: Self.hash(categories.map { "\($0.id)|\($0.name)" }),
             external: Self.hash(external.map { "\($0.key)|\($0.value.count)" }.sorted()),
-            members: Self.hash(members.map { "\($0.key)|\($0.value.count)" }.sorted()),
+            // Member identities, not just counts: they decide whose rows
+            // count (`BudgetMath.memberIds`).
+            members: Self.hash(members.map { "\($0.key)|\($0.value.map(\.userId).sorted().joined(separator: ","))" }.sorted() + [userId ?? ""]),
             snapshotStamp: usableSnapshot?.fetchedAt,
             snapshotGeneration: usableSnapshot?.generation,
             lastFetchFailed: failed,
@@ -341,7 +364,8 @@ final class BudgetMetricsStore {
             memberCountByBudget: members.mapValues(\.count),
             currencyContext: dataStore.currencyContext,
             generation: dataStore.txGenerationToken,
-            now: now
+            now: now,
+            memberIdsByBudget: Self.memberIds(budgets: budgets, viewerId: userId, members: members)
         )
         let value = BudgetMetricsResolver.resolve(input, snapshot: usableSnapshot, lastFetchFailed: failed)
         memo = (key, value)
@@ -420,7 +444,10 @@ final class BudgetMetricsStore {
             memberCountByBudget: dataStore.budgetMembersByBudget.mapValues(\.count),
             currencyContext: dataStore.currencyContext,
             generation: generation,
-            now: now
+            now: now,
+            memberIdsByBudget: Self.memberIds(
+                budgets: dataStore.budgets, viewerId: userId, members: dataStore.budgetMembersByBudget
+            )
         )
         let budgetsById = Dictionary(dataStore.budgets.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let serverById = Dictionary(response.budgets.map { ($0.budgetId, $0) }, uniquingKeysWith: { a, _ in a })

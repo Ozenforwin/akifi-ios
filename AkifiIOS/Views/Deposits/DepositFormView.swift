@@ -47,23 +47,16 @@ struct DepositFormView: View {
         Decimal(string: rateText.replacingOccurrences(of: ",", with: ".")) ?? 0
     }
 
-    /// When source currency != deposit currency, convert at current FX to
-    /// show the user what will be credited. Returns (sourceKopecks in
-    /// source currency, fxRate) used by the save flow.
-    private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal)? {
+    /// PREVIEW of what the source card is debited when its currency differs
+    /// from the deposit's: deposit → source directly (M1), display rates.
+    /// Nil when same-currency or a rate is missing. The save converts again
+    /// in `DepositsViewModel.create` with write rates only.
+    private var crossCurrencyInfo: (sourceKopecks: Int64, fxRate: Decimal?)? {
         guard let src = sourceAccount else { return nil }
-        let srcCcy = Currency(code: src.currency) ?? .rub
-        guard srcCcy != currency else { return nil }
-        // amountKopecks is in DEPOSIT currency. Convert to source currency
-        // using the ExchangeRateService's USD-pivot rates via CurrencyManager.
-        let depositAmountUnits = Decimal(amountKopecks) / 100
-        let sourceAmountUnits = cm.convertToAccountCurrency(depositAmountUnits, accountCurrency: srcCcy)
-        let sourceKopecks = Int64(truncating: (sourceAmountUnits * 100) as NSDecimalNumber)
-        // fxRate: units of deposit per unit of source
-        // computed as (deposit / source). Avoid div-by-zero.
-        guard sourceAmountUnits > 0 else { return (sourceKopecks, 0) }
-        let rate = depositAmountUnits / sourceAmountUnits
-        return (sourceKopecks, rate)
+        guard let leg = try? DepositsViewModel.convertLeg(
+            kopecks: amountKopecks, from: currency.code, to: src.currency, rates: cm.rates
+        ), leg.isCrossCurrency else { return nil }
+        return (leg.kopecks, leg.depositPerSource)
     }
 
     private var isValid: Bool {
@@ -217,7 +210,6 @@ struct DepositFormView: View {
         defer { isSaving = false }
 
         do {
-            let cross = crossCurrencyInfo
             try await viewModel.create(
                 name: name.trimmingCharacters(in: .whitespaces),
                 currency: currency,
@@ -227,8 +219,6 @@ struct DepositFormView: View {
                 endDate: hasEndDate ? endDate : nil,
                 initialAmount: amountKopecks,
                 sourceAccount: src,
-                sourceAmount: cross?.sourceKopecks,
-                fxRate: cross?.fxRate,
                 returnToAccountId: returnAccountId,
                 dataStore: dataStore,
                 currencyManager: cm
@@ -236,7 +226,7 @@ struct DepositFormView: View {
             HapticManager.success()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = FormErrorMessage.text(for: error)
         }
     }
 

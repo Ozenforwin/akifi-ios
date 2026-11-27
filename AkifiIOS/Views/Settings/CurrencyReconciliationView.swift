@@ -49,7 +49,7 @@ struct CurrencyReconciliationView: View {
     ///   1. Paired leg in the same `auto_transfer_group_id` on an account
     ///      in the target currency — bit-exact, the TMA wrote it when the
     ///      transaction happened.
-    ///   2. APILayer historical quote on the transaction's date — close to
+    ///   2. Historical quote (`fx-historical`) on the transaction's date — close to
     ///      the market rate that day.
     ///   3. (Fallback handled by the row: today's rate from CurrencyManager
     ///      with an "approximate" warning badge.)
@@ -84,14 +84,12 @@ struct CurrencyReconciliationView: View {
                 }
             }
 
-            // 2) Historical quote from APILayer.
-            // `tx.date` is the user's local day. ExchangeRateService renders
-            // the Date as a UTC `yyyy-MM-dd` (ISO8601DateFormatter), so the
-            // day goes in as UTC midnight; local midnight in UTC+7 is 17:00
-            // UTC of the PREVIOUS day and fetched yesterday's rate.
-            if let date = AppDateFormatters.utcDate.date(from: String(tx.date.prefix(10))),
-               let quote = await exchangeService.fetchHistoricalRate(
-                    from: label, to: accountCcy, date: date) {
+            // 2) Historical quote (edge function `fx-historical`, S4).
+            // `tx.date` already IS the user's local day — passed through as
+            // the string, no Date round trip (UTC midnight read back in a
+            // UTC−5 zone used to ask for the previous day).
+            if let quote = await exchangeService.fetchHistoricalRate(
+                    from: label, to: accountCcy, day: String(tx.date.prefix(10))) {
                 out[tx.id] = ResolvedRate(rate: Decimal(quote), source: .historical, date: tx.date)
                 continue
             }
@@ -184,7 +182,7 @@ struct CurrencyReconciliationView: View {
                 // Rate priority:
                 //   - Pair-extracted (bit-exact): use the rate TMA wrote
                 //     when the transaction happened.
-                //   - Historical APILayer quote for `tx.date`.
+                //   - Historical quote (`fx-historical`) for `tx.date`.
                 //   - Fallback: today's `CurrencyManager.rates` — less
                 //     accurate for old rows, but keeps the flow unblocked
                 //     when the API is unreachable.
@@ -193,19 +191,30 @@ struct CurrencyReconciliationView: View {
                 let accountCode = row.account.currencyCode
                 let originalAmount = row.transaction.amountNative.displayAmount
                 let resolved = resolvedRates[row.transaction.id]
-                let rate: Decimal = resolved?.rate ?? {
-                    let fromRate = Decimal(cm.rates[labelCode.code] ?? 1.0)
-                    let toRate = Decimal(cm.rates[accountCode.code] ?? 1.0)
-                    return fromRate != 0 ? toRate / fromRate : 1
-                }()
+                let converted: Decimal
+                if let rate = resolved?.rate {
+                    converted = originalAmount * rate
+                } else {
+                    // Today's rate: only a real quote may be frozen into
+                    // `amount_native` (M5) — never the hard-coded fallback
+                    // table, never a missing code read as 1.0.
+                    let rates = await cm.ratesForWrite([labelCode.code, accountCode.code])
+                    do {
+                        converted = try TransactionMath.convertForStorage(
+                            originalAmount, from: labelCode.code, to: accountCode.code, rates: rates
+                        )
+                    } catch {
+                        errorMessage = String(localized: "currencyReconciliation.error.rateMissing")
+                        return
+                    }
+                }
                 // Safety: refuse to save a 1:1 conversion between different
                 // currencies — that's what produced the original bug in
                 // the first place.
-                guard !(labelCode != accountCode && rate == 1) else {
+                guard !(labelCode != accountCode && converted == originalAmount) else {
                     errorMessage = String(localized: "currencyReconciliation.error.rateMissing")
                     return
                 }
-                let converted = originalAmount * rate
                 let fx: Decimal? = originalAmount != 0
                     ? converted / originalAmount
                     : nil
@@ -228,13 +237,6 @@ struct CurrencyReconciliationView: View {
         }
     }
 
-    private func convert(amount: Decimal, from: CurrencyCode, to: CurrencyCode, using cm: CurrencyManager) -> Decimal {
-        guard from != to else { return amount }
-        let fromRate = Decimal(cm.rates[from.code] ?? 1.0)
-        let toRate = Decimal(cm.rates[to.code] ?? 1.0)
-        guard fromRate != 0 else { return amount }
-        return amount / fromRate * toRate
-    }
 }
 
 private struct SuspiciousRow: Identifiable {
@@ -249,7 +251,7 @@ private struct SuspiciousRow: Identifiable {
 struct ResolvedRate: Sendable {
     enum Source: Sendable {
         case pair          // extracted from an auto-transfer partner leg
-        case historical    // APILayer quote for the tx's date
+        case historical    // fx-historical quote for the tx's date
     }
     let rate: Decimal
     let source: Source
