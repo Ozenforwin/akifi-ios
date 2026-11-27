@@ -2,7 +2,6 @@
 "widget.balance.title" = "Saldo";
 "widget.balance.displayName" = "Saldo";
 "widget.balance.description" = "Suma de todas las cuentas en tu moneda base";
-"widget.balance.accounts" = "En %d cuentas";
 
 /* Daily limit widget */
 "widget.dailyLimit.title" = "Para hoy";
@@ -18,7 +17,6 @@
 "widget.streak.description" = "Días consecutivos registrando transacciones";
 "widget.streak.daysShort" = "d.";
 "widget.streak.nextMilestone" = "Hasta %d";
-"widget.streak.valueA11y" = "%d días, siguiente meta %d";
 "widget.streak.lockLabel" = "Racha: %d d.";
 
 /* Day summary widget */

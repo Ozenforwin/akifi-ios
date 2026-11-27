@@ -112,7 +112,7 @@ struct TransactionDetailView: View {
                 String(localized: "tx.autoTransfer.deleteWarning.title"),
                 isPresented: $showTransferLegDeleteWarning
             ) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized: "common.ok"), role: .cancel) {}
             } message: {
                 let desc = linkedExpense?.description ?? String(localized: "transaction.transfer")
                 Text(String(format: String(localized: "tx.autoTransfer.deleteWarning.body"), desc))
@@ -132,10 +132,10 @@ struct TransactionDetailView: View {
                 Text(String(localized: "transaction.deleteConfirmMessage"))
             }
             .alert(
-                "Error",
+                String(localized: "common.error"),
                 isPresented: .init(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })
             ) {
-                Button("OK") { deleteError = nil }
+                Button(String(localized: "common.ok")) { deleteError = nil }
             } message: {
                 Text(deleteError ?? "")
             }

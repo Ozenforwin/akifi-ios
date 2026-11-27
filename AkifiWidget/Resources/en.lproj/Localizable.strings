@@ -2,7 +2,6 @@
 "widget.balance.title" = "Balance";
 "widget.balance.displayName" = "Balance";
 "widget.balance.description" = "Total across all accounts in your base currency";
-"widget.balance.accounts" = "Across %d accounts";
 
 /* Daily limit widget */
 "widget.dailyLimit.title" = "For today";
@@ -18,7 +17,6 @@
 "widget.streak.description" = "Consecutive days you've logged a transaction";
 "widget.streak.daysShort" = "d.";
 "widget.streak.nextMilestone" = "To %d";
-"widget.streak.valueA11y" = "%d days, next milestone %d";
 "widget.streak.lockLabel" = "Streak: %d d.";
 
 /* Day summary widget */

@@ -49,10 +49,8 @@ struct BalanceWidgetView: View {
                         WidgetFormatters.amount(entry.snapshot.totalBalance, snapshot: entry.snapshot)
                     )
 
-                Text(String(
-                    format: String(localized: "widget.balance.accounts", defaultValue: "На %d счетах"),
-                    entry.snapshot.accountCount
-                ))
+                // Plural forms live in Localizable.stringsdict ("На 1 счёте").
+                Text(String(localized: "widget.balance.accounts \(entry.snapshot.accountCount)"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }

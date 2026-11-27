@@ -112,8 +112,7 @@ struct AccountSettlementCardView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.subheadline)
-                Text(String(format: String(localized: "settlement.orphans.warning"),
-                            viewModel.pastSettlementsForCurrentPeriodIgnoredOrphans.count))
+                Text(String(localized: "settlement.orphans.warning \(viewModel.pastSettlementsForCurrentPeriodIgnoredOrphans.count)"))
                     .font(.caption)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
