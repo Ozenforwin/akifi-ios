@@ -7,7 +7,7 @@ import WidgetKit
 /// Design: hero number (monospaced, large), subtle icon, accounts-count
 /// subtitle, tinted gradient background. Tap → main app home.
 struct BalanceWidgetView: View {
-    let entry: SnapshotEntry
+    let snapshot: SharedSnapshot
 
     @Environment(\.widgetRenderingMode) private var renderingMode
 
@@ -36,7 +36,7 @@ struct BalanceWidgetView: View {
 
                 Spacer(minLength: 0)
 
-                Text(WidgetFormatters.amount(entry.snapshot.totalBalance, snapshot: entry.snapshot))
+                Text(WidgetFormatters.amount(snapshot.totalBalance, snapshot: snapshot))
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
@@ -46,12 +46,12 @@ struct BalanceWidgetView: View {
                         String(localized: "widget.balance.title", defaultValue: "Баланс")
                     )
                     .accessibilityValue(
-                        WidgetFormatters.amount(entry.snapshot.totalBalance, snapshot: entry.snapshot)
+                        WidgetFormatters.amount(snapshot.totalBalance, snapshot: snapshot)
                     )
 
                 Text(String(
                     format: String(localized: "widget.balance.accounts", defaultValue: "На %d счетах"),
-                    entry.snapshot.accountCount
+                    snapshot.accountCount
                 ))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -70,7 +70,16 @@ struct BalanceWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BalanceProvider()) { entry in
-            BalanceWidgetView(entry: entry)
+            Group {
+                if let snapshot = entry.snapshot {
+                    BalanceWidgetView(snapshot: snapshot)
+                } else {
+                    WidgetEmptyStateView(
+                        systemImage: "banknote.fill",
+                        title: LocalizedStringResource("widget.balance.title", defaultValue: "Баланс")
+                    )
+                }
+            }
                 .containerBackground(for: .widget) {
                     LinearGradient(
                         colors: [Color.accentColor.opacity(0.12), Color(.systemBackground)],

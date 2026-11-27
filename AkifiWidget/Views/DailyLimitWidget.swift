@@ -12,13 +12,13 @@ import WidgetKit
 ///
 /// Fallback: if `dailyLimit == nil`, prompt the user to create a budget.
 struct DailyLimitWidgetView: View {
-    let entry: SnapshotEntry
+    let snapshot: SharedSnapshot
 
     @Environment(\.widgetRenderingMode) private var renderingMode
 
-    private var limit: Int64? { entry.snapshot.dailyLimit }
+    private var limit: Int64? { snapshot.dailyLimit }
     private var status: StatusColour {
-        let util = entry.snapshot.dailyLimitUtilization
+        let util = snapshot.dailyLimitUtilization
         switch util {
         case ..<70: return .green
         case 70..<90: return .amber
@@ -60,7 +60,7 @@ struct DailyLimitWidgetView: View {
                 Spacer(minLength: 0)
 
                 if let limit {
-                    Text(WidgetFormatters.amount(limit, snapshot: entry.snapshot))
+                    Text(WidgetFormatters.amount(limit, snapshot: snapshot))
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .minimumScaleFactor(0.6)
@@ -70,10 +70,10 @@ struct DailyLimitWidgetView: View {
                             String(localized: "widget.dailyLimit.title", defaultValue: "На сегодня")
                         )
                         .accessibilityValue(
-                            WidgetFormatters.amount(limit, snapshot: entry.snapshot)
+                            WidgetFormatters.amount(limit, snapshot: snapshot)
                         )
 
-                    if let name = entry.snapshot.dailyLimitBudgetName {
+                    if let name = snapshot.dailyLimitBudgetName {
                         Text(name)
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
@@ -85,7 +85,7 @@ struct DailyLimitWidgetView: View {
                             localized: "widget.dailyLimit.spent",
                             defaultValue: "Сегодня: %@"
                         ),
-                        WidgetFormatters.amount(entry.snapshot.dailySpentToday, snapshot: entry.snapshot)
+                        WidgetFormatters.amount(snapshot.dailySpentToday, snapshot: snapshot)
                     ))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -122,10 +122,20 @@ struct DailyLimitWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyLimitProvider()) { entry in
-            DailyLimitWidgetView(entry: entry)
-                .containerBackground(for: .widget) {
-                    Color(.systemBackground)
+            Group {
+                if let snapshot = entry.snapshot {
+                    DailyLimitWidgetView(snapshot: snapshot)
+                } else {
+                    WidgetEmptyStateView(
+                        systemImage: "target",
+                        title: LocalizedStringResource("widget.dailyLimit.title", defaultValue: "На сегодня"),
+                        deepLink: URL(string: "akifi://budgets")
+                    )
                 }
+            }
+            .containerBackground(for: .widget) {
+                Color(.systemBackground)
+            }
         }
         .configurationDisplayName(
             Text(LocalizedStringResource("widget.dailyLimit.displayName", defaultValue: "Лимит на сегодня"))

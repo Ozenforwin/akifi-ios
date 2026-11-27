@@ -28,3 +28,7 @@
 "widget.daySummary.income" = "Ingreso";
 "widget.daySummary.expense" = "Gasto";
 "widget.daySummary.net" = "Neto";
+
+/* Empty state — no snapshot (signed out, fresh install) */
+"widget.empty.title" = "Abre Akifi";
+"widget.empty.subtitle" = "Inicia sesión para ver aquí tus datos";
