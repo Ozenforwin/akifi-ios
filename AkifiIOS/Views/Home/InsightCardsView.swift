@@ -26,6 +26,8 @@ struct InsightCardsView: View {
         let day: String
         /// Insight copy embeds amounts formatted in the display currency.
         let displayCurrency: String
+        /// The resolved budget numbers the warning reads (M8).
+        let budgetMetrics: [String: String]
     }
 
     @State private var memo = Memo<InsightsKey, [InsightEngine.Insight]>()
@@ -33,6 +35,9 @@ struct InsightCardsView: View {
     private var insights: [InsightEngine.Insight] {
         let store = dataStore
         let fmt = appViewModel.currencyManager
+        // Same numbers as the Budgets tab (server when available) — the
+        // warning used to redo the math locally and disagree (M8).
+        let budgetMetrics = BudgetMetricsStore.shared.resolved(for: store).mapValues(\.metrics)
         let key = InsightsKey(
             revision: store.derivationRevision,
             categories: ArrayIdentity(store.categories),
@@ -40,7 +45,8 @@ struct InsightCardsView: View {
             subscriptions: ArrayIdentity(store.subscriptions),
             externalSpend: store.externalSpendByBudget.mapValues { ArrayIdentity($0) },
             day: DayKey.day(Date()),
-            displayCurrency: fmt.selectedCurrency.code
+            displayCurrency: fmt.selectedCurrency.code,
+            budgetMetrics: budgetMetrics.mapValues { "\($0.utilization)|\($0.remainingDays)" }
         )
         let all = memo.value(for: key) {
             let ctx = store.currencyContext
@@ -57,7 +63,8 @@ struct InsightCardsView: View {
                     accountsById: ctx.accountsById,
                     fxRates: ctx.fxRates,
                     baseCode: ctx.baseCode,
-                    externalSpendByBudget: store.externalSpendByBudget
+                    externalSpendByBudget: store.externalSpendByBudget,
+                    budgetMetrics: budgetMetrics
                 )
             )
         }

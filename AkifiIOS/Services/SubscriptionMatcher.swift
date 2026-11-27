@@ -67,13 +67,21 @@ enum SubscriptionMatcher {
     ///              `nil`/empty currency string — common for legacy rows where
     ///              the transaction was written before per-row currency labels
     ///              were enforced.
+    ///   - accountsById: the visible accounts. `amountNative` is in the
+    ///              ACCOUNT's currency (ADR-001), so that is the currency
+    ///              compared — not the legacy `currency` label, which on old
+    ///              rows disagrees with the account: $9.99 on a USD card
+    ///              labelled RUB was read as 9.99 ₽ and Netflix never matched
+    ///              (M13). The label is only a last resort for a row whose
+    ///              account this device cannot see.
     static func score(
         transaction: Transaction,
         subscription: SubscriptionTracker,
         now: Date = Date(),
         calendar: Calendar = .current,
         fxRates: [String: Double] = [:],
-        baseCode: String = "RUB"
+        baseCode: String = "RUB",
+        accountsById: [String: Account] = [:]
     ) -> (total: Int, amount: Int, date: Int, merchant: Int) {
         // Precondition: only expense transactions can match.
         guard transaction.type == .expense else { return (0, 0, 0, 0) }
@@ -91,11 +99,23 @@ enum SubscriptionMatcher {
                 return trimmed.isEmpty ? baseUpper : trimmed
             }
             let subCurrency = normalize(subscription.currency)
-            let txCurrency = normalize(transaction.currency)
+            let txCurrency = transaction.accountId
+                .flatMap { accountsById[$0]?.currency }
+                .map { normalize($0) }
+                ?? normalize(transaction.currency)
 
             // Same currency: straightforward ±5 % delta.
             if subCurrency == txCurrency {
                 let delta = abs(Double(transaction.amountNative) - Double(subscription.amount))
+                let ratio = delta / Double(subscription.amount)
+                return ratio <= amountTolerance ? 50 : 0
+            }
+
+            // The user's original entry is in the subscription's currency
+            // (`foreign_*`): compare it as typed, no FX.
+            if let foreign = transaction.foreignAmount,
+               transaction.foreignCurrency.map({ normalize($0) }) == subCurrency {
+                let delta = abs(Double(foreign.kopecks) - Double(subscription.amount)) // allowlisted-amount: SubscriptionTracker price, not Transaction.amount
                 let ratio = delta / Double(subscription.amount)
                 return ratio <= amountTolerance ? 50 : 0
             }
@@ -214,7 +234,8 @@ enum SubscriptionMatcher {
         now: Date = Date(),
         calendar: Calendar = .current,
         fxRates: [String: Double] = [:],
-        baseCode: String = "RUB"
+        baseCode: String = "RUB",
+        accountsById: [String: Account] = [:]
     ) -> Match? {
         guard transaction.type == .expense else { return nil }
 
@@ -226,7 +247,8 @@ enum SubscriptionMatcher {
                 now: now,
                 calendar: calendar,
                 fxRates: fxRates,
-                baseCode: baseCode
+                baseCode: baseCode,
+                accountsById: accountsById
             )
             guard total >= matchThreshold,
                   let chargeDate = expectedChargeDate(for: transaction, subscription: sub, calendar: calendar),

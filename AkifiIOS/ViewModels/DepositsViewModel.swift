@@ -204,12 +204,17 @@ final class DepositsViewModel {
         endDate: Date?,
         initialAmount: Int64,
         sourceAccount: Account,
-        sourceAmount: Int64?,
-        fxRate: Decimal?,
         returnToAccountId: String?,
         dataStore: DataStore,
         currencyManager: CurrencyManager
     ) async throws {
+        // M1: the source leg, converted deposit → source DIRECTLY with real
+        // quotes — before anything is written, so a missing rate saves
+        // nothing (no orphan deposit account).
+        let rates = await currencyManager.ratesForWrite([currency.code, sourceAccount.currency])
+        let leg = try Self.convertLeg(
+            kopecks: initialAmount, from: currency.code, to: sourceAccount.currency, rates: rates
+        )
         let userId = try await SupabaseManager.shared.currentUserId()
 
         // 1. Account
@@ -238,8 +243,8 @@ final class DepositsViewModel {
         // 3. Transfer pair (source → deposit account) for initial amount.
         let groupId = UUID().uuidString
         let dateStr = Self.formatDate(startDate)
-        let isSameCurrency = sourceAccount.currency.uppercased() == currency.code.uppercased()
-        let sourceAmountKopecks = isSameCurrency ? initialAmount : (sourceAmount ?? initialAmount)
+        let isSameCurrency = !leg.isCrossCurrency
+        let sourceAmountKopecks = leg.kopecks
         let sourceAmountDecimal = Decimal(sourceAmountKopecks) / 100
         let destAmountDecimal = Decimal(initialAmount) / 100
 
@@ -288,7 +293,7 @@ final class DepositsViewModel {
             source_account_id: sourceAccount.id,
             source_currency: isSameCurrency ? nil : sourceAccount.currency,
             source_amount: isSameCurrency ? nil : sourceAmountKopecks,
-            fx_rate: isSameCurrency ? nil : fxRate,
+            fx_rate: isSameCurrency ? nil : leg.depositPerSource,
             transfer_group_id: groupId
         ))
 
@@ -311,16 +316,20 @@ final class DepositsViewModel {
         depositAccount: Account,
         amountInDeposit: Int64,
         sourceAccount: Account,
-        sourceAmount: Int64?,
-        fxRate: Decimal?,
-        dataStore: DataStore
+        dataStore: DataStore,
+        currencyManager: CurrencyManager
     ) async throws {
+        // M1: deposit → source directly, real quotes only, before any write.
+        let rates = await currencyManager.ratesForWrite([depositAccount.currency, sourceAccount.currency])
+        let leg = try Self.convertLeg(
+            kopecks: amountInDeposit, from: depositAccount.currency, to: sourceAccount.currency, rates: rates
+        )
         let userId = try await SupabaseManager.shared.currentUserId()
         let groupId = UUID().uuidString
         let dateStr = Self.formatDate(Date())
 
-        let isSameCurrency = sourceAccount.currency.uppercased() == depositAccount.currency.uppercased()
-        let sourceAmountKopecks = isSameCurrency ? amountInDeposit : (sourceAmount ?? amountInDeposit)
+        let isSameCurrency = !leg.isCrossCurrency
+        let sourceAmountKopecks = leg.kopecks
         let sourceAmountDecimal = Decimal(sourceAmountKopecks) / 100
         let destAmountDecimal = Decimal(amountInDeposit) / 100
 
@@ -361,7 +370,7 @@ final class DepositsViewModel {
             source_account_id: sourceAccount.id,
             source_currency: isSameCurrency ? nil : sourceAccount.currency,
             source_amount: isSameCurrency ? nil : sourceAmountKopecks,
-            fx_rate: isSameCurrency ? nil : fxRate,
+            fx_rate: isSameCurrency ? nil : leg.depositPerSource,
             transfer_group_id: groupId
         ))
 
@@ -437,6 +446,14 @@ final class DepositsViewModel {
         defer { endClosing(deposit.id) }
         guard hasLoadedContributions(deposit.id) else { throw DepositCloseError.contributionsNotLoaded }
 
+        // M1: the return leg is converted deposit → returnTo directly with
+        // real quotes (never the base currency, never 1:1 on a missing
+        // rate). Fetched and checked BEFORE the status flips, so a missing
+        // rate changes nothing and auto-maturity simply retries on the next
+        // load. (Convertibility doesn't depend on the amount.)
+        let rates = await dataStore.currencyManager?.ratesForWrite([depositAccount.currency, returnTo.currency]) ?? [:]
+        _ = try Self.convertLeg(kopecks: 100, from: depositAccount.currency, to: returnTo.currency, rates: rates)
+
         let closedAtStr = Self.formatDateTime(Date())
         guard let closed = try await depositRepo.closeIfActive(
             id: deposit.id,
@@ -450,7 +467,7 @@ final class DepositsViewModel {
         }
 
         do {
-            try await writePayout(deposit, depositAccount: depositAccount, returnTo: returnTo, dataStore: dataStore)
+            try await writePayout(deposit, depositAccount: depositAccount, returnTo: returnTo, rates: rates)
         } catch {
             do { try await depositRepo.reopen(id: deposit.id, from: newStatus) }
             catch { AppLogger.data.error("deposit reopen after failed payout: \(error.localizedDescription)") }
@@ -470,7 +487,7 @@ final class DepositsViewModel {
         _ deposit: Deposit,
         depositAccount: Account,
         returnTo: Account,
-        dataStore: DataStore
+        rates: [String: Double]
     ) async throws {
         let userId = try await SupabaseManager.shared.currentUserId()
         let contributions = contributionsByDeposit[deposit.id] ?? []
@@ -519,8 +536,12 @@ final class DepositsViewModel {
         // on a RUB return account instead of ~92 500 ₽).
         if total > 0 {
             let groupId = ids.transferGroup
-            let isSameCurrency = depositAccount.currency.uppercased() == returnTo.currency.uppercased()
             let totalDecimal = Decimal(total) / 100
+            // M1: deposit → returnTo directly, with the rates checked in
+            // `closeOrMature` before anything was written.
+            let returnLeg = try Self.convertLeg(
+                kopecks: total, from: depositAccount.currency, to: returnTo.currency, rates: rates
+            )
 
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
@@ -536,17 +557,7 @@ final class DepositsViewModel {
                 transfer_group_id: groupId
             ).withClientId(ids.returnOut))
 
-            let destAmount: Decimal = {
-                guard !isSameCurrency else { return totalDecimal }
-                let fxRates = dataStore.currencyContext.fxRates
-                let converted = NetWorthCalculator.convert(
-                    amount: total,
-                    from: depositAccount.currency,
-                    to: returnTo.currency,
-                    rates: fxRates
-                )
-                return Decimal(converted) / 100
-            }()
+            let destAmount = Decimal(returnLeg.kopecks) / 100
             _ = try await transactionRepo.create(CreateTransactionInput(
                 user_id: userId,
                 account_id: returnTo.id,
@@ -561,6 +572,48 @@ final class DepositsViewModel {
                 transfer_group_id: groupId
             ).withClientId(ids.returnIn))
         }
+    }
+
+    // MARK: - Cross-currency legs (M1)
+
+    /// One transfer leg moved from `from`-currency kopecks into the `to`
+    /// account's currency.
+    struct ConvertedLeg: Equatable, Sendable {
+        /// Kopecks (minor units ×100, the app-wide convention) of `to`.
+        let kopecks: Int64
+        let isCrossCurrency: Bool
+        /// Units of `from` per unit of `to` — the `deposit_contributions.fx_rate`
+        /// convention (deposit per source). Nil when same-currency or zero.
+        let depositPerSource: Decimal?
+    }
+
+    /// Converts `kopecks` of `from` straight into `to` with USD-pivoted
+    /// write rates. The old path read the amount as BASE currency
+    /// (`convertToAccountCurrency`): a $1 000 deposit from a rouble card with
+    /// a rouble base debited 1 000 ₽, and a missing rate went through 1:1.
+    /// Throws `MissingFXRateError` instead.
+    nonisolated static func convertLeg(
+        kopecks: Int64,
+        from: String,
+        to: String,
+        rates: [String: Double]
+    ) throws -> ConvertedLeg {
+        let src = from.uppercased()
+        let dst = to.uppercased()
+        guard src != dst else {
+            return ConvertedLeg(kopecks: kopecks, isCrossCurrency: false, depositPerSource: nil)
+        }
+        let units = Decimal(kopecks) / 100
+        let converted = try TransactionMath.convertForStorage(units, from: src, to: dst, rates: rates)
+        var scaled = converted * 100
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &scaled, 0, .plain)
+        let out = Int64(truncating: rounded as NSDecimalNumber)
+        return ConvertedLeg(
+            kopecks: out,
+            isCrossCurrency: true,
+            depositPerSource: converted > 0 ? units / converted : nil
+        )
     }
 
     // MARK: - Delete

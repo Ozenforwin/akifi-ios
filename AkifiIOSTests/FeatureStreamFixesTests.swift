@@ -451,7 +451,8 @@ final class V7GoalInputTests: XCTestCase {
     func test_V7_zeroContribution_isRefused() async {
         let vm = SavingsViewModel()
         do {
-            try await vm.addContribution(goalId: "g1", amount: 0, type: .contribution, note: nil)
+            try await vm.addContribution(goalId: "g1", amount: 0, type: .contribution, note: nil,
+                                         linkedAccount: nil, counterAccount: nil, currencyManager: nil)
             XCTFail("a zero contribution must not be saved")
         } catch {
             XCTAssertEqual(error as? SavingsInputError, .amountNotPositive)
@@ -531,18 +532,6 @@ final class V8SubscriptionPaymentDeletionTests: XCTestCase {
 
 @MainActor
 final class V9SmallFixesTests: XCTestCase {
-
-    /// The quote key is the device-zone day; the transaction day must go
-    /// in as local midnight. UTC midnight was yesterday in UTC− zones.
-    func test_V9_reconciliationQuoteDay_isTheLocalDay() {
-        let local = CurrencyReconciliationView.quoteDay(forTransactionDate: "2026-11-17")!
-        XCTAssertEqual(ExchangeRateService.historicalDateKey(for: local), "2026-11-17")
-        XCTAssertEqual(CurrencyReconciliationView.quoteDay(forTransactionDate: "2026-11-17T10:00:00Z"), local)
-
-        // What the old UTC parse produced for a UTC−5 user.
-        let utcMidnight = AppDateFormatters.utcDate.date(from: "2026-11-17")!
-        XCTAssertEqual(ExchangeRateService.historicalDateKey(for: utcMidnight, timeZone: TimeZone(secondsFromGMT: -5 * 3600)!), "2026-11-16")
-    }
 
     func test_V9_fallbackRate_neverGuesses() {
         let rates: [String: Double] = ["USD": 1, "RUB": 92.5]

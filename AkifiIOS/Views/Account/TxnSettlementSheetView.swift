@@ -43,6 +43,10 @@ struct TxnSettlementSheetView: View {
                     summaryCard
                     membersList
                     bulkButton
+                    if !viewModel.canRecordSettlements {
+                        // M7: offline numbers are an estimate — no marks.
+                        SettlementOfflineNote()
+                    }
                 }
                 .padding(20)
             }
@@ -172,6 +176,7 @@ struct TxnSettlementSheetView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!viewModel.canRecordSettlements)
     }
 
     // MARK: - Bulk action
@@ -223,7 +228,7 @@ struct TxnSettlementSheetView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(nonPayerMembers.isEmpty)
+        .disabled(nonPayerMembers.isEmpty || !viewModel.canRecordSettlements)
     }
 
     // MARK: - Helpers

@@ -17,7 +17,9 @@ final class TransferFormCrossCurrencyTests: XCTestCase {
 
     private func currencyManager(rates: [String: Double] = ["USD": 1.0, "RUB": 92.5, "EUR": 0.92]) -> CurrencyManager {
         let cm = CurrencyManager()
-        cm.rates = rates
+        // A fresh network quote: since M5 a leg converts only with quoted
+        // rates (`writeRates`), never with display-only ones.
+        cm.apply(.fromNetwork(rates, at: Date()))
         return cm
     }
 

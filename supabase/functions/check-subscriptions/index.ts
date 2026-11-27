@@ -2,7 +2,7 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
 import { formatMoney, toDateOnly } from "../_shared/utils.ts";
 import { addDaysTo, daysBetween, planCatchUp } from "../_shared/schedule.ts";
-import { convertCurrency } from "../_shared/currency.ts";
+import { tryConvertCurrency } from "../_shared/currency.ts";
 import { getRubRates } from "../_shared/fx.ts";
 import { isCronAuthorized } from "../_shared/auth.ts";
 import { fetchAll } from "../_shared/paging.ts";
@@ -51,6 +51,7 @@ interface SubscriptionRow {
   next_payment_date: string;
   reminder_days: number | null;
   account_id: string | null;
+  category_id: string | null;
   is_active: boolean;
 }
 
@@ -176,6 +177,26 @@ async function ensureChargeEvent(supabase: Client, subscription: SubscriptionRow
   return (existing.data ?? null) as { id: string; transaction_id: string | null } | null;
 }
 
+/// The category the user picked for this subscription, when it is an active
+/// expense category they can use (their own, or one of a shared account they
+/// belong to); otherwise «Подписки»/«Другое». Budgets reserve the amount in
+/// the picked category, so the real charge must land there too (N6).
+async function resolveChargeCategoryId(supabase: Client, subscription: SubscriptionRow, cache: Map<string, string>): Promise<string> {
+  if (subscription.category_id) {
+    const { data: cat } = await supabase.from("categories").select("id,user_id,account_id,type,is_active")
+      .eq("id", subscription.category_id).maybeSingle();
+    if (cat && cat.type === "expense" && cat.is_active !== false) {
+      if (cat.user_id === subscription.user_id) return cat.id;
+      if (cat.account_id) {
+        const { data: member } = await supabase.from("account_members").select("account_id")
+          .eq("account_id", cat.account_id).eq("user_id", subscription.user_id).maybeSingle();
+        if (member) return cat.id;
+      }
+    }
+  }
+  return resolveExpenseCategoryId(supabase, subscription.user_id, cache);
+}
+
 async function resolveExpenseCategoryId(supabase: Client, userId: string, cache: Map<string, string>): Promise<string> {
   const cached = cache.get(userId);
   if (cached) return cached;
@@ -251,7 +272,7 @@ async function chargeSubscription(
   if (!chargeEvent) return "skipped";
   if (chargeEvent.transaction_id) return "skipped";
 
-  const categoryId = await resolveExpenseCategoryId(supabase, subscription.user_id, categoryCache);
+  const categoryId = await resolveChargeCategoryId(supabase, subscription, categoryCache);
   const writableAccount = await resolveWritableAccount(supabase, subscription.user_id, subscription.account_id, writableAccountCache);
   const amountRaw = Number(subscription.amount);
   const subCurrency = (subscription.currency ?? "RUB").toUpperCase();
@@ -259,7 +280,14 @@ async function chargeSubscription(
   // Charge in the ACCOUNT's currency. Falls back to RUB only when the
   // subscription has no writable account to charge against.
   const targetCurrency = writableAccount?.currency ?? "RUB";
-  const chargeAmount = convertCurrency(sourceAmount, subCurrency, targetCurrency, rates);
+  // No 1:1 fallback: a missing rate is recorded as a failed charge instead
+  // of writing EUR 10 as 10 in the account's currency (N7).
+  const converted = tryConvertCurrency(sourceAmount, subCurrency, targetCurrency, rates);
+  if (converted === null) {
+    await supabase.from("subscription_charge_events").update({ error_message: "fx_missing" }).eq("id", chargeEvent.id);
+    return "failed";
+  }
+  const chargeAmount = Math.round(converted * 100) / 100;
   const charge: Charge = {
     amount: chargeAmount,
     currency: targetCurrency,
@@ -270,7 +298,7 @@ async function chargeSubscription(
     await supabase.from("subscription_charge_events").update({ error_message: "Invalid amount for auto charge" }).eq("id", chargeEvent.id);
     return "failed";
   }
-  const transactionId = await ensureTransactionForCharge(supabase, subscription, chargeDate, categoryId, writableAccount?.id ?? null, charge);
+  const transactionId = await ensureTransactionForCharge(supabase, subscription, chargeDate, categoryId, writableAccount?.id ?? null, charge, chargeEvent.id);
   await supabase.from("subscription_charge_events").update({ transaction_id: transactionId, error_message: null }).eq("id", chargeEvent.id);
   await recordPayment(supabase, subscription, chargeDate, charge);
   return "posted";
@@ -315,13 +343,18 @@ async function ensureTransactionForCharge(
   categoryId: string,
   accountId: string | null,
   charge: Charge,
+  chargeEventId: string,
 ): Promise<string> {
   const description = `Подписка: ${subscription.service_name}`;
   const existing = await supabase.from("transactions").select("id").eq("user_id", subscription.user_id).eq("date", chargeDate).eq("type", "expense").eq("description", description).eq("amount", charge.amount).limit(1).maybeSingle();
   if (!existing.error && existing.data?.id) return existing.data.id;
   // `currency` and `amount_native` are NOT optional (ADR-001): the read
   // path interprets the amount as being in the account's currency.
+  // The transaction id IS the charge event id: a retry after a lost
+  // response hits the primary key instead of posting a second expense with
+  // a re-converted amount that the amount-based lookup above would miss (N7).
   const row: Record<string, unknown> = {
+    id: chargeEventId,
     user_id: subscription.user_id,
     category_id: categoryId,
     account_id: accountId,
@@ -338,6 +371,7 @@ async function ensureTransactionForCharge(
     row.fx_rate = charge.foreignAmount > 0 ? charge.amount / charge.foreignAmount : null;
   }
   const inserted = await supabase.from("transactions").insert(row).select("id").single();
+  if (inserted.error?.code === "23505") return chargeEventId;
   if (inserted.error || !inserted.data?.id) {
     throw new Error(inserted.error?.message ?? "Failed to insert subscription charge transaction");
   }
@@ -405,7 +439,7 @@ Deno.serve(async (req) => {
   try {
     const subscriptions = await fetchAll<SubscriptionRow>("subscriptions", () =>
       supabase.from("subscriptions")
-        .select("id,user_id,service_name,amount,currency,billing_period,start_date,next_payment_date,reminder_days,account_id,is_active", { count: "exact" })
+        .select("id,user_id,service_name,amount,currency,billing_period,start_date,next_payment_date,reminder_days,account_id,category_id,is_active", { count: "exact" })
         .eq("is_active", true)
         .not("next_payment_date", "is", null)
         .order("next_payment_date", { ascending: true }));
@@ -423,6 +457,19 @@ Deno.serve(async (req) => {
         today: todayStr,
         catchUpDays: CATCH_UP_DAYS,
       });
+
+      // N4: when start_date is not on the billing schedule the anchor is the
+      // stored next_payment_date, and a 29–31 anchor would be lost the first
+      // time it is clamped to a shorter month (31.01 → 28.02 → 28.03 …).
+      // Persist it as start_date while it is still the real billing day, so
+      // the server, the SQL helper and the app all anchor on it from now on.
+      if (plan.source === "next_payment_date" && Number(plan.anchor.slice(8, 10)) >= 29
+          && plan.anchor !== (subscription.start_date ?? "").slice(0, 10)) {
+        const { error: anchorError } = await supabase.from("subscriptions")
+          .update({ start_date: plan.anchor })
+          .eq("id", subscription.id).eq("next_payment_date", stored);
+        if (anchorError) console.error("Failed to persist billing anchor:", anchorError.code ?? "unknown");
+      }
 
       // D9: decide the reminder BEFORE charging. Charging advances the
       // date, so "remind on the day" (reminder_days = 0) used to compare

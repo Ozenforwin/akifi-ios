@@ -17,7 +17,14 @@ workflows:
         TEAM_ID: "8GPVB9MQ58"
         # Comma-separated TestFlight group names for auto-distribution
         BETA_GROUPS: "Beta Testers,External Testers"
-      xcode: latest
+        # R3: pinned toolchain. Bump deliberately, together with Package.resolved.
+        XCODEGEN_VERSION: "2.45.3"
+        XCODEGEN_SHA256: "0c90f4d28ca57335f9fa78cf5bf6dabfe20a232036dabe36de2eef79cb7c0878"
+        DENO_VERSION: "2.9.8"
+        DENO_SHA256: "9f0bf660393da2eaff044cdc7444cb08c73f235849b61d224d825a194ce7c98e"
+        PIP_PACKAGES: "PyJWT==2.15.1 cryptography==46.0.5 requests==2.32.5"
+      # R3: the Xcode used locally when the 616-test suite was last green.
+      xcode: 27.2
 
     triggering:
       events:
@@ -46,9 +53,25 @@ workflows:
           fi
           echo "ASC API key decoded: $KEY_PATH ($(wc -c < "$KEY_PATH") bytes)"
 
-      - name: Install XcodeGen
+      - name: Install pinned XcodeGen and Deno
+        # R3: `brew install` floats to whatever is newest that day. Both tools
+        # are downloaded at an exact version and verified against a checksum.
         script: |
-          brew install xcodegen
+          set -e
+          TOOLS="$HOME/pinned-tools"
+          mkdir -p "$TOOLS"
+          curl -fsSL -o "$TOOLS/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $TOOLS/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q -o "$TOOLS/xcodegen.zip" -d "$TOOLS"
+          curl -fsSL -o "$TOOLS/deno.zip" \
+            "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-apple-darwin.zip"
+          echo "${DENO_SHA256}  $TOOLS/deno.zip" | shasum -a 256 -c -
+          unzip -q -o "$TOOLS/deno.zip" -d "$TOOLS/deno-bin"
+          chmod +x "$TOOLS/deno-bin/deno"
+          echo "PATH=$TOOLS/xcodegen/bin:$TOOLS/deno-bin:$PATH" >> "$CM_ENV"
+          "$TOOLS/xcodegen/bin/xcodegen" --version
+          "$TOOLS/deno-bin/deno" --version | head -1
 
       - name: Lint multi-currency amount usage (ADR-001)
         # Blocking as of Phase 8 (2026-04-22) — at the time of flipping,
@@ -78,41 +101,57 @@ workflows:
         script: |
           bash Scripts/lint-date-formatters.sh --strict
 
+      - name: Lint self-test (fixtures)
+        # R9: a lint that silently stops catching its own bad examples is
+        # worse than no lint. Known-bad / known-good snippets must keep their
+        # verdicts.
+        script: |
+          python3 Scripts/test-lints.py
+
+      - name: Edge function tests (Deno)
+        # R1: server logic (paging, FX, schedules, auth, digests) was never
+        # exercised in CI. Blocking: every directory with *.test.ts is run
+        # from its own root so its deno.json / deno.lock apply.
+        script: |
+          set -e
+          for dir in $(find supabase/functions -name '*.test.ts' -exec dirname {} \; | sort -u); do
+            echo "── deno test: $dir"
+            (cd "$dir" && deno test --allow-env)
+          done
+
       - name: Generate xcconfig from environment variables
         script: |
           python3 << 'PYEOF'
           import os
           url = os.environ["SUPABASE_URL"].strip().replace("//", "/$()/")
           key = os.environ["SUPABASE_ANON_KEY"].strip().replace("\n", "").replace(" ", "")
-          # EXCHANGE_RATE_API_KEY is optional — Phase 6 Reconciliation UI
-          # uses it for historical FX quotes; absence falls back to the
-          # free open.er-api.com (latest only). The CI env group "Akifi"
-          # should hold it so Release builds get the Pro Plan quota.
-          exrate = os.environ.get("EXCHANGE_RATE_API_KEY", "").strip()
           for path in ("Config/Release.xcconfig", "Config/Debug.xcconfig"):
               with open(path, "w") as f:
                   f.write(f"SUPABASE_URL = {url}\n")
                   f.write(f"SUPABASE_ANON_KEY = {key}\n")
-                  if exrate:
-                      f.write(f"EXCHANGE_RATE_API_KEY = {exrate}\n")
           print(f"URL: {url[:40]}...")
           print(f"KEY: {key[:20]}...{key[-10:]}")
           print(f"KEY length: {len(key)}")
-          print(f"EXCHANGE_RATE_API_KEY: {'set' if exrate else 'MISSING — Phase 6 historical rates disabled'}")
           PYEOF
 
       - name: Auto-version, set build number and generate Xcode project
         script: |
-          # ── 1. Unique build number from timestamp ──
-          BUILD_NUM=$(($(date +%s) / 60))
-          echo "Build number: $BUILD_NUM"
-          sed -i '' "s/CURRENT_PROJECT_VERSION: 1/CURRENT_PROJECT_VERSION: $BUILD_NUM/" project.yml
+          # ── 1. Build number derived from the COMMIT (R4) ──
+          # "<commit-time-in-minutes>.<codemagic build counter>". The first
+          # part is a pure function of the commit, so the submit-review
+          # workflow, which only knows the tagged commit, can find exactly the
+          # build made from it. The counter keeps re-runs of the same commit
+          # unique and increasing (ASC compares dotted parts numerically).
+          COMMIT_MIN=$(( $(git log -1 --format=%ct HEAD) / 60 ))
+          BUILD_NUM="${COMMIT_MIN}.${BUILD_NUMBER:-0}"
+          echo "Build number: $BUILD_NUM (commit $(git rev-parse --short HEAD))"
+          sed -i '' "s/CURRENT_PROJECT_VERSION: 1/CURRENT_PROJECT_VERSION: \"$BUILD_NUM\"/" project.yml
 
           # ── 2. Auto-detect next version from App Store Connect ──
           # Queries ASC for the latest approved/in-review version and the latest
           # TestFlight version. Picks the highest and bumps the patch component.
           # This prevents "train is closed" errors without manual version edits.
-          pip3 install PyJWT cryptography requests --quiet
+          pip3 install $PIP_PACKAGES --quiet
 
           NEXT_VERSION=$(python3 << 'PYEOF'
           import jwt, time, os, requests, sys
@@ -153,20 +192,18 @@ workflows:
                   vs = v["attributes"]["versionString"]
                   store_versions.append(vs)
 
-          # Get latest TestFlight build version
-          r = requests.get(f"{BASE}/builds?filter[app]={app_id}&sort=-uploadedDate&limit=5", headers=H)
+          # TestFlight trains. R4: the old request hit
+          # /apps/{id}/preReleaseVersions with filter[platform] and was
+          # answered 400 (hidden by `if r.ok`), so this half never worked.
           tf_versions = []
-          if r.ok:
-              for b in r.json()["data"]:
-                  pv = b["attributes"].get("preReleaseVersion")
-                  if pv:
-                      # preReleaseVersion is a relationship, not inline
-                      pass
-          # Also check preReleaseVersions
-          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?sort=-version&limit=50&filter[platform]=IOS", headers=H)
+          r = requests.get(
+              f"{BASE}/preReleaseVersions?filter[app]={app_id}&filter[platform]=IOS&sort=-version&limit=50",
+              headers=H)
           if r.ok:
               for v in r.json()["data"]:
                   tf_versions.append(v["attributes"]["version"])
+          else:
+              print(f"WARN: preReleaseVersions query failed: {r.status_code} {r.text[:200]}", file=sys.stderr)
 
           all_versions = store_versions + tf_versions
           print(f"Found versions: store={store_versions}, tf={tf_versions}", file=sys.stderr)
@@ -208,9 +245,12 @@ workflows:
           parts = list(parse_ver(max_ver))
           while len(parts) < 3:
               parts.append(0)
-          if max_ver in store_versions or max_ver in tf_versions:
-              # ASC has it → must bump.
+          if max_ver in store_versions:
+              # An App Store version of that number exists → the train is
+              # closed, must bump.
               parts[2] += 1
+          # A TestFlight-only train is OPEN: several builds per version are
+          # normal, and bumping on every push would orphan the release tag.
           # Otherwise max_ver came from project.yml only; respect it.
           next_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
           print(f"Max existing: {max_ver}, next: {next_ver}", file=sys.stderr)
@@ -235,13 +275,15 @@ workflows:
           FINAL_VERSION=$(grep 'MARKETING_VERSION:' project.yml | awk '{print $2}')
           echo "Final MARKETING_VERSION going to build: $FINAL_VERSION"
 
-          GUARD_RESULT=$(python3 << PYEOF
+          export FINAL_VERSION
+          GUARD_EXIT=0
+          GUARD_RESULT=$(python3 << 'PYEOF'
           import jwt, time, os, requests, sys
 
           key_id = os.environ.get("APP_STORE_CONNECT_KEY_IDENTIFIER", "")
           issuer_id = os.environ.get("APP_STORE_CONNECT_ISSUER_ID", "")
           bundle_id = os.environ.get("BUNDLE_ID", "ru.akifi.app")
-          target_version = "$FINAL_VERSION"
+          target_version = os.environ["FINAL_VERSION"]
 
           key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
           if not os.path.exists(key_path):
@@ -312,25 +354,23 @@ workflows:
                   if vs == target_version and state in closed_states:
                       conflicts.append(("appStore", vs, state))
 
-          # 2) preReleaseVersions — TestFlight trains. A train can be
-          #    closed here too, even before any App Store version exists.
-          r = requests.get(f"{BASE}/apps/{app_id}/preReleaseVersions?filter[platform]=IOS&limit=50", headers=H)
+          # 2) preReleaseVersions — TestFlight trains. Informational only:
+          #    a train with builds attached is the NORMAL state of an open
+          #    version (many pushes, one version); the closed-train signal is
+          #    the appStoreVersions state above. R4: the previous request
+          #    (/apps/{id}/preReleaseVersions) answered 400 and was hidden.
+          r = requests.get(
+              f"{BASE}/preReleaseVersions?filter[app]={app_id}&filter[version]={target_version}&filter[platform]=IOS",
+              headers=H)
           if r.ok:
               for v in r.json()["data"]:
-                  vs = v["attributes"]["version"]
-                  if vs == target_version:
-                      # No state field on preReleaseVersions; presence
-                      # alone with builds attached is suspicious. Pull
-                      # builds for this PRV and only block if a build
-                      # was actually uploaded (otherwise it's just an
-                      # empty placeholder we created earlier).
-                      prv_id = v["id"]
-                      br = requests.get(
-                          f"{BASE}/preReleaseVersions/{prv_id}/builds?limit=1",
-                          headers=H,
-                      )
-                      if br.ok and br.json().get("data"):
-                          conflicts.append(("testFlight", vs, "build attached"))
+                  br = requests.get(f"{BASE}/preReleaseVersions/{v['id']}/builds?limit=1", headers=H)
+                  if br.ok and br.json().get("data"):
+                      print(f"INFO: TestFlight train {target_version} already has builds (open train, fine)")
+                  elif not br.ok:
+                      print(f"WARN: builds of train {target_version}: {br.status_code} {br.text[:200]}")
+          else:
+              print(f"WARN: preReleaseVersions query failed: {r.status_code} {r.text[:200]}")
 
           if conflicts:
               for source, vs, state in conflicts:
@@ -339,8 +379,7 @@ workflows:
           print(f"OK: version {target_version} is acceptable")
           sys.exit(0)
           PYEOF
-          )
-          GUARD_EXIT=$?
+          ) || GUARD_EXIT=$?
           echo "$GUARD_RESULT"
           if [ $GUARD_EXIT -ne 0 ]; then
             echo ""
@@ -369,11 +408,59 @@ workflows:
             --create
           keychain add-certificates
 
-      - name: Resolve SPM dependencies
+      - name: Resolve SPM dependencies (exactly the committed Package.resolved)
+        # R3: -onlyUsePackageVersionsFromResolvedFile makes Xcode fail instead
+        # of silently picking newer versions than the ones the app was tested
+        # with. Package.resolved is committed; bump it deliberately.
         script: |
+          set -e
+          RESOLVED="$XCODE_PROJECT/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+          test -s "$RESOLVED" || { echo "ERROR: $RESOLVED is not committed"; exit 1; }
+          cp "$RESOLVED" /tmp/Package.resolved.before
           xcodebuild -resolvePackageDependencies \
             -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME"
+            -scheme "$XCODE_SCHEME" \
+            -onlyUsePackageVersionsFromResolvedFile
+          if ! diff -q /tmp/Package.resolved.before "$RESOLVED" >/dev/null; then
+            echo "ERROR: resolving changed Package.resolved — commit the intended versions"
+            diff /tmp/Package.resolved.before "$RESOLVED" || true
+            exit 1
+          fi
+
+      - name: Run unit tests (blocking)
+        # R1: 600+ XCTest cases never ran in CI; a regression reached external
+        # testers ~30 min after a push. A failure (or a test target that no
+        # longer compiles) now stops the release BEFORE the IPA is built.
+        # Unsigned simulator build; one simulator picked from what this Xcode
+        # image actually has.
+        script: |
+          set -e
+          SIM_ID=$(python3 - <<'PYEOF'
+          import json, subprocess
+          out = subprocess.run(["xcrun", "simctl", "list", "devices", "available", "-j"],
+                               capture_output=True, text=True, check=True).stdout
+          devices = [(rt, d) for rt, ds in json.loads(out)["devices"].items()
+                     if "iOS" in rt for d in ds if d["name"].startswith("iPhone")]
+          if not devices:
+              raise SystemExit("no available iPhone simulator")
+          # newest runtime, first iPhone on it
+          devices.sort(key=lambda x: x[0])
+          print(devices[-1][1]["udid"])
+          PYEOF
+          )
+          echo "Simulator: $SIM_ID"
+          xcrun simctl boot "$SIM_ID" || true
+          mkdir -p /tmp/xcodebuild_logs
+          set -o pipefail
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "id=$SIM_ID" \
+            -derivedDataPath "$HOME/test-derived-data" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/xcodebuild_logs/unit-tests.log
 
       - name: Apply profiles to project
         script: |
@@ -414,15 +501,29 @@ workflows:
           echo "Build uploaded and distributed to groups: $BETA_GROUPS"
 
       - name: Upload dSYMs to Firebase Crashlytics
+        # R10: used to upload ONE arbitrary dSYM (`head -1` of app + widget),
+        # silently did nothing when upload-symbols was missing, and ignored
+        # failures. Now the whole dSYMs folder goes up and any gap is a red
+        # build: crashes without symbols are unreadable.
         script: |
-          DSYM_DIR=$(find build/ios/AkifiIOS.xcarchive -name "*.dSYM" -type d 2>/dev/null | head -1)
-          if [ -n "$DSYM_DIR" ]; then
-            UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" -name "upload-symbols" -type f 2>/dev/null | head -1)
-            if [ -n "$UPLOAD_SCRIPT" ]; then
-              "$UPLOAD_SCRIPT" -gsp AkifiIOS/GoogleService-Info.plist -p ios "$DSYM_DIR"
-            fi
+          set -e
+          DSYMS_DIR=$(find build/ios -type d -name dSYMs -path "*.xcarchive/*" | head -1)
+          if [ -z "$DSYMS_DIR" ] || [ -z "$(ls -A "$DSYMS_DIR" 2>/dev/null)" ]; then
+            echo "ERROR: no dSYMs in the archive (build/ios/*.xcarchive/dSYMs)"
+            exit 1
           fi
-        ignore_failure: true
+          UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" "$HOME/Library/Caches" "$CM_BUILD_DIR" \
+            -path "*firebase-ios-sdk/Crashlytics/upload-symbols" -type f 2>/dev/null | head -1)
+          if [ -z "$UPLOAD_SCRIPT" ]; then
+            UPLOAD_SCRIPT=$(find "$HOME/Library/Developer/Xcode/DerivedData" "$CM_BUILD_DIR" \
+              -name upload-symbols -type f 2>/dev/null | head -1)
+          fi
+          if [ -z "$UPLOAD_SCRIPT" ]; then
+            echo "ERROR: Crashlytics upload-symbols not found — dSYMs were NOT uploaded"
+            exit 1
+          fi
+          echo "Uploading dSYMs from $DSYMS_DIR with $UPLOAD_SCRIPT"
+          "$UPLOAD_SCRIPT" -gsp AkifiIOS/GoogleService-Info.plist -p ios "$DSYMS_DIR"
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -450,7 +551,8 @@ workflows:
         - Akifi
       vars:
         BUNDLE_ID: "ru.akifi.app"
-      xcode: latest
+        PIP_PACKAGES: "PyJWT==2.15.1 cryptography==46.0.5 requests==2.32.5 anthropic==0.116.0"
+      xcode: 27.2
 
     triggering:
       events:
@@ -506,16 +608,23 @@ workflows:
             echo "⚠️  Check that the clone has full history and PREV_TAG=$PREV_TAG is correct."
           fi
 
-          pip3 install PyJWT cryptography requests anthropic --quiet
+          pip3 install $PIP_PACKAGES --quiet
 
-          python3 << PYEOF
+          # R5: the heredoc is QUOTED and VERSION / RAW_LOG / commit minute
+          # travel through the environment. Interpolating $RAW_LOG into a
+          # Python literal broke on a trailing quote (`Revert "…"`) and on
+          # \N / \x sequences in a commit subject.
+          COMMIT_MIN=$(( $(git log -1 --format=%ct HEAD) / 60 ))
+          export VERSION RAW_LOG COMMIT_MIN
+          python3 << 'PYEOF'
           import jwt, time, os, requests, json, re, sys
 
           # ── Config ──
           key_id = os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"]
           issuer_id = os.environ["APP_STORE_CONNECT_ISSUER_ID"]
           bundle_id = os.environ["BUNDLE_ID"]
-          version = "$VERSION"
+          version = os.environ["VERSION"]
+          commit_min = os.environ["COMMIT_MIN"]
 
           key_path = f"{os.environ['HOME']}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8"
           with open(key_path) as f:
@@ -621,17 +730,23 @@ workflows:
                   print(f"2. Failed to create version: {r.text[:300]}")
                   sys.exit(1)
 
-          # ── 3. Find the processed build FOR THIS VERSION ──
-          # Filtering by marketing version, not just "latest uploaded":
-          # a newer train already in TestFlight (1.5.3 while 1.5.2 is in
-          # review) would otherwise be attached to the wrong version.
+          # ── 3. Find the processed build made from THIS COMMIT ──
+          # ios-release numbers builds "<commit-minute>.<counter>", so the
+          # tagged commit identifies its own build. Newest-with-this-version
+          # could be a later push (a different commit) — the wrong binary.
           r = api("get", f"builds?filter[app]={app_id}&filter[processingState]=VALID"
-                         f"&filter[preReleaseVersion.version]={version}&sort=-uploadedDate&limit=1")
-          r.raise_for_status()
-          builds = r.json()["data"]
+                         f"&filter[preReleaseVersion.version]={version}&sort=-uploadedDate&limit=50")
+          if not r.ok:
+              print(f"3. Could not list builds: {r.status_code}")
+              sys.exit(1)
+          candidates = r.json()["data"]
+          builds = [b for b in candidates
+                    if str(b["attributes"].get("version", "")).startswith(f"{commit_min}.")]
           if not builds:
-              print(f"3. No processed build found for version {version}!")
-              print("   Wait for the TestFlight build to finish processing, then re-push the tag.")
+              print(f"3. No processed build of {version} was made from the tagged commit (build number {commit_min}.*)!")
+              print(f"   Builds of {version} seen: {[b['attributes'].get('version') for b in candidates]}")
+              print("   Tag the commit that ios-release actually built (a [skip ci] commit has no build),")
+              print("   or wait for TestFlight processing to finish, then re-push the tag.")
               sys.exit(1)
 
           build_id = builds[0]["id"]
@@ -645,10 +760,15 @@ workflows:
           r = api("patch", f"appStoreVersions/{version_id}/relationships/build", json=payload)
           if r.ok or r.status_code == 204:
               print(f"4. Build {build_id} selected for version {version}")
-          elif r.status_code == 409:
-              print(f"4. Build already selected (conflict ok)")
           else:
-              print(f"4. Warning: could not select build: {r.status_code}")
+              # A 409 is only acceptable when the wanted build is in fact attached.
+              rc = api("get", f"appStoreVersions/{version_id}/relationships/build")
+              attached = (rc.json().get("data") or {}).get("id") if rc.ok else None
+              if attached == build_id:
+                  print(f"4. Build {build_id} already attached (status {r.status_code} ok)")
+              else:
+                  print(f"4. Could not select build {build_id}: {r.status_code} (attached: {attached})")
+                  sys.exit(1)
 
           # ── 4b. Unlock metadata if the version is already queued ──
           # Apple freezes whatsNew the moment a version goes
@@ -682,7 +802,7 @@ workflows:
               print("4b. WARNING: version is IN_REVIEW — release notes cannot be rewritten now.")
 
           # ── 5. Generate user-friendly What's New & Promotional Text via Claude ──
-          raw_log = """$RAW_LOG""".strip()
+          raw_log = os.environ.get("RAW_LOG", "").strip()
 
           # Discover all locales available for this version
           r = api("get", f"appStoreVersions/{version_id}/appStoreVersionLocalizations")
@@ -869,7 +989,8 @@ workflows:
               print(f"\nFallback notes:\n{fallback_notes}")
 
           # ── 6. Submit for review ──
-          # Create reviewSubmission
+          # Every response is checked: a green build must mean "waiting for
+          # review", never "something was printed and Python exited 0".
           payload = {
               "data": {
                   "type": "reviewSubmissions",
@@ -878,40 +999,55 @@ workflows:
               }
           }
           r = api("post", "reviewSubmissions", json=payload)
-          if r.ok:
-              submission_id = r.json()["data"]["id"]
-              print(f"6. Review submission created: {submission_id}")
-
-              # Add the version as a review item
-              payload = {
-                  "data": {
-                      "type": "reviewSubmissionItems",
-                      "relationships": {
-                          "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission_id}},
-                          "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}
-                      }
-                  }
-              }
-              r = api("post", "reviewSubmissionItems", json=payload)
-              print(f"6. Review item added: {'OK' if r.ok else r.status_code}")
-
-              # Confirm submission
-              payload = {
-                  "data": {
-                      "type": "reviewSubmissions",
-                      "id": submission_id,
-                      "attributes": {"submitted": True}
-                  }
-              }
-              r = api("patch", f"reviewSubmissions/{submission_id}", json=payload)
-              if r.ok:
-                  print(f"\n✅ Version {version} submitted for App Store review!")
-              else:
-                  print(f"\n⚠️  Submission confirm failed: {r.status_code} {r.text[:200]}")
-          else:
+          if not r.ok:
               print(f"6. Could not create review submission: {r.status_code} {r.text[:300]}")
-              if "REVIEW_ALREADY" in r.text or "already" in r.text.lower():
-                  print("   (App may already be in review)")
+              sys.exit(1)
+          submission_id = r.json()["data"]["id"]
+          print(f"6. Review submission created: {submission_id}")
+
+          # Add the version as a review item
+          payload = {
+              "data": {
+                  "type": "reviewSubmissionItems",
+                  "relationships": {
+                      "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission_id}},
+                      "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}
+                  }
+              }
+          }
+          r = api("post", "reviewSubmissionItems", json=payload)
+          if not r.ok:
+              print(f"6. Could not add the version to the submission: {r.status_code} {r.text[:300]}")
+              sys.exit(1)
+          print("6. Review item added")
+
+          # Confirm submission
+          payload = {
+              "data": {
+                  "type": "reviewSubmissions",
+                  "id": submission_id,
+                  "attributes": {"submitted": True}
+              }
+          }
+          r = api("patch", f"reviewSubmissions/{submission_id}", json=payload)
+          if not r.ok:
+              print(f"6. Submission confirm failed: {r.status_code} {r.text[:300]}")
+              sys.exit(1)
+
+          # ── 7. Verify the end state ──
+          # ASC can take a few seconds to flip the version; poll briefly.
+          final_state = "UNKNOWN"
+          for _ in range(12):
+              r = api("get", f"appStoreVersions/{version_id}")
+              if r.ok:
+                  final_state = r.json()["data"]["attributes"]["appStoreState"]
+                  if final_state in {"WAITING_FOR_REVIEW", "IN_REVIEW"}:
+                      break
+              time.sleep(5)
+          if final_state not in {"WAITING_FOR_REVIEW", "IN_REVIEW"}:
+              print(f"7. Version {version} is '{final_state}', expected WAITING_FOR_REVIEW — NOT submitted")
+              sys.exit(1)
+          print(f"\n✅ Version {version} submitted for App Store review (state {final_state})")
           PYEOF
 
     publishing:

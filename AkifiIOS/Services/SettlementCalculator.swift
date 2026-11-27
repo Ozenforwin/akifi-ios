@@ -174,7 +174,7 @@ enum SettlementCalculator {
         // label, which on old TMA rows disagrees with the account and
         // turned a correct kopeck figure into a ×rate one. The server
         // (`get_account_settlement`) sums `amount_native` the same way.
-        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative }
+        let totalExpenses: Int64 = autoTransferExpenses.reduce(0) { $0 + $1.amountNative } // allowlisted-amount: one shared account, one currency
 
         // Resolve each member's weight, defaulting absentees to 1.0 so
         // rows that predate the split_weight migration behave as equal
@@ -251,18 +251,37 @@ enum SettlementCalculator {
         // Peer visible → owner of the peer's account (via
         // `personalAccountsByUser`). Peer hidden, or its account unknown →
         // the leg's creator: the RPC writes all three legs as the paying user.
+        //
+        // Same rule as the server's `get_account_settlement` (M10): the peer
+        // must sit on ANOTHER account and its owner must be a MEMBER of this
+        // one; among several such peers the newest (`created_at` desc, then
+        // id) wins. The owner of any visible card used to be credited — a
+        // card shared with me by someone outside «Семейный» took A's
+        // contribution offline.
+        let members = Set(memberUserIds)
         let legsByTransferGroup = Dictionary(
             grouping: transactions.filter { $0.transferGroupId != nil },
             by: { $0.transferGroupId ?? "" }
         )
+        func memberOwner(of accountId: String) -> String? {
+            personalAccountsByUser.first { user, accounts in
+                members.contains(user) && accounts.contains(accountId)
+            }?.key
+        }
         func payer(of leg: Transaction) -> String {
-            guard let groupId = leg.transferGroupId,
-                  let peer = legsByTransferGroup[groupId]?.first(where: { $0.id != leg.id }),
-                  let peerAccountId = peer.accountId
-            else { return leg.userId }
-            return personalAccountsByUser.first { _, accounts in
-                accounts.contains(peerAccountId)
-            }?.key ?? leg.userId
+            guard let groupId = leg.transferGroupId else { return leg.userId }
+            let peers = (legsByTransferGroup[groupId] ?? [])
+                .filter { $0.id != leg.id && $0.accountId != nil && $0.accountId != sharedAccountId }
+                .sorted { a, b in
+                    let ca = a.createdAt ?? "", cb = b.createdAt ?? ""
+                    return ca != cb ? ca > cb : a.id < b.id
+                }
+            for peer in peers {
+                if let accountId = peer.accountId, let owner = memberOwner(of: accountId) {
+                    return owner
+                }
+            }
+            return leg.userId
         }
 
         for row in autoTransferLegsOnShared {
@@ -273,9 +292,9 @@ enum SettlementCalculator {
             // the source leg on the payer's personal card is never summed
             // (it only identifies the payer). No FX, no label (M11).
             if row.type == .income {
-                contributions[attributedUser, default: 0] += row.amountNative
+                contributions[attributedUser, default: 0] += row.amountNative // allowlisted-amount: leg on the shared account, its currency
             } else if row.type == .expense {
-                contributions[attributedUser, default: 0] -= row.amountNative
+                contributions[attributedUser, default: 0] -= row.amountNative // allowlisted-amount: leg on the shared account, its currency
             }
         }
 
@@ -328,7 +347,7 @@ enum SettlementCalculator {
                 // Share for the settled member, in the shared account's
                 // currency (the expense row lives on it — no FX, M11).
                 let weight = resolvedWeights[memberSettlement.settledForUserId] ?? 1.0
-                let share = Decimal(expense.amountNative) * weight / sumWeights
+                let share = Decimal(expense.amountNative) * weight / sumWeights // allowlisted-amount: expense on the shared account, its currency
                 var rounded = Decimal()
                 var src = share
                 NSDecimalRound(&rounded, &src, 0, .plain)

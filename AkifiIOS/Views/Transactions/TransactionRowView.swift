@@ -187,17 +187,17 @@ struct TransactionRowView: View {
         if let pair = dataStore.derivedCache.transactionIndex(for: dataStore).transferPartner(of: transaction),
            let pairAccountId = pair.accountId,
            let pairAccount = dataStore.accounts.first(where: { $0.id == pairAccountId }) {
-            // Both sides available. Direction is driven by sign of
-            // `amountNative` (legacy `.amount` would also work since it
-            // equals `amountNative` on new rows, but this keeps us in
-            // the ADR-001 canonical field).
-            let fromName = transaction.amountNative < 0 ? currentName : pairAccount.name
-            let toName = transaction.amountNative < 0 ? pairAccount.name : currentName
+            // Both sides available. Direction comes from the row's type —
+            // legs are stored positive as expense/income; only a legacy
+            // `.transfer` row carries it in the sign (M9).
+            let outgoing = transaction.movesMoneyOut
+            let fromName = outgoing ? currentName : pairAccount.name
+            let toName = outgoing ? pairAccount.name : currentName
             return "\(fromName) → \(toName)"
         }
 
         // Pair not accessible — show partial direction
-        if transaction.amountNative < 0 {
+        if transaction.movesMoneyOut {
             return "\(currentName) →"
         } else {
             return "→ \(currentName)"

@@ -4,12 +4,17 @@ import Supabase
 final class CategoryRepository: Sendable {
     private let supabase = SupabaseManager.shared.client
 
+    /// Every visible category, hidden ones included (M11). The server's
+    /// budget metrics match a transaction's category by id or by name over
+    /// ALL categories; reading only active ones made a partner's hidden
+    /// «Продукты» drop out of the local «потрачено» (and fire a mismatch
+    /// event daily). Hidden rows still name old transactions. Pickers use
+    /// `DataStore.displayCategories`, which keeps active ones only.
     func fetchAll() async throws -> [Category] {
         try await SupabasePaging.all("categories") { count in
             supabase
                 .from("categories")
                 .select(count: count)
-                .eq("is_active", value: true)
                 .order("created_at")
         }
     }

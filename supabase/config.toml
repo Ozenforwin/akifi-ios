@@ -62,3 +62,8 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/fetch-price/deno.json"
 entrypoint = "./functions/fetch-price/index.ts"
+
+[functions.fx-historical]
+enabled = true
+verify_jwt = true
+import_map = "./functions/fx-historical/deno.json"

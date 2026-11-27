@@ -505,11 +505,12 @@ struct BankImportView: View {
             let rowIds = Self.importRowIds(for: result.transactions, accountId: targetAccountId)
             for idx in selected {
                 let tx = result.transactions[idx]
+                let stored = Self.storedAmount(tx.amount, accountCurrency: targetAccountCurrency)
                 let input = CreateTransactionInput(
                     user_id: userId,
                     account_id: targetAccountId,
-                    amount: Decimal(tx.amount),
-                    amount_native: Decimal(tx.amount),
+                    amount: stored,
+                    amount_native: stored,
                     currency: targetAccountCurrency,
                     type: tx.type == "income" ? "income" : "expense",
                     date: tx.date,
@@ -572,6 +573,19 @@ struct BankImportView: View {
             seen[key] = ordinal + 1
             return DeterministicUUID.make(parts: ["bank-import"] + key + [String(ordinal)])
         }
+    }
+
+    /// The statement amount as written to `amount` / `amount_native`, main
+    /// units of the account currency WITH its kopecks (M19). `Decimal(Double)`
+    /// carried binary noise (4.99 → 4.9900000000000002); the JSON number's
+    /// shortest description is what the parser sent. Rounded only to what the
+    /// currency can store (2 digits, 0 for JPY/VND…), never to whole units.
+    nonisolated static func storedAmount(_ amount: Double, accountCurrency: String?) -> Decimal {
+        let exact = MoneyRounding.decimal(fromJSONNumber: amount)
+        guard let code = accountCurrency, !code.isEmpty else {
+            return MoneyRounding.rounded(exact, scale: 2)
+        }
+        return MoneyRounding.roundedForStorage(exact, currency: code)
     }
 
     private func formatTxAmount(_ amount: Double) -> String {
