@@ -934,14 +934,16 @@ async function handleRequest(req: Request): Promise<Response> {
       // Load ALL accessible accounts (own + shared via account_members).
       // Previously this filtered by user_id only, so a member like Olya never saw
       // the "Family" account that Vladimir owns and silently got "account not found".
-      type AccountDbRow = AccountRow & { initial_balance?: number; user_id?: string };
-      const ACCOUNT_COLUMNS = 'id,name,initial_balance,currency,user_id';
+      type AccountDbRow = AccountRow & { initial_balance?: number; user_id?: string; account_type?: string | null };
+      const ACCOUNT_COLUMNS = 'id,name,initial_balance,currency,user_id,account_type';
       const data = accessibleAccountIds.length > 0
         ? await fetchAllIn<AccountDbRow>('accounts', accessibleAccountIds, (ids) =>
           anonClient.from('accounts').select(ACCOUNT_COLUMNS, { count: 'exact' }).in('id', ids))
         : await fetchAll<AccountDbRow>('accounts', () =>
           anonClient.from('accounts').select(ACCOUNT_COLUMNS, { count: 'exact' }).eq('user_id', userId));
-      allAccounts = data.map((row) => {
+      // 1.6 «Долги»: a debt account's balance is what someone owes, not
+      // money the user has — keep it out of balances and totals.
+      allAccounts = data.filter((row) => row.account_type !== 'debt').map((row) => {
         const role = memberRoleByAccount.get(row.id);
         const ownerUserId = row.user_id;
         const isShared = ownerUserId !== undefined && ownerUserId !== userId;
