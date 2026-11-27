@@ -135,19 +135,15 @@ struct AccountSettlementCardView: View {
                     )
                 }
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "trash")
-                        .font(.caption.weight(.bold))
-                    Text(String(localized: "settlement.orphans.cleanup"))
-                        .font(.subheadline.weight(.semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.15))
-                .foregroundStyle(.orange)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                // Same size and shape as the screen's other buttons
+                // («Отметить как рассчитались», «Погасить») — device
+                // feedback 2026-11-28: three hand-drawn sizes looked odd.
+                Label(String(localized: "settlement.orphans.cleanup"), systemImage: "trash")
+                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.akifiSecondary)
+            .controlSize(.large)
+            .tint(.orange)
         }
         .padding(10)
         .background(
@@ -279,25 +275,11 @@ struct AccountSettlementCardView: View {
                             )
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark")
-                                .font(.caption.weight(.bold))
-                            Text(String(localized: "settlement.markSettled"))
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.accent, Color.accent.opacity(0.85)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        Label(String(localized: "settlement.markSettled"), systemImage: "checkmark")
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.akifiPrimary)
+                    .controlSize(.large)
                 }
                 .padding(12)
                 .background(
@@ -358,11 +340,14 @@ struct AccountSettlementCardView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 28, height: 28)
                             .background(Color(.tertiarySystemGroupedBackground))
                             .clipShape(Circle())
+                            // A 44 pt target around the small glyph.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(String(localized: "settlement.cancelSettled"))

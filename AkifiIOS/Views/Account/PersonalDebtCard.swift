@@ -93,9 +93,10 @@ struct PersonalDebtCard: View {
                     showRepay = true
                 } label: {
                     Label(String(localized: "personalDebt.repay"), systemImage: "arrow.uturn.left.circle")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.akifiPrimary)
+                .controlSize(.large)
                 .disabled(!viewModel.canRecordSettlements)
                 if !viewModel.canRecordSettlements {
                     Text(String(localized: "settlement.offline.approximate"))
